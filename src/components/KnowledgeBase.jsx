@@ -1,108 +1,70 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
   RiBookReadLine, RiAddLine, RiDownloadLine, RiSearchLine,
-  RiFilterLine, RiMoreLine, RiStarFill, RiStarLine,
+  RiFilterLine, RiMoreLine, RiStarFill,
   RiArrowLeftSLine, RiArrowRightSLine, RiArrowRightLine,
   RiBook2Line, RiEyeLine, RiThumbUpLine, RiEdit2Line,
   RiPriceTag3Line, RiShieldLine, RiGroupLine, RiFlowChart,
   RiTrophyLine, RiPlugLine, RiShoppingCart2Line, RiAddCircleLine,
-  RiSparklingLine, RiPhoneLine,
+  RiSparklingLine, RiPhoneLine, RiDeleteBin6Line,
 } from 'react-icons/ri'
 import { HiChevronDown } from 'react-icons/hi'
 import '../dashboard.css'
 import NewArticuloModal from '../modals/NewArticuloModal'
 
-// ─── data ──────────────────────────────────────────────────────────────────────
-const CATEGORIES = [
-  { label: 'Todas las categorías', count: 128, IconEl: RiBookReadLine, color: '#7c3aed', active: true },
-  { label: 'Producto',             count: 24,  IconEl: RiBook2Line,      color: '#7c3aed' },
-  { label: 'Servicios',            count: 18,  IconEl: RiShieldLine,     color: '#0891b2' },
-  { label: 'Precios y planes',     count: 14,  IconEl: RiPriceTag3Line,  color: '#059669' },
-  { label: 'Objeciones comunes',   count: 22,  IconEl: RiGroupLine,      color: '#d97706' },
-  { label: 'Procesos internos',    count: 16,  IconEl: RiFlowChart,      color: '#dc2626' },
-  { label: 'Casos de éxito',       count: 12,  IconEl: RiTrophyLine,     color: '#0891b2' },
-  { label: 'Integraciones',        count: 10,  IconEl: RiPlugLine,       color: '#7c3aed' },
-  { label: 'Recursos de ventas',   count: 12,  IconEl: RiShoppingCart2Line, color: '#ea580c' },
-]
+// ─── type → display config ────────────────────────────────────────────────────
+const TYPE_CFG = {
+  'Producto':          { IconEl: RiBook2Line,       color: '#7c3aed', iconBg: 'linear-gradient(135deg,#4f46e5,#7c3aed)', iconColor: '#c4b5fd' },
+  'Servicios':         { IconEl: RiShieldLine,      color: '#0891b2', iconBg: 'linear-gradient(135deg,#0e7490,#0891b2)', iconColor: '#67e8f9' },
+  'Precios y planes':  { IconEl: RiPriceTag3Line,   color: '#059669', iconBg: 'linear-gradient(135deg,#047857,#059669)', iconColor: '#6ee7b7' },
+  'Objeciones comunes':{ IconEl: RiGroupLine,       color: '#d97706', iconBg: 'linear-gradient(135deg,#b45309,#d97706)', iconColor: '#fcd34d' },
+  'Procesos internos': { IconEl: RiFlowChart,       color: '#dc2626', iconBg: 'linear-gradient(135deg,#991b1b,#dc2626)', iconColor: '#fca5a5' },
+  'Casos de éxito':    { IconEl: RiTrophyLine,      color: '#0891b2', iconBg: 'linear-gradient(135deg,#065f46,#059669)', iconColor: '#6ee7b7' },
+  'Integraciones':     { IconEl: RiPlugLine,        color: '#3b82f6', iconBg: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', iconColor: '#93c5fd' },
+  'Recursos de ventas':{ IconEl: RiShoppingCart2Line,color: '#ea580c', iconBg: 'linear-gradient(135deg,#c2410c,#ea580c)', iconColor: '#fdba74' },
+  'document':          { IconEl: RiBook2Line,       color: '#7c3aed', iconBg: 'linear-gradient(135deg,#4f46e5,#7c3aed)', iconColor: '#c4b5fd' },
+  'faq':               { IconEl: RiGroupLine,       color: '#d97706', iconBg: 'linear-gradient(135deg,#b45309,#d97706)', iconColor: '#fcd34d' },
+  'url':               { IconEl: RiPlugLine,        color: '#0891b2', iconBg: 'linear-gradient(135deg,#0e7490,#0891b2)', iconColor: '#67e8f9' },
+}
+const DEFAULT_CFG = TYPE_CFG['document']
 
-export const ARTICLES = [
-  {
-    id: 1,
-    title: '¿Cómo funciona VozIA?', starred: true,
-    desc: 'Descripción general de la plataforma, sus capacidades y cómo genera valor.',
-    catLabel: 'Producto', catColor: '#7c3aed',
-    author: 'María González', date: '12 may 2024', visits: 342,
-    iconBg: 'linear-gradient(135deg, #4f46e5, #7c3aed)', IconEl: RiBook2Line, iconColor: '#c4b5fd',
-  },
-  {
-    id: 2,
-    title: 'Planes y precios', starred: false,
-    desc: 'Detalle de todos los planes disponibles, límites y funcionalidades incluidas.',
-    catLabel: 'Precios y planes', catColor: '#059669',
-    author: 'María González', date: '10 may 2024', visits: 289,
-    iconBg: 'linear-gradient(135deg, #047857, #059669)', IconEl: RiPriceTag3Line, iconColor: '#6ee7b7',
-  },
-  {
-    id: 3,
-    title: 'Objeciones comunes y cómo responderlas', starred: false,
-    desc: 'Respuestas recomendadas a las objeciones más frecuentes en llamadas.',
-    catLabel: 'Objeciones comunes', catColor: '#d97706',
-    author: 'Carlos Méndez', date: '9 may 2024', visits: 512,
-    iconBg: 'linear-gradient(135deg, #b45309, #d97706)', IconEl: RiGroupLine, iconColor: '#fcd34d',
-  },
-  {
-    id: 4,
-    title: 'Integración con CRM', starred: false,
-    desc: 'Pasos para conectar VozIA con HubSpot, Salesforce y otros CRMs.',
-    catLabel: 'Integraciones', catColor: '#3b82f6',
-    author: 'Sofía Ramírez', date: '7 may 2024', visits: 198,
-    iconBg: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', IconEl: RiPlugLine, iconColor: '#93c5fd',
-  },
-  {
-    id: 5,
-    title: 'Proceso de onboarding de clientes', starred: false,
-    desc: 'Guía paso a paso para implementar VozIA con nuevos clientes.',
-    catLabel: 'Procesos internos', catColor: '#0d9488',
-    author: 'Javier Ruiz', date: '6 may 2024', visits: 156,
-    iconBg: 'linear-gradient(135deg, #0f766e, #0d9488)', IconEl: RiFlowChart, iconColor: '#5eead4',
-  },
-  {
-    id: 6,
-    title: 'Casos de éxito: TechSolutions S.L.', starred: false,
-    desc: 'Cómo TechSolutions aumentó sus reuniones calificadas en un 45% con VozIA.',
-    catLabel: 'Casos de éxito', catColor: '#059669',
-    author: 'Valentina Torres', date: '5 may 2024', visits: 321,
-    iconBg: 'linear-gradient(135deg, #065f46, #059669)', IconEl: RiTrophyLine, iconColor: '#6ee7b7',
-  },
-  {
-    id: 7,
-    title: 'Mejores prácticas para llamadas outbound', starred: false,
-    desc: 'Consejos para maximizar la conexión y agendar reuniones en llamadas salientes.',
-    catLabel: 'Recursos de ventas', catColor: '#ea580c',
-    author: 'Mateo López', date: '3 may 2024', visits: 275,
-    iconBg: 'linear-gradient(135deg, #c2410c, #ea580c)', IconEl: RiPhoneLine, iconColor: '#fdba74',
-  },
-  {
-    id: 8,
-    title: 'Política de privacidad y seguridad', starred: false,
-    desc: 'Información sobre cómo protegemos los datos de tus clientes y usuarios.',
-    catLabel: 'Servicios', catColor: '#0891b2',
-    author: 'Sofía Ramírez', date: '1 may 2024', visits: 88,
-    iconBg: 'linear-gradient(135deg, #0e7490, #0891b2)', IconEl: RiShieldLine, iconColor: '#67e8f9',
-  },
-]
+function typeCfg(type) { return TYPE_CFG[type] ?? DEFAULT_CFG }
 
-const POPULAR = [
-  { rank: 1, title: '¿Cómo funciona VozIA?', views: '342 vistas', starred: true, rankColor: '#7c3aed' },
-  { rank: 2, title: 'Objeciones comunes y cómo responderlas', views: '512 vistas', ranked: false, rankColor: '#059669' },
-  { rank: 3, title: 'Planes y precios', views: '289 vistas', rankColor: '#3b82f6' },
-  { rank: 4, title: 'Casos de éxito: TechSolutions S.L.', views: '321 vistas', rankColor: '#d97706' },
-  { rank: 5, title: 'Mejores prácticas para llamadas outbound', views: '275 vistas', rankColor: '#0d9488' },
+function mapArticle(a) {
+  const cfg = typeCfg(a.type)
+  return {
+    id: a.id,
+    title: a.name,
+    starred: false,
+    desc: typeof a.content === 'string' ? a.content.slice(0, 140) : '',
+    catLabel: a.type ?? 'document',
+    catColor: cfg.color,
+    author: '—',
+    date: new Date(a.createdAt).toLocaleDateString('es-ES'),
+    visits: 0,
+    iconBg: cfg.iconBg,
+    IconEl: cfg.IconEl,
+    iconColor: cfg.iconColor,
+  }
+}
+
+// ─── category sidebar defs ─────────────────────────────────────────────────────
+const CAT_DEFS = [
+  { label: 'Todas las categorías', IconEl: RiBookReadLine,      color: '#7c3aed' },
+  { label: 'Producto',             IconEl: RiBook2Line,         color: '#7c3aed' },
+  { label: 'Servicios',            IconEl: RiShieldLine,        color: '#0891b2' },
+  { label: 'Precios y planes',     IconEl: RiPriceTag3Line,     color: '#059669' },
+  { label: 'Objeciones comunes',   IconEl: RiGroupLine,         color: '#d97706' },
+  { label: 'Procesos internos',    IconEl: RiFlowChart,         color: '#dc2626' },
+  { label: 'Casos de éxito',       IconEl: RiTrophyLine,        color: '#0891b2' },
+  { label: 'Integraciones',        IconEl: RiPlugLine,          color: '#7c3aed' },
+  { label: 'Recursos de ventas',   IconEl: RiShoppingCart2Line, color: '#ea580c' },
 ]
 
 const TABS = ['Todos', 'Mis artículos', 'Favoritos']
+const KB_PAGE_SIZE = 8
 
 // ─── CatItem ───────────────────────────────────────────────────────────────────
 function CatItem({ cat, active, onClick }) {
@@ -142,8 +104,18 @@ function CatItem({ cat, active, onClick }) {
 }
 
 // ─── ArticleRow ────────────────────────────────────────────────────────────────
-function ArticleRow({ art, onClick }) {
+function ArticleRow({ art, onClick, onDelete }) {
   const [hov, setHov] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menuOpen])
+
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -199,21 +171,35 @@ function ArticleRow({ art, onClick }) {
       {/* Visits */}
       <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#6b7280', textAlign: 'right' }}>{art.visits}</p>
 
-      {/* More */}
-      <button style={{
-        width: 28, height: 28, borderRadius: 7, border: '1px solid #1e2433',
-        background: 'transparent', color: '#4b5563', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <RiMoreLine style={{ width: 14, height: 14 }} />
-      </button>
+      {/* More menu */}
+      <div ref={menuRef} style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+        <button
+          onClick={() => setMenuOpen(o => !o)}
+          style={{
+            width: 28, height: 28, borderRadius: 7, border: '1px solid #1e2433',
+            background: menuOpen ? '#1e2433' : 'transparent', color: '#4b5563', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          <RiMoreLine style={{ width: 14, height: 14 }} />
+        </button>
+        {menuOpen && (
+          <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10, padding: 4, minWidth: 140, boxShadow: '0 8px 32px #00000060' }}>
+            <button
+              onClick={() => { setMenuOpen(false); onDelete(art.id) }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'none', border: 'none', borderRadius: 7, color: '#ef4444', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#ef444412'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              <RiDeleteBin6Line style={{ width: 13, height: 13 }} /> Eliminar
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-const KB_PAGE_SIZE = 8
-
 export default function KnowledgeBase() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
@@ -221,22 +207,63 @@ export default function KnowledgeBase() {
   const [activePage, setActivePage] = useState(1)
   const [showNewArticle, setShowNewArticle] = useState(false)
   const [showRequestModal, setShowRequestModal] = useState(false)
-  const [articles, setArticles] = useState(ARTICLES)
+  const [raw, setRaw] = useState([])
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+
   useEffect(() => {
-    apiFetch('/api/knowledge').then(r => r.json()).then(data => {
-      if (!Array.isArray(data)) return
-      setArticles(data.map((a, i) => ({
-        id: a.id, title: a.name, starred:false,
-        desc: typeof a.content === 'string' ? a.content.slice(0,100) : '',
-        catLabel: a.type ?? 'Documento', catColor:'#7c3aed',
-        author:'—', date: new Date(a.createdAt).toLocaleDateString('es-ES'), visits:0,
-        iconBg:'linear-gradient(135deg,#4f46e5,#7c3aed)', IconEl: RiBook2Line, iconColor:'#c4b5fd',
-      })))
-    }).catch(() => {})
+    apiFetch('/api/knowledge')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setRaw(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [refreshKey])
-  const totalKBPages = Math.ceil(articles.length / KB_PAGE_SIZE)
-  const paginatedArticles = articles.slice((activePage - 1) * KB_PAGE_SIZE, activePage * KB_PAGE_SIZE)
+
+  const articles = useMemo(() => raw.map(mapArticle), [raw])
+
+  // category counts
+  const categories = useMemo(() => {
+    const counts = {}
+    raw.forEach(a => { counts[a.type] = (counts[a.type] ?? 0) + 1 })
+    return CAT_DEFS.map(c => ({
+      ...c,
+      count: c.label === 'Todas las categorías' ? raw.length : (counts[c.label] ?? 0),
+    }))
+  }, [raw])
+
+  // filter by category then tab
+  const filtered = useMemo(() => {
+    let list = activeCategory === 0 ? articles : articles.filter(a => a.catLabel === CAT_DEFS[activeCategory]?.label)
+    // "Mis artículos" and "Favoritos" have no backend field — show all for now
+    return list
+  }, [articles, activeCategory])
+
+  const totalPages = Math.ceil(filtered.length / KB_PAGE_SIZE)
+  const paginated = filtered.slice((activePage - 1) * KB_PAGE_SIZE, activePage * KB_PAGE_SIZE)
+
+  // sidebar stats
+  const thisMonth = useMemo(() => {
+    const now = new Date()
+    return raw.filter(a => {
+      const d = new Date(a.createdAt)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    }).length
+  }, [raw])
+
+  const uniqueTypes = useMemo(() => new Set(raw.map(a => a.type)).size, [raw])
+
+  // popular = first 5 by insertion order (most recent)
+  const popular = useMemo(() => articles.slice(0, 5).map((a, i) => ({
+    rank: i + 1,
+    title: a.title,
+    views: '—',
+    rankColor: ['#7c3aed','#059669','#3b82f6','#d97706','#0d9488'][i],
+  })), [articles])
+
+  async function handleDelete(id) {
+    await apiFetch(`/api/knowledge/${id}`, { method: 'DELETE' }).catch(() => {})
+    setRaw(prev => prev.filter(a => a.id !== id))
+    setActivePage(1)
+  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
@@ -300,6 +327,24 @@ export default function KnowledgeBase() {
 
       {showNewArticle && <NewArticuloModal onClose={() => setShowNewArticle(false)} onSuccess={() => { setShowNewArticle(false); setRefreshKey(k => k + 1) }} />}
 
+      {/* Delete confirm modal */}
+      {deleteTarget && (
+        <div onClick={() => setDeleteTarget(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: 24, width: 340, boxShadow: '0 40px 80px #0009' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>¿Eliminar artículo?</p>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>El artículo se desactivará y no aparecerá en la base de conocimiento.</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={() => { handleDelete(deleteTarget); setDeleteTarget(null) }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: '#ef4444', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Body: 3 columns */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '16px 28px 24px', gap: 16 }}>
 
@@ -322,8 +367,8 @@ export default function KnowledgeBase() {
                 <RiAddLine style={{ width: 13, height: 13 }} />
               </button>
             </div>
-            {CATEGORIES.map((cat, i) => (
-              <CatItem key={i} cat={cat} active={activeCategory === i} onClick={() => setActiveCategory(i)} />
+            {categories.map((cat, i) => (
+              <CatItem key={i} cat={cat} active={activeCategory === i} onClick={() => { setActiveCategory(i); setActivePage(1) }} />
             ))}
           </div>
 
@@ -417,7 +462,7 @@ export default function KnowledgeBase() {
             gap: 12, padding: '8px 16px',
             borderBottom: '1px solid #131929', flexShrink: 0,
           }}>
-            {['Artículo', 'Categoría', 'Última actualización', 'Visitas', ''].map((h, i) => (
+            {['Artículo', 'Categoría', 'Creado', 'Visitas', ''].map((h, i) => (
               <p key={i} style={{
                 margin: 0, fontSize: 11, fontWeight: 600, color: '#374151',
                 textTransform: 'uppercase', letterSpacing: 0.4,
@@ -428,7 +473,20 @@ export default function KnowledgeBase() {
 
           {/* Article rows */}
           <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto' }}>
-            {paginatedArticles.map(art => <ArticleRow key={art.id} art={art} onClick={() => navigate('/knowledge-base/articulos/' + art.id)} />)}
+            {paginated.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, color: '#4b5563', fontSize: 13 }}>
+                {raw.length === 0 ? 'Cargando…' : 'Sin artículos en esta categoría'}
+              </div>
+            ) : (
+              paginated.map(art => (
+                <ArticleRow
+                  key={art.id}
+                  art={art}
+                  onClick={() => navigate('/knowledge-base/articulos/' + art.id)}
+                  onDelete={id => setDeleteTarget(id)}
+                />
+              ))
+            )}
           </div>
 
           {/* Pagination */}
@@ -436,13 +494,15 @@ export default function KnowledgeBase() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 16px', borderTop: '1px solid #131929', flexShrink: 0,
           }}>
-            <span style={{ fontSize: 12, color: '#4b5563' }}>Mostrando 1 a 8 de 128 artículos</span>
+            <span style={{ fontSize: 12, color: '#4b5563' }}>
+              Mostrando {Math.min((activePage - 1) * KB_PAGE_SIZE + 1, filtered.length)} a {Math.min(activePage * KB_PAGE_SIZE, filtered.length)} de {filtered.length} artículos
+            </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <PageBtn icon={<RiArrowLeftSLine style={{ width: 14, height: 14 }} />} onClick={() => setActivePage(p => Math.max(1, p - 1))} />
-              {[1, 2, 3, '...', totalKBPages].map((p, i) => (
-                <PageBtn key={i} label={p} active={p === activePage} onClick={() => typeof p === 'number' && setActivePage(p)} />
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p, i) => (
+                <PageBtn key={i} label={p} active={p === activePage} onClick={() => setActivePage(p)} />
               ))}
-              <PageBtn icon={<RiArrowRightSLine style={{ width: 14, height: 14 }} />} onClick={() => setActivePage(p => Math.min(totalKBPages, p + 1))} />
+              <PageBtn icon={<RiArrowRightSLine style={{ width: 14, height: 14 }} />} onClick={() => setActivePage(p => Math.min(totalPages, p + 1))} />
             </div>
             <button style={{
               display: 'flex', alignItems: 'center', gap: 5,
@@ -450,7 +510,7 @@ export default function KnowledgeBase() {
               border: '1px solid #1e2433', background: 'transparent',
               color: '#6b7280', fontSize: 12, cursor: 'pointer',
             }}>
-              10 por página
+              {KB_PAGE_SIZE} por página
               <HiChevronDown style={{ width: 12, height: 12 }} />
             </button>
           </div>
@@ -468,10 +528,10 @@ export default function KnowledgeBase() {
             <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Resumen de la base</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
-                { IconEl: RiBook2Line,    color: '#7c3aed', bg: '#7c3aed', val: '128',  lbl: 'Artículos' },
-                { IconEl: RiEyeLine,      color: '#22d3ee', bg: '#0891b2', val: '2.4k', lbl: 'Visitas este mes' },
-                { IconEl: RiThumbUpLine,  color: '#4ade80', bg: '#059669', val: '89%',  lbl: 'Útiles' },
-                { IconEl: RiEdit2Line,    color: '#fbbf24', bg: '#d97706', val: '7',    lbl: 'Actualizaciones\neste mes' },
+                { IconEl: RiBook2Line,   color: '#7c3aed', bg: '#7c3aed', val: String(raw.length),   lbl: 'Artículos' },
+                { IconEl: RiEyeLine,     color: '#22d3ee', bg: '#0891b2', val: String(uniqueTypes),   lbl: 'Categorías' },
+                { IconEl: RiThumbUpLine, color: '#4ade80', bg: '#059669', val: '—',                   lbl: 'Útiles' },
+                { IconEl: RiEdit2Line,   color: '#fbbf24', bg: '#d97706', val: String(thisMonth),     lbl: 'Nuevos este\nmes' },
               ].map((s, i) => (
                 <div key={i} style={{
                   background: '#0a0e1a', border: '1px solid #1a2235', borderRadius: 10, padding: '10px 12px',
@@ -494,9 +554,11 @@ export default function KnowledgeBase() {
           <div style={{
             background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '16px',
           }}>
-            <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Artículos populares</p>
+            <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Artículos recientes</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {POPULAR.map((p, i) => (
+              {popular.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 12, color: '#4b5563' }}>Sin artículos aún</p>
+              ) : popular.map((p, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 6px', borderRadius: 8,
                   cursor: 'pointer',
@@ -508,10 +570,7 @@ export default function KnowledgeBase() {
                     fontSize: 11, fontWeight: 800, color: p.rankColor, marginTop: 1,
                   }}>{p.rank}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-                      <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: '#e2e8f0', lineHeight: 1.3 }}>{p.title}</p>
-                      {p.starred && <RiStarFill style={{ width: 11, height: 11, color: '#fbbf24', flexShrink: 0 }} />}
-                    </div>
+                    <p style={{ margin: '0 0 2px', fontSize: 12.5, fontWeight: 600, color: '#e2e8f0', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
                     <p style={{ margin: 0, fontSize: 11, color: '#4b5563' }}>{p.views}</p>
                   </div>
                 </div>

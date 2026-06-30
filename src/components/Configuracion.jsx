@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   RiSettings4Line, RiUserLine, RiGroupLine, RiShieldLine,
   RiRobot2Line, RiPhoneLine, RiFlowChart, RiFileTextLine,
@@ -6,10 +6,12 @@ import {
   RiDeleteBinLine, RiEditLine, RiSearchLine, RiVipCrownLine,
   RiArrowRightSLine, RiGlobalLine, RiBuilding2Line,
   RiCodeBoxLine, RiDatabase2Line, RiBankCardLine,
-  RiKeyLine, RiClipboardLine, RiReceiptLine,
+  RiKeyLine, RiClipboardLine, RiReceiptLine, RiCheckLine,
 } from 'react-icons/ri'
 import { HiChevronDown, HiArrowRight } from 'react-icons/hi'
 import '../dashboard.css'
+import { apiFetch } from '../lib/api'
+import { useAuth } from '../contexts/AuthContext'
 
 // ── Nav structure ─────────────────────────────────────────────────────────────
 const NAV = [
@@ -134,8 +136,18 @@ function UsageBar({ label, value, max, pct, color }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Configuracion() {
+  const { user } = useAuth()
   const [activeNav, setActiveNav] = useState('perfil')
   const [showDecimals, setShowDecimals] = useState(true)
+  const [stats, setStats] = useState(null)
+  const [agentCount, setAgentCount] = useState(null)
+
+  useEffect(() => {
+    apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
+    apiFetch('/api/agents').then(r => r.json()).then(d => {
+      setAgentCount(Array.isArray(d) ? d.length : null)
+    }).catch(() => {})
+  }, [])
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -199,16 +211,69 @@ export default function Configuracion() {
           {/* Form header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>Perfil de la empresa</h2>
-              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#6b7280' }}>Actualiza la información general de tu empresa y preferencias regionales.</p>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>
+                {activeNav === 'miperfil' ? 'Mi perfil' : 'Perfil de la empresa'}
+              </h2>
+              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#6b7280' }}>
+                {activeNav === 'miperfil'
+                  ? 'Gestiona tu información personal y preferencias de cuenta.'
+                  : 'Actualiza la información general de tu empresa y preferencias regionales.'}
+              </p>
             </div>
             <button style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px #6366f145', flexShrink: 0 }}>
               Guardar cambios
             </button>
           </div>
 
-          {/* ── Información de la empresa ── */}
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
+          {/* ── Mi perfil ── */}
+          {activeNav === 'miperfil' && (
+            <>
+              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
+                <SectionTitle title="Información personal" />
+                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+                  {/* Avatar */}
+                  <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: '#fff', boxShadow: '0 0 24px #6366f145', marginBottom: 6 }}>
+                      {user?.name ? user.name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase() : '?'}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 9.5, color: '#374151' }}>Cambiar foto</p>
+                  </div>
+                  {/* Fields */}
+                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <Input label="Nombre completo" value={user?.name ?? ''} />
+                    <Input label="Email" value={user?.email ?? ''} />
+                    <Input label="Rol" value={user?.role ?? ''} />
+                    <Input label="ID de organización" value={user?.orgId ?? ''} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
+                <SectionTitle title="Seguridad" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <Input label="Contraseña actual" placeholder="••••••••" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <Input label="Nueva contraseña" placeholder="••••••••" />
+                    <Input label="Confirmar contraseña" placeholder="••••••••" />
+                  </div>
+                </div>
+              </div>
+              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px' }}>
+                <SectionTitle title="Sesión activa" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 9, background: '#10b98120', border: '1px solid #10b98130', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <RiCheckLine style={{ width: 16, height: 16, color: '#34d399' }} />
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>Sesión activa</p>
+                    <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563' }}>Conectado como <strong style={{ color: '#818cf8' }}>{user?.email}</strong></p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Perfil empresa (solo si no es mi perfil) ── */}
+          {activeNav !== 'miperfil' && <><div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
             <SectionTitle title="Información de la empresa" />
             <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
               {/* Logo upload */}
@@ -355,7 +420,7 @@ export default function Configuracion() {
               </div>
 
             </div>
-          </div>
+          </div></>}
         </div>
 
         {/* ── Right Panel ── */}
@@ -388,8 +453,26 @@ export default function Configuracion() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Uso del plan</p>
             </div>
-            <p style={{ margin: '0 0 12px', fontSize: 10.5, color: '#4b5563' }}>Este mes (12 may - 18 may)</p>
-            {USAGE.map((u, i) => <UsageBar key={i} {...u} />)}
+            <p style={{ margin: '0 0 12px', fontSize: 10.5, color: '#4b5563' }}>Acumulado total</p>
+            {[
+              { ...USAGE[0] },
+              {
+                ...USAGE[1],
+                value: stats ? String(stats.totalCalls ?? 0) : USAGE[1].value,
+                max: USAGE[1].max,
+                pct: stats ? Math.min(100, Math.round((stats.totalCalls ?? 0) / 2000 * 100)) : USAGE[1].pct,
+              },
+              {
+                ...USAGE[2],
+                value: agentCount !== null ? String(agentCount) : USAGE[2].value,
+                pct: agentCount !== null ? Math.min(100, Math.round(agentCount / 20 * 100)) : USAGE[2].pct,
+              },
+              {
+                ...USAGE[3],
+                value: stats ? String(stats.totalLeads ?? 0) : USAGE[3].value,
+                pct: stats ? Math.min(100, Math.round((stats.totalLeads ?? 0) / 25 * 100)) : USAGE[3].pct,
+              },
+            ].map((u, i) => <UsageBar key={i} {...u} />)}
           </div>
 
           {/* Integraciones activas */}
