@@ -8,7 +8,7 @@ const SIZES = {
   xl: 800,
 }
 
-export default function FormModal({ title, children, onClose, submitText = 'Crear', size = 'md' }) {
+export default function FormModal({ title, children, onClose, onSubmit, submitText = 'Crear', size = 'md' }) {
   useEffect(() => {
     function handleKey(e) {
       if (e.key === 'Escape') onClose()
@@ -81,7 +81,8 @@ export default function FormModal({ title, children, onClose, submitText = 'Crea
           id="modal-form"
           onSubmit={e => {
             e.preventDefault()
-            onClose()
+            if (onSubmit) onSubmit()
+            else onClose()
           }}
           className="dark-scroll"
           style={{ flex: 1, overflowY: 'auto', padding: '20px' }}

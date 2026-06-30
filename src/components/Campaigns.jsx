@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 // ponytail: recharts PieChart removed — pure SVG donuts below
 import {
   RiAddLine, RiSearchLine, RiFilterLine, RiCalendar2Line,
@@ -13,7 +15,7 @@ import KPICard from './KPICard'
 import DataTable from './DataTable'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const CAMPAIGNS = [
+export const CAMPAIGNS = [
   {
     id: 1, nombre: 'Demo SaaS Empresas', sub: 'Software empresarial B2B',
     grad: ['#4f46e5', '#7c3aed'], Icon: RiRobot2Line, status: 'activa',
@@ -121,6 +123,17 @@ const STATUS_STYLE = {
   completada: { text: '#a78bfa', dot: '#a78bfa', label: 'Completada' },
 }
 
+const STATUS_MAP = { active:'activa', paused:'pausada', done:'completada', draft:'borrador' }
+const AGENT_BG   = ['#4f46e5','#0891b2','#7c3aed','#0d9488','#be185d']
+
+const OBJECTIVE_STYLE = {
+  'Recuperación de leads':   { grad:['#3b82f6','#2563eb'], Icon: RiGroupLine      },
+  'Agendado de demos':       { grad:['#10b981','#059669'], Icon: RiCalendarLine   },
+  'Reconfirmación de citas': { grad:['#8b5cf6','#7c3aed'], Icon: RiCalendar2Line  },
+  'Renovaciones':            { grad:['#f59e0b','#d97706'], Icon: RiBarChartLine   },
+  'Reactivación':            { grad:['#06b6d4','#0891b2'], Icon: RiSendPlaneLine  },
+}
+
 
 // ─── Tiny SVG sparkline ───────────────────────────────────────────────────────
 function TinySpark({ data, color }) {
@@ -181,7 +194,14 @@ const CAM_COLS = [
   'Ingresos', 'Acciones',
 ]
 
-function renderCampaign(c) {
+function renderCampaign(c, handlers) {
+  const ACT = {
+    borrador:   { label:'Lanzar',   color:'#4ade80', bg:'#10b98118', border:'#10b98145', fn: () => handlers?.onStart?.(c.id) },
+    activa:     { label:'Pausar',   color:'#f59e0b', bg:'#f59e0b18', border:'#f59e0b45', fn: () => handlers?.onPause?.(c.id) },
+    pausada:    { label:'Reanudar', color:'#818cf8', bg:'#818cf818', border:'#818cf845', fn: () => handlers?.onStart?.(c.id) },
+    completada: { label:'Ver',      color:'#94a3b8', bg:'#1e243380', border:'#1e2433',   fn: () => handlers?.onView?.(c.id)  },
+  }
+  const act = ACT[c.status] ?? ACT.completada
   return [
     <div key="n" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
       <div style={{
@@ -204,10 +224,10 @@ function renderCampaign(c) {
     <CellMetric key="cv" kpi={c.kpis.conversion} color="#fbbf24" />,
     <CellMetric key="in" kpi={c.kpis.ingresos}   color="#22d3ee" />,
     <div key="ac" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <button style={{ padding: '4px 12px', borderRadius: 7, border: '1px solid #1e2433', background: '#111827', color: c.status === 'borrador' ? '#94a3b8' : '#f1f5f9', fontSize: 11.5, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
-        {c.status === 'borrador' ? 'Editar' : 'Ver'}
+      <button onClick={act.fn} style={{ padding: '4px 12px', borderRadius: 7, border: `1px solid ${act.border}`, background: act.bg, color: act.color, fontSize: 11.5, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
+        {act.label}
       </button>
-      <button style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #1e2433', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563' }}>
+      <button onClick={() => handlers?.onView?.(c.id)} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #1e2433', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563' }}>
         <RiMoreLine style={{ width: 13, height: 13 }} />
       </button>
     </div>,
@@ -310,33 +330,31 @@ function HalfGauge({ data, size = 128, centerValue, centerLabel }) {
 }
 
 // ─── Right panel: Rendimiento por canal ──────────────────────────────────────
-function CanalDonut() {
+function CanalDonut({ data }) {
   return (
     <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px 15px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>Rendimiento por canal</h3>
-        <button style={{
-          display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
-          background: '#111827', border: '1px solid #1e2433', borderRadius: 7,
-          padding: '4px 8px', color: '#6b7280', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap',
-        }}>
-          Por llamadas <HiChevronDown style={{ width: 10, height: 10 }} />
-        </button>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <NeonDonut data={CANAL_DATA} size={124} centerValue="2.847" centerLabel="Llamadas" />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-          {CANAL_DATA.map(d => (
-            <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: d.color, flexShrink: 0, boxShadow: `0 0 5px ${d.color}` }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 11, color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
-                <p style={{ margin: 0, fontSize: 10, color: '#4b5563' }}>{d.pct}% ({d.value.toLocaleString('es-ES')})</p>
-              </div>
+      <h3 style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Rendimiento por canal</h3>
+      {!data?.length
+        ? <p style={{ margin: 0, fontSize: 12, color: '#4b5563', textAlign: 'center', padding: '16px 0' }}>Sin datos de canales</p>
+        : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NeonDonut data={data} size={124}
+              centerValue={data.reduce((s, d) => s + d.value, 0).toLocaleString('es-ES')}
+              centerLabel="Llamadas" />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+              {data.map(d => (
+                <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: d.color, flexShrink: 0, boxShadow: `0 0 5px ${d.color}` }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 11, color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
+                    <p style={{ margin: 0, fontSize: 10, color: '#4b5563' }}>{d.pct}% ({d.value.toLocaleString('es-ES')})</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        )
+      }
     </div>
   )
 }
@@ -386,6 +404,7 @@ const MEDALS = [
 ]
 
 function TopConversion({ campaigns }) {
+  const navigate = useNavigate()
   const sorted = [...campaigns]
     .filter(c => c.status !== 'borrador' && c.kpis.conversion.v > 0)
     .sort((a, b) => b.kpis.conversion.v - a.kpis.conversion.v)
@@ -488,7 +507,7 @@ function TopConversion({ campaigns }) {
       </div>
 
       <div style={{ borderTop: '1px solid #111827', marginTop: 14, paddingTop: 10 }}>
-        <button style={{
+        <button onClick={() => navigate('/insights')} style={{
           display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none',
           cursor: 'pointer', color: '#818cf8', fontSize: 12, fontWeight: 600, padding: 0,
         }}>
@@ -517,26 +536,54 @@ const AGENTS_LIST = [
 function NewCampaignModal({ onClose, onAdd }) {
   const [step, setStep] = useState(0)
   const [form, setForm] = useState({ nombre: '', objective: null, agente: null, dias: ['L','M','X','J','V'], inicio: '09:00', fin: '18:00' })
+  const [apiAgents, setApiAgents] = useState([])
+  const [saving, setSaving] = useState(false)
   const STEPS = ['Objetivo', 'Configuración', 'Horarios', 'Targets']
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  function launch() {
-    onAdd({
-      id: Date.now(),
-      nombre: form.nombre || 'Nueva campaña',
-      sub: form.objective !== null ? OBJECTIVES[form.objective].label : 'Sin objetivo',
-      grad: form.objective !== null ? [OBJECTIVES[form.objective].color, OBJECTIVES[form.objective].color + 'cc'] : ['#4b5563', '#374151'],
-      Icon: form.objective !== null ? OBJECTIVES[form.objective].Icon : RiSendPlaneLine,
-      status: 'borrador',
-      kpis: {
-        llamadas:   { fmt: '0', delta: '—', up: true, spark: [0,0,0,0,0,0,0] },
-        leads:      { fmt: '0', delta: '—', up: true, spark: [0,0,0,0,0,0,0] },
-        reuniones:  { fmt: '0', delta: '—', up: true, spark: [0,0,0,0,0,0,0] },
-        conversion: { fmt: '0%', delta: '—', up: true, spark: [0,0,0,0,0,0,0], v: 0 },
-        ingresos:   { fmt: '€0', delta: '—', up: true, spark: [0,0,0,0,0,0,0] },
-      },
-    })
-    onClose()
+  useEffect(() => {
+    apiFetch('/api/agents').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setApiAgents(d.map((a, i) => ({
+        id: a.id, name: a.name,
+        initials: a.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase(),
+        bg: AGENT_BG[i % AGENT_BG.length],
+      })))
+    }).catch(() => {})
+  }, [])
+
+  const agentsList = apiAgents.length ? apiAgents : AGENTS_LIST
+
+  async function launch() {
+    setSaving(true)
+    const objLabel = form.objective !== null ? OBJECTIVES[form.objective].label : undefined
+    const body = {
+      name: form.nombre || 'Nueva campaña',
+      objective: objLabel,
+      agentId: form.agente !== null ? agentsList[form.agente]?.id : undefined,
+    }
+    try {
+      const res = await apiFetch('/api/campaigns', { method:'POST', body: JSON.stringify(body) })
+      const created = await res.json()
+      const style = OBJECTIVE_STYLE[objLabel] ?? { grad:['#4f46e5','#7c3aed'], Icon: RiSendPlaneLine }
+      onAdd({
+        id: created.id,
+        nombre: created.name,
+        sub: objLabel || '',
+        grad: style.grad,
+        Icon: style.Icon,
+        status: 'borrador',
+        kpis: {
+          llamadas:   { fmt:'0', delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+          leads:      { fmt:'0', delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+          reuniones:  { fmt:'0', delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+          conversion: { fmt:'0%', delta:'—', up:true, spark:[0,0,0,0,0,0,0], v:0 },
+          ingresos:   { fmt:'€0', delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+        },
+      })
+      onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -616,7 +663,7 @@ function NewCampaignModal({ onClose, onAdd }) {
               <div>
                 <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>Agente IA</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-                  {AGENTS_LIST.map((a, i) => {
+                  {agentsList.map((a, i) => {
                     const sel = form.agente === i
                     return (
                       <button key={i} onClick={() => upd('agente', i)} style={{
@@ -698,12 +745,13 @@ function NewCampaignModal({ onClose, onAdd }) {
           <button onClick={() => step > 0 ? setStep(s => s - 1) : onClose()} style={{ padding: '8px 16px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#6b7280', fontSize: 12.5, cursor: 'pointer' }}>
             {step > 0 ? '← Anterior' : 'Cancelar'}
           </button>
-          <button onClick={() => step < STEPS.length - 1 ? setStep(s => s + 1) : launch()} style={{
-            padding: '8px 20px', borderRadius: 9, border: 'none', cursor: 'pointer',
+          <button onClick={() => step < STEPS.length - 1 ? setStep(s => s + 1) : launch()} disabled={saving} style={{
+            padding: '8px 20px', borderRadius: 9, border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
             background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
             color: 'white', fontSize: 13, fontWeight: 700, boxShadow: '0 0 18px #4f46e540',
+            opacity: saving ? 0.6 : 1,
           }}>
-            {step < STEPS.length - 1 ? 'Siguiente →' : 'Lanzar campaña'}
+            {step < STEPS.length - 1 ? 'Siguiente →' : saving ? 'Guardando…' : 'Lanzar campaña'}
           </button>
         </div>
       </div>
@@ -712,13 +760,76 @@ function NewCampaignModal({ onClose, onAdd }) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
+const STATUS_OPTIONS = ['Todos', 'activa', 'pausada', 'borrador']
+
 export default function Campaigns() {
+  const navigate = useNavigate()
   const [campaigns, setCampaigns] = useState(CAMPAIGNS)
+  const [closedWon, setClosedWon] = useState(null)
+
+  useEffect(() => {
+    apiFetch('/api/dashboard/stats').then(r => r.json()).then(s => {
+      setClosedWon(s.closedWonValue ?? 0)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    apiFetch('/api/campaigns').then(r => r.json()).then(data => {
+      if (!Array.isArray(data)) return
+      setCampaigns(data.map(c => {
+        const style = OBJECTIVE_STYLE[c.objective] ?? { grad:['#4f46e5','#7c3aed'], Icon: RiSendPlaneLine }
+        const conv = c.totalLeads > 0 ? +((c.meetingsScheduled / c.totalLeads) * 100).toFixed(1) : 0
+        return {
+          id: c.id, nombre: c.name, sub: c.objective || '',
+          grad: style.grad, Icon: style.Icon,
+          status: STATUS_MAP[c.status] || 'borrador',
+          kpis: {
+            llamadas:   { fmt: String(c.contacted ?? 0),        delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+            leads:      { fmt: String(c.totalLeads ?? 0),        delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+            reuniones:  { fmt: String(c.meetingsScheduled ?? 0), delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+            conversion: { fmt:`${conv}%`, delta:'—', up: conv > 0, spark:[0,0,0,0,0,0,0], v: conv },
+            ingresos:   { fmt:'€0', delta:'—', up:true, spark:[0,0,0,0,0,0,0] },
+          },
+        }
+      }))
+    }).catch(() => {})
+  }, [])
+
+  const kpiTop = useMemo(() => {
+    const tll = campaigns.reduce((s, c) => s + (parseInt(c.kpis.llamadas.fmt) || 0), 0)
+    const tle = campaigns.reduce((s, c) => s + (parseInt(c.kpis.leads.fmt)    || 0), 0)
+    const tre = campaigns.reduce((s, c) => s + (parseInt(c.kpis.reuniones.fmt)|| 0), 0)
+    const conv = tle > 0 ? ((tre / tle) * 100).toFixed(1) : '0'
+    const ingFmt = closedWon != null ? `€${Math.round(closedWon).toLocaleString('es-ES')}` : KPI_TOP[4].value
+    return KPI_TOP.map((k, i) => ({
+      ...k, pct: null,
+      value: [
+        tll.toLocaleString('es-ES'),
+        tle.toLocaleString('es-ES'),
+        tre.toLocaleString('es-ES'),
+        `${conv}%`,
+        ingFmt,
+      ][i],
+    }))
+  }, [campaigns, closedWon])
+
+  async function handleStart(id) {
+    await apiFetch(`/api/campaigns/${id}/start`, { method:'POST' })
+    setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status:'activa' } : c))
+  }
+
+  async function handlePause(id) {
+    await apiFetch(`/api/campaigns/${id}/pause`, { method:'POST' })
+    setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status:'pausada' } : c))
+  }
   const [search, setSearch]       = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('Todos')
+  const [showStatusDrop, setShowStatusDrop] = useState(false)
 
   const filtered = campaigns.filter(c =>
-    !search || c.nombre.toLowerCase().includes(search.toLowerCase())
+    (!search || c.nombre.toLowerCase().includes(search.toLowerCase())) &&
+    (statusFilter === 'Todos' || c.status === statusFilter)
   )
 
   return (
@@ -760,7 +871,7 @@ export default function Campaigns() {
 
       {/* KPI bar */}
       <div style={{ display: 'flex', gap: 12 }}>
-        {KPI_TOP.map((k, i) => <KPICard key={i} {...k} />)}
+        {kpiTop.map((k, i) => <KPICard key={i} {...k} />)}
       </div>
 
       {/* Content row */}
@@ -778,9 +889,20 @@ export default function Campaigns() {
                 <input placeholder="Buscar campaña..." value={search} onChange={e => setSearch(e.target.value)}
                   style={{ background: 'none', border: 'none', outline: 'none', color: '#94a3b8', fontSize: 12, width: 130 }} />
               </div>
-              <button style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#080c14', border: '1px solid #1a2235', borderRadius: 8, padding: '5px 11px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
-                Estado: Todos <HiChevronDown style={{ width: 11, height: 11 }} />
-              </button>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setShowStatusDrop(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#080c14', border: '1px solid #1a2235', borderRadius: 8, padding: '5px 11px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+                  Estado: {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} <HiChevronDown style={{ width: 11, height: 11 }} />
+                </button>
+                {showStatusDrop && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '4px', marginTop: 4, minWidth: 130 }}>
+                    {STATUS_OPTIONS.map(s => (
+                      <button key={s} onClick={() => { setStatusFilter(s); setShowStatusDrop(false) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', background: s === statusFilter ? '#1a2235' : 'transparent', border: 'none', color: s === statusFilter ? '#818cf8' : '#94a3b8', fontSize: 12, cursor: 'pointer', borderRadius: 6 }}>
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -789,7 +911,11 @@ export default function Campaigns() {
             gridTemplate={COLS}
             rows={filtered}
             rowKey="id"
-            renderRow={renderCampaign}
+            renderRow={(c) => renderCampaign(c, {
+              onView:  id => navigate('/campanas/' + id),
+              onStart: handleStart,
+              onPause: handlePause,
+            })}
             scrollable={false}
             style={{ background: 'transparent', border: 'none', borderRadius: 0 }}
           />
@@ -817,7 +943,7 @@ export default function Campaigns() {
 
         {/* Right panel */}
         <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <CanalDonut />
+          <CanalDonut data={null} />
           <EstadoGauge campaigns={campaigns} />
           <TopConversion campaigns={campaigns} />
         </div>

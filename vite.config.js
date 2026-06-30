@@ -6,4 +6,10 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/health': 'http://localhost:3000',
+    },
+  },
 })

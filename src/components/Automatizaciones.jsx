@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts'
 import {
   RiFlowChart, RiRobot2Line, RiPhoneLine, RiCalendarLine,
@@ -21,8 +23,9 @@ const KPIS = [
   { Icon: RiTimeLine,           iconBg: '#06b6d4', color: '#22d3ee', label: 'Ahorro de tiempo',        value: '342h',      pct: '31.2', note: 'vs. mes ant' },
 ]
 
-const AUTOMATIONS = [
+export const AUTOMATIONS = [
   {
+    id: 1,
     Icon: RiPhoneLine,          iconBg: '#6366f1', iconColor: '#818cf8',
     name: 'Seguimiento post llamada',
     desc: 'Envía un SMS + Email automático después de cada llamada para agendar reunión.',
@@ -35,6 +38,7 @@ const AUTOMATIONS = [
     last: 'Hoy, 09:32',
   },
   {
+    id: 2,
     Icon: RiMailLine,           iconBg: '#8b5cf6', iconColor: '#a78bfa',
     name: 'Nurturing de leads fríos',
     desc: 'Secuencia multicanal de 5 toques para reactivar leads sin actividad.',
@@ -47,6 +51,7 @@ const AUTOMATIONS = [
     last: 'Hoy, 08:15',
   },
   {
+    id: 3,
     Icon: RiCalendarLine,       iconBg: '#10b981', iconColor: '#34d399',
     name: 'Recordatorio de reunión',
     desc: 'Envía recordatorios automáticos antes de la reunión para reducir no-shows.',
@@ -59,6 +64,7 @@ const AUTOMATIONS = [
     last: 'Hoy, 07:45',
   },
   {
+    id: 4,
     Icon: RiShoppingCart2Line,  iconBg: '#f97316', iconColor: '#fb923c',
     name: 'Cierre de oportunidades',
     desc: 'Secuencia de seguimiento inteligente para mover oportunidades al cierre.',
@@ -71,6 +77,7 @@ const AUTOMATIONS = [
     last: 'Ayer, 18:22',
   },
   {
+    id: 5,
     Icon: RiRobot2Line,         iconBg: '#8b5cf6', iconColor: '#a78bfa',
     name: 'Calificación automática',
     desc: 'Agente IA llama y califica nuevos leads entrantes automáticamente.',
@@ -83,6 +90,7 @@ const AUTOMATIONS = [
     last: 'Ayer, 16:50',
   },
   {
+    id: 6,
     Icon: RiBarChartLine,       iconBg: '#fb7185', iconColor: '#fda4af',
     name: 'Reactivación de inactivos',
     desc: 'Detecta leads inactivos y lanza campaña personalizada de reactivación.',
@@ -112,6 +120,36 @@ const ACCIONES = [
   { Icon: RiMailLine,   iconBg: '#10b981', iconColor: '#34d399', title: 'Enviar Email',            sub: 'Plantilla: Agendar reunión' },
   { Icon: RiCalendarLine, iconBg: '#6366f1', iconColor: '#818cf8', title: 'Crear tarea',           sub: 'Asignar seguimiento al equipo' },
 ]
+
+// ─── Backend mapping ───────────────────────────────────────────────────────────
+const AUTO_ICONS  = [RiPhoneLine, RiMailLine, RiCalendarLine, RiShoppingCart2Line, RiRobot2Line, RiBarChartLine]
+const AUTO_BG     = ['#6366f1','#8b5cf6','#10b981','#f97316','#8b5cf6','#fb7185']
+const AUTO_COLOR  = ['#818cf8','#a78bfa','#34d399','#fb923c','#a78bfa','#fda4af']
+
+function mapAutomation(a, i) {
+  const t = a.trigger && typeof a.trigger === 'object' ? a.trigger : {}
+  const triggerLabel = t.event ?? t.type ?? String(a.trigger ?? '—')
+  return {
+    id: a.id,
+    Icon: AUTO_ICONS[i % AUTO_ICONS.length],
+    iconBg: AUTO_BG[i % AUTO_BG.length],
+    iconColor: AUTO_COLOR[i % AUTO_COLOR.length],
+    name: a.name,
+    desc: a.description ?? '',
+    tags: Array.isArray(a.tags) ? a.tags : [],
+    status: a.isActive ? 'activa' : 'pausada',
+    TriggerIcon: RiFlowChart,
+    trigger: triggerLabel,
+    _runsCount: a.runsCount ?? 0,
+    execs: (a.runsCount ?? 0).toLocaleString('es-ES'),
+    execDelta: '—', execUp: true,
+    convs: '—', convRate: '—',
+    rev: '—', revDelta: '—', revUp: true,
+    last: a.lastRunAt
+      ? new Date(a.lastRunAt).toLocaleString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '—',
+  }
+}
 
 const FILTER_TABS = ['Todas', 'Activas', 'Pausadas', 'Borradores']
 const DETAIL_TABS = ['Resumen', 'Flujo', 'Historial', 'Configuración']
@@ -180,19 +218,55 @@ function Delta({ v, up }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Automatizaciones() {
-  const [selected, setSelected] = useState(0)
+  const navigate = useNavigate()
   const [filter, setFilter] = useState('Todas')
-  const [detailTab, setDetailTab] = useState('Resumen')
+  const [page, setPage] = useState(1)
   const [showNewAutomation, setShowNewAutomation] = useState(false)
+  const [automations, setAutomations] = useState([])
+  const [stats, setStats] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const auto = AUTOMATIONS[selected]
+  useEffect(() => {
+    apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
+  }, [])
 
-  const filtered = AUTOMATIONS.filter(a => {
-    if (filter === 'Activas')   return a.status === 'activa'
-    if (filter === 'Pausadas')  return a.status === 'pausada'
+  useEffect(() => {
+    apiFetch('/api/automations')
+      .then(r => r.json())
+      .then(data => {
+        const arr = Array.isArray(data) ? data : []
+        setAutomations(arr.map(mapAutomation))
+      })
+      .catch(() => {})
+  }, [refreshKey])
+
+  const kpiList = useMemo(() => {
+    const total = automations.length
+    const active = automations.filter(a => a.status === 'activa').length
+    const totalRuns = automations.reduce((s, a) => s + (a._runsCount ?? 0), 0)
+    return [
+      { ...KPIS[0], value: String(total), sub: `${active} activas` },
+      { ...KPIS[1], value: totalRuns.toLocaleString('es-ES'), sub: 'total acumulado', subColor: '#94a3b8', isCount: true },
+      { ...KPIS[2], value: stats ? (stats.meetingsScheduled ?? 0).toLocaleString('es-ES') : '—', pct: stats?.kpiPcts?.meetings ?? 0, note: 'vs. mes anterior' },
+      { ...KPIS[3], value: stats ? `€${Math.round(stats.closedWonValue ?? 0).toLocaleString('es-ES')}` : '—', pct: stats?.kpiPcts?.pipeline ?? 0, note: 'vs. mes anterior' },
+      { ...KPIS[4], value: '—', sub: 'Sin datos', subColor: '#4b5563', isCount: true },
+    ]
+  }, [automations, stats])
+
+  const toggleStatus = (id) => {
+    apiFetch(`/api/automations/${id}/toggle`, { method: 'PUT' }).catch(() => {})
+    setAutomations(prev => prev.map(x => x.id === id ? { ...x, status: x.status === 'activa' ? 'pausada' : 'activa' } : x))
+  }
+
+  const filtered = automations.filter(a => {
+    if (filter === 'Activas')    return a.status === 'activa'
+    if (filter === 'Pausadas')   return a.status === 'pausada'
     if (filter === 'Borradores') return false
     return true
   })
+  const PER_PAGE = 10
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -230,11 +304,11 @@ export default function Automatizaciones() {
           </div>
         </div>
 
-        {showNewAutomation && <NewAutomatizacionModal onClose={() => setShowNewAutomation(false)} />}
+        {showNewAutomation && <NewAutomatizacionModal onClose={() => setShowNewAutomation(false)} onSuccess={() => { setShowNewAutomation(false); setRefreshKey(k => k + 1) }} />}
 
         {/* KPI Cards */}
         <div style={{ display: 'flex', gap: 10, padding: '0 28px 20px', flexShrink: 0 }}>
-          {KPIS.map((k, i) => <StatCard key={i} {...k} />)}
+          {kpiList.map((k, i) => <StatCard key={i} {...k} />)}
         </div>
 
         {/* Filter tabs + sort */}
@@ -272,25 +346,31 @@ export default function Automatizaciones() {
             ))}
           </div>
 
+          {/* Empty state */}
+          {paginated.length === 0 && (
+            <p style={{ padding: '40px 0', textAlign: 'center', color: '#4b5563', fontSize: 13 }}>
+              Sin automatizaciones{filter !== 'Todas' ? ` ${filter.toLowerCase()}` : ''}
+            </p>
+          )}
+
           {/* Rows */}
-          {filtered.map((a, idx) => {
-            const isSelected = AUTOMATIONS.indexOf(a) === selected
+          {paginated.map((a, idx) => {
             const isActive = a.status === 'activa'
             return (
               <div
                 key={idx}
-                onClick={() => setSelected(AUTOMATIONS.indexOf(a))}
+                onClick={() => navigate('/automatizaciones/' + a.id)}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '2.4fr 100px 160px 110px 100px 110px 120px 36px',
                   gap: 0, padding: '14px 16px',
                   borderBottom: '1px solid #1e2433',
-                  background: isSelected ? '#0f1520' : 'transparent',
-                  borderLeft: isSelected ? '3px solid #8b5cf6' : '3px solid transparent',
+                  background: 'transparent',
+                  borderLeft: '3px solid transparent',
                   cursor: 'pointer', transition: 'background .15s',
                 }}
-                onMouseEnter={e => !isSelected && (e.currentTarget.style.background = '#0a0f1a')}
-                onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
+                onMouseEnter={e => (e.currentTarget.style.background = '#0a0f1a')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 {/* Col 1: Name + desc + tags */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, paddingRight: 12 }}>
@@ -309,17 +389,20 @@ export default function Automatizaciones() {
                 </div>
 
                 {/* Col 2: Status */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {isActive ? (
+                <div onClick={e => { e.stopPropagation(); toggleStatus(a.id) }} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                  {a.status === 'activa' ? (
                     <>
                       <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>Activa</span>
                       <Toggle active />
                     </>
                   ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: '#f59e0b', fontWeight: 600, background: '#f59e0b15', border: '1px solid #f59e0b40', borderRadius: 6, padding: '3px 8px' }}>
-                      Pausada
-                      <span style={{ background: '#f59e0b', color: '#000', borderRadius: 4, padding: '0 3px', fontSize: 9.5, fontWeight: 800 }}>!!</span>
-                    </span>
+                    <>
+                      <Toggle active={false} />
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: '#f59e0b', fontWeight: 600, background: '#f59e0b15', border: '1px solid #f59e0b40', borderRadius: 6, padding: '3px 8px' }}>
+                        Pausada
+                        <span style={{ background: '#f59e0b', color: '#000', borderRadius: 4, padding: '0 3px', fontSize: 9.5, fontWeight: 800 }}>!!</span>
+                      </span>
+                    </>
                   )}
                 </div>
 
@@ -367,27 +450,32 @@ export default function Automatizaciones() {
 
         {/* Pagination */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 28px 20px', borderTop: '1px solid #1e2433', flexShrink: 0 }}>
-          <span style={{ fontSize: 12.5, color: '#4b5563' }}>Mostrando 1 a 6 de 28 automatizaciones</span>
+          <span style={{ fontSize: 12.5, color: '#4b5563' }}>
+            Mostrando {filtered.length === 0 ? 0 : Math.min((page-1)*PER_PAGE+1, filtered.length)} a {Math.min(page*PER_PAGE, filtered.length)} de {filtered.length} automatizaciones
+          </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {/* Prev */}
-            <button style={pageBtn(false)}><HiChevronDown style={{ width: 13, height: 13, transform: 'rotate(90deg)' }} /></button>
-            {[1, 2, 3, '...', 5].map((p, i) => (
-              <button key={i} style={pageBtn(p === 1)}>{p}</button>
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} style={pageBtn(false)}>
+              <HiChevronDown style={{ width: 13, height: 13, transform: 'rotate(90deg)' }} />
+            </button>
+            {[page-1, page, page+1].filter(n => n >= 1 && n <= totalPages).map(n => (
+              <button key={n} onClick={() => setPage(n)} style={pageBtn(n === page)}>{n}</button>
             ))}
-            {/* Next */}
-            <button style={pageBtn(false)}><HiChevronDown style={{ width: 13, height: 13, transform: 'rotate(-90deg)' }} /></button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12.5, color: '#4b5563' }}>Mostrar</span>
-            <button style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 10px', color: '#9ca3af', fontSize: 12.5, cursor: 'pointer' }}>
-              10 por página <HiChevronDown style={{ width: 12, height: 12 }} />
+            {page + 1 < totalPages && (
+              <>
+                <button style={pageBtn(false)}>…</button>
+                <button onClick={() => setPage(totalPages)} style={pageBtn(false)}>{totalPages}</button>
+              </>
+            )}
+            <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} style={pageBtn(false)}>
+              <HiChevronDown style={{ width: 13, height: 13, transform: 'rotate(-90deg)' }} />
             </button>
           </div>
+          <span style={{ fontSize: 12.5, color: '#4b5563' }}>{PER_PAGE} por página</span>
         </div>
       </div>
 
       {/* ── Right Panel ── */}
-      {selected !== null && (
+      {false && (
         <div style={{ width: 340, flexShrink: 0, background: '#0d1117', borderLeft: '1px solid #1e2433', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Panel Header */}
           <div style={{ padding: '18px 18px 0', flexShrink: 0 }}>
@@ -494,7 +582,7 @@ export default function Automatizaciones() {
 
           {/* Panel Footer */}
           <div style={{ padding: '12px 18px', borderTop: '1px solid #1e2433', display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px #6366f140' }}>
+            <button onClick={() => setShowNewAutomation(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px #6366f140' }}>
               <RiEditLine style={{ width: 14, height: 14 }} />
               Editar automatización
             </button>

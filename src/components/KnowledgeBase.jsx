@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 import {
   RiBookReadLine, RiAddLine, RiDownloadLine, RiSearchLine,
   RiFilterLine, RiMoreLine, RiStarFill, RiStarLine,
@@ -25,7 +27,7 @@ const CATEGORIES = [
   { label: 'Recursos de ventas',   count: 12,  IconEl: RiShoppingCart2Line, color: '#ea580c' },
 ]
 
-const ARTICLES = [
+export const ARTICLES = [
   {
     id: 1,
     title: '¿Cómo funciona VozIA?', starred: true,
@@ -140,12 +142,13 @@ function CatItem({ cat, active, onClick }) {
 }
 
 // ─── ArticleRow ────────────────────────────────────────────────────────────────
-function ArticleRow({ art }) {
+function ArticleRow({ art, onClick }) {
   const [hov, setHov] = useState(false)
   return (
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      onClick={onClick}
       style={{
         display: 'grid', gridTemplateColumns: '1fr 160px 170px 80px 36px',
         alignItems: 'center', gap: 12,
@@ -209,11 +212,31 @@ function ArticleRow({ art }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
+const KB_PAGE_SIZE = 8
+
 export default function KnowledgeBase() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
   const [activeCategory, setActiveCategory] = useState(0)
   const [activePage, setActivePage] = useState(1)
   const [showNewArticle, setShowNewArticle] = useState(false)
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [articles, setArticles] = useState(ARTICLES)
+  const [refreshKey, setRefreshKey] = useState(0)
+  useEffect(() => {
+    apiFetch('/api/knowledge').then(r => r.json()).then(data => {
+      if (!Array.isArray(data)) return
+      setArticles(data.map((a, i) => ({
+        id: a.id, title: a.name, starred:false,
+        desc: typeof a.content === 'string' ? a.content.slice(0,100) : '',
+        catLabel: a.type ?? 'Documento', catColor:'#7c3aed',
+        author:'—', date: new Date(a.createdAt).toLocaleDateString('es-ES'), visits:0,
+        iconBg:'linear-gradient(135deg,#4f46e5,#7c3aed)', IconEl: RiBook2Line, iconColor:'#c4b5fd',
+      })))
+    }).catch(() => {})
+  }, [refreshKey])
+  const totalKBPages = Math.ceil(articles.length / KB_PAGE_SIZE)
+  const paginatedArticles = articles.slice((activePage - 1) * KB_PAGE_SIZE, activePage * KB_PAGE_SIZE)
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
@@ -268,14 +291,14 @@ export default function KnowledgeBase() {
             padding: '9px 16px', borderRadius: 10,
             border: '1px solid #1e2433', background: 'transparent',
             color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          }}>
+          }} onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='.pdf,.docx,.txt,.md'; i.click() }}>
             <RiDownloadLine style={{ width: 15, height: 15 }} />
             Importar
           </button>
         </div>
       </div>
 
-      {showNewArticle && <NewArticuloModal onClose={() => setShowNewArticle(false)} />}
+      {showNewArticle && <NewArticuloModal onClose={() => setShowNewArticle(false)} onSuccess={() => { setShowNewArticle(false); setRefreshKey(k => k + 1) }} />}
 
       {/* Body: 3 columns */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '16px 28px 24px', gap: 16 }}>
@@ -405,7 +428,7 @@ export default function KnowledgeBase() {
 
           {/* Article rows */}
           <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto' }}>
-            {ARTICLES.map(art => <ArticleRow key={art.id} art={art} />)}
+            {paginatedArticles.map(art => <ArticleRow key={art.id} art={art} onClick={() => navigate('/knowledge-base/articulos/' + art.id)} />)}
           </div>
 
           {/* Pagination */}
@@ -415,11 +438,11 @@ export default function KnowledgeBase() {
           }}>
             <span style={{ fontSize: 12, color: '#4b5563' }}>Mostrando 1 a 8 de 128 artículos</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <PageBtn icon={<RiArrowLeftSLine style={{ width: 14, height: 14 }} />} />
-              {[1, 2, 3, '...', 16].map((p, i) => (
+              <PageBtn icon={<RiArrowLeftSLine style={{ width: 14, height: 14 }} />} onClick={() => setActivePage(p => Math.max(1, p - 1))} />
+              {[1, 2, 3, '...', totalKBPages].map((p, i) => (
                 <PageBtn key={i} label={p} active={p === activePage} onClick={() => typeof p === 'number' && setActivePage(p)} />
               ))}
-              <PageBtn icon={<RiArrowRightSLine style={{ width: 14, height: 14 }} />} />
+              <PageBtn icon={<RiArrowRightSLine style={{ width: 14, height: 14 }} />} onClick={() => setActivePage(p => Math.min(totalKBPages, p + 1))} />
             </div>
             <button style={{
               display: 'flex', alignItems: 'center', gap: 5,
@@ -514,7 +537,7 @@ export default function KnowledgeBase() {
             <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
               Solicita un nuevo artículo para que el equipo lo cree para ti.
             </p>
-            <button style={{
+            <button onClick={() => setShowRequestModal(true)} style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '7px 12px', borderRadius: 8,
               border: '1px solid #1e2433', background: 'transparent',
@@ -523,6 +546,19 @@ export default function KnowledgeBase() {
               <RiAddCircleLine style={{ width: 15, height: 15, color: '#7c3aed' }} />
               Solicitar artículo
             </button>
+            {showRequestModal && (
+              <div onClick={() => setShowRequestModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', width: 380, boxShadow: '0 40px 80px #0009' }}>
+                  <p style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Solicitar artículo</p>
+                  <input placeholder="Título del artículo..." style={{ width: '100%', boxSizing: 'border-box', background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, outline: 'none', marginBottom: 10 }} />
+                  <textarea placeholder="Descripción breve de lo que necesitas..." style={{ width: '100%', boxSizing: 'border-box', minHeight: 68, background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button onClick={() => setShowRequestModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={() => setShowRequestModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Enviar solicitud</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

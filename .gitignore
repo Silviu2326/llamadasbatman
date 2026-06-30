@@ -1,3 +1,6 @@
+# Session recordings (conversations)
+backend/sessions/
+
 # Logs
 logs
 *.log

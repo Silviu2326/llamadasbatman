@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 import {
   ResponsiveContainer, ComposedChart, AreaChart, Area, Line,
   BarChart, Bar, PieChart, Pie, Cell,
@@ -10,7 +12,7 @@ import {
   RiArrowRightLine,
   RiAlertLine, RiRocketLine, RiInformationLine,
 } from 'react-icons/ri'
-import { HiChevronDown, HiArrowUp } from 'react-icons/hi'
+import { HiChevronDown, HiArrowUp, HiArrowDown } from 'react-icons/hi'
 import '../dashboard.css'
 import KPICard from './KPICard'
 import DateRangePicker from './ui/DateRangePicker'
@@ -64,7 +66,7 @@ const LC_DATA_MONTHLY = [
   { date:'Jun', llamadas:44500, contactados:29800, reuniones:9600, conversion:14.2 },
 ]
 
-const VIEW_OPTIONS = {
+const VIEW_OPTIONS_DEFAULT = {
   day:   { label:'Por día',    data: LC_DATA },
   week:  { label:'Por semana', data: LC_DATA_WEEKLY },
   month: { label:'Por mes',    data: LC_DATA_MONTHLY },
@@ -140,12 +142,16 @@ function getChartDomain(data) {
   return { leftMax: nice(leftMax * 1.1), rightMax: Math.ceil(rightMax * 1.2) }
 }
 
-function RendimientoChart() {
+function RendimientoChart({ dayData }) {
   const [view, setView] = useState('day')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useClickOutside([ref], () => setOpen(false))
 
+  const VIEW_OPTIONS = {
+    ...VIEW_OPTIONS_DEFAULT,
+    day: { label:'Por día', data: dayData?.length ? dayData : LC_DATA },
+  }
   const current = VIEW_OPTIONS[view]
   const { leftMax, rightMax } = getChartDomain(current.data)
 
@@ -245,10 +251,15 @@ function RendimientoChart() {
 }
 
 // ─── Embudo ───────────────────────────────────────────────────────────────────
-function EmbudoChart() {
-  const W = 190, stepH = 46, gap = 5, n = FUNNEL.length
+const FUNNEL_COLORS = ['#60a5fa','#22d3ee','#4ade80','#fbbf24','#e879f9']
+
+function EmbudoChart({ funnel: funnelProp }) {
+  const FUNNEL_DATA = funnelProp?.length
+    ? funnelProp.map((f, i) => ({ ...f, value: String(f.value), color: FUNNEL_COLORS[i] ?? '#94a3b8' }))
+    : FUNNEL
+  const W = 190, stepH = 46, gap = 5, n = FUNNEL_DATA.length
   const maxW = 186, minW = 86
-  const widths = FUNNEL.map((_, i) => maxW - (maxW - minW) * (i / (n - 1)))
+  const widths = FUNNEL_DATA.map((_, i) => maxW - (maxW - minW) * (i / (n - 1)))
   const svgH = n * (stepH + gap)
 
   return (
@@ -259,7 +270,7 @@ function EmbudoChart() {
       <div style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
         <svg viewBox={`0 0 ${W} ${svgH}`} width={W} height={svgH} style={{ flexShrink:0, overflow:'visible' }}>
           <defs>
-            {FUNNEL.map((step, i) => (
+            {FUNNEL_DATA.map((step, i) => (
               <filter key={i} id={`fg${i}`} x="-25%" y="-40%" width="150%" height="180%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
                 <feMerge>
@@ -270,22 +281,19 @@ function EmbudoChart() {
             ))}
           </defs>
 
-          {FUNNEL.map((step, i) => {
+          {FUNNEL_DATA.map((step, i) => {
             const y0 = i * (stepH + gap), y1 = y0 + stepH
             const tw = widths[i], bw = widths[i + 1] ?? widths[i] * 0.84
             const tm = (W - tw) / 2, bm = (W - bw) / 2
             const pts = `${tm},${y0} ${tm+tw},${y0} ${bm+bw},${y1} ${bm},${y1}`
             return (
               <g key={i}>
-                {/* halo exterior (blur del borde) */}
                 <polygon points={pts} fill="none"
                   stroke={step.color} strokeWidth={4} opacity={0.7}
                   filter={`url(#fg${i})`} />
-                {/* cuerpo: fill oscuro tintado + borde nítido */}
                 <polygon points={pts}
                   fill={step.color + '55'}
                   stroke={step.color} strokeWidth={1.5} />
-                {/* texto blanco */}
                 <text x={W / 2} y={y0 + stepH / 2 + 4} textAnchor="middle"
                   fill="white" fontSize="10.5" fontWeight="600"
                   style={{ filter:'drop-shadow(0 0 4px rgba(255,255,255,0.4))' }}>
@@ -298,7 +306,7 @@ function EmbudoChart() {
 
         {/* Valores */}
         <div style={{ display:'flex', flexDirection:'column' }}>
-          {FUNNEL.map((step, i) => (
+          {FUNNEL_DATA.map((step, i) => (
             <div key={i} style={{ height: stepH + gap, display:'flex', alignItems:'center' }}>
               <span style={{
                 fontSize: 12, fontWeight: 600, whiteSpace:'nowrap',
@@ -316,86 +324,99 @@ function EmbudoChart() {
 }
 
 // ─── Donut ────────────────────────────────────────────────────────────────────
-function DonutChart() {
+const DONUT_COLORS = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#06b6d4']
+
+function DonutChart({ callsByCampaign, totalCalls }) {
   const SIZE = 190
+  const donutData = callsByCampaign?.length
+    ? callsByCampaign.map((c, i) => ({ ...c, name: c.name, pct: c.pct, color: DONUT_COLORS[i % DONUT_COLORS.length] }))
+    : DONUT
+  const centerCount = totalCalls ?? (callsByCampaign ? 0 : 1248)
+
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', gap:10, height:'100%' }} className="fade-up">
       <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
-        Distribución por campaña
+        Llamadas por campaña
       </h3>
 
-      {/* Donut centrado */}
       <div style={{ position:'relative', width:SIZE, height:SIZE, margin:'0 auto' }}>
         <PieChart width={SIZE} height={SIZE}>
-          <Pie data={DONUT} cx={SIZE/2} cy={SIZE/2}
+          <Pie data={donutData} cx={SIZE/2} cy={SIZE/2}
             innerRadius={58} outerRadius={84}
             dataKey="pct" paddingAngle={3} startAngle={90} endAngle={-270}>
-            {DONUT.map((d, i) => <Cell key={i} fill={d.color} />)}
+            {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
           </Pie>
           <Tooltip contentStyle={tooltipStyle.contentStyle} itemStyle={tooltipStyle.itemStyle}
             formatter={(v, name, props) => [`${v}% (${props.payload.value})`, props.payload.name]} />
         </PieChart>
         <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', textAlign:'center', pointerEvents:'none' }}>
-          <div style={{ fontSize:24, fontWeight:800, color:'#ffffff', lineHeight:1, textShadow:'0 0 16px rgba(255,255,255,0.3)' }}>1.248</div>
+          <div style={{ fontSize:24, fontWeight:800, color:'#ffffff', lineHeight:1, textShadow:'0 0 16px rgba(255,255,255,0.3)' }}>{centerCount.toLocaleString('es-ES')}</div>
           <div style={{ fontSize:11, color:'#6b7280', marginTop:4 }}>Llamadas</div>
         </div>
       </div>
 
-      {/* Leyenda ocupa el espacio restante */}
       <div style={{ display:'flex', flexDirection:'column', gap:10, flex:1, justifyContent:'center' }}>
-        {DONUT.map(d => (
-          <div key={d.name} style={{ display:'flex', alignItems:'center', gap:9 }}>
-            <div style={{ width:9, height:9, borderRadius:'50%', background:d.color, flexShrink:0,
-              boxShadow:`0 0 6px ${d.color}` }} />
-            <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ margin:0, fontSize:12, color:'#e2e8f0', fontWeight:600, lineHeight:1.2 }}>{d.name}</p>
-              <p style={{ margin:0, fontSize:11, color:'#6b7280' }}>{d.pct}% ({d.value})</p>
+        {donutData.length === 0
+          ? <p style={{ margin:0, fontSize:12, color:'#4b5563', textAlign:'center' }}>Sin datos de campañas</p>
+          : donutData.map(d => (
+            <div key={d.name} style={{ display:'flex', alignItems:'center', gap:9 }}>
+              <div style={{ width:9, height:9, borderRadius:'50%', background:d.color, flexShrink:0, boxShadow:`0 0 6px ${d.color}` }} />
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ margin:0, fontSize:12, color:'#e2e8f0', fontWeight:600, lineHeight:1.2 }}>{d.name}</p>
+                <p style={{ margin:0, fontSize:11, color:'#6b7280' }}>{d.pct}% ({d.value})</p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        }
       </div>
     </div>
   )
 }
 
 // ─── Ingresos (Bar) ───────────────────────────────────────────────────────────
-function IngresosChart() {
+function IngresosChart({ pipelineByDay, pipelinePct }) {
+  const barData = pipelineByDay?.length ? pipelineByDay : BAR_DATA
+  const weekTotal = barData.reduce((s, d) => s + d.value, 0)
+  const maxVal = Math.max(...barData.map(d => d.value), 1)
+  const yMax = Math.ceil(maxVal * 1.25 / 1000) * 1000 || 10000
+  const yTicks = [0, Math.round(yMax / 3 / 1000) * 1000, Math.round(yMax * 2 / 3 / 1000) * 1000, yMax]
+  const isReal = !!pipelineByDay?.length
+
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', gap:12 }} className="fade-up">
       <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
-        Ingresos generados
+        Pipeline esta semana
       </h3>
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-        <span style={{ fontSize:28, fontWeight:800, color:'#ffffff', letterSpacing:-1, textShadow:'0 0 20px rgba(255,255,255,0.25)' }}>€98.750</span>
-        <HiArrowUp style={{ width:13, height:13, color:'#4ade80' }} />
-        <span style={{ fontSize:12, color:'#4ade80', fontWeight:700 }}>32.2%</span>
-        <span style={{ fontSize:11, color:'#94a3b8' }}>vs. semana anterior</span>
+        <span style={{ fontSize:28, fontWeight:800, color:'#ffffff', letterSpacing:-1, textShadow:'0 0 20px rgba(255,255,255,0.25)' }}>
+          €{Math.round(weekTotal).toLocaleString('es-ES')}
+        </span>
+        {isReal && pipelinePct != null && (
+          <>
+            {pipelinePct >= 0
+              ? <HiArrowUp style={{ width:13, height:13, color:'#4ade80' }} />
+              : <HiArrowDown style={{ width:13, height:13, color:'#f87171' }} />
+            }
+            <span style={{ fontSize:12, color: pipelinePct >= 0 ? '#4ade80' : '#f87171', fontWeight:700 }}>{Math.abs(pipelinePct)}%</span>
+            <span style={{ fontSize:11, color:'#94a3b8' }}>vs. semana anterior</span>
+          </>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={BAR_DATA} margin={{ top:8, right:0, left:0, bottom:0 }} barCategoryGap="35%">
+        <BarChart data={barData} margin={{ top:8, right:0, left:0, bottom:0 }} barCategoryGap="35%">
           <defs>
             <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%"   stopColor="#c084fc" stopOpacity={1} />
               <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.6} />
             </linearGradient>
-            <filter id="barGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
           </defs>
           <CartesianGrid stroke="#1a2235" vertical={false} />
           <XAxis dataKey="date" tick={{ fill:'#94a3b8', fontSize:10 }} axisLine={false} tickLine={false} />
-          <YAxis domain={[0,30000]} ticks={[0,10000,20000,30000]}
-            tickFormatter={v => v===0 ? '0' : `${v/1000}k`}
+          <YAxis domain={[0, yMax]} ticks={yTicks}
+            tickFormatter={v => v === 0 ? '0' : `${(v/1000).toFixed(0)}k`}
             tick={{ fill:'#94a3b8', fontSize:10 }} axisLine={false} tickLine={false} width={30} />
-          <Tooltip {...tooltipStyle} formatter={v => [`€${v.toLocaleString('es-ES')}`, 'Ingresos']} />
-          {/* glow layer */}
-          <Bar dataKey="value" fill="#a855f7" fillOpacity={0.25} radius={[5,5,0,0]}
-            isAnimationActive={false} />
-          {/* barra nítida */}
+          <Tooltip {...tooltipStyle} formatter={v => [`€${v.toLocaleString('es-ES')}`, 'Pipeline']} />
+          <Bar dataKey="value" fill="#a855f7" fillOpacity={0.25} radius={[5,5,0,0]} isAnimationActive={false} />
           <Bar dataKey="value" fill="url(#barGrad)" radius={[5,5,0,0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -404,38 +425,54 @@ function IngresosChart() {
 }
 
 // ─── Agentes ─────────────────────────────────────────────────────────────────
-function AgentesTable() {
+const AGENT_BG = ['#4f46e5','#0891b2','#7c3aed','#0d9488','#be185d']
+
+function AgentesTable({ agents: agentsProp }) {
+  const navigate = useNavigate()
+  const displayAgents = agentsProp
+    ? agentsProp.map((a, i) => ({
+        name: a.name,
+        initials: a.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+        mtgs: a.calls,
+        conv: null,
+        bar: agentsProp[0]?.calls > 0 ? a.calls / agentsProp[0].calls : 0,
+        bg: AGENT_BG[i % AGENT_BG.length],
+      }))
+    : null
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column' }} className="fade-up">
       <h3 style={{ margin:'0 0 14px', fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
         Top agentes por rendimiento
       </h3>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 64px 100px', gap:8, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
-        {['Agente','Reuniones','Conversión'].map(h => (
+        {['Agente','Llamadas','Conversión'].map(h => (
           <span key={h} style={{ fontSize:10.5, color:'#6b7280', fontWeight:600, textTransform:'uppercase', letterSpacing:0.5 }}>{h}</span>
         ))}
       </div>
-      {AGENTS.map((a, i) => (
-        <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 64px 100px', gap:8, alignItems:'center', padding:'10px 0', borderBottom: i<AGENTS.length-1 ? '1px solid #111827' : 'none' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-            <div style={{ width:32, height:32, borderRadius:'50%', background:a.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10.5, fontWeight:700, color:'white', flexShrink:0, boxShadow:`0 0 10px ${a.bg}80` }}>
-              {a.initials}
+      {!displayAgents || displayAgents.length === 0
+        ? <p style={{ margin:'12px 0', fontSize:12, color:'#4b5563', textAlign:'center' }}>Sin datos de llamadas por agente</p>
+        : displayAgents.map((a, i) => (
+          <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 64px 100px', gap:8, alignItems:'center', padding:'10px 0', borderBottom: i<displayAgents.length-1 ? '1px solid #111827' : 'none' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+              <div style={{ width:32, height:32, borderRadius:'50%', background:a.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10.5, fontWeight:700, color:'white', flexShrink:0, boxShadow:`0 0 10px ${a.bg}80` }}>
+                {a.initials}
+              </div>
+              <span style={{ fontSize:12.5, color:'#ffffff', fontWeight:500 }}>{a.name}</span>
             </div>
-            <span style={{ fontSize:12.5, color:'#ffffff', fontWeight:500 }}>{a.name}</span>
-          </div>
-          <span style={{ fontSize:13, color:'#e2e8f0', textAlign:'center', fontWeight:600 }}>{a.mtgs}</span>
-          <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-            <div style={{ flex:1, height:5, borderRadius:99, background:'#1a2235' }}>
-              <div style={{ width:`${a.bar*100}%`, height:'100%', borderRadius:99,
-                background:'linear-gradient(90deg,#10b981,#34d399)',
-                boxShadow:'0 0 8px #10b98180' }} />
+            <span style={{ fontSize:13, color:'#e2e8f0', textAlign:'center', fontWeight:600 }}>{a.mtgs}</span>
+            <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+              <div style={{ flex:1, height:5, borderRadius:99, background:'#1a2235' }}>
+                <div style={{ width:`${a.bar*100}%`, height:'100%', borderRadius:99,
+                  background:'linear-gradient(90deg,#10b981,#34d399)',
+                  boxShadow:'0 0 8px #10b98180' }} />
+              </div>
+              {a.conv != null && <span style={{ fontSize:11.5, color:'#4ade80', width:34, flexShrink:0, fontWeight:600 }}>{a.conv}%</span>}
             </div>
-            <span style={{ fontSize:11.5, color:'#4ade80', width:34, flexShrink:0, fontWeight:600 }}>{a.conv}%</span>
           </div>
-        </div>
-      ))}
+        ))
+      }
       <div style={{ borderTop:'1px solid #1a2235', marginTop:6, paddingTop:10 }}>
-        <button style={{ display:'flex', width:'100%', justifyContent:'space-between', alignItems:'center', background:'none', border:'none', color:'#818cf8', cursor:'pointer', fontSize:12.5, fontWeight:600, padding:0, textShadow:'0 0 8px #818cf880' }}>
+        <button onClick={() => navigate('/agentes')} style={{ display:'flex', width:'100%', justifyContent:'space-between', alignItems:'center', background:'none', border:'none', color:'#818cf8', cursor:'pointer', fontSize:12.5, fontWeight:600, padding:0, textShadow:'0 0 8px #818cf880' }}>
           <span>Ver todos los agentes</span>
           <RiArrowRightLine style={{ width:15, height:15 }} />
         </button>
@@ -444,37 +481,62 @@ function AgentesTable() {
   )
 }
 
-// ─── Alertas ──────────────────────────────────────────────────────────────────
+// ─── Actividad Reciente ───────────────────────────────────────────────────────
 function AlertasIA() {
+  const navigate = useNavigate()
+  const [items, setItems] = useState([])
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    apiFetch('/api/dashboard/activity?limit=4').then(r => r.json()).then(data => {
+      setItems(data)
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [])
+
+  const display = items.map(item => {
+    const isCall = item.type === 'call'
+    return {
+      Icon: isCall ? RiPhoneLine : RiCalendarLine,
+      color: isCall ? '#3b82f6' : '#10b981',
+      text: isCall
+        ? `Llamada con ${item.data.lead?.name ?? 'Lead'} — ${item.data.durationSeconds ? `${Math.round(item.data.durationSeconds / 60)} min` : item.data.status}`
+        : `Reunión: ${item.data.title} con ${item.data.lead?.name ?? 'Lead'}`,
+    }
+  })
+
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', gap:10 }} className="fade-up">
       <h3 style={{ margin:'0 0 4px', fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
-        Alertas IA
+        Actividad reciente
       </h3>
-      {ALERTS.map((a, i) => (
-        <div key={i} style={{
-          display:'flex', alignItems:'flex-start', gap:10,
-          background: a.color + '0d',
-          border:`1px solid ${a.color}40`,
-          borderRadius:10, padding:'10px 11px',
-          boxShadow:`0 0 14px ${a.color}15`,
-        }}>
-          <div style={{
-            width:28, height:28, borderRadius:8,
-            background: a.color + '25',
-            border:`1px solid ${a.color}50`,
-            boxShadow:`0 0 10px ${a.color}40`,
-            display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-          }}>
-            <a.Icon style={{ width:14, height:14, color:a.color }} />
-          </div>
-          <p style={{ margin:0, fontSize:11.5, color:'#cbd5e1', lineHeight:1.55, flex:1 }}>{a.text}</p>
-          <RiArrowRightLine style={{ width:13, height:13, color: a.color, flexShrink:0, marginTop:2, opacity:0.7 }} />
-        </div>
-      ))}
+      {!loaded
+        ? <p style={{ margin:'8px 0', fontSize:12, color:'#4b5563' }}>Cargando…</p>
+        : display.length === 0
+          ? <p style={{ margin:'8px 0', fontSize:12, color:'#4b5563' }}>Sin actividad reciente</p>
+          : display.map((a, i) => (
+            <div key={i} style={{
+              display:'flex', alignItems:'flex-start', gap:10,
+              background: a.color + '0d',
+              border:`1px solid ${a.color}40`,
+              borderRadius:10, padding:'10px 11px',
+              boxShadow:`0 0 14px ${a.color}15`,
+            }}>
+              <div style={{
+                width:28, height:28, borderRadius:8,
+                background: a.color + '25',
+                border:`1px solid ${a.color}50`,
+                boxShadow:`0 0 10px ${a.color}40`,
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+              }}>
+                <a.Icon style={{ width:14, height:14, color:a.color }} />
+              </div>
+              <p style={{ margin:0, fontSize:11.5, color:'#cbd5e1', lineHeight:1.55, flex:1 }}>{a.text}</p>
+            </div>
+          ))
+      }
       <div style={{ borderTop:'1px solid #1a2235', paddingTop:10, marginTop:2 }}>
-        <button style={{ display:'flex', width:'100%', justifyContent:'space-between', alignItems:'center', background:'none', border:'none', color:'#818cf8', cursor:'pointer', fontSize:12.5, fontWeight:600, padding:0, textShadow:'0 0 8px #818cf880' }}>
-          <span>Ver todas las alertas</span>
+        <button onClick={() => navigate('/llamadas')} style={{ display:'flex', width:'100%', justifyContent:'space-between', alignItems:'center', background:'none', border:'none', color:'#818cf8', cursor:'pointer', fontSize:12.5, fontWeight:600, padding:0, textShadow:'0 0 8px #818cf880' }}>
+          <span>Ver toda la actividad</span>
           <RiArrowRightLine style={{ width:15, height:15 }} />
         </button>
       </div>
@@ -498,6 +560,29 @@ export default function Dashboard() {
   const [openCompare, setOpenCompare] = useState(false)
   const compareRef = useRef(null)
   useClickOutside([compareRef], () => setOpenCompare(false))
+
+  const [kpi, setKpi] = useState(KPI)
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    apiFetch('/api/dashboard/stats').then(r => r.json()).then(s => {
+      setStats(s)
+      const fmt = n => n ? `€${Math.round(n).toLocaleString('es-ES')}` : null
+      const p = s.kpiPcts ?? {}
+      const overrides = [
+        { value: String(s.totalCalls),                          pct: p.calls    ?? null },
+        { value: String(s.totalLeads),                          pct: p.leads    ?? null },
+        { value: String(s.meetingsScheduled),                   pct: p.meetings ?? null },
+        { value: `${s.conversionRate ?? 0}%`,                   pct: null },
+        { value: `€${Math.round(s.pipelineValue ?? 0).toLocaleString('es-ES')}`, pct: p.pipeline ?? null },
+        { value: fmt(s.closedWonValue) ?? '—',                  pct: null },
+        { value: 'N/D',                                          pct: null },
+      ]
+      setKpi(prev => prev.map((k, i) => {
+        const o = overrides[i]
+        return { ...k, ...(o.value != null ? { value: o.value } : {}), pct: o.pct }
+      }))
+    }).catch(() => {})
+  }, [])
 
   const compareLabel = COMPARE_OPTIONS.find(o => o.key === compare)?.label
 
@@ -558,7 +643,7 @@ export default function Dashboard() {
           {/* Export dropdown */}
           <ExportDropdown
             filename={`dashboard_${startDate || 'hoy'}_${endDate || 'hoy'}.csv`}
-            data={KPI}
+            data={kpi}
             columns={[
               { header:'Métrica', getValue:k => k.label.replace('\n',' ') },
               { header:'Valor',   getValue:k => k.value },
@@ -571,20 +656,20 @@ export default function Dashboard() {
 
       {/* KPI row */}
       <div style={{ display:'flex', gap:12 }}>
-        {KPI.map((k, i) => <KPICard key={k.label} {...k} delay={`${i*55}ms`} large />)}
+        {kpi.map((k, i) => <KPICard key={k.label} {...k} delay={`${i*55}ms`} large />)}
       </div>
 
       {/* Middle row */}
       <div style={{ display:'grid', gridTemplateColumns:'1.55fr 1fr 1fr', gap:14 }}>
-        <RendimientoChart />
-        <EmbudoChart />
-        <DonutChart />
+        <RendimientoChart dayData={stats?.timeSeries} />
+        <EmbudoChart funnel={stats?.funnel} />
+        <DonutChart callsByCampaign={stats?.callsByCampaign} totalCalls={stats?.totalCalls} />
       </div>
 
       {/* Bottom row */}
       <div style={{ display:'grid', gridTemplateColumns:'1.15fr 1.15fr 1fr', gap:14 }}>
-        <IngresosChart />
-        <AgentesTable />
+        <IngresosChart pipelineByDay={stats?.pipelineByDay} pipelinePct={stats?.kpiPcts?.pipeline} />
+        <AgentesTable agents={stats?.agentLeaderboard} />
         <AlertasIA />
       </div>
     </div>

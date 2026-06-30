@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 import {
   RiGroupLine, RiStarLine, RiTimeLine, RiCalendarLine, RiCalendar2Line,
   RiMoneyDollarBoxLine, RiSearchLine, RiFilterLine, RiAddLine,
@@ -11,6 +13,7 @@ import '../dashboard.css'
 import KPICard from './KPICard'
 import DataTable from './DataTable'
 import NewLeadModal from '../modals/NewLeadModal'
+import NewReunionModal from '../modals/NewReunionModal'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const KPI_LIST = [
@@ -45,7 +48,7 @@ const ACT_ICONS = {
   delete:   { Icon: RiDeleteBinLine,color: '#ef4444' },
 }
 
-const LEADS = [
+export const LEADS = [
   { id:1, initials:'CM', bg:'#4f46e5', name:'Carlos Méndez',    role:'CTO',               company:'TechSolutions S.L.',  ci:'TS', cb:'#0891b2', status:'Interesado',       score:82, sl:'Muy alto', act:{ type:'phone',    date:'Hoy, 11:32',       action:'Llamada realizada'   }, value:'€45.000', agent:{i:'SM',bg:'#4f46e5'}, closePct:82, closeLevel:'Muy alta',  potValue:'€45.000', source:'Importación CRM', painPoints:['Integraciones complejas','Falta de visibilidad','Procesos manuales','Escalabilidad'], tags:['SaaS','+50 empleados','España','Tecnología'] },
   { id:2, initials:'LF', bg:'#7c3aed', name:'Laura Fernández',  role:'Directora de Ops',  company:'DataPro Iberia',       ci:'DP', cb:'#1d4ed8', status:'En seguimiento',   score:71, sl:'Alto',     act:{ type:'email',    date:'Ayer, 16:45',      action:'Email enviado'       }, value:'€32.000', agent:{i:'CG',bg:'#059669'}, closePct:65, closeLevel:'Alta',     potValue:'€32.000', source:'LinkedIn',       painPoints:['Gestión de datos','Automatización'],                                              tags:['B2B','Madrid']         },
   { id:3, initials:'JR', bg:'#059669', name:'Javier Ruiz',      role:'Head of Sales',     company:'Global Industries',    ci:'GI', cb:'#047857', status:'Reunión agendada', score:68, sl:'Alto',     act:{ type:'calendar', date:'Ayer, 09:15',      action:'Reunión agendada'    }, value:'€28.000', agent:{i:'SM',bg:'#4f46e5'}, closePct:60, closeLevel:'Alta',     potValue:'€28.000', source:'Referido',       painPoints:['Pipeline visibility','Lead tracking'],                                            tags:['Enterprise','Ventas']  },
@@ -56,6 +59,43 @@ const LEADS = [
   { id:8, initials:'EG', bg:'#047857', name:'Elena Gómez',      role:'Finance Director',  company:'Retail Group',         ci:'RG', cb:'#1d4ed8', status:'Interesado',       score:74, sl:'Alto',     act:{ type:'mailopen', date:'22 may, 15:48',   action:'Email abierto'       }, value:'€38.000', agent:{i:'SM',bg:'#4f46e5'}, closePct:62, closeLevel:'Alta',     potValue:'€38.000', source:'LinkedIn',       painPoints:['Reporting','Visibilidad financiera'],                                             tags:['Retail','Madrid']      },
   { id:9, initials:'RT', bg:'#1d4ed8', name:'Ramón Torres',     role:'Product Manager',   company:'NextGen Tech',         ci:'NG', cb:'#6366f1', status:'En seguimiento',   score:61, sl:'Alto',     act:{ type:'phone',    date:'21 may, 13:22',   action:'Llamada realizada'   }, value:'€24.000', agent:{i:'CG',bg:'#059669'}, closePct:55, closeLevel:'Media',    potValue:'€24.000', source:'Referido',       painPoints:['Time to market','Procesos ágiles'],                                               tags:['Tech','SaaS']          },
 ]
+
+// ─── Backend mapping ──────────────────────────────────────────────────────────
+const LEAD_BG = ['#4f46e5','#7c3aed','#059669','#0891b2','#b45309','#be185d','#374151','#047857']
+const BACKEND_STATUS = { new:'Nuevo', contacted:'Contactado', qualified:'Interesado', unqualified:'Perdido', converted:'Ganado' }
+const SCORE_BY_STATUS = { new:40, contacted:55, qualified:75, unqualified:20, converted:90 }
+const LEVEL_BY_STATUS = { new:'Medio', contacted:'Medio', qualified:'Alto', unqualified:'Bajo', converted:'Muy alto' }
+const ACT_BY_STATUS   = { new:'Lead creado', contacted:'Contactado', qualified:'Calificado', unqualified:'Descartado', converted:'Convertido' }
+
+function mapLead(l, i) {
+  const score = SCORE_BY_STATUS[l.status] ?? 50
+  const sl    = LEVEL_BY_STATUS[l.status] ?? 'Medio'
+  return {
+    id: l.id,
+    initials: (l.name ?? '??').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase(),
+    bg: LEAD_BG[i % LEAD_BG.length],
+    name: l.name ?? '—',
+    role: l.customFields?.role ?? '',
+    company: l.company ?? '—',
+    ci: (l.company ?? '?').slice(0,2).toUpperCase(),
+    cb: '#1d4ed8',
+    status: BACKEND_STATUS[l.status] ?? 'Nuevo',
+    score, sl,
+    act: {
+      type: l.status === 'contacted' || l.status === 'qualified' ? 'phone' : l.status === 'converted' ? 'calendar' : 'upload',
+      date: l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('es-ES', { month:'short', day:'numeric' }) : '—',
+      action: ACT_BY_STATUS[l.status] ?? 'Actualizado',
+    },
+    value: '—',
+    agent: { i: '—', bg: '#374151' },
+    closePct: score,
+    closeLevel: sl,
+    potValue: '—',
+    source: l.source ?? '—',
+    painPoints: [],
+    tags: Array.isArray(l.tags) ? l.tags : [],
+  }
+}
 
 const FILTER_TABS = ['Todos','Nuevos','Contactados','Interesados','Reunión','Negociación','Ganados','Perdidos']
 const DETAIL_TABS = ['Resumen','Actividad','Información','Notas','Archivos']
@@ -158,8 +198,10 @@ function TH({ children, style }) {
 }
 
 // ─── Right panel ─────────────────────────────────────────────────────────────
-function LeadDetail({ lead, onClose }) {
+function LeadDetail({ lead, onClose, onSchedule }) {
   const [tab, setTab] = useState('Resumen')
+  const [showNote, setShowNote] = useState(false)
+  const [showAllPains, setShowAllPains] = useState(false)
   const closeColor = SCORE_COLOR[lead.sl] || '#10b981'
 
   return (
@@ -207,13 +249,13 @@ function LeadDetail({ lead, onClose }) {
         {/* Action buttons */}
         <div style={{ display: 'flex', borderTop: '1px solid #111827', paddingTop: 10, paddingBottom: 10, gap: 0 }}>
           {[
-            { Icon: RiPhoneLine,    label: 'Llamar'  },
-            { Icon: RiMailLine,     label: 'Email'   },
-            { Icon: RiCalendar2Line,label: 'Agendar' },
-            { Icon: RiFileTextLine, label: 'Nota'    },
-            { Icon: RiMoreLine,     label: 'Más'     },
-          ].map(({ Icon, label }) => (
-            <button key={label} style={{
+            { Icon: RiPhoneLine,    label: 'Llamar',  action: () => window.open(`tel:+34600000000`) },
+            { Icon: RiMailLine,     label: 'Email',   action: () => window.open(`mailto:?subject=Seguimiento - ${lead.name}`) },
+            { Icon: RiCalendar2Line,label: 'Agendar', action: onSchedule },
+            { Icon: RiFileTextLine, label: 'Nota',    action: () => setShowNote(v => !v) },
+            { Icon: RiMoreLine,     label: 'Más',     action: () => {} },
+          ].map(({ Icon, label, action }) => (
+            <button key={label} onClick={action} style={{
               flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
               background: 'none', border: 'none', cursor: 'pointer', padding: '6px 2px',
               borderRadius: 8, transition: 'background 0.15s',
@@ -226,6 +268,15 @@ function LeadDetail({ lead, onClose }) {
             </button>
           ))}
         </div>
+        {showNote && (
+          <div style={{ padding: '0 14px 12px', borderBottom: '1px solid #111827' }}>
+            <textarea
+              placeholder="Escribe una nota..."
+              autoFocus
+              style={{ width: '100%', boxSizing: 'border-box', minHeight: 68, background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '8px 10px', color: '#94a3b8', fontSize: 12, resize: 'none', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
+            />
+          </div>
+        )}
 
         {/* Detail tabs */}
         <div style={{ display: 'flex', borderTop: '1px solid #111827', marginLeft: -14, marginRight: -14, paddingLeft: 14 }}>
@@ -246,6 +297,14 @@ function LeadDetail({ lead, onClose }) {
 
       {/* Content */}
       <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: '14px' }}>
+
+        {tab !== 'Resumen' && (
+          <p style={{ textAlign: 'center', padding: '40px 16px', color: '#374151', fontSize: 13 }}>
+            Próximamente en <strong style={{ color: '#818cf8' }}>{tab}</strong>
+          </p>
+        )}
+
+        {tab === 'Resumen' && (<>
 
         {/* Probabilidad de cierre */}
         <div style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
@@ -269,12 +328,12 @@ function LeadDetail({ lead, onClose }) {
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#fff' }}>Pain points detectados</p>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1', fontSize: 11, fontWeight: 600, padding: 0 }}>
-                Ver todos
+              <button onClick={() => setShowAllPains(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1', fontSize: 11, fontWeight: 600, padding: 0 }}>
+                {showAllPains ? 'Ver menos' : 'Ver todos'}
               </button>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {lead.painPoints.map(p => (
+              {(showAllPains ? lead.painPoints : lead.painPoints.slice(0, 3)).map(p => (
                 <span key={p} style={{
                   fontSize: 10.5, color: '#94a3b8', background: '#111827',
                   border: '1px solid #1e2433', borderRadius: 6, padding: '3px 8px',
@@ -336,7 +395,7 @@ function LeadDetail({ lead, onClose }) {
               </p>
             </div>
           </div>
-          <button style={{
+          <button onClick={onSchedule} style={{
             width: '100%', padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer',
             background: 'linear-gradient(135deg,#4f46e5,#6366f1)',
             color: '#fff', fontSize: 12, fontWeight: 600,
@@ -369,6 +428,8 @@ function LeadDetail({ lead, onClose }) {
             }}>+</button>
           </div>
         </div>
+
+        </>)}
       </div>
     </div>
   )
@@ -376,13 +437,47 @@ function LeadDetail({ lead, onClose }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function LeadsPage() {
-  const [selected, setSelected] = useState(LEADS[0])
+  const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState('Todos')
   const [search, setSearch] = useState('')
   const [checked, setChecked] = useState(new Set([1]))
   const [showNewLead, setShowNewLead] = useState(false)
+  const [leads, setLeads] = useState([])
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 })
+  const [stats, setStats] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const filtered = LEADS.filter(l => {
+  useEffect(() => {
+    apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    apiFetch(`/api/leads?page=${page}&limit=20`)
+      .then(r => r.json())
+      .then(d => {
+        const items = Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : []
+        setMeta({ total: d.total ?? items.length, totalPages: d.totalPages ?? 1 })
+        setLeads(items.map(mapLead))
+      })
+      .catch(() => {})
+  }, [page, refreshKey])
+
+  const kpiList = useMemo(() => {
+    if (!stats) return KPI_LIST.map(k => ({ ...k, value: '—', pct: null }))
+    const funnel = stats.funnel ?? []
+    const hot = (funnel.find(f => f.label === 'Calificados')?.value ?? 0)
+    const inProg = (funnel.find(f => f.label === 'Contactados')?.value ?? 0)
+    return [
+      { ...KPI_LIST[0], value: (stats.totalLeads ?? 0).toLocaleString('es-ES'), pct: stats.kpiPcts?.leads ?? null },
+      { ...KPI_LIST[1], value: hot.toLocaleString('es-ES'), pct: null },
+      { ...KPI_LIST[2], value: inProg.toLocaleString('es-ES'), pct: null },
+      { ...KPI_LIST[3], value: (stats.meetingsScheduled ?? 0).toLocaleString('es-ES'), pct: stats.kpiPcts?.meetings ?? null },
+      { ...KPI_LIST[4], value: `€${Math.round(stats.pipelineValue ?? 0).toLocaleString('es-ES')}`, pct: stats.kpiPcts?.pipeline ?? null },
+    ]
+  }, [stats])
+
+  const filtered = leads.filter(l => {
     if (search && !l.name.toLowerCase().includes(search.toLowerCase()) && !l.company.toLowerCase().includes(search.toLowerCase())) return false
     const map = { Nuevos: 'Nuevo', Contactados: 'Contactado', Interesados: 'Interesado', Reunión: 'Reunión agendada', Negociación: 'Negociación', Ganados: 'Ganado', Perdidos: 'Perdido' }
     return activeFilter === 'Todos' || l.status === map[activeFilter]
@@ -469,7 +564,7 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {showNewLead && <NewLeadModal onClose={() => setShowNewLead(false)} />}
+      {showNewLead && <NewLeadModal onClose={() => setShowNewLead(false)} onSuccess={() => { setShowNewLead(false); setRefreshKey(k => k + 1) }} />}
 
       {/* ── Body: left + right panel ── */}
       <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', padding: '18px 32px 24px' }}>
@@ -479,7 +574,7 @@ export default function LeadsPage() {
 
           {/* KPI bar */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexShrink: 0 }}>
-            {KPI_LIST.map((k, i) => (
+            {kpiList.map((k, i) => (
               <KPICard key={i} {...k} delay={`${i * 60}ms`} compact />
             ))}
           </div>
@@ -526,45 +621,56 @@ export default function LeadsPage() {
               gridTemplate={COLS}
               rows={filtered}
               rowKey="id"
-              selected={selected?.id}
-              onSelect={setSelected}
+              onSelect={l => navigate('/leads/' + l.id)}
               renderRow={renderLead}
               accent="#6366f1"
+              emptyText="Sin leads registrados"
               style={{ background: 'transparent', border: 'none', borderRadius: 0, flex: 1, minHeight: 0 }}
             />
 
             {/* Pagination */}
             <div style={{ padding: '10px 20px', borderTop: '1px solid #111827', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: '#4b5563' }}>Mostrando 1 a 10 de 2.584 leads</span>
+              <span style={{ fontSize: 11, color: '#4b5563' }}>
+                Mostrando {meta.total === 0 ? 0 : Math.min((page-1)*20+1, meta.total)} a {Math.min(page*20, meta.total)} de {meta.total.toLocaleString('es-ES')} leads
+              </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <PgBtn><HiChevronLeft style={{ width: 12, height: 12 }} /></PgBtn>
-                {[1, 2, 3].map(n => <PgBtn key={n} active={n === 1}>{n}</PgBtn>)}
-                <span style={{ fontSize: 11, color: '#4b5563', padding: '0 2px' }}>...</span>
-                <PgBtn>259</PgBtn>
-                <PgBtn><HiChevronRight style={{ width: 12, height: 12 }} /></PgBtn>
+                <PgBtn onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}>
+                  <HiChevronLeft style={{ width: 12, height: 12 }} />
+                </PgBtn>
+                {[page-1, page, page+1].filter(n => n >= 1 && n <= meta.totalPages).map(n => (
+                  <PgBtn key={n} active={n === page} onClick={() => setPage(n)}>{n}</PgBtn>
+                ))}
+                {page + 1 < meta.totalPages && (
+                  <>
+                    <span style={{ fontSize: 11, color: '#4b5563', padding: '0 2px' }}>…</span>
+                    <PgBtn onClick={() => setPage(meta.totalPages)}>{meta.totalPages}</PgBtn>
+                  </>
+                )}
+                <PgBtn onClick={() => setPage(p => Math.min(meta.totalPages, p+1))} disabled={page === meta.totalPages}>
+                  <HiChevronRight style={{ width: 12, height: 12 }} />
+                </PgBtn>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 11, color: '#4b5563' }}>10 por página</span>
+                <span style={{ fontSize: 11, color: '#4b5563' }}>20 por página</span>
                 <HiChevronDown style={{ width: 12, height: 12, color: '#4b5563' }} />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right panel */}
-        {selected && <LeadDetail lead={selected} onClose={() => setSelected(null)} />}
       </div>
     </div>
   )
 }
 
-function PgBtn({ children, active }) {
+function PgBtn({ children, active, onClick, disabled }) {
   return (
-    <button style={{
-      minWidth: 26, height: 26, borderRadius: 6, border: 'none', cursor: 'pointer',
+    <button onClick={onClick} disabled={disabled} style={{
+      minWidth: 26, height: 26, borderRadius: 6, border: 'none',
+      cursor: disabled ? 'default' : 'pointer',
       padding: '0 5px',
       background: active ? '#6366f1' : 'transparent',
-      color: active ? '#fff' : '#6b7280',
+      color: active ? '#fff' : disabled ? '#1e2433' : '#6b7280',
       fontSize: 11.5, fontWeight: active ? 600 : 400,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>

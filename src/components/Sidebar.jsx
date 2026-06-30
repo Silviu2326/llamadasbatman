@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import '../sidebar.css'
 import {
   RiDashboard3Fill, RiSendPlaneLine, RiPhoneLine, RiGroupLine,
   RiRobot2Line, RiShoppingCart2Line, RiCalendarLine, RiBook2Line,
   RiBarChartLine, RiFlowChart, RiBookReadLine, RiSettings4Line,
+  RiLogoutBoxLine, RiMicLine,
 } from 'react-icons/ri'
 import { HiChevronDown, HiArrowRight } from 'react-icons/hi'
+import { useAuth } from '../contexts/AuthContext'
 
 const MENU_ITEMS = [
   { icon: RiDashboard3Fill,    label: 'Dashboard',       color: '#6366f1', to: '/dashboard' },
@@ -21,12 +23,24 @@ const MENU_ITEMS = [
   { icon: RiFlowChart,         label: 'Automatizaciones',color: '#fb7185', to: '/automatizaciones' },
   { icon: RiBookReadLine,      label: 'Knowledge Base',  color: '#34d399', to: '/knowledge-base' },
   { icon: RiSettings4Line,     label: 'Configuración',   color: '#94a3b8', to: '/configuracion' },
+  { icon: RiMicLine,           label: 'Test de Voz',     color: '#f43f5e', to: '/voz/test' },
 ]
 
 export default function Sidebar() {
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const [hovered, setHovered] = useState(null)
   const [progress, setProgress] = useState(0)
   const [ripple, setRipple] = useState(null)
+
+  const initials = user?.name
+    ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : '?'
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setProgress(62.4), 300)
@@ -197,18 +211,33 @@ export default function Sidebar() {
       {/* User */}
       <div style={styles.divider} />
       <div style={{ padding: '10px 12px 16px' }}>
-        <button
-          style={styles.userBtn}
-          onMouseEnter={e => (e.currentTarget.style.background = '#1a2235')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-        >
-          <div style={styles.avatar}>AC</div>
-          <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', margin: 0 }}>Acme Solutions</p>
-            <p style={{ fontSize: 11, color: '#4b5563', margin: 0 }}>Equipo Comercial</p>
-          </div>
-          <HiChevronDown style={{ width: 15, height: 15, color: '#4b5563', flexShrink: 0 }} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => navigate('/configuracion')}
+            style={{ ...styles.userBtn, flex: 1 }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#1a2235')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <div style={styles.avatar}>{initials}</div>
+            <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.name ?? '—'}
+              </p>
+              <p style={{ fontSize: 11, color: '#4b5563', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.email ?? ''}
+              </p>
+            </div>
+          </button>
+          <button
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            style={styles.logoutBtn}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f8717115'; e.currentTarget.style.color = '#f87171' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#4b5563' }}
+          >
+            <RiLogoutBoxLine style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
       </div>
     </aside>
   )
@@ -365,5 +394,18 @@ const styles = {
     color: 'white',
     flexShrink: 0,
     boxShadow: '0 0 12px #06b6d455',
+  },
+  logoutBtn: {
+    width: 32, height: 32,
+    borderRadius: 8,
+    border: 'none',
+    background: 'transparent',
+    color: '#4b5563',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flexShrink: 0,
+    transition: 'background 0.2s, color 0.2s',
   },
 }

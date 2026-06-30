@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 import {
   RiBook2Line, RiDownloadLine, RiAddLine, RiSearchLine,
   RiFilterLine, RiMoreLine, RiCheckLine, RiCloseLine,
@@ -36,7 +38,7 @@ const STATS = [
 ]
 
 // ─── playbooks data ────────────────────────────────────────────────────────────
-const PLAYBOOKS = [
+export const PLAYBOOKS = [
   {
     id: 1,
     name: 'Agendar demos B2B',
@@ -151,6 +153,38 @@ const DETAIL = {
 
 const TABS = ['Todos', 'Mis playbooks', 'Oficiales', 'Compartidos conmigo']
 
+// ─── Backend mapping ───────────────────────────────────────────────────────────
+const PB_ICONS   = [RiPhoneLine, RiRefreshLine, RiShoppingCart2Line, RiCalendarLine, RiUserLine, RiChatVoiceLine, RiLightbulbLine, RiShieldLine]
+const PB_COLORS  = ['#c4b5fd','#67e8f9','#6ee7b7','#fcd34d','#c4b5fd','#7dd3fc','#6ee7b7','#fca5a5']
+const PB_GRADS   = [
+  'linear-gradient(135deg,#4f46e5,#7c3aed)',
+  'linear-gradient(135deg,#0891b2,#0e7490)',
+  'linear-gradient(135deg,#059669,#047857)',
+  'linear-gradient(135deg,#d97706,#b45309)',
+  'linear-gradient(135deg,#4f46e5,#7c3aed)',
+  'linear-gradient(135deg,#0369a1,#0891b2)',
+  'linear-gradient(135deg,#047857,#059669)',
+  'linear-gradient(135deg,#b91c1c,#dc2626)',
+]
+const PB_BADGE_COLORS = ['#7c3aed','#0891b2','#059669','#d97706','#7c3aed','#0891b2','#059669','#dc2626']
+
+function mapPlaybook(p, i) {
+  return {
+    id: p.id,
+    name: p.name,
+    badge: 'Personalizado',
+    badgeColor: PB_BADGE_COLORS[i % PB_BADGE_COLORS.length],
+    desc: p.description ?? '',
+    tags: (p.tags ?? []).map(t => ({ label: t, bg: '#4f46e520', color: '#818cf8' })),
+    iconBg: PB_GRADS[i % PB_GRADS.length],
+    IconEl: PB_ICONS[i % PB_ICONS.length],
+    iconColor: PB_COLORS[i % PB_COLORS.length],
+    tasa: '—',
+    reuniones: 0,
+    campanas: 0,
+  }
+}
+
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 function StatCard({ IconEl, iconBg, color, label, value, pct, sub, subColor, noArrow }) {
   const [hov, setHov] = useState(false)
@@ -207,7 +241,7 @@ function Badge({ label, color }) {
 }
 
 // ─── PlaybookCard ─────────────────────────────────────────────────────────────
-function PlaybookCard({ pb, selected, onClick }) {
+function PlaybookCard({ pb, selected, onClick, onUse }) {
   const [hov, setHov] = useState(false)
   const active = selected || hov
   return (
@@ -269,7 +303,7 @@ function PlaybookCard({ pb, selected, onClick }) {
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button style={{
+        <button onClick={e => { e.stopPropagation(); onUse?.() }} style={{
           flex: 1, padding: '7px 0', borderRadius: 9, border: '1px solid #1e2433',
           background: active ? '#1a2235' : '#0d1117', color: '#e2e8f0',
           fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all .2s',
@@ -449,10 +483,49 @@ function DetailPanel({ onClose }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Playbooks() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
-  const [selectedId, setSelectedId] = useState(1)
-  const [showPanel, setShowPanel] = useState(true)
   const [showNewPlaybook, setShowNewPlaybook] = useState(false)
+  const [playbooks, setPlaybooks] = useState([])
+  const [stats, setStats] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    apiFetch('/api/playbooks')
+      .then(r => r.json())
+      .then(data => {
+        const arr = Array.isArray(data) ? data : []
+        setPlaybooks(arr.map(mapPlaybook))
+      })
+      .catch(() => {})
+  }, [refreshKey])
+
+  const statsCards = useMemo(() => {
+    const total = playbooks.length
+    return [
+      { ...STATS[0], value: String(total), sub: `Activos: ${total}` },
+      { ...STATS[1], value: '—', sub: 'Sin datos de campañas', noArrow: true },
+      { ...STATS[2], value: '—', sub: 'Sin datos de tasa', noArrow: true },
+      {
+        ...STATS[3],
+        value: stats ? (stats.meetingsScheduled ?? 0).toLocaleString('es-ES') : '—',
+        pct: stats ? `${stats.kpiPcts?.meetings ?? 0}%` : null,
+        sub: 'vs. mes anterior',
+        noArrow: !stats,
+      },
+      {
+        ...STATS[4],
+        value: stats ? `€${Math.round(stats.closedWonValue ?? 0).toLocaleString('es-ES')}` : '—',
+        pct: stats ? `${stats.kpiPcts?.pipeline ?? 0}%` : null,
+        sub: 'vs. mes anterior',
+        noArrow: !stats,
+      },
+    ]
+  }, [playbooks, stats])
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0 }}>
@@ -471,7 +544,7 @@ export default function Playbooks() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button style={{
+            <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='.json,.yaml,.txt'; i.click() }} style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '9px 16px', borderRadius: 10,
               border: '1px solid #1e2433', background: 'transparent',
@@ -495,7 +568,7 @@ export default function Playbooks() {
           </div>
         </div>
 
-        {showNewPlaybook && <NewPlaybookModal onClose={() => setShowNewPlaybook(false)} />}
+        {showNewPlaybook && <NewPlaybookModal onClose={() => setShowNewPlaybook(false)} onSuccess={() => { setShowNewPlaybook(false); setRefreshKey(k => k + 1) }} />}
 
         {/* Tabs + search */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
@@ -537,42 +610,55 @@ export default function Playbooks() {
 
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
-          {STATS.map((s, i) => (
+          {statsCards.map((s, i) => (
             <StatCard key={i} {...s} />
           ))}
         </div>
 
-        {/* Popular playbooks */}
+        {/* Playbooks */}
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Playbooks populares</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-            {PLAYBOOKS.map(pb => (
-              <PlaybookCard
-                key={pb.id}
-                pb={pb}
-                selected={selectedId === pb.id}
-                onClick={() => { setSelectedId(pb.id); setShowPanel(true) }}
-              />
-            ))}
-          </div>
+          <h2 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>
+            {playbooks.length > 0 ? 'Playbooks populares' : 'Playbooks'}
+          </h2>
+          {playbooks.length === 0
+            ? (
+              <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '40px 0' }}>
+                Sin playbooks. Crea el primero con el botón de arriba.
+              </p>
+            )
+            : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+                {playbooks.map(pb => (
+                  <PlaybookCard
+                    key={pb.id}
+                    pb={pb}
+                    selected={false}
+                    onClick={() => navigate('/playbooks/' + pb.id)}
+                    onUse={() => setShowNewPlaybook(true)}
+                  />
+                ))}
+              </div>
+            )
+          }
         </div>
 
         {/* Ver todos */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-          <button style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 24px', borderRadius: 10,
-            border: '1px solid #1e2433', background: '#0d1117',
-            color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          }}>
-            Ver todos los playbooks (18)
-            <HiChevronDown style={{ width: 15, height: 15 }} />
-          </button>
-        </div>
+        {playbooks.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+            <button style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 24px', borderRadius: 10,
+              border: '1px solid #1e2433', background: '#0d1117',
+              color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}>
+              Ver todos los playbooks ({playbooks.length})
+              <HiChevronDown style={{ width: 15, height: 15 }} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right: detail panel */}
-      {showPanel && <DetailPanel onClose={() => setShowPanel(false)} />}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ResponsiveContainer, AreaChart, Area } from 'recharts'
-import { HiArrowUp } from 'react-icons/hi'
+import { HiArrowUp, HiArrowDown } from 'react-icons/hi'
 import '../dashboard.css'
 
 function Sparkline({ data, color }) {
@@ -58,11 +58,16 @@ export default function KPICard({ Icon, iconBg, label, value, pct, color, data, 
         <p style={{ margin: C ? '0 0 3px' : L ? '0 0 7px' : '0 0 5px', fontSize: C ? 18 : L ? 26 : 21, fontWeight: 800, color: '#ffffff', letterSpacing: -1, textShadow: '0 0 20px rgba(255,255,255,0.25)' }}>
           {value}
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-          <HiArrowUp style={{ width: C ? 10 : L ? 11 : 10, height: C ? 10 : L ? 11 : 10, color: '#4ade80', flexShrink: 0 }} />
-          <span style={{ fontSize: C ? 9 : L ? 11 : 10, color: '#4ade80', fontWeight: 700 }}>{pct}%</span>
-          {!C && <span style={{ fontSize: L ? 10 : 9, color: '#94a3b8' }}>vs. semana anterior</span>}
-        </div>
+        {pct != null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+            {pct >= 0
+              ? <HiArrowUp style={{ width: C ? 10 : L ? 11 : 10, height: C ? 10 : L ? 11 : 10, color: '#4ade80', flexShrink: 0 }} />
+              : <HiArrowDown style={{ width: C ? 10 : L ? 11 : 10, height: C ? 10 : L ? 11 : 10, color: '#f87171', flexShrink: 0 }} />
+            }
+            <span style={{ fontSize: C ? 9 : L ? 11 : 10, color: pct >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>{Math.abs(pct)}%</span>
+            {!C && <span style={{ fontSize: L ? 10 : 9, color: '#94a3b8' }}>vs. semana anterior</span>}
+          </div>
+        )}
       </div>
       <div style={{ height: C ? 30 : L ? 52 : 43, padding: C ? '0 6px 5px' : L ? '0 10px 8px' : '0 8px 6px' }}>
         <Sparkline data={data} color={color} />

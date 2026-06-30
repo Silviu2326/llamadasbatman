@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiFetch } from '../lib/api'
 import {
   RiPhoneLine, RiTimeLine, RiPercentLine, RiCalendarLine, RiCalendar2Line,
   RiSearchLine, RiFilterLine, RiDownload2Line, RiFullscreenLine,
@@ -29,7 +31,7 @@ const STATUS_MAP = {
   'Propuesta enviada': { color: '#8b5cf6', bg: '#8b5cf615' },
 }
 
-const CALLS = [
+export const CALLS = [
   { id:1, initials:'MR', bg:'#4f46e5', name:'María Rodríguez',    company:'TechSolutions S.L.', role:'Directora de Operaciones', time:'Hoy, 11:32',  dur:'8m 24s', status:'Reunión agendada',  score:+0.82, agent:'Sofía'  },
   { id:2, initials:'JA', bg:'#0891b2', name:'José Antonio López', company:'DataPro Iberia',     role:'Director Comercial',       time:'Hoy, 10:15',  dur:'5m 12s', status:'Interesado',        score:+0.35, agent:'Sofía'  },
   { id:3, initials:'CR', bg:'#059669', name:'Carlos Ruiz',        company:'Global Industries',  role:'CEO',                      time:'Hoy, 09:48',  dur:'7m 03s', status:'Seguimiento',       score:+0.12, agent:'Carlos' },
@@ -162,17 +164,74 @@ const pgBtn = {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const TABS = ['Transcripción', 'Resumen IA', 'Análisis', 'Objeciones', 'Momento clave', 'Información']
 
+const BG = ['#4f46e5','#0891b2','#059669','#7c3aed','#1d4ed8','#b45309','#be185d','#047857']
+const OUTCOME_MAP = { meeting_scheduled:'Reunión agendada', interested:'Interesado', rejected:'No interesado', callback:'Seguimiento', none:'Seguimiento' }
+
+function mapCall(c, i) {
+  const durSec = c.durationSeconds ?? 0
+  return {
+    id: c.id,
+    initials: (c.lead?.name ?? '??').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase(),
+    bg: BG[i % BG.length],
+    name: c.lead?.name ?? '—',
+    company: c.lead?.company ?? '—',
+    role: c.lead?.role ?? '',
+    time: c.startedAt ? new Date(c.startedAt).toLocaleString('es-ES',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—',
+    dur: durSec ? `${Math.floor(durSec/60)}m ${durSec%60}s` : '—',
+    _durSec: durSec,
+    status: OUTCOME_MAP[c.outcome] ?? 'Seguimiento',
+    score: c.sentimentScore ?? 0,
+    agent: c.agent?.name ?? '—',
+  }
+}
+
 export default function CallsPage() {
-  const [selected, setSelected] = useState(CALLS[0])
-  const [tab, setTab] = useState('transcripción')
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [calls, setCalls] = useState([])
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 })
+  const [stats, setStats] = useState(null)
+
+  useEffect(() => {
+    apiFetch('/api/dashboard/stats').then(r => r.json()).then(s => setStats(s)).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    apiFetch(`/api/calls?page=${page}&limit=20`).then(r => r.json()).then(d => {
+      const items = d.data ?? d
+      if (!Array.isArray(items)) return
+      setMeta({ total: d.total ?? items.length, totalPages: d.totalPages ?? 1 })
+      setCalls(items.map(mapCall))
+    }).catch(() => {})
+  }, [page])
+
+  const kpiList = useMemo(() => {
+    if (!stats) return KPI_LIST.map(k => ({ ...k, value: '—', pct: null }))
+    const durCalls = calls.filter(c => c._durSec > 0)
+    const avgDurSec = durCalls.length ? durCalls.reduce((s, c) => s + c._durSec, 0) / durCalls.length : 0
+    const avgDurStr = avgDurSec ? `${Math.floor(avgDurSec/60)}m ${Math.round(avgDurSec%60)}s` : KPI_LIST[1].value
+    const scoreCalls = calls.filter(c => c.score !== 0)
+    const avgScore = scoreCalls.length ? scoreCalls.reduce((s, c) => s + c.score, 0) / scoreCalls.length : null
+    return KPI_LIST.map((k, i) => ({
+      ...k, pct: null,
+      value: [
+        (stats.totalCalls ?? 0).toLocaleString('es-ES'),
+        avgDurStr,
+        `${stats.conversionRate ?? 0}%`,
+        (stats.meetingsScheduled ?? 0).toLocaleString('es-ES'),
+        avgScore != null ? (avgScore >= 0 ? `+${avgScore.toFixed(2)}` : avgScore.toFixed(2)) : k.value,
+        k.value,
+      ][i],
+    }))
+  }, [stats, calls])
 
   const filtered = search
-    ? CALLS.filter(c =>
+    ? calls.filter(c =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.company.toLowerCase().includes(search.toLowerCase())
       )
-    : CALLS
+    : calls
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#080c14' }}>
@@ -196,10 +255,10 @@ export default function CallsPage() {
             <HiChevronDown style={{ width: 11, height: 11 }} />
           </button>
           {[
-            { label: 'Filtros',  Icon: RiFilterLine   },
-            { label: 'Exportar', Icon: RiDownload2Line },
-          ].map(({ label, Icon }) => (
-            <button key={label} style={{
+            { label: 'Filtros',  Icon: RiFilterLine,   action: () => {} },
+            { label: 'Exportar', Icon: RiDownload2Line, action: () => alert('Exportando llamadas...') },
+          ].map(({ label, Icon, action }) => (
+            <button key={label} onClick={action} style={{
               display: 'flex', alignItems: 'center', gap: 6, background: '#0d1117',
               border: '1px solid #1e2433', borderRadius: 10, padding: '8px 14px',
               color: '#94a3b8', fontSize: 12.5, cursor: 'pointer',
@@ -214,7 +273,7 @@ export default function CallsPage() {
 
       {/* ── KPI bar ── */}
       <div style={{ padding: '18px 32px', display: 'flex', gap: 12, flexShrink: 0 }}>
-        {KPI_LIST.map((k, i) => (
+        {kpiList.map((k, i) => (
           <KPICard key={i} {...k} delay={`${i * 60}ms`} compact />
         ))}
       </div>
@@ -224,14 +283,14 @@ export default function CallsPage() {
 
         {/* ── Call list ── */}
         <div style={{
-          width: selected ? 348 : undefined, flex: selected ? undefined : 1,
+          flex: 1,
           flexShrink: 0, display: 'flex', flexDirection: 'column',
           background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, overflow: 'hidden',
           transition: 'width 0.2s ease',
         }}>
           <div style={{ padding: '16px 16px 12px', flexShrink: 0 }}>
             <p style={{ margin: '0 0 2px', fontSize: 16, fontWeight: 700, color: '#fff' }}>Todas las llamadas</p>
-            <p style={{ margin: '0 0 12px', fontSize: 11.5, color: '#4b5563' }}>2.847 llamadas</p>
+            <p style={{ margin: '0 0 12px', fontSize: 11.5, color: '#4b5563' }}>{meta.total.toLocaleString('es-ES')} llamadas</p>
             <div style={{ position: 'relative' }}>
               <RiSearchLine style={{
                 position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
@@ -251,18 +310,22 @@ export default function CallsPage() {
           </div>
 
           <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto' }}>
+            {filtered.length === 0 && (
+              <p style={{ margin: '40px 0', textAlign: 'center', fontSize: 13, color: '#4b5563' }}>
+                Sin llamadas registradas
+              </p>
+            )}
             {filtered.map(c => {
-              const active = selected?.id === c.id
               return (
-                <div key={c.id} onClick={() => setSelected(c)}
+                <div key={c.id} onClick={() => navigate('/llamadas/' + c.id)}
                   style={{
                     display: 'flex', gap: 10, padding: '11px 16px', cursor: 'pointer',
-                    background: active ? '#6366f10e' : 'transparent',
-                    borderLeft: `2px solid ${active ? '#6366f1' : 'transparent'}`,
+                    background: 'transparent',
+                    borderLeft: '2px solid transparent',
                     borderBottom: '1px solid #111827', transition: 'all 0.12s',
                   }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#ffffff07' }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#ffffff07' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
                   <Avatar initials={c.initials} bg={c.bg} size={38} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -294,21 +357,37 @@ export default function CallsPage() {
             padding: '10px 16px', borderTop: '1px solid #111827', flexShrink: 0,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
-            <span style={{ fontSize: 10.5, color: '#4b5563' }}>Mostrando 1 a 8 de 2.847 llamadas</span>
+            <span style={{ fontSize: 10.5, color: '#4b5563' }}>
+              Mostrando {Math.min((page-1)*20+1, meta.total)} a {Math.min(page*20, meta.total)} de {meta.total.toLocaleString('es-ES')} llamadas
+            </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <button style={{ ...pgBtn, color: '#4b5563' }}><HiChevronLeft style={{ width: 12, height: 12 }} /></button>
-              {[1, 2, 3].map(n => (
-                <button key={n} style={{ ...pgBtn, background: n === 1 ? '#6366f1' : 'transparent', color: n === 1 ? '#fff' : '#6b7280' }}>{n}</button>
+              <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
+                style={{ ...pgBtn, color: page === 1 ? '#1e2433' : '#4b5563' }}>
+                <HiChevronLeft style={{ width: 12, height: 12 }} />
+              </button>
+              {[page-1, page, page+1].filter(n => n >= 1 && n <= meta.totalPages).map(n => (
+                <button key={n} onClick={() => setPage(n)}
+                  style={{ ...pgBtn, background: n === page ? '#6366f1' : 'transparent', color: n === page ? '#fff' : '#6b7280' }}>
+                  {n}
+                </button>
               ))}
-              <span style={{ fontSize: 11, color: '#4b5563', padding: '0 2px' }}>...</span>
-              <button style={{ ...pgBtn, color: '#6b7280' }}>356</button>
-              <button style={{ ...pgBtn, color: '#4b5563' }}><HiChevronRight style={{ width: 12, height: 12 }} /></button>
+              {page + 1 < meta.totalPages && (
+                <>
+                  <span style={{ fontSize: 11, color: '#4b5563', padding: '0 2px' }}>…</span>
+                  <button onClick={() => setPage(meta.totalPages)}
+                    style={{ ...pgBtn, color: '#6b7280' }}>{meta.totalPages}</button>
+                </>
+              )}
+              <button onClick={() => setPage(p => Math.min(meta.totalPages, p+1))} disabled={page === meta.totalPages}
+                style={{ ...pgBtn, color: page === meta.totalPages ? '#1e2433' : '#4b5563' }}>
+                <HiChevronRight style={{ width: 12, height: 12 }} />
+              </button>
             </div>
           </div>
         </div>
 
         {/* ── Call detail ── */}
-        {selected && <div style={{
+        {false && <div style={{
           flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
           background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, overflow: 'hidden',
         }}>
@@ -404,10 +483,17 @@ export default function CallsPage() {
               background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 0 14px #6366f155',
-            }}>
-              <svg width="13" height="13" viewBox="0 0 12 12" fill="white">
-                <path d="M3 1.5 L10 6 L3 10.5 Z" />
-              </svg>
+            }} onClick={() => setPlaying(v => !v)}>
+              {playing ? (
+                <svg width="13" height="13" viewBox="0 0 12 12" fill="white">
+                  <rect x="2" y="1.5" width="3" height="9" rx="1" />
+                  <rect x="7" y="1.5" width="3" height="9" rx="1" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 12 12" fill="white">
+                  <path d="M3 1.5 L10 6 L3 10.5 Z" />
+                </svg>
+              )}
             </button>
             <span style={{ fontSize: 11.5, color: '#6b7280', flexShrink: 0 }}>00:00</span>
             <Waveform />
@@ -415,10 +501,10 @@ export default function CallsPage() {
               {selected.dur.replace('m ', ':').replace('s', '')}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <span style={{
+              <span onClick={() => setSpeed(s => { const i = SPEEDS.indexOf(s); return SPEEDS[(i + 1) % SPEEDS.length] })} style={{
                 fontSize: 11, color: '#6b7280', background: '#111827',
                 border: '1px solid #1e2433', borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-              }}>1.0x</span>
+              }}>{speed}x</span>
               <RiDownload2Line style={{ width: 16, height: 16, color: '#4b5563', cursor: 'pointer' }} />
               <RiFullscreenLine style={{ width: 16, height: 16, color: '#4b5563', cursor: 'pointer' }} />
             </div>
@@ -449,7 +535,12 @@ export default function CallsPage() {
               </div>
 
               <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
-                {TRANSCRIPT.map((m, i) => (
+                {tab !== 'transcripción' && (
+                  <p style={{ textAlign: 'center', padding: '40px 16px', color: '#374151', fontSize: 13 }}>
+                    Próximamente en <strong style={{ color: '#818cf8' }}>{TABS.find(t => t.toLowerCase().replace(/\s/g, '') === tab)}</strong>
+                  </p>
+                )}
+                {tab === 'transcripción' && TRANSCRIPT.map((m, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
                     <div style={{
                       width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
@@ -478,12 +569,12 @@ export default function CallsPage() {
                     </div>
                   </div>
                 ))}
-                <button style={{
+                {tab === 'transcripción' && <button style={{
                   display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none',
                   cursor: 'pointer', color: '#6366f1', fontSize: 12.5, fontWeight: 600, padding: 0,
                 }}>
                   Ver transcripción completa <HiChevronDown style={{ width: 13, height: 13 }} />
-                </button>
+                </button>}
               </div>
             </div>
 
