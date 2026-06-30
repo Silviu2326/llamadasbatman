@@ -35,3 +35,40 @@
 .dark-scroll::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
 }
+
+/* ── Responsive dashboard layout ─────────────────────────────────────────── */
+.db-pad { padding: 22px 24px; }
+
+.db-kpi-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.db-kpi-row > * { min-width: 160px; }
+
+.db-mid {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr 1fr;
+  gap: 14px;
+}
+.db-bot {
+  display: grid;
+  grid-template-columns: 1.15fr 1.15fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 1200px) {
+  .db-kpi-row > * { min-width: 140px; }
+}
+@media (max-width: 1024px) {
+  .db-mid { grid-template-columns: 1fr 1fr; }
+  .db-bot { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  .db-pad { padding: 12px 14px; }
+  .db-mid, .db-bot { grid-template-columns: 1fr; }
+  .db-kpi-row > * { min-width: calc(50% - 6px); }
+}
+@media (max-width: 480px) {
+  .db-kpi-row > * { min-width: 100%; }
+}

@@ -526,14 +526,7 @@ export default function LoginPage() {
         {/* ─ Logo ─ */}
         <div style={{ position: 'relative', zIndex: 5, ...slide(0) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 22px rgba(99,102,241,0.45)' }}>
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <rect x="2"  y="2"  width="7" height="7" rx="1.5" fill="white" fillOpacity="0.95"/>
-                <rect x="11" y="2"  width="7" height="7" rx="1.5" fill="white" fillOpacity="0.55"/>
-                <rect x="2"  y="11" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.55"/>
-                <rect x="11" y="11" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.95"/>
-              </svg>
-            </div>
+            <img src="/logo.png" alt="VozIA" style={{ width: 54, height: 54, borderRadius: 13, objectFit: 'cover', boxShadow: '0 0 26px rgba(99,102,241,0.45)' }} />
             <span style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9', letterSpacing: -0.3 }}>{logoText}</span>
             <span style={{ fontSize: 9.5, fontWeight: 700, color: '#22d3ee', background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: 99, padding: '2px 8px', letterSpacing: 0.4 }}>v2.1</span>
           </div>
@@ -626,14 +619,7 @@ export default function LoginPage() {
           {/* Heading */}
           <div style={{ marginBottom: 28, ...slide(60) }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 14px rgba(99,102,241,0.3)' }}>
-                <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-                  <rect x="2"  y="2"  width="7" height="7" rx="1.5" fill="white" fillOpacity="0.95"/>
-                  <rect x="11" y="2"  width="7" height="7" rx="1.5" fill="white" fillOpacity="0.55"/>
-                  <rect x="2"  y="11" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.55"/>
-                  <rect x="11" y="11" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.95"/>
-                </svg>
-              </div>
+              <img src="/logo.png" alt="VozIA" style={{ width: 48, height: 48, borderRadius: 12, objectFit: 'cover', boxShadow: '0 0 18px rgba(99,102,241,0.3)' }} />
               <span style={{ fontSize: 14, fontWeight: 700, color: '#374151', letterSpacing: -0.2 }}>VozIA</span>
             </div>
             <div style={{ overflow: 'hidden' }}>

@@ -26,7 +26,7 @@ const MENU_ITEMS = [
   { icon: RiMicLine,           label: 'Test de Voz',     color: '#f43f5e', to: '/voz/test' },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [hovered, setHovered] = useState(null)
@@ -54,21 +54,19 @@ export default function Sidebar() {
   }
 
   return (
-    <aside style={styles.aside}>
+    <aside className={`sidebar-aside${isOpen ? ' open' : ''}`} style={styles.aside}>
       {/* Animated top glow border */}
       <div style={styles.topGlow} />
 
       {/* Logo */}
       <div style={{ padding: '24px 20px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={styles.logoIcon} className="logo-spin-hover">
-            <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
-              <rect x="2" y="2" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.95"/>
-              <rect x="11" y="2" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.6"/>
-              <rect x="2" y="11" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.6"/>
-              <rect x="11" y="11" width="7" height="7" rx="1.5" fill="white" fillOpacity="0.95"/>
-            </svg>
-          </div>
+          <img
+            src="/logo.png"
+            alt="VozIA"
+            className="logo-spin-hover"
+            style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, cursor: 'pointer', boxShadow: '0 0 22px #6366f155' }}
+          />
           <div>
             <p style={styles.logoText}>VozIA</p>
             <p style={styles.logoSub}>AI Voice Revenue Platform</p>
@@ -252,7 +250,7 @@ const styles = {
     flexShrink: 0,
     background: 'linear-gradient(180deg, #0d1117 0%, #0a0e1a 100%)',
     borderRight: '1px solid #1e2433',
-    position: 'relative',
+    // position handled by .sidebar-aside CSS class (responsive)
     overflow: 'hidden',
   },
   topGlow: {

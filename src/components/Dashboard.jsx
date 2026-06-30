@@ -604,7 +604,7 @@ export default function Dashboard() {
     : ''
 
   return (
-    <div className="dark-scroll" style={{ flex:1, overflowY:'auto', padding:'22px 24px', background:'#080c14', display:'flex', flexDirection:'column', gap:16, minWidth:0 }}>
+    <div className="dark-scroll db-pad" style={{ flex:1, overflowY:'auto', background:'#080c14', display:'flex', flexDirection:'column', gap:16, minWidth:0 }}>
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
@@ -612,7 +612,7 @@ export default function Dashboard() {
           <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:'#f1f5f9' }}>Hola, Equipo Comercial 👋</h1>
           <p style={{ margin:'3px 0 0', fontSize:12.5, color:'#4b5563' }}>Aquí tienes el resumen de tu actividad de hoy.</p>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
 
           {/* Date picker */}
           <DateRangePicker onChange={({ start, end }) => { setStartDate(start); setEndDate(end) }} />
@@ -655,19 +655,19 @@ export default function Dashboard() {
       </div>
 
       {/* KPI row */}
-      <div style={{ display:'flex', gap:12 }}>
+      <div className="db-kpi-row">
         {kpi.map((k, i) => <KPICard key={k.label} {...k} delay={`${i*55}ms`} large />)}
       </div>
 
       {/* Middle row */}
-      <div style={{ display:'grid', gridTemplateColumns:'1.55fr 1fr 1fr', gap:14 }}>
+      <div className="db-mid">
         <RendimientoChart dayData={stats?.timeSeries} />
         <EmbudoChart funnel={stats?.funnel} />
         <DonutChart callsByCampaign={stats?.callsByCampaign} totalCalls={stats?.totalCalls} />
       </div>
 
       {/* Bottom row */}
-      <div style={{ display:'grid', gridTemplateColumns:'1.15fr 1.15fr 1fr', gap:14 }}>
+      <div className="db-bot">
         <IngresosChart pipelineByDay={stats?.pipelineByDay} pipelinePct={stats?.kpiPcts?.pipeline} />
         <AgentesTable agents={stats?.agentLeaderboard} />
         <AlertasIA />

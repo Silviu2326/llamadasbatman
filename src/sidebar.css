@@ -55,6 +55,58 @@
   box-shadow: 0 0 28px #6366f177, 0 4px 16px #0000006d !important;
 }
 
+/* ── Responsive sidebar ─────────────────────────────────────────────────── */
+.sidebar-aside {
+  position: relative; /* positioning context for absolute children (topGlow, ripple) */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 768px) {
+  .sidebar-aside {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 200;
+    transform: translateX(-100%);
+    width: 260px;
+  }
+  .sidebar-aside.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Mobile header — hidden on desktop, shown on mobile */
+.mobile-header {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-header {
+    display: flex;
+  }
+}
+
+/* Backdrop — only visible on mobile when sidebar is open */
+.mobile-backdrop {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(2px);
+    animation: fadeIn 0.2s ease;
+  }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* Custom scrollbar for the dark sidebar nav */
 .sidebar-nav {
   scrollbar-width: thin;
