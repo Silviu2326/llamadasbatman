@@ -27,7 +27,7 @@ export class CerebrasAgent {
 
   async *generateResponseStream(
     userMessage: string,
-    opts?: { history?: Array<{ role: string; content: string }>; extraInstructions?: string },
+    opts?: { history?: Array<{ role: string; content: string }>; extraInstructions?: string; signal?: AbortSignal },
   ): AsyncGenerator<string, void, unknown> {
     let sys = this.systemPrompt || this._defaultPrompt()
     if (opts?.extraInstructions) sys = `${sys}\n\n${opts.extraInstructions}`
@@ -36,20 +36,34 @@ export class CerebrasAgent {
     if (opts?.history) messages.push(...opts.history.slice(-10) as OpenAI.ChatCompletionMessageParam[])
     messages.push({ role: 'user', content: userMessage })
 
+    // ponytail: the SDK's `timeout` option only bounds time-to-first-byte — once the stream
+    // opens it can stall forever. Rearm this abort on every chunk so a dead stream still dies.
+    const idleMs = this.timeoutSeconds * 1000
+    const idleAbort = new AbortController()
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
+    const armIdle = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => idleAbort.abort(), idleMs) }
+    const onExternalAbort = () => idleAbort.abort()
+    opts?.signal?.addEventListener('abort', onExternalAbort)
+
     try {
+      armIdle()
       const stream = await this._client.chat.completions.create({
         model: this.model,
         messages,
         max_tokens: 400,
         temperature: 0.7,
         stream: true,
-      })
+      }, { signal: idleAbort.signal })
       for await (const chunk of stream) {
+        armIdle()
         const delta = chunk.choices[0]?.delta?.content
         if (delta) yield delta
       }
     } catch {
-      yield 'Perdona, me ha fallado la conexión un segundo. ¿Me puedes repetir eso?'
+      if (!opts?.signal?.aborted) yield 'Perdona, me ha fallado la conexión un segundo. ¿Me puedes repetir eso?'
+    } finally {
+      clearTimeout(idleTimer)
+      opts?.signal?.removeEventListener('abort', onExternalAbort)
     }
   }
 

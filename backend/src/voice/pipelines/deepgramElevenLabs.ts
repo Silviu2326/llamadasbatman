@@ -33,6 +33,7 @@ export class DeepgramElevenLabsSession {
   private _agentTurnActive = false
   private _speculativeTask: Promise<void> | null = null
   private _speculativeText = ''
+  private _activeAbort: AbortController | null = null
   private _closed = false
   private _history: Array<{ role: string; content: string }> = []
   private _onAudio: AudioSender | null = null
@@ -138,6 +139,8 @@ export class DeepgramElevenLabsSession {
 
   private _cancelSpeculative(): boolean {
     if (this._speculativeTask || this._speculativeText) {
+      this._activeAbort?.abort() // stop the in-flight LLM call for real, not just the bookkeeping
+      this._activeAbort = null
       this._speculativeTask = null
       this._speculativeText = ''
       return true
@@ -227,6 +230,8 @@ export class DeepgramElevenLabsSession {
   private async _handleUserText(text: string, speculative: boolean): Promise<void> {
     if (!this._llm || !this._tts) return
     this._agentTurnActive = true
+    const abort = new AbortController()
+    this._activeAbort = abort
     let fullResponse = ''
     let firstToken = true
     try {
@@ -240,12 +245,14 @@ export class DeepgramElevenLabsSession {
       for await (const token of this._llm.generateResponseStream(text, {
         history: this._history.slice(-10),
         extraInstructions,
+        signal: abort.signal,
       })) {
-        if (this._closed) break
+        if (this._closed || abort.signal.aborted) break
         if (firstToken) { this._tLlm = Date.now(); firstToken = false }
         fullResponse += token
         await this._tts.sendText(token)
       }
+      if (abort.signal.aborted) return // superseded by a newer turn — don't report a stale response
       await this._tts.flush()
 
       this._history.push({ role: 'assistant', content: fullResponse })
@@ -276,6 +283,7 @@ export class DeepgramElevenLabsSession {
       if (!this._closed) console.warn('[LLM] Error:', e.message)
     } finally {
       this._agentTurnActive = false
+      if (this._activeAbort === abort) this._activeAbort = null
       if (speculative) {
         this._speculativeTask = null
         // ponytail: keep _speculativeText alive so _onSttFinal can still match it
