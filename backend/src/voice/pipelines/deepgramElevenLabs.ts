@@ -226,41 +226,48 @@ export class DeepgramElevenLabsSession {
   private async _handleUserText(text: string, speculative: boolean): Promise<void> {
     if (!this._llm || !this._tts) return
     this._agentTurnActive = true
+    let fullResponse = ''
+    let firstToken = true
     try {
       this._history.push({ role: 'user', content: text })
       const brief = this._effectiveBrief()
       const extraInstructions = this._guru ? briefToSystemPrompt(brief) : ''
 
-      const [response] = await this._llm.generateResponse(text, {}, {
-        history: this._history.slice(-10),
-        extraInstructions,
-      })
-      this._tLlm = Date.now()
       this._tTtsFirstPending = true
 
-      this._history.push({ role: 'assistant', content: response })
-      this._rhythm.agentWordCounts.push(response.split(/\s+/).length)
+      // Stream LLM tokens → TTS fires per sentence as they accumulate
+      for await (const token of this._llm.generateResponseStream(text, {
+        history: this._history.slice(-10),
+        extraInstructions,
+      })) {
+        if (this._closed) break
+        if (firstToken) { this._tLlm = Date.now(); firstToken = false }
+        fullResponse += token
+        await this._tts.sendText(token)
+      }
+      await this._tts.flush()
+
+      this._history.push({ role: 'assistant', content: fullResponse })
+      this._rhythm.agentWordCounts.push(fullResponse.split(/\s+/).length)
       if (this._rhythm.agentWordCounts.length > 6) this._rhythm.agentWordCounts.shift()
 
-      this._agentResponses.push(response)
+      this._agentResponses.push(fullResponse)
       if (this._agentResponses.length > 5) this._agentResponses.shift()
 
-      const utype = classifyUtterance(response)
+      const utype = classifyUtterance(fullResponse)
       if (utype !== 'statement') {
         const overlay = utteranceVoiceOverlay(this._tts['_profile'], utype)
         this._tts['_profile'] = overlay
       }
 
-      await this._tts.sendText(response, true)
-
-      // latency: measured from user EOT → first TTS audio
+      // latency: llm = EOT → first token; tts = first token → first audio chunk
       const latency = this._tEot > 0 && this._tTts > 0 ? {
         llm: this._tLlm - this._tEot,
         tts: this._tTts  - this._tLlm,
         total: this._tTts - this._tEot,
       } : undefined
 
-      await this._onTranscript?.('agente', response, latency ? { latency } : undefined)
+      await this._onTranscript?.('agente', fullResponse, latency ? { latency } : undefined)
 
       if (utype !== 'statement') this._tts.setVoiceProfile(brief.formato)
       this._rhythm.ttsCompletions++

@@ -25,6 +25,34 @@ export class CerebrasAgent {
     })
   }
 
+  async *generateResponseStream(
+    userMessage: string,
+    opts?: { history?: Array<{ role: string; content: string }>; extraInstructions?: string },
+  ): AsyncGenerator<string, void, unknown> {
+    let sys = this.systemPrompt || this._defaultPrompt()
+    if (opts?.extraInstructions) sys = `${sys}\n\n${opts.extraInstructions}`
+
+    const messages: OpenAI.ChatCompletionMessageParam[] = [{ role: 'system', content: sys }]
+    if (opts?.history) messages.push(...opts.history.slice(-10) as OpenAI.ChatCompletionMessageParam[])
+    messages.push({ role: 'user', content: userMessage })
+
+    try {
+      const stream = await this._client.chat.completions.create({
+        model: this.model,
+        messages,
+        max_tokens: 400,
+        temperature: 0.7,
+        stream: true,
+      })
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content
+        if (delta) yield delta
+      }
+    } catch {
+      yield 'Perdona, me ha fallado la conexión un segundo. ¿Me puedes repetir eso?'
+    }
+  }
+
   async generateResponse(
     userMessage: string,
     context: Record<string, unknown>,

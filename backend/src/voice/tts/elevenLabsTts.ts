@@ -51,11 +51,19 @@ export class ElevenLabsTTS {
   async sendText(text: string, flush = false): Promise<void> {
     if (this._cancelled) return
     this._pending += text
+
+    // Fire a TTS request for each complete sentence (.!?) as it accumulates
+    const re = /[.!?]+(?=\s|$)/
+    let m: RegExpExecArray | null
+    while ((m = re.exec(this._pending)) !== null) {
+      const end = m.index + m[0].length
+      const sentence = this._pending.slice(0, end).trim()
+      this._pending = this._pending.slice(end).trimStart()
+      if (sentence) await this._generate(sentence)
+    }
+
     if (flush && this._pending.trim()) {
-      await this._generate(this._pending)
-      this._pending = ''
-    } else if (this._pending.length >= 200) {
-      await this._generate(this._pending)
+      await this._generate(this._pending.trim())
       this._pending = ''
     }
   }
