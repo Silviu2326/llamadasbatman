@@ -274,14 +274,14 @@ export default function Automatizaciones() {
       {/* ── Main content ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{ padding: '28px 28px 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
+        <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexShrink: 0, flexWrap: 'wrap' }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#f1f5f9', letterSpacing: -0.5, display: 'flex', alignItems: 'center', gap: 8 }}>
               Automatizaciones <span style={{ color: '#8b5cf6', fontSize: 20 }}>✦</span>
             </h1>
             <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#6b7280' }}>Crea flujos inteligentes que trabajan 24/7 para impulsar conversaciones y cerrar más ventas.</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {/* Search */}
             <div style={{ position: 'relative' }}>
               <RiSearchLine style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#4b5563', width: 14, height: 14 }} />
@@ -307,7 +307,7 @@ export default function Automatizaciones() {
         {showNewAutomation && <NewAutomatizacionModal onClose={() => setShowNewAutomation(false)} onSuccess={() => { setShowNewAutomation(false); setRefreshKey(k => k + 1) }} />}
 
         {/* KPI Cards */}
-        <div style={{ display: 'flex', gap: 10, padding: '0 28px 20px', flexShrink: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10, padding: '0 24px 20px', flexShrink: 0 }}>
           {kpiList.map((k, i) => <StatCard key={i} {...k} />)}
         </div>
 

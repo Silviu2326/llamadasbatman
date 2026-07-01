@@ -609,7 +609,7 @@ export default function Playbooks() {
         </div>
 
         {/* Stats row */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12, marginBottom: 28 }}>
           {statsCards.map((s, i) => (
             <StatCard key={i} {...s} />
           ))}
@@ -627,7 +627,7 @@ export default function Playbooks() {
               </p>
             )
             : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
                 {playbooks.map(pb => (
                   <PlaybookCard
                     key={pb.id}

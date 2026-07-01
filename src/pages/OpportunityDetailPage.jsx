@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
@@ -12,9 +12,9 @@ const ALL_STAGES = [
   { id:'lead',        label:'Lead' },
   { id:'contactado',  label:'Contactado' },
   { id:'interesado',  label:'Interesado' },
-  { id:'reunion',     label:'Reunión' },
+  { id:'reunion',     label:'ReuniÃ³n' },
   { id:'propuesta',   label:'Propuesta' },
-  { id:'negociacion', label:'Negociación' },
+  { id:'negociacion', label:'NegociaciÃ³n' },
   { id:'ganado',      label:'Ganado' },
 ]
 
@@ -48,9 +48,9 @@ export default function OpportunityDetailPage() {
         setOpp({
           ...data,
           company: data.lead?.name ?? data.name,
-          city: '—',
+          city: 'â€”',
           stage: stageMap[data.stage] ?? 'lead',
-          value: data.value ? `€${Number(data.value).toLocaleString('es-ES')}` : '—',
+          value: data.value ? `â‚¬${Number(data.value).toLocaleString('es-ES')}` : 'â€”',
           score: data.probability ?? 0,
           bg: '#6366f1',
           activities: [],
@@ -62,7 +62,7 @@ export default function OpportunityDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargando…
+      Cargandoâ€¦
     </div>
   )
 
@@ -187,14 +187,14 @@ export default function OpportunityDetailPage() {
           {tab === 'Resumen' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Información de la oportunidad</p>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>InformaciÃ³n de la oportunidad</p>
                 {[
                   { label:'Empresa', value:opp.company },
                   { label:'Ciudad', value:opp.city },
                   { label:'Valor estimado', value:opp.value },
                   { label:'Etapa', value:opp.badge },
-                  { label:'Última actividad', value:opp.date },
-                  { label:'Lead Score', value: opp.score !== null ? `${opp.score}/100` : '—' },
+                  { label:'Ãšltima actividad', value:opp.date },
+                  { label:'Lead Score', value: opp.score !== null ? `${opp.score}/100` : 'â€”' },
                 ].map(m => (
                   <div key={m.label} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid #111827' }}>
                     <span style={{ fontSize:12.5, color:'#4b5563' }}>{m.label}</span>
@@ -203,8 +203,8 @@ export default function OpportunityDetailPage() {
                 ))}
               </div>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Próximas acciones recomendadas</p>
-                {['Enviar propuesta actualizada', 'Agendar reunión de seguimiento', 'Consultar decision-maker'].map((a, i) => (
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>PrÃ³ximas acciones recomendadas</p>
+                {['Enviar propuesta actualizada', 'Agendar reuniÃ³n de seguimiento', 'Consultar decision-maker'].map((a, i) => (
                   <div key={i} style={{ display:'flex', gap:9, marginBottom:9 }}>
                     <div style={{ width:16, height:16, borderRadius:5, background:`${stageColor}15`, border:`1px solid ${stageColor}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
                       <RiCheckLine style={{ width:10, height:10, color:stageColor }} />
@@ -220,9 +220,9 @@ export default function OpportunityDetailPage() {
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
               <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Historial de actividad</p>
               {[
-                { type:'Llamada', desc:'Llamada de presentación realizada', date:opp.date, color:'#6366f1' },
-                { type:'Email', desc:'Email de seguimiento enviado', date:'Hace 2 días', color:'#0891b2' },
-                { type:'Lead', desc:'Lead creado en el sistema', date:'Hace 5 días', color:'#10b981' },
+                { type:'Llamada', desc:'Llamada de presentaciÃ³n realizada', date:opp.date, color:'#6366f1' },
+                { type:'Email', desc:'Email de seguimiento enviado', date:'Hace 2 dÃ­as', color:'#0891b2' },
+                { type:'Lead', desc:'Lead creado en el sistema', date:'Hace 5 dÃ­as', color:'#10b981' },
               ].map((a, i) => (
                 <div key={i} style={{ display:'flex', gap:12, marginBottom:14 }}>
                   <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:0 }}>
@@ -243,7 +243,7 @@ export default function OpportunityDetailPage() {
 
           {tab === 'Notas' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-              <textarea placeholder="Escribe tus notas aquí..." style={{
+              <textarea placeholder="Escribe tus notas aquÃ­..." style={{
                 width:'100%', minHeight:180, background:'transparent', border:'none',
                 color:'#94a3b8', fontSize:13, outline:'none', resize:'vertical', lineHeight:1.6,
                 fontFamily:'inherit',
@@ -255,11 +255,11 @@ export default function OpportunityDetailPage() {
         {/* Right */}
         <div style={{ width:220, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Acciones rápidas</p>
+            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Acciones rÃ¡pidas</p>
             {[
               { Icon:RiPhoneLine, label:'Nueva llamada', color:'#6366f1', action:() => navigate('/llamadas') },
-              { Icon:RiCalendarLine, label:'Agendar reunión', color:'#8b5cf6', action:() => navigate('/reuniones') },
-              { Icon:RiAddLine, label:'Añadir nota', color:'#10b981', action:() => setTab('Notas') },
+              { Icon:RiCalendarLine, label:'Agendar reuniÃ³n', color:'#8b5cf6', action:() => navigate('/reuniones') },
+              { Icon:RiAddLine, label:'AÃ±adir nota', color:'#10b981', action:() => setTab('Notas') },
               { Icon:RiEditLine, label:'Editar oportunidad', color:'#0891b2', action:() => setTab('Resumen') },
             ].map(({ Icon, label, color, action }) => (
               <button key={label} onClick={action} style={{
@@ -280,3 +280,4 @@ export default function OpportunityDetailPage() {
     </div>
   )
 }
+

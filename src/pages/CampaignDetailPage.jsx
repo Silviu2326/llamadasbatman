@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   RiArrowLeftLine, RiPauseCircleLine, RiPlayCircleLine, RiEditLine, RiMore2Line,
@@ -8,11 +8,11 @@ import { apiFetch } from '../lib/api'
 import '../dashboard.css'
 
 const OBJECTIVE_STYLE = {
-  'Recuperación de leads':   { grad: ['#3b82f6','#2563eb'], Icon: RiGroupLine      },
+  'RecuperaciÃ³n de leads':   { grad: ['#3b82f6','#2563eb'], Icon: RiGroupLine      },
   'Agendado de demos':       { grad: ['#10b981','#059669'], Icon: RiCalendarLine   },
-  'Reconfirmación de citas': { grad: ['#8b5cf6','#7c3aed'], Icon: RiCalendar2Line  },
+  'ReconfirmaciÃ³n de citas': { grad: ['#8b5cf6','#7c3aed'], Icon: RiCalendar2Line  },
   'Renovaciones':            { grad: ['#f59e0b','#d97706'], Icon: RiBarChartLine   },
-  'Reactivación':            { grad: ['#06b6d4','#0891b2'], Icon: RiSendPlaneLine  },
+  'ReactivaciÃ³n':            { grad: ['#06b6d4','#0891b2'], Icon: RiSendPlaneLine  },
 }
 
 const STATUS_STYLE = {
@@ -26,11 +26,11 @@ const KPI_LABELS = {
   llamadas:   { label: 'Llamadas',           color: '#818cf8' },
   leads:      { label: 'Leads generados',    color: '#34d399' },
   reuniones:  { label: 'Reuniones',          color: '#a78bfa' },
-  conversion: { label: 'Conversión',         color: '#fbbf24' },
+  conversion: { label: 'ConversiÃ³n',         color: '#fbbf24' },
   ingresos:   { label: 'Ingresos',           color: '#22d3ee' },
 }
 
-const DETAIL_TABS = ['Resumen', 'Audiencia', 'Conversaciones', 'Configuración']
+const DETAIL_TABS = ['Resumen', 'Audiencia', 'Conversaciones', 'ConfiguraciÃ³n']
 
 function Spark({ data, color }) {
   const w = 80, h = 32
@@ -64,7 +64,7 @@ export default function CampaignDetailPage() {
         const statusMap = { draft: 'borrador', active: 'activa', paused: 'pausada', done: 'completada' }
         const style = OBJECTIVE_STYLE[data.objective] ?? { grad: ['#4f46e5','#7c3aed'], Icon: RiSendPlaneLine }
         const conv = data.totalLeads > 0 ? +((data.meetingsScheduled / data.totalLeads) * 100).toFixed(1) : 0
-        const zeroKpi = (fmt) => ({ fmt, delta: '—', up: true, spark: [0,0,0,0,0,0,0] })
+        const zeroKpi = (fmt) => ({ fmt, delta: 'â€”', up: true, spark: [0,0,0,0,0,0,0] })
         setCampaign({
           ...data,
           nombre: data.name,
@@ -75,8 +75,8 @@ export default function CampaignDetailPage() {
             llamadas:   zeroKpi(String(data.contacted ?? 0)),
             leads:      zeroKpi(String(data.totalLeads ?? 0)),
             reuniones:  zeroKpi(String(data.meetingsScheduled ?? 0)),
-            conversion: { fmt: `${conv}%`, delta: '—', up: conv > 0, spark: [0,0,0,0,0,0,0] },
-            ingresos:   zeroKpi('€0'),
+            conversion: { fmt: `${conv}%`, delta: 'â€”', up: conv > 0, spark: [0,0,0,0,0,0,0] },
+            ingresos:   zeroKpi('â‚¬0'),
           },
         })
         setStatus(statusMap[data.status] ?? 'borrador')
@@ -87,13 +87,13 @@ export default function CampaignDetailPage() {
 
   if (loading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14, background: '#080c14' }}>
-      Cargando…
+      Cargandoâ€¦
     </div>
   )
 
   if (!campaign) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14, background: '#080c14' }}>
-      Campaña no encontrada
+      CampaÃ±a no encontrada
     </div>
   )
 
@@ -108,7 +108,7 @@ export default function CampaignDetailPage() {
         display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
         color: '#6b7280', cursor: 'pointer', fontSize: 12.5, padding: 0, marginBottom: 22, fontFamily: 'inherit',
       }}>
-        <RiArrowLeftLine style={{ width: 14, height: 14 }} /> Campañas
+        <RiArrowLeftLine style={{ width: 14, height: 14 }} /> CampaÃ±as
       </button>
 
       {/* Hero */}
@@ -142,7 +142,7 @@ export default function CampaignDetailPage() {
                 <RiPlayCircleLine style={{ width: 15, height: 15 }} /> Reanudar
               </button>
             ) : null}
-            <button onClick={() => setTab('Configuración')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 9, color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={() => setTab('ConfiguraciÃ³n')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 9, color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
               <RiEditLine style={{ width: 14, height: 14 }} /> Editar
             </button>
           </div>
@@ -150,11 +150,11 @@ export default function CampaignDetailPage() {
       </div>
 
       {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12, marginBottom: 22 }}>
         {Object.entries(campaign.kpis).map(([key, kpi]) => {
           const cfg = KPI_LABELS[key]
-          const isZero = kpi.fmt === '0' || kpi.fmt === '0%' || kpi.fmt === '€0'
-          const isDash = kpi.delta === '—'
+          const isZero = kpi.fmt === '0' || kpi.fmt === '0%' || kpi.fmt === 'â‚¬0'
+          const isDash = kpi.delta === 'â€”'
           return (
             <div key={key} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px 16px 12px' }}>
               <p style={{ margin: '0 0 8px', fontSize: 10.5, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>{cfg.label}</p>
@@ -188,8 +188,8 @@ export default function CampaignDetailPage() {
 
               {/* Performance trend */}
               <div>
-                <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Rendimiento · últimas 4 semanas</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <p style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Rendimiento Â· Ãºltimas 4 semanas</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
                   {[
                     { key: 'llamadas', weeks: campaign.kpis.llamadas.spark },
                     { key: 'leads',    weeks: campaign.kpis.leads.spark    },
@@ -216,8 +216,8 @@ export default function CampaignDetailPage() {
 
                 {/* Top days */}
                 <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
-                  <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Mejores días</p>
-                  {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'].map((day, i) => {
+                  <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Mejores dÃ­as</p>
+                  {['Lunes', 'Martes', 'MiÃ©rcoles', 'Jueves', 'Viernes'].map((day, i) => {
                     const pct = [88, 72, 95, 84, 68][i]
                     return (
                       <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -255,11 +255,11 @@ export default function CampaignDetailPage() {
                 <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Actividad reciente</p>
                 <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, overflow: 'hidden' }}>
                   {[
-                    { name: 'Carlos Méndez',    result: 'Interesado',  time: 'Hace 2h',   dur: '4:32' },
-                    { name: 'Laura Fernández',  result: 'Agendada',    time: 'Hace 3h',   dur: '6:15' },
-                    { name: 'Ana Beltrán',      result: 'Sin resp.',   time: 'Hace 4h',   dur: '0:45' },
+                    { name: 'Carlos MÃ©ndez',    result: 'Interesado',  time: 'Hace 2h',   dur: '4:32' },
+                    { name: 'Laura FernÃ¡ndez',  result: 'Agendada',    time: 'Hace 3h',   dur: '6:15' },
+                    { name: 'Ana BeltrÃ¡n',      result: 'Sin resp.',   time: 'Hace 4h',   dur: '0:45' },
                     { name: 'Miguel Soto',      result: 'Interesado',  time: 'Hace 5h',   dur: '5:20' },
-                    { name: 'Ramón Torres',     result: 'No interés',  time: 'Hace 6h',   dur: '1:50' },
+                    { name: 'RamÃ³n Torres',     result: 'No interÃ©s',  time: 'Hace 6h',   dur: '1:50' },
                   ].map((r, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: i < 4 ? '1px solid #1e2433' : 'none' }}>
                       <div style={{ width: 30, height: 30, borderRadius: 8, background: '#1e2433', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>{r.name[0]}</div>
@@ -281,10 +281,10 @@ export default function CampaignDetailPage() {
                   <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Segmento activo</p>
                   {[
                     { label: 'Industria', value: 'SaaS / Software' },
-                    { label: 'Tamaño empresa', value: '10–200 empleados' },
+                    { label: 'TamaÃ±o empresa', value: '10â€“200 empleados' },
                     { label: 'Cargo objetivo', value: 'CEO, CTO, Director TI' },
-                    { label: 'País', value: 'España, México, Colombia' },
-                    { label: 'Score mínimo', value: '60 / 100' },
+                    { label: 'PaÃ­s', value: 'EspaÃ±a, MÃ©xico, Colombia' },
+                    { label: 'Score mÃ­nimo', value: '60 / 100' },
                   ].map(({ label, value }) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1e2433' }}>
                       <span style={{ fontSize: 12, color: '#4b5563' }}>{label}</span>
@@ -293,11 +293,11 @@ export default function CampaignDetailPage() {
                   ))}
                 </div>
                 <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
-                  <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Estadísticas de audiencia</p>
+                  <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>EstadÃ­sticas de audiencia</p>
                   {[
                     { label: 'Total leads en segmento', value: campaign.kpis.llamadas.fmt },
                     { label: 'Leads cualificados', value: campaign.kpis.leads.fmt },
-                    { label: 'Tasa de contactación', value: campaign.kpis.tasa ? campaign.kpis.tasa.fmt : '34.2%' },
+                    { label: 'Tasa de contactaciÃ³n', value: campaign.kpis.tasa ? campaign.kpis.tasa.fmt : '34.2%' },
                     { label: 'Pendientes de contactar', value: '1.240' },
                   ].map(({ label, value }) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1e2433' }}>
@@ -309,7 +309,7 @@ export default function CampaignDetailPage() {
               </div>
               <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
                 <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Top leads de la audiencia</p>
-                {['Carlos Méndez — TechSolutions', 'Laura Fernández — DataPro Iberia', 'Miguel Soto — MedCare Systems', 'Sofía Vargas — NextGen Tech', 'Javier Ruiz — Retail Group'].map((lead, i) => (
+                {['Carlos MÃ©ndez â€” TechSolutions', 'Laura FernÃ¡ndez â€” DataPro Iberia', 'Miguel Soto â€” MedCare Systems', 'SofÃ­a Vargas â€” NextGen Tech', 'Javier Ruiz â€” Retail Group'].map((lead, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < 4 ? '1px solid #1e2433' : 'none' }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: campaign.grad[0] + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: campaign.grad[1], flexShrink: 0 }}>{lead[0]}</div>
                     <span style={{ flex: 1, fontSize: 12.5, color: '#94a3b8' }}>{lead}</span>
@@ -325,24 +325,24 @@ export default function CampaignDetailPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Todas las conversaciones</p>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  {['Todas', 'Interesado', 'Sin resp.', 'No interés'].map((f, fi) => (
+                  {['Todas', 'Interesado', 'Sin resp.', 'No interÃ©s'].map((f, fi) => (
                     <button key={f} style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid ' + (fi === 0 ? campaign.grad[1] : '#1e2433'), background: fi === 0 ? campaign.grad[1] + '20' : 'transparent', color: fi === 0 ? campaign.grad[1] : '#6b7280', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>{f}</button>
                   ))}
                 </div>
               </div>
               <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, overflow: 'hidden' }}>
                 {[
-                  { name: 'Carlos Méndez',   result: 'Interesado',  time: 'Hoy 11:32',  dur: '4:32' },
-                  { name: 'Laura Fernández', result: 'Agendada',     time: 'Hoy 10:15',  dur: '6:15' },
-                  { name: 'Ana Beltrán',     result: 'Sin resp.',     time: 'Hoy 09:44',  dur: '0:45' },
+                  { name: 'Carlos MÃ©ndez',   result: 'Interesado',  time: 'Hoy 11:32',  dur: '4:32' },
+                  { name: 'Laura FernÃ¡ndez', result: 'Agendada',     time: 'Hoy 10:15',  dur: '6:15' },
+                  { name: 'Ana BeltrÃ¡n',     result: 'Sin resp.',     time: 'Hoy 09:44',  dur: '0:45' },
                   { name: 'Miguel Soto',     result: 'Interesado',  time: 'Ayer 17:21', dur: '5:20' },
-                  { name: 'Ramón Torres',    result: 'No interés',   time: 'Ayer 16:05', dur: '1:50' },
-                  { name: 'Sofía Vargas',    result: 'Agendada',     time: 'Ayer 14:55', dur: '7:08' },
+                  { name: 'RamÃ³n Torres',    result: 'No interÃ©s',   time: 'Ayer 16:05', dur: '1:50' },
+                  { name: 'SofÃ­a Vargas',    result: 'Agendada',     time: 'Ayer 14:55', dur: '7:08' },
                   { name: 'Javier Ruiz',     result: 'Sin resp.',     time: '23 may',     dur: '0:32' },
-                  { name: 'Elena Gómez',     result: 'Interesado',  time: '22 may',     dur: '3:55' },
+                  { name: 'Elena GÃ³mez',     result: 'Interesado',  time: '22 may',     dur: '3:55' },
                 ].map((r, i) => {
                   const ok = r.result === 'Interesado' || r.result === 'Agendada'
-                  const bad = r.result === 'No interés'
+                  const bad = r.result === 'No interÃ©s'
                   const clr = ok ? '#10b981' : bad ? '#ef4444' : '#6b7280'
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: i < 7 ? '1px solid #1e2433' : 'none' }}>
@@ -358,23 +358,23 @@ export default function CampaignDetailPage() {
             </div>
           )}
 
-          {tab === 'Configuración' && (
+          {tab === 'ConfiguraciÃ³n' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { section: 'General', items: [
-                  { label: 'Nombre de campaña', value: campaign.name },
+                  { label: 'Nombre de campaÃ±a', value: campaign.name },
                   { label: 'Estado', value: STATUS_STYLE[campaign.status]?.label || campaign.status },
                   { label: 'Agente asignado', value: 'VozIA Pro' },
                 ]},
-                { section: 'Programación', items: [
-                  { label: 'Días activos', value: 'Lunes — Viernes' },
-                  { label: 'Horario de llamadas', value: '09:00 — 19:00' },
+                { section: 'ProgramaciÃ³n', items: [
+                  { label: 'DÃ­as activos', value: 'Lunes â€” Viernes' },
+                  { label: 'Horario de llamadas', value: '09:00 â€” 19:00' },
                   { label: 'Zona horaria', value: 'Europe/Madrid (CET)' },
-                  { label: 'Máx. llamadas/día', value: '300' },
+                  { label: 'MÃ¡x. llamadas/dÃ­a', value: '300' },
                 ]},
                 { section: 'Playbook', items: [
                   { label: 'Playbook activo', value: 'Agendar demos B2B' },
-                  { label: 'Idioma', value: 'Español (España)' },
+                  { label: 'Idioma', value: 'EspaÃ±ol (EspaÃ±a)' },
                   { label: 'Reintentos', value: '2 intentos (24h entre cada uno)' },
                 ]},
               ].map(({ section, items }) => (
@@ -389,7 +389,7 @@ export default function CampaignDetailPage() {
                 </div>
               ))}
               <button onClick={() => { setSavedCamp(true); setTimeout(() => setSavedCamp(false), 2000) }} style={{ alignSelf: 'flex-start', background: savedCamp ? '#10b981' : `linear-gradient(90deg, ${campaign.grad[0]}, ${campaign.grad[1]})`, border: 'none', borderRadius: 9, padding: '10px 20px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .3s' }}>
-                {savedCamp ? '✓ Guardado' : 'Guardar cambios'}
+                {savedCamp ? 'âœ“ Guardado' : 'Guardar cambios'}
               </button>
             </div>
           )}
@@ -398,3 +398,4 @@ export default function CampaignDetailPage() {
     </div>
   )
 }
+

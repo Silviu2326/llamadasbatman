@@ -237,7 +237,7 @@ export default function CallsPage() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#080c14' }}>
 
       {/* ── Header ── */}
-      <div style={{ padding: '28px 32px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+      <div style={{ padding: '20px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#fff', letterSpacing: -0.5 }}>Llamadas</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
@@ -272,14 +272,14 @@ export default function CallsPage() {
       </div>
 
       {/* ── KPI bar ── */}
-      <div style={{ padding: '18px 32px', display: 'flex', gap: 12, flexShrink: 0 }}>
+      <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12, flexShrink: 0 }}>
         {kpiList.map((k, i) => (
           <KPICard key={i} {...k} delay={`${i * 60}ms`} compact />
         ))}
       </div>
 
       {/* ── Content ── */}
-      <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', padding: '0 32px 24px' }}>
+      <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', padding: '0 24px 24px' }}>
 
         {/* ── Call list ── */}
         <div style={{

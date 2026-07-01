@@ -176,7 +176,7 @@ export default function Configuracion() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* ── Config Nav ── */}
-        <div className="dark-scroll" style={{ width: 195, flexShrink: 0, borderRight: '1px solid #1e2433', overflowY: 'auto', padding: '8px 0 20px' }}>
+        <div className="dark-scroll panel-desktop" style={{ width: 195, flexShrink: 0, borderRight: '1px solid #1e2433', overflowY: 'auto', padding: '8px 0 20px' }}>
           {NAV.map(section => (
             <div key={section.section} style={{ marginBottom: 4 }}>
               <p style={{ margin: '16px 16px 6px', fontSize: 10, color: '#374151', fontWeight: 700, letterSpacing: 0.8 }}>{section.section}</p>
@@ -239,7 +239,7 @@ export default function Configuracion() {
                     <p style={{ margin: 0, fontSize: 9.5, color: '#374151' }}>Cambiar foto</p>
                   </div>
                   {/* Fields */}
-                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
                     <Input label="Nombre completo" value={user?.name ?? ''} />
                     <Input label="Email" value={user?.email ?? ''} />
                     <Input label="Rol" value={user?.role ?? ''} />
@@ -251,7 +251,7 @@ export default function Configuracion() {
                 <SectionTitle title="Seguridad" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <Input label="Contraseña actual" placeholder="••••••••" />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
                     <Input label="Nueva contraseña" placeholder="••••••••" />
                     <Input label="Confirmar contraseña" placeholder="••••••••" />
                   </div>
@@ -289,7 +289,7 @@ export default function Configuracion() {
                 <p style={{ margin: 0, fontSize: 9.5, color: '#374151', maxWidth: 82, lineHeight: 1.4 }}>JPG, PNG o SVG. Máx. 2MB</p>
               </div>
               {/* Fields */}
-              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
                 <Input label="Nombre de la empresa" value="Acme Solutions" />
                 <Input label="Email de la empresa" value="info@acmesolutions.com" />
                 <Input label="Sitio web" value="https://acmesolutions.com" />
@@ -305,7 +305,7 @@ export default function Configuracion() {
             <SectionTitle title="Dirección" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Input label="Dirección" value="Calle de Velázquez 10, 1ºD" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 14 }}>
                 <Input label="Ciudad" value="Madrid" />
                 <Input label="Código postal" value="28001" />
                 <Select label="País" value="España" options={['Francia','Alemania','Italia','Portugal','México']} />
@@ -314,13 +314,13 @@ export default function Configuracion() {
           </div>
 
           {/* ── Preferencias + Moneda ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 16, marginBottom: 16 }}>
             {/* Preferencias regionales */}
             <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px' }}>
               <SectionTitle title="Preferencias regionales" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <Select label="Idioma" value="Español" options={['English','Français','Deutsch','Português']} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
                   <Select label="Formato de fecha" value="DD/MM/YYYY" options={['MM/DD/YYYY','YYYY-MM-DD']} />
                   <Select label="Formato de hora" value="24 horas" options={['12 horas']} />
                 </div>

@@ -205,7 +205,7 @@ function LeadDetail({ lead, onClose, onSchedule }) {
   const closeColor = SCORE_COLOR[lead.sl] || '#10b981'
 
   return (
-    <div style={{
+    <div className="panel-desktop" style={{
       width: 310, flexShrink: 0, display: 'flex', flexDirection: 'column',
       background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14,
       overflow: 'hidden',
@@ -527,7 +527,7 @@ export default function LeadsPage() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#080c14' }}>
 
       {/* ── Header ── */}
-      <div style={{ padding: '28px 32px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+      <div style={{ padding: '20px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#fff', letterSpacing: -0.5 }}>Leads</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
@@ -567,13 +567,13 @@ export default function LeadsPage() {
       {showNewLead && <NewLeadModal onClose={() => setShowNewLead(false)} onSuccess={() => { setShowNewLead(false); setRefreshKey(k => k + 1) }} />}
 
       {/* ── Body: left + right panel ── */}
-      <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', padding: '18px 32px 24px' }}>
+      <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', padding: '16px 24px 24px' }}>
 
         {/* Left column */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
           {/* KPI bar */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexShrink: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12, marginBottom: 16, flexShrink: 0 }}>
             {kpiList.map((k, i) => (
               <KPICard key={i} {...k} delay={`${i * 60}ms`} compact />
             ))}

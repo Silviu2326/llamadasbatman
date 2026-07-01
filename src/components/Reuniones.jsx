@@ -330,20 +330,20 @@ export default function Reuniones() {
         <div style={{ flex: 1, overflow: 'hidden', padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
           {/* KPI row */}
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
             {kpis.map((k, i) => <KPICard key={k.label} {...k} delay={`${i * 55}ms`} />)}
           </div>
 
           {/* filter tabs + search */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #1a2235' }}>
+            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #1a2235', overflowX: 'auto', scrollbarWidth: 'none' }}>
               {TABS.map(t => (
                 <button key={t} onClick={() => setActiveTab(t)} style={{
                   background: 'none', border: 'none', padding: '7px 13px',
                   fontSize: 12, fontWeight: activeTab === t ? 700 : 400,
                   color: activeTab === t ? '#f1f5f9' : '#4b5563',
                   borderBottom: `2px solid ${activeTab === t ? '#8b5cf6' : 'transparent'}`,
-                  cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
+                  cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap', flexShrink: 0,
                 }}>{t}</button>
               ))}
             </div>

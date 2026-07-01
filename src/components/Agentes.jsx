@@ -196,7 +196,7 @@ function AgentDetail({ agent, onClose, onNavigate, onToggle }) {
   }
 
   return (
-    <div className="dark-scroll" style={{
+    <div className="dark-scroll panel-desktop" style={{
       width: 292, flexShrink: 0,
       background: '#090d18', borderLeft: '1px solid #1e2433',
       display: 'flex', flexDirection: 'column', overflowY: 'auto',
@@ -444,7 +444,7 @@ export default function Agentes() {
         {showNewAgent && <NewAgenteModal onClose={() => setShowNewAgent(false)} onSuccess={() => { setShowNewAgent(false); setRefreshKey(k => k + 1) }} />}
 
         {/* kpi row */}
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
           {kpis.map((k, i) => <KPICard key={k.label} {...k} delay={`${i * 55}ms`} compact />)}
         </div>
 

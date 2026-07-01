@@ -288,7 +288,7 @@ export default function KnowledgeBase() {
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '8px 14px', borderRadius: 10,
             border: '1px solid #1e2433', background: '#0d1117',
-            minWidth: 260,
+            flex: 1,
           }}>
             <RiSearchLine style={{ width: 15, height: 15, color: '#4b5563', flexShrink: 0 }} />
             <input placeholder="Buscar en la knowledge base..." style={{
@@ -349,7 +349,7 @@ export default function KnowledgeBase() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '16px 28px 24px', gap: 16 }}>
 
         {/* ── Left: categories ── */}
-        <div style={{
+        <div className="panel-desktop" style={{
           width: 210, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12,
         }}>
           {/* Category list */}
@@ -517,7 +517,7 @@ export default function KnowledgeBase() {
         </div>
 
         {/* ── Right: summary panel ── */}
-        <div className="dark-scroll" style={{
+        <div className="dark-scroll panel-desktop" style={{
           width: 268, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14,
           overflowY: 'auto',
         }}>

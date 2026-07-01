@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
@@ -9,10 +9,10 @@ import {
 import '../dashboard.css'
 
 const BG_POOL = ['#2563eb','#0891b2','#7c3aed','#b45309','#be185d','#059669','#d97706','#0d9488']
-const STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistió' }
+const STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistiÃ³' }
 const STATUS_COLOR = { scheduled:'#10b981', completed:'#6b7280', cancelled:'#ef4444', no_show:'#f59e0b' }
 const PLATFORM_COLORS = { google:'#34a853', zoom:'#2D8CFF', teams:'#5b5ea6' }
-const TABS = ['Preparación', 'Notas', 'Historial']
+const TABS = ['PreparaciÃ³n', 'Notas', 'Historial']
 
 function Avatar({ name, bg, size = 40 }) {
   const initials = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('')
@@ -40,13 +40,13 @@ function mapRaw(data, id) {
     id: data.id,
     status: data.status,
     lead: {
-      name: data.lead?.name ?? '—',
-      company: data.lead?.company ?? '—',
+      name: data.lead?.name ?? 'â€”',
+      company: data.lead?.company ?? 'â€”',
       role: '',
       bg: BG_POOL[idx],
     },
     agent: {
-      name: data.assignee?.name ?? '—',
+      name: data.assignee?.name ?? 'â€”',
       role: data.assignee?.role ?? '',
       bg: '#4f46e5',
     },
@@ -61,7 +61,7 @@ function mapRaw(data, id) {
     objetivo: data.title ?? '',
     summary: '',
     notes: data.notes ?? '',
-    value: '—', leadStatus: '—', leadStatusColor: '#94a3b8',
+    value: 'â€”', leadStatus: 'â€”', leadStatusColor: '#94a3b8',
     priority: 'Media', prioColor: '#60a5fa',
     resources: [],
     meetingUrl: data.meetingUrl,
@@ -73,7 +73,7 @@ export default function MeetingDetailPage() {
   const navigate = useNavigate()
   const [mtg, setMtg] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('Preparación')
+  const [tab, setTab] = useState('PreparaciÃ³n')
   const [showCancel, setShowCancel] = useState(false)
   const [notes, setNotes] = useState('')
   const [notesSaving, setNotesSaving] = useState(false)
@@ -113,13 +113,13 @@ export default function MeetingDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargando…
+      Cargandoâ€¦
     </div>
   )
 
   if (!mtg) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Reunión no encontrada
+      ReuniÃ³n no encontrada
     </div>
   )
 
@@ -159,7 +159,7 @@ export default function MeetingDetailPage() {
                   <RiCalendarLine style={{ width:12, height:12 }} /> {mtg.date}
                 </span>
                 <span style={{ fontSize:12, color:'#4b5563', display:'flex', alignItems:'center', gap:5 }}>
-                  <RiTimeLine style={{ width:12, height:12 }} /> {mtg.range} · {mtg.dur}
+                  <RiTimeLine style={{ width:12, height:12 }} /> {mtg.range} Â· {mtg.dur}
                 </span>
                 <span style={{ fontSize:12, fontWeight:700, color:platColor, textTransform:'capitalize', display:'flex', alignItems:'center', gap:5 }}>
                   <RiVideoLine style={{ width:12, height:12 }} /> {mtg.platform}
@@ -250,11 +250,11 @@ export default function MeetingDetailPage() {
             ))}
           </div>
 
-          {tab === 'Preparación' && (
+          {tab === 'PreparaciÃ³n' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
                 <p style={{ margin:'0 0 12px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Agenda sugerida</p>
-                {['Presentación e introducción (3 min)', 'Entender situación actual (8 min)', 'Demostración de la plataforma (12 min)', 'Preguntas y objeciones (10 min)', 'Próximos pasos y cierre (7 min)'].map((item, i) => (
+                {['PresentaciÃ³n e introducciÃ³n (3 min)', 'Entender situaciÃ³n actual (8 min)', 'DemostraciÃ³n de la plataforma (12 min)', 'Preguntas y objeciones (10 min)', 'PrÃ³ximos pasos y cierre (7 min)'].map((item, i) => (
                   <div key={i} style={{ display:'flex', gap:10, marginBottom:10 }}>
                     <div style={{ width:20, height:20, borderRadius:6, background:'#6366f115', border:'1px solid #6366f130', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:10.5, fontWeight:700, color:'#818cf8' }}>{i+1}</div>
                     <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5, paddingTop:2 }}>{item}</p>
@@ -270,7 +270,7 @@ export default function MeetingDetailPage() {
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 onBlur={saveNotes}
-                placeholder="Escribe tus notas aquí..."
+                placeholder="Escribe tus notas aquÃ­..."
                 style={{
                   width:'100%', minHeight:180, background:'transparent', border:'none',
                   color:'#94a3b8', fontSize:13, outline:'none', resize:'vertical', lineHeight:1.6,
@@ -279,7 +279,7 @@ export default function MeetingDetailPage() {
               />
               <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8 }}>
                 <button onClick={saveNotes} style={{ background:'#4f46e5', border:'none', borderRadius:7, padding:'6px 14px', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                  {notesSaving ? 'Guardando…' : 'Guardar notas'}
+                  {notesSaving ? 'Guardandoâ€¦' : 'Guardar notas'}
                 </button>
               </div>
             </div>
@@ -287,7 +287,7 @@ export default function MeetingDetailPage() {
 
           {tab === 'Historial' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-              <p style={{ margin:0, fontSize:13, color:'#4b5563', textAlign:'center', padding:'20px 0' }}>Historial disponible tras completar la reunión</p>
+              <p style={{ margin:0, fontSize:13, color:'#4b5563', textAlign:'center', padding:'20px 0' }}>Historial disponible tras completar la reuniÃ³n</p>
             </div>
           )}
         </div>
@@ -318,11 +318,11 @@ export default function MeetingDetailPage() {
       {showCancel && (
         <div onClick={() => setShowCancel(false)} style={{ position:'fixed', inset:0, zIndex:100, background:'#000a', display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:14, padding:'24px', width:340, boxShadow:'0 40px 80px #0009' }}>
-            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:700, color:'#f1f5f9' }}>¿Cancelar esta reunión?</p>
-            <p style={{ margin:'0 0 18px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>Se marcará como cancelada.</p>
+            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:700, color:'#f1f5f9' }}>Â¿Cancelar esta reuniÃ³n?</p>
+            <p style={{ margin:'0 0 18px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>Se marcarÃ¡ como cancelada.</p>
             <div style={{ display:'flex', gap:10 }}>
               <button onClick={() => setShowCancel(false)} style={{ flex:1, padding:'9px 0', background:'none', border:'1px solid #1e2433', borderRadius:9, color:'#94a3b8', fontSize:13, cursor:'pointer' }}>No cancelar</button>
-              <button onClick={cancelMeeting} style={{ flex:1, padding:'9px 0', background:'#ef444415', border:'1px solid #ef444430', borderRadius:9, color:'#ef4444', fontSize:13, fontWeight:700, cursor:'pointer' }}>Cancelar reunión</button>
+              <button onClick={cancelMeeting} style={{ flex:1, padding:'9px 0', background:'#ef444415', border:'1px solid #ef444430', borderRadius:9, color:'#ef4444', fontSize:13, fontWeight:700, cursor:'pointer' }}>Cancelar reuniÃ³n</button>
             </div>
           </div>
         </div>
@@ -330,3 +330,4 @@ export default function MeetingDetailPage() {
     </div>
   )
 }
+

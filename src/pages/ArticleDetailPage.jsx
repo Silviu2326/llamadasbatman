@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
@@ -9,20 +9,20 @@ import '../dashboard.css'
 
 const CONTENT_SECTIONS = [
   {
-    heading: 'Introducción',
-    text: 'Esta guía cubre los conceptos fundamentales que todo representante de ventas necesita conocer para maximizar el valor de la plataforma en sus conversaciones con clientes potenciales.',
+    heading: 'IntroducciÃ³n',
+    text: 'Esta guÃ­a cubre los conceptos fundamentales que todo representante de ventas necesita conocer para maximizar el valor de la plataforma en sus conversaciones con clientes potenciales.',
   },
   {
     heading: 'Puntos clave',
-    text: 'La plataforma VozIA permite automatizar llamadas salientes con agentes de inteligencia artificial que se comportan de forma natural. Cada agente puede ser personalizado con playbooks específicos según el tipo de campaña y el perfil del cliente objetivo.',
+    text: 'La plataforma VozIA permite automatizar llamadas salientes con agentes de inteligencia artificial que se comportan de forma natural. Cada agente puede ser personalizado con playbooks especÃ­ficos segÃºn el tipo de campaÃ±a y el perfil del cliente objetivo.',
   },
   {
     heading: 'Ejemplos de uso',
-    text: 'Casos como TechSolutions S.L. han demostrado un incremento del 45% en reuniones calificadas en los primeros 60 días de implementación. La clave está en la correcta configuración del playbook inicial y el seguimiento de métricas de sentimiento.',
+    text: 'Casos como TechSolutions S.L. han demostrado un incremento del 45% en reuniones calificadas en los primeros 60 dÃ­as de implementaciÃ³n. La clave estÃ¡ en la correcta configuraciÃ³n del playbook inicial y el seguimiento de mÃ©tricas de sentimiento.',
   },
   {
     heading: 'Preguntas frecuentes',
-    text: '¿Cuánto tarda el onboarding? Típicamente entre 2 y 5 días laborables. ¿Se puede integrar con nuestro CRM? Sí, tenemos conectores nativos para HubSpot, Salesforce y Pipedrive.',
+    text: 'Â¿CuÃ¡nto tarda el onboarding? TÃ­picamente entre 2 y 5 dÃ­as laborables. Â¿Se puede integrar con nuestro CRM? SÃ­, tenemos conectores nativos para HubSpot, Salesforce y Pipedrive.',
   },
 ]
 
@@ -41,8 +41,8 @@ export default function ArticleDetailPage() {
           ...data,
           title: data.name,
           category: data.type,
-          author: '—',
-          views: 0, likes: 0, readTime: '—',
+          author: 'â€”',
+          views: 0, likes: 0, readTime: 'â€”',
           sections: data.content ? [{ heading: 'Contenido', text: data.content }] : CONTENT_SECTIONS,
         })
       }
@@ -52,13 +52,13 @@ export default function ArticleDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargando…
+      Cargandoâ€¦
     </div>
   )
 
   if (!art) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Artículo no encontrado
+      ArtÃ­culo no encontrado
     </div>
   )
 
@@ -145,7 +145,7 @@ export default function ArticleDetailPage() {
 
           {/* Feedback */}
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <p style={{ margin:0, fontSize:13, color:'#6b7280' }}>¿Este artículo fue útil?</p>
+            <p style={{ margin:0, fontSize:13, color:'#6b7280' }}>Â¿Este artÃ­culo fue Ãºtil?</p>
             <div style={{ display:'flex', gap:8 }}>
               <button onClick={() => setLiked(v => !v)} style={{
                 display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600,
@@ -153,7 +153,7 @@ export default function ArticleDetailPage() {
                 border: `1px solid ${liked ? '#10b98140' : '#1e2433'}`,
                 color: liked ? '#10b981' : '#6b7280',
               }}>
-                <RiThumbUpLine style={{ width:14, height:14 }} /> Útil
+                <RiThumbUpLine style={{ width:14, height:14 }} /> Ãštil
               </button>
               <button onClick={() => navigator.clipboard.writeText(window.location.href).then(() => {})} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:8, background:'#111827', border:'1px solid #1e2433', color:'#6b7280', cursor:'pointer', fontSize:13 }}>
                 <RiShareLine style={{ width:14, height:14 }} /> Compartir
@@ -165,7 +165,7 @@ export default function ArticleDetailPage() {
         {/* Sidebar */}
         <div style={{ width:220, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 12px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Artículos relacionados</p>
+            <p style={{ margin:'0 0 12px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>ArtÃ­culos relacionados</p>
             {[].map(rel => (
               <div key={rel.id} onClick={() => navigate('/knowledge-base/articulos/' + rel.id)}
                 style={{ display:'flex', gap:8, marginBottom:10, cursor:'pointer', padding:'8px', borderRadius:8, transition:'background .15s' }}
@@ -178,11 +178,11 @@ export default function ArticleDetailPage() {
           </div>
 
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Información</p>
+            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>InformaciÃ³n</p>
             {[
               { label:'Autor', value:art.author },
               { label:'Creado', value:art.date },
-              { label:'Categoría', value:art.catLabel },
+              { label:'CategorÃ­a', value:art.catLabel },
               { label:'Visitas', value:String(art.visits) },
             ].map(m => (
               <div key={m.label} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid #111827' }}>
@@ -196,3 +196,4 @@ export default function ArticleDetailPage() {
     </div>
   )
 }
+

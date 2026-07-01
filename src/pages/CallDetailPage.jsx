@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import WaveSurfer from 'wavesurfer.js'
 import { apiFetch } from '../lib/api'
@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import '../dashboard.css'
 
-// ─── Audio Player ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Audio Player â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 
 function fmt(s) {
@@ -116,20 +116,20 @@ function AudioPlayer({ url, fallbackDuration }) {
 }
 
 const TRANSCRIPT = [
-  { isAgent:true,  time:'00:00', text:'¡Hola! Soy Sofía de VozIA. Vi que vuestro equipo está creciendo rápido. ¿Tienes 2 minutos para ver cómo ayudamos a automatizar el proceso comercial?' },
-  { isAgent:false, time:'00:18', text:'Hola Sofía, sí, cuéntame brevemente.' },
-  { isAgent:true,  time:'00:21', text:'Perfecto. Trabajamos con empresas para aumentar las reuniones cualificadas. En promedio, conseguimos un 35% más de demos agendadas en los primeros 60 días.' },
-  { isAgent:false, time:'00:38', text:'Interesante. ¿Y cómo lo conseguís?' },
+  { isAgent:true,  time:'00:00', text:'Â¡Hola! Soy SofÃ­a de VozIA. Vi que vuestro equipo estÃ¡ creciendo rÃ¡pido. Â¿Tienes 2 minutos para ver cÃ³mo ayudamos a automatizar el proceso comercial?' },
+  { isAgent:false, time:'00:18', text:'Hola SofÃ­a, sÃ­, cuÃ©ntame brevemente.' },
+  { isAgent:true,  time:'00:21', text:'Perfecto. Trabajamos con empresas para aumentar las reuniones cualificadas. En promedio, conseguimos un 35% mÃ¡s de demos agendadas en los primeros 60 dÃ­as.' },
+  { isAgent:false, time:'00:38', text:'Interesante. Â¿Y cÃ³mo lo conseguÃ­s?' },
   { isAgent:true,  time:'00:42', text:'Usamos agentes IA que se llaman como humanos, entienden el contexto y conectan con los leads en el momento justo.' },
-  { isAgent:false, time:'00:59', text:'¿Tenéis casos de uso en el sector tecnológico?' },
-  { isAgent:true,  time:'01:02', text:'Sí, precisamente. Tenemos clientes SaaS con equipos similares al vuestro. ¿Agendamos 20 minutos para mostrarte la plataforma?' },
+  { isAgent:false, time:'00:59', text:'Â¿TenÃ©is casos de uso en el sector tecnolÃ³gico?' },
+  { isAgent:true,  time:'01:02', text:'SÃ­, precisamente. Tenemos clientes SaaS con equipos similares al vuestro. Â¿Agendamos 20 minutos para mostrarte la plataforma?' },
 ]
 
 const MOMENTS = [
-  { time:'02:15', color:'#10b981', label:'Dolor', text:'Mencionó dolor: "falta de seguimiento"' },
-  { time:'03:42', color:'#f59e0b', label:'Objeción', text:'Objeción: "No tenemos presupuesto ahora"' },
-  { time:'05:10', color:'#3b82f6', label:'Interés', text:'Interés alto: "¿Y qué resultados reales tenéis?"' },
-  { time:'07:33', color:'#8b5cf6', label:'Señal', text:'Señal de compra: "Agendemos una demo"' },
+  { time:'02:15', color:'#10b981', label:'Dolor', text:'MencionÃ³ dolor: "falta de seguimiento"' },
+  { time:'03:42', color:'#f59e0b', label:'ObjeciÃ³n', text:'ObjeciÃ³n: "No tenemos presupuesto ahora"' },
+  { time:'05:10', color:'#3b82f6', label:'InterÃ©s', text:'InterÃ©s alto: "Â¿Y quÃ© resultados reales tenÃ©is?"' },
+  { time:'07:33', color:'#8b5cf6', label:'SeÃ±al', text:'SeÃ±al de compra: "Agendemos una demo"' },
 ]
 
 const SENT_DATA = [
@@ -138,21 +138,21 @@ const SENT_DATA = [
 ]
 
 const STATUS_MAP = {
-  'Reunión agendada':  { color:'#10b981', bg:'#10b98115' },
+  'ReuniÃ³n agendada':  { color:'#10b981', bg:'#10b98115' },
   'Interesado':        { color:'#f59e0b', bg:'#f59e0b15' },
   'Seguimiento':       { color:'#3b82f6', bg:'#3b82f615' },
   'No interesado':     { color:'#ef4444', bg:'#ef444415' },
   'Propuesta enviada': { color:'#8b5cf6', bg:'#8b5cf615' },
 }
 
-const TABS = ['Transcripción', 'Análisis', 'Momentos clave']
+const TABS = ['TranscripciÃ³n', 'AnÃ¡lisis', 'Momentos clave']
 
 export default function CallDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [call, setCall] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('Transcripción')
+  const [tab, setTab] = useState('TranscripciÃ³n')
   const [starred, setStarred] = useState(false)
 
   useEffect(() => {
@@ -160,12 +160,12 @@ export default function CallDetailPage() {
       if (data) {
         const dur = data.durationSeconds ?? 0
         const durStr = `${Math.floor(dur/60)}m ${dur%60}s`
-        const outMap = { meeting_scheduled: 'Reunión agendada', interested: 'Interesado', callback: 'Callback', not_interested: 'No interés', no_answer: 'Sin respuesta' }
+        const outMap = { meeting_scheduled: 'ReuniÃ³n agendada', interested: 'Interesado', callback: 'Callback', not_interested: 'No interÃ©s', no_answer: 'Sin respuesta' }
         setCall({
           ...data,
           lead: data.lead ?? { name: 'Desconocido' },
           dur: durStr,
-          status: data.outcome ? (outMap[data.outcome] ?? data.outcome) : (data.status === 'completed' ? 'Éxito' : data.status),
+          status: data.outcome ? (outMap[data.outcome] ?? data.outcome) : (data.status === 'completed' ? 'Ã‰xito' : data.status),
           score: data.sentimentScore ?? 0,
           transcript: data.transcriptWords || (data.transcript ? [{ time: '0:00', speaker: 'Agente', text: data.transcript }] : []),
           sentiment: data.sentimentScore ?? 0,
@@ -177,7 +177,7 @@ export default function CallDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargando…
+      Cargandoâ€¦
     </div>
   )
 
@@ -224,11 +224,11 @@ export default function CallDetailPage() {
               <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:'#f1f5f9' }}>{call.name}</h1>
               <span style={{ fontSize:12, background:s.bg, color:s.color, border:`1px solid ${s.color}40`, borderRadius:99, padding:'2px 10px', fontWeight:600 }}>{call.status}</span>
             </div>
-            <p style={{ margin:'0 0 10px', fontSize:13, color:'#6b7280' }}>{call.company} · {call.role}</p>
+            <p style={{ margin:'0 0 10px', fontSize:13, color:'#6b7280' }}>{call.company} Â· {call.role}</p>
             <div style={{ display:'flex', gap:18 }}>
               {[
                 { icon:RiPhoneLine, label:call.agent, sub:'Agente' },
-                { icon:RiTimeLine, label:call.dur, sub:'Duración' },
+                { icon:RiTimeLine, label:call.dur, sub:'DuraciÃ³n' },
                 { icon:RiBarChartHorizontalLine, label:call.time, sub:'Hora' },
               ].map(({ icon:Icon, label, sub }) => (
                 <div key={sub} style={{ display:'flex', alignItems:'center', gap:7 }}>
@@ -253,7 +253,7 @@ export default function CallDetailPage() {
               { Icon: starred ? RiStarLine : RiStarLine, label: starred ? 'Destacado' : 'Destacar', action: () => setStarred(v => !v), active: starred },
               { Icon:RiEdit2Line,    label:'Editar',   action: () => navigate('/llamadas') },
               { Icon:RiDownload2Line,label:'Exportar', action: () => {
-                const text = `TRANSCRIPCIÓN — ${call.name}\n${call.time} · ${call.dur}\n\n` + TRANSCRIPT.map(m => `[${m.time}] ${m.isAgent ? 'Agente' : call.name}: ${m.text}`).join('\n')
+                const text = `TRANSCRIPCIÃ“N â€” ${call.name}\n${call.time} Â· ${call.dur}\n\n` + TRANSCRIPT.map(m => `[${m.time}] ${m.isAgent ? 'Agente' : call.name}: ${m.text}`).join('\n')
                 const blob = new Blob([text], { type:'text/plain' })
                 const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `llamada_${call.name.replace(/ /g,'_')}.txt`; a.click()
               }},
@@ -293,7 +293,7 @@ export default function CallDetailPage() {
             ))}
           </div>
 
-          {tab === 'Transcripción' && (
+          {tab === 'TranscripciÃ³n' && (
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {TRANSCRIPT.map((m, i) => (
                 <div key={i} style={{ display:'flex', gap:10, justifyContent: m.isAgent ? 'flex-start' : 'flex-end' }}>
@@ -319,10 +319,10 @@ export default function CallDetailPage() {
             </div>
           )}
 
-          {tab === 'Análisis' && (
+          {tab === 'AnÃ¡lisis' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Distribución del sentimiento</p>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>DistribuciÃ³n del sentimiento</p>
                 {[{ label:'Positivo', pct:74, color:'#10b981' }, { label:'Neutral', pct:18, color:'#f59e0b' }, { label:'Negativo', pct:8, color:'#ef4444' }].map(d => (
                   <div key={d.label} style={{ marginBottom:10 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
@@ -336,7 +336,7 @@ export default function CallDetailPage() {
                 ))}
               </div>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Evolución del sentimiento</p>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>EvoluciÃ³n del sentimiento</p>
                 <div style={{ height:120 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={SENT_DATA} margin={{ top:4, right:4, left:-24, bottom:0 }}>
@@ -377,7 +377,7 @@ export default function CallDetailPage() {
         <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
           {/* Score card */}
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Métricas de la llamada</p>
+            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>MÃ©tricas de la llamada</p>
             {[
               { label:'Palabras/min', value:'142' },
               { label:'Silencios', value:'3' },
@@ -393,8 +393,8 @@ export default function CallDetailPage() {
 
           {/* Next steps */}
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Próximos pasos</p>
-            {['Enviar correo de seguimiento', 'Agendar demo de producto', 'Compartir caso de éxito'].map((s, i) => (
+            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>PrÃ³ximos pasos</p>
+            {['Enviar correo de seguimiento', 'Agendar demo de producto', 'Compartir caso de Ã©xito'].map((s, i) => (
               <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:8 }}>
                 <div style={{ width:5, height:5, borderRadius:'50%', background:'#6366f1', flexShrink:0, marginTop:5 }} />
                 <p style={{ margin:0, fontSize:11.5, color:'#94a3b8', lineHeight:1.4 }}>{s}</p>
@@ -406,3 +406,4 @@ export default function CallDetailPage() {
     </div>
   )
 }
+

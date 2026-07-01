@@ -273,32 +273,32 @@ export default function Insights() {
           ) : (
             <>
               {/* KPI row */}
-              <div style={{ display:'flex', gap:10 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:10 }}>
                 {kpis.map((k,i) => <KPICard key={i} {...k} delay={`${i*50}ms`} />)}
               </div>
 
               {/* row 2: time chart + campaign donut */}
-              <div style={{ display:'flex', gap:12 }}>
-                <div style={{ ...C, flex:2, minWidth:0 }}>
+              <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                <div style={{ ...C, flex:'2 1 300px', minWidth:0 }}>
                   <TimeChart data={stats?.timeSeries ?? []} period={period} onPeriod={setPeriod} />
                 </div>
-                <div style={{ ...C, flex:1, minWidth:220 }}>
+                <div style={{ ...C, flex:'1 1 200px', minWidth:0 }}>
                   <STitle>Llamadas por campaña</STitle>
                   <CampaignDonut data={stats?.callsByCampaign ?? []} />
                 </div>
               </div>
 
               {/* row 3: campaign bar + funnel + agents */}
-              <div style={{ display:'flex', gap:12 }}>
-                <div style={{ ...C, flex:1, minWidth:0 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:12 }}>
+                <div style={{ ...C }}>
                   <STitle>Distribución por campaña</STitle>
                   <CampaignBar data={stats?.callsByCampaign ?? []} />
                 </div>
-                <div style={{ ...C, flex:1, minWidth:0 }}>
+                <div style={{ ...C }}>
                   <STitle>Embudo de conversión</STitle>
                   <PipelineFunnelChart data={stats?.funnel ?? []} />
                 </div>
-                <div style={{ ...C, flex:1, minWidth:0 }}>
+                <div style={{ ...C }}>
                   <STitle>Llamadas por agente IA</STitle>
                   <AgentsTable data={stats?.agentLeaderboard ?? []} />
                 </div>
@@ -308,7 +308,7 @@ export default function Insights() {
               <div style={{ ...C }}>
                 <STitle>Análisis de sentimiento en llamadas</STitle>
                 {stats?.sentiment ? (
-                  <div style={{ display:'flex', gap:16 }}>
+                  <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
                     <SentimentDonut sentiment={stats.sentiment} />
                     <div style={{ width:1, background:'#1e2433', flexShrink:0 }} />
                     <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'center' }}>
@@ -332,7 +332,7 @@ export default function Insights() {
         </div>
 
         {/* ── right sidebar ── */}
-        <div className="dark-scroll" style={{ width:280, flexShrink:0, overflowY:'auto', paddingBottom:16, display:'flex', flexDirection:'column', gap:12 }}>
+        <div className="dark-scroll panel-desktop" style={{ width:280, flexShrink:0, overflowY:'auto', paddingBottom:16, display:'flex', flexDirection:'column', gap:12 }}>
           <div style={{ ...C, padding:'14px 16px' }}>
             <STitle>Resumen global</STitle>
             {loading ? (

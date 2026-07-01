@@ -542,7 +542,7 @@ function NewCampaignModal({ onClose, onAdd }) {
       background: 'rgba(8,12,20,0.88)', backdropFilter: 'blur(10px)',
     }} onClick={onClose}>
       <div style={{
-        width: 520, maxHeight: '86vh', background: '#0d1117',
+        width: 'min(520px,96vw)', maxHeight: '86vh', background: '#0d1117',
         border: '1px solid #1e2433', borderRadius: 18, overflow: 'hidden',
         display: 'flex', flexDirection: 'column', boxShadow: '0 40px 100px rgba(0,0,0,0.85)',
       }} onClick={e => e.stopPropagation()}>
@@ -787,7 +787,7 @@ export default function Campaigns() {
     <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: '22px 24px', background: '#080c14', display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>Campañas</h1>
@@ -819,12 +819,12 @@ export default function Campaigns() {
       </div>
 
       {/* KPI bar */}
-      <div style={{ display: 'flex', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12 }}>
         {kpiTop.map((k, i) => <SimpleKPICard key={i} {...k} />)}
       </div>
 
       {/* Content row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, minWidth: 0, flexWrap: 'wrap' }}>
 
         {/* Main table */}
         <div style={{ flex: 1, minWidth: 0, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, overflow: 'hidden' }}>
@@ -912,7 +912,7 @@ export default function Campaigns() {
         </div>
 
         {/* Right panel */}
-        <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="panel-desktop" style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <CanalDonut data={USE_DEMO ? null : null} />
           <EstadoGauge campaigns={campaigns} />
           <TopConversion campaigns={campaigns} />

@@ -268,7 +268,7 @@ function InsightsPanel({ insights }) {
 // ─── main ─────────────────────────────────────────────────────────────────────
 function OppDetailPanel({ opp, onClose }) {
   return (
-    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 320, background: '#0d1117', borderLeft: '1px solid #1e2433', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: '-20px 0 60px #0009' }}>
+    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 'min(320px,100vw)', background: '#0d1117', borderLeft: '1px solid #1e2433', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: '-20px 0 60px #0009' }}>
       <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e2433', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <p style={{ margin: 0, fontWeight: 700, color: '#f1f5f9', fontSize: 14 }}>Oportunidad</p>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
@@ -425,7 +425,7 @@ export default function Pipeline() {
         <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
 
           {/* KPI row */}
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
             {kpis.map((k, i) => <KPICard key={k.label} {...k} delay={`${i * 55}ms`} />)}
           </div>
 
@@ -440,7 +440,7 @@ export default function Pipeline() {
           {acciones.length > 0 && (
             <div>
               <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>Acciones recomendadas por IA</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
                 {acciones.map((a, i) => {
                   const deco = ACTION_DECO[i] ?? ACTION_DECO[0]
                   return (

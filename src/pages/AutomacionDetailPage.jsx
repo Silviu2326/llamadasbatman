@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
@@ -10,18 +10,18 @@ import { ResponsiveContainer, AreaChart, Area, XAxis } from 'recharts'
 import '../dashboard.css'
 
 const CHART_DATA = [
-  { label:'Lun', v:1200 }, { label:'Mar', v:1450 }, { label:'Mié', v:1320 },
-  { label:'Jue', v:1680 }, { label:'Vie', v:1823 }, { label:'Sáb', v:980 }, { label:'Dom', v:740 },
+  { label:'Lun', v:1200 }, { label:'Mar', v:1450 }, { label:'MiÃ©', v:1320 },
+  { label:'Jue', v:1680 }, { label:'Vie', v:1823 }, { label:'SÃ¡b', v:980 }, { label:'Dom', v:740 },
 ]
 
 const STEPS = [
   { color:'#6366f1', label:'Disparador', desc:'Evento detectado' },
   { color:'#8b5cf6', label:'Filtrado',   desc:'Verifica condiciones' },
-  { color:'#0891b2', label:'Acción',     desc:'Ejecuta tarea' },
+  { color:'#0891b2', label:'AcciÃ³n',     desc:'Ejecuta tarea' },
   { color:'#10b981', label:'Log',        desc:'Registra resultado' },
 ]
 
-const TABS = ['Resumen', 'Historial', 'Configuración']
+const TABS = ['Resumen', 'Historial', 'ConfiguraciÃ³n']
 
 export default function AutomacionDetailPage() {
   const { id } = useParams()
@@ -41,7 +41,7 @@ export default function AutomacionDetailPage() {
           status: data.isActive ? 'activa' : 'pausada',
           trigger: typeof data.trigger === 'object' ? (data.trigger.type ?? JSON.stringify(data.trigger)) : data.trigger,
           runs: data.runsCount ?? 0,
-          lastRun: data.lastRunAt ? new Date(data.lastRunAt).toLocaleDateString('es-ES') : '—',
+          lastRun: data.lastRunAt ? new Date(data.lastRunAt).toLocaleDateString('es-ES') : 'â€”',
           tags: [],
         })
       }
@@ -51,13 +51,13 @@ export default function AutomacionDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargando…
+      Cargandoâ€¦
     </div>
   )
 
   if (!auto) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Automatización no encontrada
+      AutomatizaciÃ³n no encontrada
     </div>
   )
 
@@ -124,7 +124,7 @@ export default function AutomacionDetailPage() {
               {isActive ? <RiPauseLine style={{ width:14, height:14 }} /> : <RiPlayLine style={{ width:14, height:14 }} />}
               {isActive ? 'Pausar' : 'Reanudar'}
             </button>
-            <button onClick={() => setTab('Configuración')} style={{
+            <button onClick={() => setTab('ConfiguraciÃ³n')} style={{
               display:'flex', alignItems:'center', gap:6, background:'#111827',
               border:'1px solid #1e2433', borderRadius:9, padding:'8px 12px',
               color:'#94a3b8', fontSize:13, cursor:'pointer',
@@ -136,12 +136,12 @@ export default function AutomacionDetailPage() {
       </div>
 
       {/* KPI row */}
-      <div style={{ padding:'0 28px 20px', flexShrink:0, display:'flex', gap:12 }}>
+      <div style={{ padding:'0 24px 20px', flexShrink:0, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
         {[
           { label:'Ejecuciones', value:auto.execs, delta:auto.execDelta, up:auto.execUp },
           { label:'Conversiones', value:auto.convs, delta:`${auto.convRate}`, up:auto.execUp, note:'tasa' },
           { label:'Ingresos', value:auto.rev, delta:auto.revDelta, up:auto.revUp },
-          { label:'Última ejecución', value:auto.last, delta:null },
+          { label:'Ãšltima ejecuciÃ³n', value:auto.last, delta:null },
         ].map((k, i) => {
           const Up = HiArrowUp, Down = HiArrowDown
           const Arr = k.up ? Up : Down
@@ -205,11 +205,11 @@ export default function AutomacionDetailPage() {
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
                 <p style={{ margin:'0 0 12px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Ejecuciones recientes</p>
                 {[
-                  { time:'Hoy, 09:32', result:'Éxito', color:'#10b981', lead:'María Rodríguez' },
-                  { time:'Hoy, 08:18', result:'Éxito', color:'#10b981', lead:'José López' },
+                  { time:'Hoy, 09:32', result:'Ã‰xito', color:'#10b981', lead:'MarÃ­a RodrÃ­guez' },
+                  { time:'Hoy, 08:18', result:'Ã‰xito', color:'#10b981', lead:'JosÃ© LÃ³pez' },
                   { time:'Ayer, 18:45', result:'Error', color:'#ef4444', lead:'Carlos Ruiz' },
-                  { time:'Ayer, 16:22', result:'Éxito', color:'#10b981', lead:'Laura Pérez' },
-                  { time:'Ayer, 14:11', result:'Omitido', color:'#6b7280', lead:'Ana Martínez' },
+                  { time:'Ayer, 16:22', result:'Ã‰xito', color:'#10b981', lead:'Laura PÃ©rez' },
+                  { time:'Ayer, 14:11', result:'Omitido', color:'#6b7280', lead:'Ana MartÃ­nez' },
                 ].map((e, i) => (
                   <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #111827' }}>
                     <div>
@@ -226,28 +226,28 @@ export default function AutomacionDetailPage() {
           {tab === 'Historial' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#f1f5f9' }}>Ejecuciones · últimos 30 días</p>
+                <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#f1f5f9' }}>Ejecuciones Â· Ãºltimos 30 dÃ­as</p>
                 <div style={{ display:'flex', gap:6 }}>
-                  {['Todo', 'Éxito', 'Error'].map((f, i) => (
+                  {['Todo', 'Ã‰xito', 'Error'].map((f, i) => (
                     <button key={f} style={{ padding:'4px 10px', borderRadius:7, border:'1px solid ' + (i === 0 ? auto.iconColor : '#1e2433'), background: i === 0 ? auto.iconColor + '20' : 'transparent', color: i === 0 ? auto.iconColor : '#6b7280', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>{f}</button>
                   ))}
                 </div>
               </div>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, overflow:'hidden' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 90px 80px', padding:'9px 14px', borderBottom:'1px solid #1e2433' }}>
-                  {['Lead / empresa', 'Fecha', 'Duración', 'Resultado'].map(h => (
+                  {['Lead / empresa', 'Fecha', 'DuraciÃ³n', 'Resultado'].map(h => (
                     <span key={h} style={{ fontSize:10.5, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:0.4 }}>{h}</span>
                   ))}
                 </div>
                 {[
-                  { lead:'María Rodríguez', company:'TechSolutions', date:'Hoy 09:32', dur:'4:32', result:'Éxito', color:'#10b981' },
-                  { lead:'José López', company:'DataPro', date:'Hoy 08:18', dur:'3:10', result:'Éxito', color:'#10b981' },
+                  { lead:'MarÃ­a RodrÃ­guez', company:'TechSolutions', date:'Hoy 09:32', dur:'4:32', result:'Ã‰xito', color:'#10b981' },
+                  { lead:'JosÃ© LÃ³pez', company:'DataPro', date:'Hoy 08:18', dur:'3:10', result:'Ã‰xito', color:'#10b981' },
                   { lead:'Carlos Ruiz', company:'Innovate SA', date:'Ayer 18:45', dur:'0:48', result:'Error', color:'#ef4444' },
-                  { lead:'Laura Pérez', company:'MedCare', date:'Ayer 16:22', dur:'5:07', result:'Éxito', color:'#10b981' },
-                  { lead:'Ana Martínez', company:'NextGen', date:'Ayer 14:11', dur:'—', result:'Omitido', color:'#6b7280' },
-                  { lead:'Pablo García', company:'Retail Group', date:'23 may 11:55', dur:'6:21', result:'Éxito', color:'#10b981' },
-                  { lead:'Isabel Torres', company:'BuildIt Corp', date:'23 may 09:40', dur:'2:55', result:'Éxito', color:'#10b981' },
-                  { lead:'Ramón Blanco', company:'SaaS Tools', date:'22 may 17:30', dur:'1:12', result:'Error', color:'#ef4444' },
+                  { lead:'Laura PÃ©rez', company:'MedCare', date:'Ayer 16:22', dur:'5:07', result:'Ã‰xito', color:'#10b981' },
+                  { lead:'Ana MartÃ­nez', company:'NextGen', date:'Ayer 14:11', dur:'â€”', result:'Omitido', color:'#6b7280' },
+                  { lead:'Pablo GarcÃ­a', company:'Retail Group', date:'23 may 11:55', dur:'6:21', result:'Ã‰xito', color:'#10b981' },
+                  { lead:'Isabel Torres', company:'BuildIt Corp', date:'23 may 09:40', dur:'2:55', result:'Ã‰xito', color:'#10b981' },
+                  { lead:'RamÃ³n Blanco', company:'SaaS Tools', date:'22 may 17:30', dur:'1:12', result:'Error', color:'#ef4444' },
                 ].map((e, i) => (
                   <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 120px 90px 80px', padding:'10px 14px', borderBottom:'1px solid #111827', alignItems:'center' }}>
                     <div>
@@ -263,22 +263,22 @@ export default function AutomacionDetailPage() {
             </div>
           )}
 
-          {tab === 'Configuración' && (
+          {tab === 'ConfiguraciÃ³n' && (
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
               {[
                 { section:'Disparador', items:[
                   { label:'Tipo', value:auto.trigger },
-                  { label:'Condición', value:'Nuevo lead en CRM con tag "outbound"' },
-                  { label:'Evaluación', value:'Inmediata (en tiempo real)' },
+                  { label:'CondiciÃ³n', value:'Nuevo lead en CRM con tag "outbound"' },
+                  { label:'EvaluaciÃ³n', value:'Inmediata (en tiempo real)' },
                 ]},
                 { section:'Acciones', items:[
-                  { label:'Acción 1', value:'Asignar agente AI (prioridad alta)' },
-                  { label:'Acción 2', value:'Iniciar llamada saliente en 5 min' },
-                  { label:'Acción 3', value:'Registrar resultado en CRM' },
-                  { label:'Acción 4', value:'Enviar email de seguimiento si no contesta' },
+                  { label:'AcciÃ³n 1', value:'Asignar agente AI (prioridad alta)' },
+                  { label:'AcciÃ³n 2', value:'Iniciar llamada saliente en 5 min' },
+                  { label:'AcciÃ³n 3', value:'Registrar resultado en CRM' },
+                  { label:'AcciÃ³n 4', value:'Enviar email de seguimiento si no contesta' },
                 ]},
-                { section:'Límites', items:[
-                  { label:'Máx. ejecuciones/día', value:'500' },
+                { section:'LÃ­mites', items:[
+                  { label:'MÃ¡x. ejecuciones/dÃ­a', value:'500' },
                   { label:'Cooldown por lead', value:'24 horas' },
                   { label:'Reintentos', value:'2 (cada 30 min)' },
                 ]},
@@ -304,7 +304,7 @@ export default function AutomacionDetailPage() {
                 </div>
               ))}
               <button onClick={() => { setSavedAuto(true); setTimeout(() => setSavedAuto(false), 2000) }} style={{ alignSelf:'flex-start', background: savedAuto ? '#10b981' : `linear-gradient(90deg, ${auto.iconBg}, ${auto.iconColor})`, border:'none', borderRadius:9, padding:'10px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', transition:'background .3s' }}>
-                {savedAuto ? '✓ Guardado' : 'Guardar cambios'}
+                {savedAuto ? 'âœ“ Guardado' : 'Guardar cambios'}
               </button>
             </div>
           )}
@@ -346,3 +346,4 @@ export default function AutomacionDetailPage() {
     </div>
   )
 }
+

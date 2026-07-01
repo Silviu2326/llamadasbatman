@@ -11,3 +11,36 @@ html, body, #app {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Responsive utilities ─────────────────────────────────────────────────── */
+
+/* KPI bar: wraps to multiple rows on mobile */
+.kpi-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+.kpi-bar > * { flex: 1 1 160px; min-width: 0; }
+
+/* Page padding: reduces on mobile */
+.page-pad { padding: 22px 24px; }
+
+/* Page header row: wraps on mobile */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+/* Scrollable tab strip */
+.tabs-scroll { display: flex; overflow-x: auto; flex-shrink: 0; scrollbar-width: none; }
+.tabs-scroll::-webkit-scrollbar { display: none; }
+
+/* Two-column content row: stacks on mobile */
+.content-row { display: flex; align-items: flex-start; gap: 14px; }
+
+/* Grid that auto-fills columns */
+.auto-grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.auto-grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.auto-grid-4 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+
+@media (max-width: 768px) {
+  .page-pad { padding: 12px 14px; }
+  .page-header { flex-wrap: wrap; }
+  .page-header .hdr-actions { flex-wrap: wrap; }
+  .content-row { flex-wrap: wrap; }
+  /* Hide desktop-only side panels on mobile */
+  .panel-desktop { display: none !important; }
+}

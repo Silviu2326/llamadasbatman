@@ -55,38 +55,41 @@ export default function DataTable({
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
       ...style,
     }}>
-      {/* header */}
-      {headerContent ?? (
-        <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: 0, padding: '10px 16px', borderBottom: '1px solid #1a2235', flexShrink: 0 }}>
-          {normCols.map(col => (
-            <span key={col.label} style={{ fontSize: 10, color: col.color ?? '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, textAlign: col.align || 'left' }}>
-              {col.label}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* horizontal scroll wrapper — both header and rows scroll together */}
+      <div className="dark-scroll" style={{ overflowX: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* header */}
+        {headerContent ?? (
+          <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: 0, padding: '10px 16px', borderBottom: '1px solid #1a2235', flexShrink: 0 }}>
+            {normCols.map(col => (
+              <span key={col.label} style={{ fontSize: 10, color: col.color ?? '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, textAlign: col.align || 'left' }}>
+                {col.label}
+              </span>
+            ))}
+          </div>
+        )}
 
-      {/* rows */}
-      <div className={scrollable ? 'dark-scroll' : undefined} style={scrollable ? { flex: 1, overflowY: 'auto', minHeight: 0 } : {}}>
-        {rows.length === 0
-          ? <p style={{ margin: 0, padding: '32px 16px', textAlign: 'center', fontSize: 13, color: '#4b5563' }}>{emptyText}</p>
-          : rows.map((row, i) => {
-              const isSelected = selected === row[rowKey]
-              return (
-                <DataRow
-                  key={row[rowKey]}
-                  gridTemplate={gridTemplate}
-                  selected={isSelected}
-                  isLast={i === rows.length - 1}
-                  accent={accent}
-                  compact={compact}
-                  onClick={onSelect ? () => onSelect(isSelected ? null : row) : undefined}
-                >
-                  {renderRow(row)}
-                </DataRow>
-              )
-            })
-        }
+        {/* rows */}
+        <div className={scrollable ? 'dark-scroll' : undefined} style={scrollable ? { flex: 1, overflowY: 'auto', minHeight: 0 } : {}}>
+          {rows.length === 0
+            ? <p style={{ margin: 0, padding: '32px 16px', textAlign: 'center', fontSize: 13, color: '#4b5563' }}>{emptyText}</p>
+            : rows.map((row, i) => {
+                const isSelected = selected === row[rowKey]
+                return (
+                  <DataRow
+                    key={row[rowKey]}
+                    gridTemplate={gridTemplate}
+                    selected={isSelected}
+                    isLast={i === rows.length - 1}
+                    accent={accent}
+                    compact={compact}
+                    onClick={onSelect ? () => onSelect(isSelected ? null : row) : undefined}
+                  >
+                    {renderRow(row)}
+                  </DataRow>
+                )
+              })
+          }
+        </div>
       </div>
     </div>
   )
