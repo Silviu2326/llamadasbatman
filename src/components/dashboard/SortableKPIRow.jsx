@@ -33,7 +33,7 @@ function SortableKpiItem({ id, kpi, isEditMode, onRemove }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    flex: '1 1 0',
+    flex: '1 1 160px',
     position: 'relative',
     zIndex: isDragging ? 50 : 'auto',
     opacity: isDragging ? 0.9 : 1,
