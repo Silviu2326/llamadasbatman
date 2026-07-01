@@ -21,8 +21,8 @@ export async function createAutomation(orgId: string, data: {
     data: {
       orgId,
       name: data.name,
-      trigger: data.trigger,
-      actions: data.actions,
+      trigger: data.trigger as any,
+      actions: data.actions as any,
       isActive: data.isActive ?? true,
     },
   })

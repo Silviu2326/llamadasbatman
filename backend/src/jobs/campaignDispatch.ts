@@ -73,7 +73,7 @@ try {
       }
     },
     {
-      connection: workerRedis,
+      connection: workerRedis as any,
       concurrency: 5,
     }
   )

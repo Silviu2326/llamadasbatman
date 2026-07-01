@@ -44,7 +44,7 @@ export async function createLead(orgId: string, data: {
   customFields?: Record<string, unknown>
 }) {
   const lead = await prisma.lead.create({
-    data: { orgId, ...data },
+    data: { orgId, ...data } as any,
   })
 
   // Update campaign totalLeads
@@ -98,7 +98,7 @@ export async function updateLead(orgId: string, id: string, data: {
 }) {
   return prisma.lead.updateMany({
     where: { id, orgId },
-    data,
+    data: data as any,
   })
 }
 

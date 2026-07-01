@@ -48,7 +48,7 @@ export class DeepgramSTT {
   }
 
   async start(): Promise<void> {
-    const client = new DeepgramClient(this._cfg.apiKey)
+    const client = new DeepgramClient(this._cfg.apiKey as any)
 
     const conn = await (client.listen as any).v2.createConnection({
       model: this._cfg.model,
