@@ -131,6 +131,7 @@ export class DeepgramElevenLabsSession {
   // ── STT callbacks ──────────────────────────────────────────────────────────
 
   private _onEagerEnd(text: string, _conf: number, _meta?: TurnMeta): void {
+    if (this._speculativeTask) return // ponytail: one speculative generation in flight at a time — avoids duplicate 'agente' responses when Flux refires EagerEndOfTurn
     this._speculativeText = text
     this._speculativeTask = this._handleUserText(text, true).catch(() => {})
   }
