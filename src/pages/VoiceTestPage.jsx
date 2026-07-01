@@ -339,8 +339,15 @@ export default function VoiceTestPage() {
   let turnN = 0
 
   return (
-    <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', background: C.bg, padding: '26px 32px 48px' }}>
-      <style>{`@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}`}</style>
+    <div className="dark-scroll vt-page" style={{ flex: 1, overflowY: 'auto', background: C.bg, padding: '26px 32px 48px' }}>
+      <style>{`
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+        @media (max-width: 860px) {
+          .vt-page { padding: 16px !important; }
+          .vt-grid { grid-template-columns: 1fr !important; }
+          .vt-transcript { min-height: 420px !important; }
+        }
+      `}</style>
 
       <button onClick={() => navigate('/agentes')} style={{
         display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
@@ -354,7 +361,7 @@ export default function VoiceTestPage() {
         Deepgram Flux · Cerebras · ElevenLabs — latencia end-to-end en tiempo real
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 18 }}>
+      <div className="vt-grid" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 18 }}>
 
         {/* ── LEFT ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -437,7 +444,7 @@ export default function VoiceTestPage() {
         </div>
 
         {/* ── RIGHT: transcript ── */}
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 560 }}>
+        <div className="vt-transcript" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 560 }}>
           <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: C.sub, letterSpacing: 1, textTransform: 'uppercase' }}>Conversación</span>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

@@ -497,10 +497,10 @@ export default function LoginPage() {
   })
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#03050c', fontFamily: "'Inter',system-ui,-apple-system,sans-serif", overflow: 'hidden' }}>
+    <div className="login-root" style={{ display: 'flex', minHeight: '100vh', background: '#03050c', fontFamily: "'Inter',system-ui,-apple-system,sans-serif", overflow: 'hidden' }}>
 
       {/* ══ LEFT PANEL ════════════════════════════════════════════════════════ */}
-      <div style={{ flex: '0 0 55%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '44px 54px' }}>
+      <div className="login-left" style={{ flex: '0 0 55%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '44px 54px' }}>
 
         {/* Base BG */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(155deg,#06081a 0%,#090c20 35%,#05080f 100%)' }}/>
@@ -605,7 +605,7 @@ export default function LoginPage() {
       </div>
 
       {/* ══ RIGHT PANEL ═══════════════════════════════════════════════════════ */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 44px', background: '#040710', borderLeft: '1px solid rgba(255,255,255,0.03)', position: 'relative', overflow: 'hidden' }}>
+      <div className="login-right" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 44px', background: '#040710', borderLeft: '1px solid rgba(255,255,255,0.03)', position: 'relative', overflow: 'hidden' }}>
 
         {/* Right panel ambient */}
         <div style={{ position: 'absolute', top: '12%', left: '50%', transform: 'translateX(-50%)', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle,rgba(79,70,229,0.04) 0%,transparent 65%)', pointerEvents: 'none' }}/>
@@ -760,6 +760,14 @@ export default function LoginPage() {
           -webkit-box-shadow:0 0 0 100px #05070f inset!important;
           -webkit-text-fill-color:#f1f5f9!important;
           caret-color:#f1f5f9;
+        }
+
+        @media (max-width: 900px) {
+          .login-left { display: none !important; }
+          .login-right { flex: 1 1 auto !important; padding: 32px 20px !important; }
+        }
+        @media (max-width: 420px) {
+          .login-right { padding: 24px 14px !important; }
         }
       `}</style>
     </div>
