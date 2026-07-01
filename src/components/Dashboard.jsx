@@ -154,7 +154,7 @@ export default function Dashboard() {
   const activeGridIds = GRID_WIDGET_IDS.filter(id => activeWidgets.has(id))
 
   return (
-    <div className="dark-scroll db-pad" style={{ flex:1, overflowY:'auto', background:'#080c14', display:'flex', flexDirection:'column', gap:16, minWidth:0, paddingRight: isEditMode ? 324 : 24 }}>
+    <div className="dark-scroll db-pad" style={{ flex:1, overflowY:'auto', background:'#080c14', display:'flex', flexDirection:'column', gap:16, minWidth:0, paddingRight: isEditMode ? 324 : undefined }}>
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
@@ -215,7 +215,19 @@ export default function Dashboard() {
 
       {/* Editable grid */}
       <div ref={gridRef} style={{ flex:1, minHeight:0, width:'100%' }}>
-        {gridWidth > 0 && (
+        {gridWidth > 0 && (gridWidth < 600 ? (
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {[...layout]
+              .filter(l => activeGridIds.includes(l.i))
+              .sort((a, b) => a.y - b.y || a.x - b.x)
+              .map(l => (
+                <div key={l.i} style={{ height: l.h * 85 + (l.h - 1) * 12 }}>
+                  <WidgetRenderer widgetId={l.i} kpiData={kpi} stats={stats} />
+                </div>
+              ))
+            }
+          </div>
+        ) : (
           <GridLayout
             className="dashboard-grid"
             layout={layout}
@@ -249,7 +261,7 @@ export default function Dashboard() {
               </div>
             ))}
           </GridLayout>
-        )}
+        ))}
       </div>
 
       {isEditMode && (

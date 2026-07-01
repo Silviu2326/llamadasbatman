@@ -67,10 +67,10 @@
 @media (max-width: 768px) {
   .db-pad { padding: 12px 14px; }
   .db-mid, .db-bot { grid-template-columns: 1fr; }
-  .db-kpi-row > * { min-width: calc(50% - 6px); }
+  .db-kpi-row > * { min-width: calc(50% - 6px) !important; }
 }
 @media (max-width: 480px) {
-  .db-kpi-row > * { min-width: 100%; }
+  .db-kpi-row > * { min-width: 100% !important; }
 }
 
 /* ── Editable dashboard (react-grid-layout) ───────────────────────────────── */
