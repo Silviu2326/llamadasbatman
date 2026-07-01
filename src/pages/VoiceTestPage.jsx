@@ -244,70 +244,75 @@ export default function VoiceTestPage() {
     startRef.current = Date.now()
     tickRef.current = setInterval(() => setElapsed(Math.round((Date.now() - startRef.current) / 1000)), 1000)
 
-    capCtxRef.current  = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
-    playCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 })
+    try {
+      capCtxRef.current  = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
+      playCtxRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 })
 
-    streamRef.current = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-    })
+      streamRef.current = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      })
 
-    const blobUrl = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }))
-    await capCtxRef.current.audioWorklet.addModule(blobUrl)
-    URL.revokeObjectURL(blobUrl)
+      const blobUrl = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }))
+      await capCtxRef.current.audioWorklet.addModule(blobUrl)
+      URL.revokeObjectURL(blobUrl)
 
-    const micSrc = capCtxRef.current.createMediaStreamSource(streamRef.current)
-    const worklet = new AudioWorkletNode(capCtxRef.current, 'mic-proc')
-    micSrc.connect(worklet)
-    workletRef.current = worklet
+      const micSrc = capCtxRef.current.createMediaStreamSource(streamRef.current)
+      const worklet = new AudioWorkletNode(capCtxRef.current, 'mic-proc')
+      micSrc.connect(worklet)
+      workletRef.current = worklet
 
-    const ws = new WebSocket(WS_URL)
-    ws.binaryType = 'arraybuffer'
-    wsRef.current = ws
+      const ws = new WebSocket(WS_URL)
+      ws.binaryType = 'arraybuffer'
+      wsRef.current = ws
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'start', agentId, orgId }))
-      addLine('sistema', '✓ Conectado — habla ahora')
-    }
-
-    ws.onmessage = ev => {
-      if (typeof ev.data !== 'string') {
-        scheduleF32(new Float32Array(ev.data))
-        setReceived(r => r + 1)
-        return
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'start', agentId, orgId }))
+        addLine('sistema', '✓ Conectado — habla ahora')
       }
-      try {
-        const msg = JSON.parse(ev.data)
-        if (msg.type === 'partial') {
-          setPartial(msg.text)
-        } else if (msg.type === 'transcript') {
-          setPartial('')
-          turnCountRef.current++
-          const n = turnCountRef.current
-          if (msg.role === 'agente' && msg.latency) setLatency(msg.latency)
-          const roleLabel = msg.role === 'prospecto' ? 'tú' : msg.role
-          const { type: _t, role: _r, ...meta } = msg
-          addLine(roleLabel, msg.text, meta)
-          setTurns(n)
-        } else if (msg.type === 'interrupt') {
-          stopPlayback()
-          setInterrupts(i => i + 1)
-          addLine('sistema', '⚡ Barge-in — audio detenido')
-        } else if (msg.type === 'error') {
-          addLine('sistema', `❌ ${msg.message}`)
+
+      ws.onmessage = ev => {
+        if (typeof ev.data !== 'string') {
+          scheduleF32(new Float32Array(ev.data))
+          setReceived(r => r + 1)
+          return
         }
-      } catch {}
-    }
+        try {
+          const msg = JSON.parse(ev.data)
+          if (msg.type === 'partial') {
+            setPartial(msg.text)
+          } else if (msg.type === 'transcript') {
+            setPartial('')
+            turnCountRef.current++
+            const n = turnCountRef.current
+            if (msg.role === 'agente' && msg.latency) setLatency(msg.latency)
+            const roleLabel = msg.role === 'prospecto' ? 'tú' : msg.role
+            const { type: _t, role: _r, ...meta } = msg
+            addLine(roleLabel, msg.text, meta)
+            setTurns(n)
+          } else if (msg.type === 'interrupt') {
+            stopPlayback()
+            setInterrupts(i => i + 1)
+            addLine('sistema', '⚡ Barge-in — audio detenido')
+          } else if (msg.type === 'error') {
+            addLine('sistema', `❌ ${msg.message}`)
+          }
+        } catch {}
+      }
 
-    ws.onerror  = () => addLine('sistema', '❌ Error de conexión — ¿backend en :3000?')
-    ws.onclose  = () => { addLine('sistema', '— Sesión cerrada'); stop() }
+      ws.onerror = () => addLine('sistema', '❌ Error de conexión — ¿backend en :3000?')
+      ws.onclose = () => { addLine('sistema', '— Sesión cerrada'); setPhase('idle') }
 
-    worklet.port.onmessage = e => {
-      if (ws.readyState !== WebSocket.OPEN) return
-      const f32 = e.data
-      let sum = 0; for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i]
-      setVolume(Math.min(Math.round(Math.sqrt(sum / f32.length) * 600), 100))
-      ws.send(float32ToInt16(f32).buffer)
-      setSent(s => s + 1)
+      worklet.port.onmessage = e => {
+        if (ws.readyState !== WebSocket.OPEN) return
+        const f32 = e.data
+        let sum = 0; for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i]
+        setVolume(Math.min(Math.round(Math.sqrt(sum / f32.length) * 600), 100))
+        ws.send(float32ToInt16(f32).buffer)
+        setSent(s => s + 1)
+      }
+    } catch (err) {
+      addLine('sistema', `❌ ${err.message}`)
+      stop()
     }
   }
 
