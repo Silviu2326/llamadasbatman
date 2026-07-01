@@ -1,0 +1,131 @@
+/* Gradient top border animation */
+@keyframes gradientMove {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* Progress bar glow pulse */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 8px #6366f155, 0 0 20px #7c3aed33; }
+  50%       { box-shadow: 0 0 14px #6366f188, 0 0 30px #7c3aed55; }
+}
+.progress-glow {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* Green dot pulse */
+@keyframes greenPulse {
+  0%, 100% { box-shadow: 0 0 6px #10b981; transform: scale(1); }
+  50%       { box-shadow: 0 0 14px #10b981, 0 0 24px #10b98166; transform: scale(1.2); }
+}
+.pulse-green {
+  animation: greenPulse 2.5s ease-in-out infinite;
+}
+
+/* Active nav dot */
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.7); }
+}
+.pulse-dot {
+  animation: dotPulse 1.8s ease-in-out infinite;
+}
+
+/* Ripple click effect */
+@keyframes rippleExpand {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(30); opacity: 0; }
+}
+.ripple-anim {
+  animation: rippleExpand 0.6s ease-out forwards;
+}
+
+/* Menu items slide in on load */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.nav-item-enter {
+  animation: slideIn 0.3s ease-out both;
+}
+
+/* Logo icon hover spin */
+.logo-spin-hover:hover {
+  transform: rotate(15deg) scale(1.1);
+  box-shadow: 0 0 28px #6366f177, 0 4px 16px #0000006d !important;
+}
+
+/* ── Responsive sidebar ─────────────────────────────────────────────────── */
+.sidebar-aside {
+  position: relative; /* positioning context for absolute children (topGlow, ripple) */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 768px) {
+  .sidebar-aside {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 200;
+    transform: translateX(-100%);
+    width: 260px;
+  }
+  .sidebar-aside.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Mobile header — hidden on desktop, shown on mobile */
+.mobile-header {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-header {
+    display: flex;
+  }
+}
+
+/* Backdrop — only visible on mobile when sidebar is open */
+.mobile-backdrop {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(2px);
+    animation: fadeIn 0.2s ease;
+  }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Custom scrollbar for the dark sidebar nav */
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: #374151 transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}

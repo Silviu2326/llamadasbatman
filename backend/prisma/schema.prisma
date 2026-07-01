@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  agent
+  viewer
+}
+
+enum CampaignStatus {
+  draft
+  active
+  paused
+  done
+}
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  unqualified
+  converted
+}
+
+enum CallStatus {
+  completed
+  failed
+  no_answer
+  busy
+}
+
+enum MeetingStatus {
+  scheduled
+  completed
+  cancelled
+  no_show
+}
+
+enum OpportunityStage {
+  lead
+  qualified
+  proposal
+  negotiation
+  closed_won
+  closed_lost
+}
+
+model Organization {
+  id                 String   @id @default(cuid())
+  name               String
+  plan               String   @default("free")
+  voiceServiceApiKey String?
+  createdAt          DateTime @default(now())
+
+  users        User[]
+  agents       Agent[]
+  campaigns    Campaign[]
+  leads        Lead[]
+  calls        Call[]
+  meetings     Meeting[]
+  opportunities Opportunity[]
+  playbooks    Playbook[]
+  automations  Automation[]
+  knowledgeBases KnowledgeBase[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  orgId        String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(agent)
+  name         String
+  createdAt    DateTime @default(now())
+
+  org          Organization  @relation(fields: [orgId], references: [id])
+  meetings     Meeting[]     @relation("AssignedMeetings")
+  opportunities Opportunity[] @relation("AssignedOpportunities")
+}
+
+model Agent {
+  id           String   @id @default(cuid())
+  orgId        String
+  name         String
+  role         String
+  personality  String?
+  voiceId      String?
+  systemPrompt String?
+  language     String   @default("es")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  campaigns Campaign[]
+  calls     Call[]
+}
+
+model Campaign {
+  id                 String         @id @default(cuid())
+  orgId              String
+  agentId            String?
+  playbookId         String?
+  name               String
+  status             CampaignStatus @default(draft)
+  objective          String?
+  startDate          DateTime?
+  endDate            DateTime?
+  totalLeads         Int            @default(0)
+  contacted          Int            @default(0)
+  meetingsScheduled  Int            @default(0)
+  createdAt          DateTime       @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  agent    Agent?       @relation(fields: [agentId], references: [id])
+  playbook Playbook?    @relation(fields: [playbookId], references: [id])
+  leads    Lead[]
+  calls    Call[]
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  orgId        String
+  campaignId   String?
+  name         String
+  phone        String?
+  email        String?
+  company      String?
+  status       LeadStatus @default(new)
+  source       String?
+  tags         String[]   @default([])
+  customFields Json?
+  createdAt    DateTime   @default(now())
+
+  org          Organization  @relation(fields: [orgId], references: [id])
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id])
+  calls        Call[]
+  meetings     Meeting[]
+  opportunities Opportunity[]
+}
+
+model Call {
+  id              String     @id @default(cuid())
+  orgId           String
+  agentId         String?
+  leadId          String
+  campaignId      String?
+  externalCallId  String?
+  direction       String     @default("outbound")
+  status          CallStatus
+  durationSeconds Int?
+  recordingUrl    String?
+  transcript      String?
+  transcriptWords Json?
+  sentiment       String?
+  sentimentScore  Float?
+  summary         String?
+  outcome         String     @default("none")
+  callbackAt      DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime   @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  agent    Agent?       @relation(fields: [agentId], references: [id])
+  lead     Lead         @relation(fields: [leadId], references: [id])
+  campaign Campaign?    @relation(fields: [campaignId], references: [id])
+  meetings Meeting[]
+}
+
+model Meeting {
+  id              String        @id @default(cuid())
+  orgId           String
+  leadId          String
+  callId          String?
+  assignedTo      String?
+  title           String
+  scheduledAt     DateTime
+  durationMinutes Int           @default(30)
+  status          MeetingStatus @default(scheduled)
+  notes           String?
+  meetingUrl      String?
+  createdAt       DateTime      @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  lead     Lead         @relation(fields: [leadId], references: [id])
+  call     Call?        @relation(fields: [callId], references: [id])
+  assignee User?        @relation("AssignedMeetings", fields: [assignedTo], references: [id])
+}
+
+model Opportunity {
+  id                String           @id @default(cuid())
+  orgId             String
+  leadId            String
+  assignedTo        String?
+  name              String
+  stage             OpportunityStage @default(lead)
+  value             Decimal?
+  currency          String           @default("EUR")
+  probability       Int              @default(0)
+  expectedCloseDate DateTime?
+  notes             String?
+  createdAt         DateTime         @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  lead     Lead         @relation(fields: [leadId], references: [id])
+  assignee User?        @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
+}
+
+model Playbook {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  steps       Json?
+  tags        String[] @default([])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  campaigns Campaign[]
+}
+
+model Automation {
+  id         String    @id @default(cuid())
+  orgId      String
+  name       String
+  trigger    Json
+  actions    Json
+  isActive   Boolean   @default(true)
+  runsCount  Int       @default(0)
+  lastRunAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+}
+
+model KnowledgeBase {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  type      String   @default("document")
+  content   String?
+  fileUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+}
