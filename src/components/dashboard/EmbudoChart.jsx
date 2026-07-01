@@ -17,8 +17,8 @@ export default function EmbudoChart({ funnel: funnelProp }) {
     )
   }
 
-  const W = 190, stepH = 46, gap = 5, n = FUNNEL_DATA.length
-  const maxW = 186, minW = 86
+  const W = 200, stepH = 54, gap = 4, n = FUNNEL_DATA.length
+  const maxW = 196, minW = 80
   const widths = FUNNEL_DATA.map((_, i) => maxW - (maxW - minW) * (i / (n - 1)))
   const svgH = n * (stepH + gap)
 
@@ -27,16 +27,13 @@ export default function EmbudoChart({ funnel: funnelProp }) {
       <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
         Embudo de conversiones
       </h3>
-      <div style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
-        <svg viewBox={`0 0 ${W} ${svgH}`} width={W} height={svgH} style={{ flexShrink:0, overflow:'visible' }}>
+      <div style={{ flex:1, minHeight:0 }}>
+        <svg viewBox={`0 0 ${W} ${svgH}`} width="100%" style={{ display:'block', overflow:'visible' }}>
           <defs>
-            {FUNNEL_DATA.map((step, i) => (
+            {FUNNEL_DATA.map((_, i) => (
               <filter key={i} id={`fg${i}`} x="-25%" y="-40%" width="150%" height="180%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
             ))}
           </defs>
@@ -46,6 +43,7 @@ export default function EmbudoChart({ funnel: funnelProp }) {
             const tw = widths[i], bw = widths[i + 1] ?? widths[i] * 0.84
             const tm = (W - tw) / 2, bm = (W - bw) / 2
             const pts = `${tm},${y0} ${tm+tw},${y0} ${bm+bw},${y1} ${bm},${y1}`
+            const cy = y0 + stepH / 2
             return (
               <g key={i}>
                 <polygon points={pts} fill="none"
@@ -54,29 +52,20 @@ export default function EmbudoChart({ funnel: funnelProp }) {
                 <polygon points={pts}
                   fill={step.color + '55'}
                   stroke={step.color} strokeWidth={1.5} />
-                <text x={W / 2} y={y0 + stepH / 2 + 4} textAnchor="middle"
-                  fill="white" fontSize="10.5" fontWeight="600"
+                <text x={W / 2} y={cy - 5} textAnchor="middle"
+                  fill="white" fontSize="11" fontWeight="600"
                   style={{ filter:'drop-shadow(0 0 4px rgba(255,255,255,0.4))' }}>
                   {step.label}
+                </text>
+                <text x={W / 2} y={cy + 13} textAnchor="middle"
+                  fill={step.color} fontSize="13" fontWeight="700"
+                  style={{ filter:`drop-shadow(0 0 6px ${step.color}90)` }}>
+                  {step.value}
                 </text>
               </g>
             )
           })}
         </svg>
-
-        <div style={{ display:'flex', flexDirection:'column' }}>
-          {FUNNEL_DATA.map((step, i) => (
-            <div key={i} style={{ height: stepH + gap, display:'flex', alignItems:'center' }}>
-              <span style={{
-                fontSize: 12, fontWeight: 600, whiteSpace:'nowrap',
-                color: step.color,
-                textShadow: `0 0 8px ${step.color}80`,
-              }}>
-                {step.value}
-              </span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )
