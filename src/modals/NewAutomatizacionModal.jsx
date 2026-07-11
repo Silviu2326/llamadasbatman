@@ -17,6 +17,8 @@ const DISPARADORES = [
 
 export default function NewAutomatizacionModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({ name: '', description: '', trigger: DISPARADORES[0], isActive: true })
+  const [sendToMautic, setSendToMautic] = useState(false)
+  const [segmentAlias, setSegmentAlias] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -26,12 +28,18 @@ export default function NewAutomatizacionModal({ onClose, onSuccess }) {
     setSaving(true)
     setError(null)
     try {
+      // "enviar a segmento de Mautic" como una acción más, sin construir un
+      // editor de acciones genérico — ver PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md
+      // sección 4 punto 5.
+      const actions = sendToMautic && segmentAlias.trim()
+        ? [{ type: 'send_to_mautic_segment', params: { segmentAlias: segmentAlias.trim() } }]
+        : []
       const res = await apiFetch('/api/automations', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name,
           trigger: { type: form.trigger, description: form.description },
-          actions: [],
+          actions,
           isActive: form.isActive,
         }),
       })
@@ -49,6 +57,13 @@ export default function NewAutomatizacionModal({ onClose, onSuccess }) {
       <FormRow>
         <FormSelect label="Disparador" value={form.trigger} onChange={e => update('trigger', e.target.value)} options={DISPARADORES} required />
       </FormRow>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8', cursor: 'pointer' }}>
+        <input type="checkbox" checked={sendToMautic} onChange={e => setSendToMautic(e.target.checked)} />
+        Enviar el lead a un segmento de Mautic cuando se dispare
+      </label>
+      {sendToMautic && (
+        <FormInput label="Alias del segmento en Mautic" value={segmentAlias} onChange={e => setSegmentAlias(e.target.value)} placeholder="ej. reactivacion" />
+      )}
     </FormModal>
   )
 }

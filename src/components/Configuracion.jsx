@@ -48,19 +48,12 @@ const NAV = [
   ]},
 ]
 
-const INTEGRATIONS = [
-  { name: 'HubSpot',         bg: '#ff7a59', initials: 'Hs', status: 'Conectado',   statusColor: '#10b981', statusBg: '#10b98115' },
-  { name: 'Salesforce',      bg: '#00a1e0', initials: 'Sf', status: 'Conectado',   statusColor: '#10b981', statusBg: '#10b98115' },
-  { name: 'Google Calendar', bg: '#4285f4', initials: 'GC', status: 'Conectado',   statusColor: '#10b981', statusBg: '#10b98115' },
-  { name: 'Slack',           bg: '#4a154b', initials: 'Sk', status: 'Conectado',   statusColor: '#10b981', statusBg: '#10b98115' },
-  { name: 'Make',            bg: '#6b1fff', initials: 'Mk', status: 'Advertencia', statusColor: '#f59e0b', statusBg: '#f59e0b15' },
-]
-
+// "Créditos de voz" no tiene modelo de billing detrás (no hay tabla de
+// créditos ni de plan con límites) — se sacó en vez de inventar un número.
 const USAGE = [
-  { label: 'Créditos de voz',     value: '82.500', max: '100.000', pct: 82.5, color: 'linear-gradient(90deg,#4f46e5,#7c3aed)' },
-  { label: 'Minutos de llamadas', value: '1.250',  max: '2.000',   pct: 62.5, color: 'linear-gradient(90deg,#06b6d4,#0ea5e9)' },
-  { label: 'Agentes IA',          value: '12',     max: '20',      pct: 60,   color: 'linear-gradient(90deg,#10b981,#34d399)' },
-  { label: 'Usuarios',            value: '18',     max: '25',      pct: 72,   color: 'linear-gradient(90deg,#f59e0b,#fbbf24)' },
+  { label: 'Llamadas realizadas', value: '0',  max: '2.000', pct: 0, color: 'linear-gradient(90deg,#06b6d4,#0ea5e9)' },
+  { label: 'Agentes IA',          value: '0',  max: '20',    pct: 0, color: 'linear-gradient(90deg,#10b981,#34d399)' },
+  { label: 'Usuarios',            value: '0',  max: '25',    pct: 0, color: 'linear-gradient(90deg,#f59e0b,#fbbf24)' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -436,10 +429,9 @@ export default function Configuracion() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#f1f5f9' }}>Enterprise</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: '#f1f5f9', textTransform: 'capitalize' }}>{stats?.orgPlan ?? 'free'}</span>
                     <span style={{ fontSize: 10.5, background: '#10b98120', color: '#10b981', border: '1px solid #10b98140', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>Activo</span>
                   </div>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: '#4b5563' }}>Renovación: 18 jun 2024</p>
                 </div>
               </div>
             </div>
@@ -455,44 +447,31 @@ export default function Configuracion() {
             </div>
             <p style={{ margin: '0 0 12px', fontSize: 10.5, color: '#4b5563' }}>Acumulado total</p>
             {[
-              { ...USAGE[0] },
+              {
+                ...USAGE[0],
+                value: stats ? String(stats.totalCalls ?? 0) : USAGE[0].value,
+                pct: stats ? Math.min(100, Math.round((stats.totalCalls ?? 0) / 2000 * 100)) : USAGE[0].pct,
+              },
               {
                 ...USAGE[1],
-                value: stats ? String(stats.totalCalls ?? 0) : USAGE[1].value,
-                max: USAGE[1].max,
-                pct: stats ? Math.min(100, Math.round((stats.totalCalls ?? 0) / 2000 * 100)) : USAGE[1].pct,
+                value: agentCount !== null ? String(agentCount) : USAGE[1].value,
+                pct: agentCount !== null ? Math.min(100, Math.round(agentCount / 20 * 100)) : USAGE[1].pct,
               },
               {
                 ...USAGE[2],
-                value: agentCount !== null ? String(agentCount) : USAGE[2].value,
-                pct: agentCount !== null ? Math.min(100, Math.round(agentCount / 20 * 100)) : USAGE[2].pct,
-              },
-              {
-                ...USAGE[3],
-                value: stats ? String(stats.totalLeads ?? 0) : USAGE[3].value,
-                pct: stats ? Math.min(100, Math.round((stats.totalLeads ?? 0) / 25 * 100)) : USAGE[3].pct,
+                value: stats?.userCount != null ? String(stats.userCount) : USAGE[2].value,
+                pct: stats?.userCount != null ? Math.min(100, Math.round(stats.userCount / 25 * 100)) : USAGE[2].pct,
               },
             ].map((u, i) => <UsageBar key={i} {...u} />)}
           </div>
 
-          {/* Integraciones activas */}
+          {/* Integraciones activas — sin backend real todavía (ver roadmap) */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Integraciones activas</p>
-              <button style={{ background: 'transparent', border: 'none', color: '#8b5cf6', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Ver todas</button>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Integraciones</p>
             </div>
-            <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, overflow: 'hidden' }}>
-              {INTEGRATIONS.map((integ, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < INTEGRATIONS.length - 1 ? '1px solid #1e2433' : 'none' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, background: integ.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                    {integ.initials}
-                  </div>
-                  <span style={{ flex: 1, fontSize: 12.5, color: '#e2e8f0', fontWeight: 500 }}>{integ.name}</span>
-                  <span style={{ fontSize: 11, color: integ.statusColor, background: integ.statusBg, border: `1px solid ${integ.statusColor}40`, borderRadius: 5, padding: '2px 7px', fontWeight: 600 }}>
-                    {integ.status}
-                  </span>
-                </div>
-              ))}
+            <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Sin integraciones conectadas todavía.</p>
             </div>
           </div>
 

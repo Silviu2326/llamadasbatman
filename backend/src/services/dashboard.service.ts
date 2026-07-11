@@ -153,6 +153,11 @@ export async function getStats(orgId: string) {
       .reduce((s, o) => s + (o.value ? Number(o.value) : 0), 0),
   }))
 
+  const [userCount, org] = await Promise.all([
+    prisma.user.count({ where: { orgId } }),
+    prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true, postizEnabled: true } }),
+  ])
+
   const sentimentTotals: Record<string, number> = {}
   sentimentGroups.forEach(g => { if (g.sentiment) sentimentTotals[g.sentiment] = g._count.id })
   const sentimentTotal = Object.values(sentimentTotals).reduce((s, v) => s + v, 0)
@@ -167,6 +172,9 @@ export async function getStats(orgId: string) {
     pipelineValue, closedWonValue, kpiPcts,
     timeSeries, funnel, agentLeaderboard,
     callsByCampaign, pipelineByDay, sentiment,
+    userCount, orgPlan: org?.plan ?? 'free',
+    mauticEnabled: org?.mauticEnabled ?? false,
+    postizEnabled: org?.postizEnabled ?? false,
   }
 }
 

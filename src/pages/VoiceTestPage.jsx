@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { RiArrowLeftLine, RiMicLine, RiStopLine } from 'react-icons/ri'
 import '../dashboard.css'
 
-const WS_URL = location.hostname === 'localhost'
-  ? 'ws://localhost:3000/voice-sim/live'
-  : 'wss://llamadasspidermanback-production.up.railway.app/voice-sim/live'
+const isProd = location.hostname === 'llamadasspidermanback-production.up.railway.app' || location.hostname.startsWith('app.')
+const WS_URL = isProd
+  ? 'wss://llamadasspidermanback-production.up.railway.app/voice-sim/live'
+  : `ws://${location.hostname}:3000/voice-sim/live`
 
 const WORKLET_SRC = `
 class MicProcessor extends AudioWorkletProcessor {

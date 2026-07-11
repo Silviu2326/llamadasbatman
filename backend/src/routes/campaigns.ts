@@ -12,4 +12,5 @@ export async function campaignsRoutes(app: FastifyInstance) {
   app.post('/:id/start', ctrl.start)
   app.post('/:id/pause', ctrl.pause)
   app.get('/:id/stats', ctrl.stats)
+  app.post('/:id/audit-bulk', ctrl.auditBulk)
 }

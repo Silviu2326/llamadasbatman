@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma'
 import { buildStreamTwiml, startOutboundCall } from '../voice/telephony/twilioClient'
 import { loadAgentConfig } from '../voice/agentConfig'
 import { canCall } from '../voice/compliance'
+import { scheduleRetry } from '../jobs/leadCallDispatch'
 
 export async function voiceRoutes(app: FastifyInstance) {
   // ── Existing: agent config (para el servicio externo) ─────────────────────
@@ -55,6 +56,39 @@ export async function voiceRoutes(app: FastifyInstance) {
     return reply.type('text/xml').send(twiml)
   })
 
+  // ── POST /webhook/recording — Twilio avisa cuando la grabación está lista ──
+  app.post('/webhook/recording', async (req, reply) => {
+    const body = req.body as Record<string, string>
+    const callSid = body.CallSid ?? ''
+    const recordingUrl = body.RecordingUrl ?? ''
+    if (callSid && recordingUrl && body.RecordingStatus === 'completed') {
+      // Twilio expone el audio agregando la extensión al final de la URL base.
+      await prisma.call.updateMany({
+        where: { externalCallId: callSid },
+        data: { recordingUrl: `${recordingUrl}.mp3` },
+      })
+    }
+    return reply.status(204).send()
+  })
+
+  // ── POST /webhook/status — Twilio avisa el estado final de la llamada ─────
+  // Si nunca se contestó (no-answer/busy/failed/canceled), reintenta con
+  // backoff. Si se completó (se conectó al media stream), no hace nada —
+  // ingestCall() en mediaStream.ts ya crea el registro real con transcript.
+  app.post('/webhook/status', async (req, reply) => {
+    const body = req.body as Record<string, string>
+    const callStatus = body.CallStatus ?? ''
+    const orgId = (req.query as any).orgId ?? ''
+    const leadId = (req.query as any).leadId ?? ''
+
+    if (orgId && leadId && callStatus && callStatus !== 'completed') {
+      const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { attempts: true } })
+      if (lead) await scheduleRetry(orgId, leadId, lead.attempts)
+    }
+
+    return reply.status(204).send()
+  })
+
   // ── POST /outbound — Iniciar llamada saliente ─────────────────────────────
   app.post<{ Body: { toNumber: string; orgId: string; campaignId: string; agentId: string; leadId: string; businessType?: string; businessName?: string } }>(
     '/outbound',
@@ -63,7 +97,7 @@ export async function voiceRoutes(app: FastifyInstance) {
       const { toNumber, orgId, campaignId, agentId, leadId, businessType, businessName } = req.body
       if (!toNumber) return reply.status(400).send({ error: 'toNumber required' })
 
-      const compliance = await canCall(toNumber)
+      const compliance = await canCall(orgId, toNumber)
       if (!compliance.allowed) return reply.status(403).send({ error: compliance.reason })
 
       const result = await startOutboundCall({ toNumber, orgId, campaignId, agentId, leadId, businessType, businessName })

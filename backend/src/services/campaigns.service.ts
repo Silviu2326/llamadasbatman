@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma'
 import { CampaignStatus } from '@prisma/client'
+import { enqueueLeadCall } from './leadIngestion.service'
 
 export async function listCampaigns(orgId: string) {
   return prisma.campaign.findMany({
@@ -73,10 +74,16 @@ export async function getCampaignStats(orgId: string, id: string) {
   }
 }
 
+/**
+ * Dispatch masivo: encola una llamada por cada lead "new" de la campaña en la
+ * cola real (`lead-call-dispatch`, la misma que usa la llamada individual y
+ * el webhook de Meta) — antes esto pegaba a un VOICE_SERVICE_URL externo que
+ * ya no existe, así que el botón no disparaba ninguna llamada real.
+ */
 export async function startCampaign(orgId: string, id: string) {
   const campaign = await prisma.campaign.findFirst({
     where: { id, orgId },
-    include: { agent: true, leads: { where: { status: 'new' } } },
+    include: { leads: { where: { status: 'new' } } },
   })
 
   if (!campaign) throw new Error('Campaign not found')
@@ -86,31 +93,13 @@ export async function startCampaign(orgId: string, id: string) {
     data: { status: 'active' },
   })
 
-  // Notify voice service — non-blocking
-  try {
-    const voiceUrl = process.env.VOICE_SERVICE_URL ?? 'http://localhost:4000'
-    await fetch(`${voiceUrl}/campaigns/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-voice-service-secret': process.env.VOICE_SERVICE_SECRET ?? '',
-      },
-      body: JSON.stringify({
-        campaignId: id,
-        orgId,
-        agent: campaign.agent,
-        leads: campaign.leads.map((l) => ({
-          id: l.id,
-          name: l.name,
-          phone: l.phone,
-        })),
-      }),
-    })
-  } catch (err) {
-    console.error('[startCampaign] Failed to notify voice service:', err)
+  let queued = 0
+  for (const lead of campaign.leads) {
+    if (!lead.phone) continue
+    if (await enqueueLeadCall(orgId, lead.id)) queued++
   }
 
-  return { ok: true }
+  return { ok: true, queued }
 }
 
 export async function pauseCampaign(orgId: string, id: string) {
@@ -118,20 +107,6 @@ export async function pauseCampaign(orgId: string, id: string) {
     where: { id, orgId },
     data: { status: 'paused' },
   })
-
-  try {
-    const voiceUrl = process.env.VOICE_SERVICE_URL ?? 'http://localhost:4000'
-    await fetch(`${voiceUrl}/campaigns/pause`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-voice-service-secret': process.env.VOICE_SERVICE_SECRET ?? '',
-      },
-      body: JSON.stringify({ campaignId: id, orgId }),
-    })
-  } catch (err) {
-    console.error('[pauseCampaign] Failed to notify voice service:', err)
-  }
 
   return { ok: true }
 }

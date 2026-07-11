@@ -58,16 +58,31 @@ model Organization {
   voiceServiceApiKey String?
   createdAt          DateTime @default(now())
 
-  users        User[]
-  agents       Agent[]
-  campaigns    Campaign[]
-  leads        Lead[]
-  calls        Call[]
-  meetings     Meeting[]
-  opportunities Opportunity[]
-  playbooks    Playbook[]
-  automations  Automation[]
-  knowledgeBases KnowledgeBase[]
+  // Mautic/Postiz: instancia única compartida (self-hosted), el aislamiento
+  // por cliente vive en la app, no en infraestructura duplicada — ver
+  // PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md sección 2.2. mauticEnabled/
+  // postizEnabled gatean el Plan Completo (sección 2.4) desde el día 1.
+  mauticEnabled     Boolean @default(false)
+  mauticCompanyId   String?
+  postizEnabled     Boolean @default(false)
+  postizWorkspaceId String?
+
+  users              User[]
+  agents             Agent[]
+  campaigns          Campaign[]
+  leads              Lead[]
+  calls              Call[]
+  meetings           Meeting[]
+  opportunities      Opportunity[]
+  playbooks          Playbook[]
+  automations        Automation[]
+  knowledgeBases     KnowledgeBase[]
+  metaAdAccounts     MetaAdAccount[]
+  adInsightSnapshots AdInsightSnapshot[]
+  optOuts            OptOut[]
+  leadNotes          LeadNote[]
+  leadAudits         LeadAudit[]
+  leadFiles          LeadFile[]
 }
 
 model User {
@@ -79,8 +94,8 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
-  org          Organization  @relation(fields: [orgId], references: [id])
-  meetings     Meeting[]     @relation("AssignedMeetings")
+  org           Organization  @relation(fields: [orgId], references: [id])
+  meetings      Meeting[]     @relation("AssignedMeetings")
   opportunities Opportunity[] @relation("AssignedOpportunities")
 }
 
@@ -102,46 +117,64 @@ model Agent {
 }
 
 model Campaign {
-  id                 String         @id @default(cuid())
-  orgId              String
-  agentId            String?
-  playbookId         String?
-  name               String
-  status             CampaignStatus @default(draft)
-  objective          String?
-  startDate          DateTime?
-  endDate            DateTime?
-  totalLeads         Int            @default(0)
-  contacted          Int            @default(0)
-  meetingsScheduled  Int            @default(0)
-  createdAt          DateTime       @default(now())
+  id                  String         @id @default(cuid())
+  orgId               String
+  agentId             String?
+  playbookId          String?
+  adPlaybookId        String?
+  adAssets            Json?
+  metaCampaignId      String?
+  metaAdSetId         String?
+  metaAdId            String?
+  landingSlug         String?        @unique
+  adStatus            String?
+  maxCostPerLeadCents Int?
+  name                String
+  status              CampaignStatus @default(draft)
+  objective           String?
+  startDate           DateTime?
+  endDate             DateTime?
+  totalLeads          Int            @default(0)
+  contacted           Int            @default(0)
+  meetingsScheduled   Int            @default(0)
+  createdAt           DateTime       @default(now())
 
-  org      Organization @relation(fields: [orgId], references: [id])
-  agent    Agent?       @relation(fields: [agentId], references: [id])
-  playbook Playbook?    @relation(fields: [playbookId], references: [id])
-  leads    Lead[]
-  calls    Call[]
+  org                Organization        @relation(fields: [orgId], references: [id])
+  agent              Agent?              @relation(fields: [agentId], references: [id])
+  playbook           Playbook?           @relation(fields: [playbookId], references: [id])
+  adPlaybook         AdPlaybook?         @relation(fields: [adPlaybookId], references: [id])
+  leads              Lead[]
+  calls              Call[]
+  adInsightSnapshots AdInsightSnapshot[]
 }
 
 model Lead {
-  id           String     @id @default(cuid())
-  orgId        String
-  campaignId   String?
-  name         String
-  phone        String?
-  email        String?
-  company      String?
-  status       LeadStatus @default(new)
-  source       String?
-  tags         String[]   @default([])
-  customFields Json?
-  createdAt    DateTime   @default(now())
+  id             String     @id @default(cuid())
+  orgId          String
+  campaignId     String?
+  name           String
+  phone          String?
+  email          String?
+  company        String?
+  status         LeadStatus @default(new)
+  source         String?
+  externalLeadId String?
+  tags           String[]   @default([])
+  customFields   Json?
+  attempts       Int        @default(0)
+  lastAttemptAt  DateTime?
+  createdAt      DateTime   @default(now())
 
-  org          Organization  @relation(fields: [orgId], references: [id])
-  campaign     Campaign?     @relation(fields: [campaignId], references: [id])
-  calls        Call[]
-  meetings     Meeting[]
+  org           Organization  @relation(fields: [orgId], references: [id])
+  campaign      Campaign?     @relation(fields: [campaignId], references: [id])
+  calls         Call[]
+  meetings      Meeting[]
   opportunities Opportunity[]
+  notes         LeadNote[]
+  audits        LeadAudit[]
+  files         LeadFile[]
+
+  @@unique([orgId, externalLeadId])
 }
 
 model Call {
@@ -226,18 +259,127 @@ model Playbook {
   campaigns Campaign[]
 }
 
-model Automation {
-  id         String    @id @default(cuid())
-  orgId      String
-  name       String
-  trigger    Json
-  actions    Json
-  isActive   Boolean   @default(true)
-  runsCount  Int       @default(0)
-  lastRunAt  DateTime?
-  createdAt  DateTime  @default(now())
+// Playbook de anuncios por vertical (oferta/lead magnet/copy/landing/imagen
+// ya probados) — distinto del modelo `Playbook` (guion de llamada del agente
+// de voz). Ver META_ADS_AUTOMATION.md.
+model AdPlaybook {
+  id                String   @id @default(cuid())
+  vertical          String   @unique
+  offer             String
+  leadMagnet        String?
+  adCopy            String
+  landingTemplateId String
+  imagePrompt       String
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  campaigns Campaign[]
+}
+
+// Cuenta publicitaria de Meta conectada por la org (una por org — el cliente
+// paga directo a Meta, ver META_ADS_AUTOMATION.md). El token se guarda cifrado
+// (ver lib/tokenCrypto.ts), nunca en texto plano.
+model MetaAdAccount {
+  id                  String   @id @default(cuid())
+  orgId               String
+  metaAdAccountId     String
+  metaPageId          String?
+  metaBusinessId      String?
+  metaPixelId         String?
+  systemUserTokenEnc  String
+  status              String   @default("connected") // connected | revoked | error
+  dailyBudgetCapCents Int?
+  connectedAt         DateTime @default(now())
 
   org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, metaAdAccountId])
+}
+
+// Snapshot periódico de /insights por campaña (job ad-insights-sync).
+model AdInsightSnapshot {
+  id               String   @id @default(cuid())
+  orgId            String
+  campaignId       String
+  metaAdSetId      String?
+  capturedAt       DateTime @default(now())
+  spendCents       Int
+  impressions      Int
+  clicks           Int
+  leadsCount       Int
+  costPerLeadCents Int?
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  campaign Campaign     @relation(fields: [campaignId], references: [id])
+}
+
+model Automation {
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  trigger   Json
+  actions   Json
+  isActive  Boolean   @default(true)
+  runsCount Int       @default(0)
+  lastRunAt DateTime?
+  createdAt DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+}
+
+// Lista de "no llamar" (opt-out). Antes era un Set en memoria en
+// voice/compliance.ts — se perdía al reiniciar el proceso.
+model OptOut {
+  id        String   @id @default(cuid())
+  orgId     String
+  phone     String
+  reason    String   @default("manual")
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, phone])
+}
+
+model LeadNote {
+  id         String   @id @default(cuid())
+  orgId      String
+  leadId     String
+  authorName String
+  text       String
+  createdAt  DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  lead Lead         @relation(fields: [leadId], references: [id])
+}
+
+// Histórico de auditorías digitales — leads.service.ts#auditLead sigue
+// guardando la última en customFields.digitalAudit (no romper eso), esto
+// además guarda cada corrida para poder comparar evolución.
+model LeadAudit {
+  id        String   @id @default(cuid())
+  orgId     String
+  leadId    String
+  result    Json
+  createdAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  lead Lead         @relation(fields: [leadId], references: [id])
+}
+
+// storageKey es la key en S3, no una URL pública — el archivo es privado y
+// se sirve con una presigned URL generada al leer (ver lib/s3.ts).
+model LeadFile {
+  id         String   @id @default(cuid())
+  orgId      String
+  leadId     String
+  name       String
+  sizeBytes  Int
+  storageKey String
+  createdAt  DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  lead Lead         @relation(fields: [leadId], references: [id])
 }
 
 model KnowledgeBase {

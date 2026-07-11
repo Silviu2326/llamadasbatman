@@ -107,6 +107,20 @@
   to   { opacity: 1; }
 }
 
+/* Secciones colapsables del menú — animación con grid-template-rows en vez de
+   medir altura con JS (técnica CSS estándar para animar a "auto"). */
+.sidebar-section-items {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.22s ease;
+}
+.sidebar-section-items.collapsed {
+  grid-template-rows: 0fr;
+}
+.sidebar-section-items > div {
+  overflow: hidden;
+}
+
 /* Custom scrollbar for the dark sidebar nav */
 .sidebar-nav {
   scrollbar-width: thin;

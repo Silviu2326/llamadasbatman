@@ -1,19 +1,32 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { downloadCsv } from '../lib/csv'
+import { mapLead } from '../lib/leadMapping'
 import {
   RiGroupLine, RiStarLine, RiTimeLine, RiCalendarLine, RiCalendar2Line,
   RiMoneyDollarBoxLine, RiSearchLine, RiFilterLine, RiAddLine,
   RiMoreLine, RiPhoneLine, RiMailLine, RiMailOpenLine, RiFileTextLine,
   RiCloseLine, RiLightbulbLine, RiSendPlaneLine, RiEyeLine,
   RiUpload2Line, RiEditLine, RiDeleteBinLine, RiBarChartBoxLine,
+  RiSearchEyeLine, RiGlobalLine, RiMapPin2Line, RiLayoutGridLine,
+  RiTableLine, RiFileDownloadLine,
 } from 'react-icons/ri'
 import { HiChevronDown, HiChevronLeft, HiChevronRight } from 'react-icons/hi'
 import '../dashboard.css'
 import KPICard from './KPICard'
 import DataTable from './DataTable'
 import NewLeadModal from '../modals/NewLeadModal'
+import ImportLeadsModal from '../modals/ImportLeadsModal'
 import NewReunionModal from '../modals/NewReunionModal'
+
+const TIER_COLOR = { HOT: '#ef4444', WARM: '#f59e0b', COLD: '#3b82f6' }
+const AUDIT_FILTERS = [
+  { key: 'noWebsite',   label: 'Sin web' },
+  { key: 'noBooking',   label: 'Sin reservas online' },
+  { key: 'noAnalytics', label: 'Sin Analytics' },
+  { key: 'fewReviews',  label: 'Pocas reseñas (<10)' },
+]
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const KPI_LIST = [
@@ -60,46 +73,10 @@ export const LEADS = [
   { id:9, initials:'RT', bg:'#1d4ed8', name:'Ramón Torres',     role:'Product Manager',   company:'NextGen Tech',         ci:'NG', cb:'#6366f1', status:'En seguimiento',   score:61, sl:'Alto',     act:{ type:'phone',    date:'21 may, 13:22',   action:'Llamada realizada'   }, value:'€24.000', agent:{i:'CG',bg:'#059669'}, closePct:55, closeLevel:'Media',    potValue:'€24.000', source:'Referido',       painPoints:['Time to market','Procesos ágiles'],                                               tags:['Tech','SaaS']          },
 ]
 
-// ─── Backend mapping ──────────────────────────────────────────────────────────
-const LEAD_BG = ['#4f46e5','#7c3aed','#059669','#0891b2','#b45309','#be185d','#374151','#047857']
-const BACKEND_STATUS = { new:'Nuevo', contacted:'Contactado', qualified:'Interesado', unqualified:'Perdido', converted:'Ganado' }
-const SCORE_BY_STATUS = { new:40, contacted:55, qualified:75, unqualified:20, converted:90 }
-const LEVEL_BY_STATUS = { new:'Medio', contacted:'Medio', qualified:'Alto', unqualified:'Bajo', converted:'Muy alto' }
-const ACT_BY_STATUS   = { new:'Lead creado', contacted:'Contactado', qualified:'Calificado', unqualified:'Descartado', converted:'Convertido' }
-
-function mapLead(l, i) {
-  const score = SCORE_BY_STATUS[l.status] ?? 50
-  const sl    = LEVEL_BY_STATUS[l.status] ?? 'Medio'
-  return {
-    id: l.id,
-    initials: (l.name ?? '??').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase(),
-    bg: LEAD_BG[i % LEAD_BG.length],
-    name: l.name ?? '—',
-    role: l.customFields?.role ?? '',
-    company: l.company ?? '—',
-    ci: (l.company ?? '?').slice(0,2).toUpperCase(),
-    cb: '#1d4ed8',
-    status: BACKEND_STATUS[l.status] ?? 'Nuevo',
-    score, sl,
-    act: {
-      type: l.status === 'contacted' || l.status === 'qualified' ? 'phone' : l.status === 'converted' ? 'calendar' : 'upload',
-      date: l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('es-ES', { month:'short', day:'numeric' }) : '—',
-      action: ACT_BY_STATUS[l.status] ?? 'Actualizado',
-    },
-    value: '—',
-    agent: { i: '—', bg: '#374151' },
-    closePct: score,
-    closeLevel: sl,
-    potValue: '—',
-    source: l.source ?? '—',
-    painPoints: [],
-    tags: Array.isArray(l.tags) ? l.tags : [],
-  }
-}
-
 const FILTER_TABS = ['Todos','Nuevos','Contactados','Interesados','Reunión','Negociación','Ganados','Perdidos']
 const DETAIL_TABS = ['Resumen','Actividad','Información','Notas','Archivos']
-const COLS = '40px 1fr 155px 135px 90px 195px 102px 56px 44px'
+const COLS = '40px 1fr 145px 105px 120px 84px 150px 90px 46px 160px'
+const TABLE_HEADERS = ['Lead','Empresa','Estado','Oportunidad','Puntaje ⓘ','Última actividad','Valor potencial','Agente','Acciones']
 const WAVE_MINI = [3,5,9,14,8,16,11,7,15,10,13,17,12,9,6,14,8,11,15,7,10,13]
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
@@ -149,6 +126,69 @@ function ActivityCell({ act }) {
           {act.action}
         </p>
       </div>
+    </div>
+  )
+}
+
+function OpportunityBadge({ audit }) {
+  if (!audit) {
+    return <span style={{ fontSize: 10.5, color: '#4b5563', background: '#111827', border: '1px solid #1e2433', borderRadius: 99, padding: '2px 9px', whiteSpace: 'nowrap' }}>Sin auditar</span>
+  }
+  const color = TIER_COLOR[audit.tier] || '#6b7280'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 700, color, background: `${color}18`, border: `1px solid ${color}40`, borderRadius: 99, padding: '2px 9px', whiteSpace: 'nowrap' }}>
+        {audit.tier}
+      </span>
+      <span style={{ fontSize: 11, color: '#6b7280' }}>{audit.leadOpportunityScore}</span>
+    </div>
+  )
+}
+
+function QuickActions({ lead, onAudited }) {
+  const [busy, setBusy] = useState(null)
+
+  async function runAudit(e) {
+    e.stopPropagation()
+    setBusy('audit')
+    try {
+      const res = await apiFetch(`/api/leads/${lead.id}/audit`, { method: 'POST', body: JSON.stringify({}) })
+      if (res.ok) onAudited?.()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function callNow(e) {
+    e.stopPropagation()
+    setBusy('call')
+    try {
+      await apiFetch(`/api/leads/${lead.id}/call-now`, { method: 'POST' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const btnStyle = (disabled) => ({
+    width: 26, height: 26, borderRadius: 7, border: '1px solid #1e2433', background: '#111827',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, color: '#94a3b8',
+  })
+
+  return (
+    <div style={{ display: 'flex', gap: 5 }} onClick={e => e.stopPropagation()}>
+      <button title="Auditar" onClick={runAudit} disabled={busy === 'audit'} style={btnStyle(busy === 'audit')}>
+        <RiSearchEyeLine style={{ width: 12, height: 12 }} />
+      </button>
+      <button title="Abrir web" onClick={e => { e.stopPropagation(); lead.website && window.open(lead.website, '_blank') }} disabled={!lead.website} style={btnStyle(!lead.website)}>
+        <RiGlobalLine style={{ width: 12, height: 12 }} />
+      </button>
+      <button title="Abrir Maps" onClick={e => { e.stopPropagation(); lead.mapsUri && window.open(lead.mapsUri, '_blank') }} disabled={!lead.mapsUri} style={btnStyle(!lead.mapsUri)}>
+        <RiMapPin2Line style={{ width: 12, height: 12 }} />
+      </button>
+      <button title="Llamar ahora" onClick={callNow} disabled={busy === 'call'} style={btnStyle(busy === 'call')}>
+        <RiPhoneLine style={{ width: 12, height: 12 }} />
+      </button>
     </div>
   )
 }
@@ -435,6 +475,53 @@ function LeadDetail({ lead, onClose, onSchedule }) {
   )
 }
 
+// ─── Kanban por oportunidad ───────────────────────────────────────────────────
+const KANBAN_COLUMNS = [
+  { key: 'HOT', label: 'HOT', color: TIER_COLOR.HOT },
+  { key: 'WARM', label: 'WARM', color: TIER_COLOR.WARM },
+  { key: 'COLD', label: 'COLD', color: TIER_COLOR.COLD },
+  { key: 'SIN_AUDITAR', label: 'Sin auditar', color: '#4b5563' },
+]
+
+function KanbanBoard({ leads, onOpen }) {
+  const groups = useMemo(() => {
+    const g = { HOT: [], WARM: [], COLD: [], SIN_AUDITAR: [] }
+    leads.forEach(l => { g[l.audit?.tier ?? 'SIN_AUDITAR'].push(l) })
+    return g
+  }, [leads])
+
+  return (
+    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, overflow: 'hidden', padding: 16 }}>
+      {KANBAN_COLUMNS.map(col => (
+        <div key={col.key} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, background: '#080c14', border: '1px solid #1e2433', borderRadius: 12 }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #111827', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.color, boxShadow: `0 0 6px ${col.color}` }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>{col.label}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11, color: '#4b5563' }}>{groups[col.key].length}</span>
+          </div>
+          <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {groups[col.key].map(l => (
+              <div key={l.id} onClick={() => onOpen(l.id)} style={{
+                background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10, padding: '10px 12px', cursor: 'pointer',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <Avatar initials={l.initials} bg={l.bg} size={24} round />
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#f1f5f9', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</p>
+                  {l.audit && <span style={{ fontSize: 10.5, color: '#6b7280', flexShrink: 0 }}>{l.audit.leadOpportunityScore}</span>}
+                </div>
+                <p style={{ margin: 0, fontSize: 11, color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.company}</p>
+              </div>
+            ))}
+            {groups[col.key].length === 0 && (
+              <p style={{ textAlign: 'center', color: '#374151', fontSize: 11.5, padding: '20px 0' }}>Sin leads</p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function LeadsPage() {
   const navigate = useNavigate()
@@ -442,11 +529,22 @@ export default function LeadsPage() {
   const [search, setSearch] = useState('')
   const [checked, setChecked] = useState(new Set([1]))
   const [showNewLead, setShowNewLead] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [leads, setLeads] = useState([])
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ total: 0, totalPages: 1 })
   const [stats, setStats] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [view, setView] = useState('table')
+  const [auditFilters, setAuditFilters] = useState(new Set())
+
+  function toggleAuditFilter(key) {
+    setAuditFilters(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
 
   useEffect(() => {
     apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
@@ -480,8 +578,20 @@ export default function LeadsPage() {
   const filtered = leads.filter(l => {
     if (search && !l.name.toLowerCase().includes(search.toLowerCase()) && !l.company.toLowerCase().includes(search.toLowerCase())) return false
     const map = { Nuevos: 'Nuevo', Contactados: 'Contactado', Interesados: 'Interesado', Reunión: 'Reunión agendada', Negociación: 'Negociación', Ganados: 'Ganado', Perdidos: 'Perdido' }
-    return activeFilter === 'Todos' || l.status === map[activeFilter]
+    if (activeFilter !== 'Todos' && l.status !== map[activeFilter]) return false
+    for (const key of auditFilters) {
+      if (!l.auditFlags?.[key]) return false
+    }
+    return true
   })
+
+  function handleExportCsv() {
+    downloadCsv('leads.csv', filtered.map(l => ({
+      nombre: l.name, empresa: l.company, estado: l.status, telefono: l.phone,
+      oportunidad: l.audit ? `${l.audit.tier} (${l.audit.leadOpportunityScore})` : 'Sin auditar',
+      fuente: l.source,
+    })))
+  }
 
   const toggleCheck = id => setChecked(prev => {
     const n = new Set(prev)
@@ -507,6 +617,7 @@ export default function LeadsPage() {
         <span style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.company}</span>
       </div>,
       <Badge key="st" status={l.status} />,
+      <OpportunityBadge key="opp" audit={l.audit} />,
       <div key="sc">
         <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9', lineHeight: 1 }}>{l.score}</p>
         <p style={{ margin: '2px 0 0', fontSize: 10.5, color: SCORE_COLOR[l.sl] || '#6b7280' }}>{l.sl}</p>
@@ -514,12 +625,7 @@ export default function LeadsPage() {
       <ActivityCell key="ac" act={l.act} />,
       <p key="vl" style={{ margin: 0, fontSize: 13, fontWeight: 600, color: l.value === '€0' ? '#374151' : '#f1f5f9' }}>{l.value}</p>,
       <Avatar key="ag" initials={l.agent.i} bg={l.agent.bg} size={28} round />,
-      <button key="mo" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: '4px', borderRadius: 6 }}
-        onMouseEnter={e => e.currentTarget.style.color = '#94a3b8'}
-        onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
-      >
-        <RiMoreLine style={{ width: 16, height: 16 }} />
-      </button>,
+      <QuickActions key="actions" lead={l} onAudited={() => setRefreshKey(k => k + 1)} />,
     ]
   }
 
@@ -554,9 +660,27 @@ export default function LeadsPage() {
             Filtros
             <span style={{ background: '#6366f1', color: '#fff', borderRadius: 99, padding: '0 5px', fontSize: 10, fontWeight: 700 }}>2</span>
           </button>
-          <button style={{ display:'flex', alignItems:'center', gap:6, background:'#0d1117', border:'1px solid #1e2433', borderRadius:10, padding:'8px 14px', color:'#94a3b8', fontSize:12.5, cursor:'pointer' }}>
+          <button onClick={() => setShowImport(true)} style={{ display:'flex', alignItems:'center', gap:6, background:'#0d1117', border:'1px solid #1e2433', borderRadius:10, padding:'8px 14px', color:'#94a3b8', fontSize:12.5, cursor:'pointer' }}>
             Importar
           </button>
+          <button onClick={handleExportCsv} style={{ display:'flex', alignItems:'center', gap:6, background:'#0d1117', border:'1px solid #1e2433', borderRadius:10, padding:'8px 14px', color:'#94a3b8', fontSize:12.5, cursor:'pointer' }}>
+            <RiFileDownloadLine style={{ width: 14, height: 14 }} />
+            Exportar CSV
+          </button>
+          <div style={{ display: 'flex', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10, padding: 3 }}>
+            <button onClick={() => setView('table')} title="Vista tabla" style={{
+              display: 'flex', alignItems: 'center', padding: '6px 9px', borderRadius: 7, border: 'none', cursor: 'pointer',
+              background: view === 'table' ? '#6366f1' : 'transparent', color: view === 'table' ? '#fff' : '#6b7280',
+            }}>
+              <RiTableLine style={{ width: 14, height: 14 }} />
+            </button>
+            <button onClick={() => setView('kanban')} title="Vista Kanban" style={{
+              display: 'flex', alignItems: 'center', padding: '6px 9px', borderRadius: 7, border: 'none', cursor: 'pointer',
+              background: view === 'kanban' ? '#6366f1' : 'transparent', color: view === 'kanban' ? '#fff' : '#6b7280',
+            }}>
+              <RiLayoutGridLine style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
           <button onClick={() => setShowNewLead(true)} style={{ display:'flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:10, padding:'8px 16px', color:'#fff', fontSize:12.5, cursor:'pointer', fontWeight:600, boxShadow:'0 0 16px #6366f155' }}>
             <RiAddLine style={{ width: 15, height: 15 }} />
             Nuevo lead
@@ -565,6 +689,17 @@ export default function LeadsPage() {
       </div>
 
       {showNewLead && <NewLeadModal onClose={() => setShowNewLead(false)} onSuccess={() => { setShowNewLead(false); setRefreshKey(k => k + 1) }} />}
+      {showImport && <ImportLeadsModal onClose={() => setShowImport(false)} onSuccess={() => { setShowImport(false); setRefreshKey(k => k + 1) }} />}
+
+      {/* ── Filtros de auditoría ── */}
+      <div style={{ padding: '12px 24px 0', display: 'flex', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
+        {AUDIT_FILTERS.map(f => (
+          <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8', cursor: 'pointer' }}>
+            <input type="checkbox" checked={auditFilters.has(f.key)} onChange={() => toggleAuditFilter(f.key)} style={{ accentColor: '#6366f1' }} />
+            {f.label}
+          </label>
+        ))}
+      </div>
 
       {/* ── Body: left + right panel ── */}
       <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', padding: '16px 24px 24px' }}>
@@ -579,7 +714,12 @@ export default function LeadsPage() {
             ))}
           </div>
 
-          {/* Table card */}
+          {/* Table / Kanban card */}
+          {view === 'kanban' ? (
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14 }}>
+              <KanbanBoard leads={filtered} onOpen={id => navigate('/leads/' + id)} />
+            </div>
+          ) : (
           <div style={{
             flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden',
             background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14,
@@ -613,7 +753,7 @@ export default function LeadsPage() {
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <input type="checkbox" style={{ width: 14, height: 14, accentColor: '#6366f1', cursor: 'pointer' }} />
                   </div>
-                  {['Lead','Empresa','Estado','Puntaje ⓘ','Última actividad','Valor potencial','Agente','Acciones'].map(h => (
+                  {TABLE_HEADERS.map(h => (
                     <span key={h} style={{ fontSize: 10, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</span>
                   ))}
                 </div>
@@ -656,6 +796,7 @@ export default function LeadsPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
 
       </div>

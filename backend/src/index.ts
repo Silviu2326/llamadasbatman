@@ -14,14 +14,23 @@ import { authRoutes } from './routes/auth'
 import { agentsRoutes } from './routes/agents'
 import { callsRoutes } from './routes/calls'
 import { leadsRoutes } from './routes/leads'
+import { prospectsRoutes } from './routes/prospects'
 import { campaignsRoutes } from './routes/campaigns'
 import { meetingsRoutes } from './routes/meetings'
 import { pipelineRoutes } from './routes/pipeline'
 import { playbooksRoutes } from './routes/playbooks'
+import { adPlaybooksRoutes } from './routes/adPlaybooks'
+import { adsRoutes } from './routes/ads'
+import { metaAccountsRoutes } from './routes/metaAccounts'
+import { metaWebhooksRoutes } from './routes/metaWebhooks'
+import { mauticWebhooksRoutes } from './routes/mauticWebhooks'
+import { mauticRoutes } from './routes/mautic'
+import { postizRoutes } from './routes/postiz'
 import { automationsRoutes } from './routes/automations'
 import { knowledgeRoutes } from './routes/knowledge'
 import { dashboardRoutes } from './routes/dashboard'
 import { voiceRoutes } from './routes/voice'
+import { landingRoutes } from './routes/landing'
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
@@ -31,7 +40,9 @@ declare module '@fastify/jwt' {
 }
 
 async function build() {
-  const app = Fastify({ logger: true })
+  // bodyLimit por encima del default (1MB) porque los archivos de lead se
+  // suben como base64 en el body JSON (sin @fastify/multipart nuevo)
+  const app = Fastify({ logger: true, bodyLimit: 15 * 1024 * 1024 })
 
   await app.register(cors, { origin: true, credentials: true })
   await app.register(jwt, { secret: process.env.JWT_SECRET ?? 'changeme_secret' })
@@ -46,14 +57,23 @@ async function build() {
   await app.register(agentsRoutes,     { prefix: '/api/agents' })
   await app.register(callsRoutes,      { prefix: '/api/calls' })
   await app.register(leadsRoutes,      { prefix: '/api/leads' })
+  await app.register(prospectsRoutes,  { prefix: '/api/prospects' })
   await app.register(campaignsRoutes,  { prefix: '/api/campaigns' })
   await app.register(meetingsRoutes,   { prefix: '/api/meetings' })
   await app.register(pipelineRoutes,   { prefix: '/api/pipeline' })
   await app.register(playbooksRoutes,  { prefix: '/api/playbooks' })
+  await app.register(adPlaybooksRoutes,{ prefix: '/api/ad-playbooks' })
+  await app.register(adsRoutes,        { prefix: '/api/ads' })
+  await app.register(metaAccountsRoutes,{ prefix: '/api/meta/accounts' })
+  await app.register(metaWebhooksRoutes,{ prefix: '/api/meta/webhooks' })
+  await app.register(mauticWebhooksRoutes,{ prefix: '/api/webhooks/mautic' })
+  await app.register(mauticRoutes,     { prefix: '/api/mautic' })
+  await app.register(postizRoutes,     { prefix: '/api/postiz' })
   await app.register(automationsRoutes,{ prefix: '/api/automations' })
   await app.register(knowledgeRoutes,  { prefix: '/api/knowledge' })
   await app.register(dashboardRoutes,  { prefix: '/api/dashboard' })
   await app.register(voiceRoutes,      { prefix: '/api/voice' })
+  await app.register(landingRoutes,    { prefix: '/api/public/landing' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 

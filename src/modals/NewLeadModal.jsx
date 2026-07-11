@@ -17,6 +17,7 @@ export default function NewLeadModal({ onClose, onSuccess }) {
     name: '', role: '', company: '', email: '', phone: '',
     status: 'Nuevo', value: '', source: 'Web form', tags: '',
   })
+  const [callNow, setCallNow] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -41,6 +42,9 @@ export default function NewLeadModal({ onClose, onSuccess }) {
       })
       if (!res.ok) { setError('Error al crear el lead'); return }
       const item = await res.json()
+      if (callNow && item.phone) {
+        apiFetch(`/api/leads/${item.id}/call-now`, { method: 'POST' }).catch(() => {})
+      }
       onSuccess ? onSuccess(item) : onClose()
     } catch { setError('Error de conexión') } finally { setSaving(false) }
   }
@@ -65,6 +69,9 @@ export default function NewLeadModal({ onClose, onSuccess }) {
         <FormSelect label="Fuente" value={form.source} onChange={e => update('source', e.target.value)} options={FUENTES} />
         <FormInput label="Etiquetas" value={form.tags} onChange={e => update('tags', e.target.value)} placeholder="SaaS, Enterprise, Madrid..." />
       </FormRow>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#94a3b8', cursor: 'pointer' }}>
+        <input type="checkbox" checked={callNow} onChange={e => setCallNow(e.target.checked)} /> Llamar ahora si tiene teléfono
+      </label>
     </FormModal>
   )
 }

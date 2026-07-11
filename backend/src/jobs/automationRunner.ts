@@ -15,6 +15,7 @@ try {
     maxRetriesPerRequest: null,
     lazyConnect: true,
   })
+  workerRedis.on('error', (err) => console.warn('[AutomationRunner] Redis error (non-fatal):', err.message))
 
   const worker = new Worker<AutomationRunnerJob>(
     'automation-runner',
@@ -43,6 +44,10 @@ try {
 
   worker.on('failed', (job, err) => {
     console.error(`[AutomationRunner] job ${job?.id} failed:`, err)
+  })
+
+  worker.on('error', (err) => {
+    console.warn('[AutomationRunner] Worker error (non-fatal):', err.message)
   })
 
   automationRunnerWorker = worker

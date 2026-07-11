@@ -2,7 +2,7 @@ import { WebSocket } from 'ws'
 import { AudioBridge } from '../audio/bridge'
 import { rmsLevel, preprocessInbound } from '../audio/dsp'
 import { NoiseClassifier } from '../audio/noiseClassifier'
-import { detectOptout, registerOptout } from '../compliance'
+import { detectOptout, registerOptout, detectTransferRequest } from '../compliance'
 import { createCallContext, CallContext } from '../intelligence/conversation/callContext'
 import { loadAgentConfig } from '../agentConfig'
 import { DeepgramElevenLabsSession } from '../pipelines/deepgramElevenLabs'
@@ -95,8 +95,24 @@ export async function handleMediaStream(connection: WebSocket): Promise<void> {
     if (role === 'prospecto') {
       if (detectOptout(text)) {
         ctx.outcome = 'optout'
-        await registerOptout(ctx.phone, 'detected_in_call')
+        if (ctx.orgId) await registerOptout(ctx.orgId, ctx.phone, 'detected_in_call')
+      } else if (!ctx.transferRequested && detectTransferRequest(text)) {
+        await requestTransfer(ctx, 'solicitado_explicitamente')
+      } else if (!ctx.transferRequested) {
+        const frustrated = ['molesto', 'frustrado', 'agitado'].includes(ctx.emotion)
+        ctx.frustration = frustrated ? ctx.frustration + 1 : 0
+        // ponytail: umbral fijo de 3 turnos negativos seguidos — ajustar si da falsos positivos
+        if (ctx.frustration >= 3) await requestTransfer(ctx, 'frustracion_alta')
       }
+    }
+  }
+
+  async function requestTransfer(callCtx: CallContext, reason: string): Promise<void> {
+    callCtx.transferRequested = true
+    callCtx.transferReason = reason
+    callCtx.outcome = 'transferido'
+    if (process.env.HUMAN_TRANSFER_NUMBER) {
+      await transferCall(callCtx.callSid, process.env.HUMAN_TRANSFER_NUMBER).catch(() => {})
     }
   }
 
@@ -183,11 +199,6 @@ export async function handleMediaStream(connection: WebSocket): Promise<void> {
 
     if (ctx) {
       const durationS = Math.round((Date.now() - ctx.startedAt) / 1000)
-
-      if (ctx.transferRequested && process.env.HUMAN_TRANSFER_NUMBER) {
-        await transferCall(ctx.callSid, process.env.HUMAN_TRANSFER_NUMBER).catch(() => {})
-      }
-
       await ingestCall(ctx, durationS)
       console.info('[MEDIA] Call ended stream=%s outcome=%s dur=%ds', streamSid, ctx.outcome, durationS)
     }

@@ -51,6 +51,7 @@ export class ElevenLabsTTS {
   async sendText(text: string, flush = false): Promise<void> {
     if (this._cancelled) return
     this._pending += text
+    console.log('[TTS] sendText buffered', { text: text.slice(0, 80), pending: this._pending.slice(0, 80) })
 
     // Fire a TTS request for each complete sentence (.!?) as it accumulates
     const re = /[.!?]+(?=\s|$)/
@@ -69,6 +70,7 @@ export class ElevenLabsTTS {
   }
 
   async flush(): Promise<void> {
+    console.log('[TTS] flush', { pending: this._pending.slice(0, 80) })
     if (this._pending.trim()) {
       await this._generate(this._pending)
       this._pending = ''
@@ -76,6 +78,7 @@ export class ElevenLabsTTS {
   }
 
   async cancel(): Promise<void> {
+    console.log('[TTS] cancel')
     this._cancelled = true
     this._pending = ''
     await new Promise(r => setTimeout(r, 50))
@@ -90,6 +93,12 @@ export class ElevenLabsTTS {
     if (this._cancelled || this._closed) return
     const profile = this._effectiveProfile()
     const processed = preprocessText(text, profile)
+    const t0 = Date.now()
+    console.log('[TTS] generate start', {
+      text: processed.slice(0, 100),
+      profile: { stability: profile.stability, style: profile.style, speed: profile.speed },
+      modelId: this._cfg.modelId,
+    })
 
     const body = JSON.stringify({
       text: processed,
@@ -141,6 +150,7 @@ export class ElevenLabsTTS {
             // Pad odd byte with a zero sample so the last frame is clean
             this._cfg.onAudio(Buffer.concat([leftover, Buffer.alloc(1)])).catch(() => {})
           }
+          console.log('[TTS] generate done', { ms: Date.now() - t0, text: processed.slice(0, 60) })
           resolve()
         })
         res.on('error', reject)

@@ -125,7 +125,7 @@ export class DeepgramElevenLabsSession {
   // ── TTS audio ──────────────────────────────────────────────────────────────
 
   private async _onTtsAudio(audio: Buffer): Promise<void> {
-    if (this._tTtsFirstPending) { this._tTts = Date.now(); this._tTtsFirstPending = false }
+    if (this._tTtsFirstPending) { this._tTts = Date.now(); this._tTtsFirstPending = false; console.log('[PIPE] first TTS audio chunk', { ttsLatencyMs: this._tLlm > 0 ? this._tTts - this._tLlm : null }) }
     if (this._onAudio) await this._onAudio(audio)
   }
 
@@ -149,6 +149,7 @@ export class DeepgramElevenLabsSession {
   }
 
   private _onSpeakingStart(): void {
+    console.log('[PIPE] user started speaking', { agentTurnActive: this._agentTurnActive, interruptionCount: this._rhythm.interruptionCount })
     this._prosodic.startTurn()
     if (this._agentTurnActive) this._rhythm.interruptionCount++
     this._cancelSpeculative() // barge-in: kill any pending speculative before user speaks
@@ -158,12 +159,13 @@ export class DeepgramElevenLabsSession {
   private _onSttFinal(text: string, confidence: number, sttMeta: TurnMeta): void {
     text = text.trim()
     if (!text) return
+    console.log('[PIPE] STT final', { text: text.slice(0, 100), confidence, eotType: sttMeta.eotType, durationSec: sttMeta.durationSec })
 
     const wordList = text.toLowerCase().split(/\s+/)
     if (wordList.length >= 4) {
       const top = wordList.reduce((acc: Record<string, number>, w) => { acc[w] = (acc[w] ?? 0) + 1; return acc }, {})
       const maxCount = Math.max(...Object.values(top))
-      if (maxCount / wordList.length > 0.6) { this._cancelSpeculative(); return }
+      if (maxCount / wordList.length > 0.6) { console.log('[PIPE] STT rejected: repetitive'); this._cancelSpeculative(); return }
     }
 
     const acoustic = this._prosodic.analyze(wordList.length)
@@ -222,6 +224,7 @@ export class DeepgramElevenLabsSession {
     }
 
     this._cancelSpeculative()
+    console.log('[PIPE] launching LLM handleUserText', { text: text.slice(0, 80), speculative: false, tEot: this._tEot })
     this._handleUserText(text, false).catch(() => {})
   }
 
@@ -234,6 +237,10 @@ export class DeepgramElevenLabsSession {
     this._activeAbort = abort
     let fullResponse = ''
     let firstToken = true
+    this._tLlm = 0
+    this._tTts = 0
+    this._tTtsFirstPending = true
+    console.log('[PIPE] handleUserText start', { text: text.slice(0, 80), speculative })
     try {
       this._history.push({ role: 'user', content: text })
       const brief = this._effectiveBrief()
@@ -248,11 +255,11 @@ export class DeepgramElevenLabsSession {
         signal: abort.signal,
       })) {
         if (this._closed || abort.signal.aborted) break
-        if (firstToken) { this._tLlm = Date.now(); firstToken = false }
+        if (firstToken) { this._tLlm = Date.now(); firstToken = false; console.log('[PIPE] first LLM token', { llmLatencyMs: this._tEot > 0 ? this._tLlm - this._tEot : null }) }
         fullResponse += token
         await this._tts.sendText(token)
       }
-      if (abort.signal.aborted) return // superseded by a newer turn — don't report a stale response
+      if (abort.signal.aborted) { console.log('[PIPE] handleUserText aborted'); return }
       await this._tts.flush()
 
       this._history.push({ role: 'assistant', content: fullResponse })
@@ -274,6 +281,7 @@ export class DeepgramElevenLabsSession {
         tts: this._tTts  - this._tLlm,
         total: this._tTts - this._tEot,
       } : undefined
+      console.log('[PIPE] handleUserText done', { response: fullResponse.slice(0, 100), latency })
 
       await this._onTranscript?.('agente', fullResponse, latency ? { latency } : undefined)
 

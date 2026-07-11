@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import * as campaignsService from '../services/campaigns.service'
+import * as leadsService from '../services/leads.service'
 import { CampaignStatus } from '@prisma/client'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
@@ -86,5 +87,14 @@ export async function stats(
   const { orgId } = request.user as JWTUser
   const result = await campaignsService.getCampaignStats(orgId, request.params.id)
   if (!result) return reply.status(404).send({ error: 'Not found' })
+  return reply.send(result)
+}
+
+export async function auditBulk(
+  request: FastifyRequest<{ Params: { id: string }; Body: { force?: boolean } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const result = await leadsService.auditBulk(orgId, request.params.id, { force: request.body?.force })
   return reply.send(result)
 }

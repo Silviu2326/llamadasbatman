@@ -73,6 +73,10 @@ export async function startOutboundCall(params: {
     machineDetection: 'DetectMessageEnd',
     asyncAmd: 'true',
     record: true,
+    recordingStatusCallback: `https://${host}/api/voice/webhook/recording?${qs}`,
+    recordingStatusCallbackEvent: ['completed'],
+    statusCallback: `https://${host}/api/voice/webhook/status?${qs}`,
+    statusCallbackEvent: ['completed'],
   })
   return { status: 'iniciada', sid: call.sid, to: params.toNumber }
 }

@@ -9,4 +9,5 @@ export async function automationsRoutes(app: FastifyInstance) {
   app.post('/', ctrl.create)
   app.get('/:id', ctrl.get)
   app.put('/:id/toggle', ctrl.toggle)
+  app.delete('/:id', ctrl.remove)
 }

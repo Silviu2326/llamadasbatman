@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma'
+import { sendLeadToSegment } from './mauticSync.service'
 
 export async function getAutomation(orgId: string, id: string) {
   return prisma.automation.findFirst({ where: { id, orgId } })
@@ -38,6 +39,11 @@ export async function toggleAutomation(orgId: string, id: string) {
   })
 }
 
+export async function deleteAutomation(orgId: string, id: string) {
+  const result = await prisma.automation.deleteMany({ where: { id, orgId } })
+  if (result.count === 0) throw new Error('Automation not found')
+}
+
 export async function runAutomationsForEvent(
   orgId: string,
   event: string,
@@ -66,6 +72,9 @@ export async function runAutomationsForEvent(
             data: { status: newStatus as 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted' },
           })
         }
+      } else if (action.type === 'send_to_mautic_segment' && payload.leadId) {
+        const segmentAlias = action.params?.segmentAlias as string | undefined
+        if (segmentAlias) await sendLeadToSegment(String(payload.leadId), segmentAlias).catch(() => {})
       }
     }
 

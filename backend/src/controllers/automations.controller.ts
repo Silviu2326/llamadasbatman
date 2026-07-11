@@ -46,3 +46,16 @@ export async function toggle(
     return reply.status(404).send({ error: (err as Error).message })
   }
 }
+
+export async function remove(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  try {
+    await automationsService.deleteAutomation(orgId, request.params.id)
+    return reply.send({ ok: true })
+  } catch (err) {
+    return reply.status(404).send({ error: (err as Error).message })
+  }
+}

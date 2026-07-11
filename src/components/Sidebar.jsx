@@ -1,37 +1,130 @@
 import React, { useState, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import '../sidebar.css'
 import {
   RiDashboard3Fill, RiSendPlaneLine, RiPhoneLine, RiGroupLine,
   RiRobot2Line, RiShoppingCart2Line, RiCalendarLine, RiBook2Line,
   RiBarChartLine, RiFlowChart, RiBookReadLine, RiSettings4Line,
-  RiLogoutBoxLine, RiMicLine,
+  RiLogoutBoxLine, RiMicLine, RiCompass3Line, RiMetaLine, RiRocketLine,
+  RiShareForwardLine, RiMailLine,
 } from 'react-icons/ri'
 import { HiChevronDown, HiArrowRight } from 'react-icons/hi'
 import { useAuth } from '../contexts/AuthContext'
 
-const MENU_ITEMS = [
-  { icon: RiDashboard3Fill,    label: 'Dashboard',       color: '#6366f1', to: '/dashboard' },
-  { icon: RiSendPlaneLine,     label: 'Campañas',        color: '#ec4899', to: '/campanas' },
-  { icon: RiPhoneLine,         label: 'Llamadas',        color: '#10b981', to: '/llamadas' },
-  { icon: RiGroupLine,         label: 'Leads',           color: '#f59e0b', to: '/leads' },
-  { icon: RiRobot2Line,        label: 'Agentes IA',      color: '#8b5cf6', to: '/agentes' },
-  { icon: RiShoppingCart2Line, label: 'Pipeline',        color: '#06b6d4', to: '/pipeline' },
-  { icon: RiCalendarLine,      label: 'Reuniones',       color: '#f97316', to: '/reuniones' },
-  { icon: RiBook2Line,         label: 'Playbooks',       color: '#14b8a6', to: '/playbooks' },
-  { icon: RiBarChartLine,      label: 'Insights',        color: '#a78bfa', to: '/insights' },
-  { icon: RiFlowChart,         label: 'Automatizaciones',color: '#fb7185', to: '/automatizaciones' },
-  { icon: RiBookReadLine,      label: 'Knowledge Base',  color: '#34d399', to: '/knowledge-base' },
-  { icon: RiSettings4Line,     label: 'Configuración',   color: '#94a3b8', to: '/configuracion' },
-  { icon: RiMicLine,           label: 'Test de Voz',     color: '#f43f5e', to: '/voz/test' },
+// Dashboard queda fijo arriba, fuera de secciones (es el "home"). El resto se
+// agrupa según el embudo del producto (ver PLATAFORMA_EXPLICACION_GENERAL.md)
+// para que una lista de 17 items no sea un solo bloque plano.
+const DASHBOARD_ITEM = { icon: RiDashboard3Fill, label: 'Dashboard', color: '#6366f1', to: '/dashboard' }
+
+const SECTIONS = [
+  {
+    id: 'captacion',
+    label: 'Captación',
+    items: [
+      { icon: RiSendPlaneLine,    label: 'Campañas',        color: '#ec4899', to: '/campanas' },
+      { icon: RiCompass3Line,     label: 'Prospect Finder', color: '#22d3ee', to: '/prospectos' },
+      { icon: RiMetaLine,         label: 'Conectar Meta',   color: '#1877f2', to: '/captacion/conectar' },
+      { icon: RiShareForwardLine, label: 'Redes sociales',  color: '#ec4899', to: '/redes-sociales' },
+    ],
+  },
+  {
+    id: 'conversacion',
+    label: 'Conversación',
+    items: [
+      { icon: RiPhoneLine,  label: 'Llamadas',   color: '#10b981', to: '/llamadas' },
+      { icon: RiRobot2Line, label: 'Agentes IA', color: '#8b5cf6', to: '/agentes' },
+      { icon: RiBook2Line,  label: 'Playbooks',  color: '#14b8a6', to: '/playbooks' },
+      { icon: RiMicLine,    label: 'Test de Voz', color: '#f43f5e', to: '/voz/test' },
+    ],
+  },
+  {
+    id: 'nutricion',
+    label: 'Nutrición',
+    items: [
+      { icon: RiMailLine,  label: 'Email marketing',  color: '#6366f1', to: '/email-marketing' },
+      { icon: RiFlowChart, label: 'Automatizaciones', color: '#fb7185', to: '/automatizaciones' },
+    ],
+  },
+  {
+    id: 'ventas',
+    label: 'Ventas',
+    items: [
+      { icon: RiGroupLine,         label: 'Leads',     color: '#f59e0b', to: '/leads' },
+      { icon: RiShoppingCart2Line, label: 'Pipeline',  color: '#06b6d4', to: '/pipeline' },
+      { icon: RiCalendarLine,      label: 'Reuniones', color: '#f97316', to: '/reuniones' },
+    ],
+  },
+  {
+    id: 'sistema',
+    label: 'Sistema',
+    items: [
+      { icon: RiBarChartLine, label: 'Insights',       color: '#a78bfa', to: '/insights' },
+      { icon: RiBookReadLine, label: 'Knowledge Base', color: '#34d399', to: '/knowledge-base' },
+      { icon: RiSettings4Line, label: 'Configuración', color: '#94a3b8', to: '/configuracion' },
+    ],
+  },
 ]
+
+const STORAGE_KEY = 'vozia_sidebar_collapsed'
+
+function loadCollapsed() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+  } catch {
+    return {}
+  }
+}
+
+function NavItem({ item, isHovered, onHover, onLeave, ripple, onClick }) {
+  const Icon = item.icon
+  return (
+    <NavLink
+      to={item.to}
+      onClick={onClick}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      style={({ isActive }) => ({
+        ...styles.navBtn,
+        textDecoration: 'none',
+        ...(isActive ? styles.navBtnActive(item.color) : {}),
+        ...(!isActive && isHovered ? styles.navBtnHover(item.color) : {}),
+      })}
+      className="nav-item-enter"
+    >
+      {({ isActive }) => (<>
+        {ripple && (
+          <span
+            style={{ ...styles.ripple, left: ripple.x, top: ripple.y, background: item.color + '55' }}
+            className="ripple-anim"
+          />
+        )}
+        <span
+          style={{
+            ...styles.iconWrap,
+            background: isActive ? item.color + '25' : isHovered ? item.color + '18' : 'transparent',
+            boxShadow: isActive ? `0 0 12px ${item.color}55` : 'none',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <Icon style={{ width: 18, height: 18, color: isActive ? item.color : isHovered ? item.color : '#6b7280', transition: 'color 0.2s ease' }} />
+        </span>
+        <span style={{ fontSize: 13.5, fontWeight: isActive ? 600 : 500, color: isActive ? '#ffffff' : isHovered ? '#e2e8f0' : '#9ca3af', transition: 'color 0.2s ease', letterSpacing: 0.1 }}>
+          {item.label}
+        </span>
+        {isActive && <span style={{ ...styles.activeDot, background: item.color, boxShadow: `0 0 8px ${item.color}` }} className="pulse-dot" />}
+      </>)}
+    </NavLink>
+  )
+}
 
 export default function Sidebar({ isOpen }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, logout } = useAuth()
-  const [hovered, setHovered] = useState(null)
+  const [hoveredKey, setHoveredKey] = useState(null)
   const [progress, setProgress] = useState(0)
   const [ripple, setRipple] = useState(null)
+  const [collapsed, setCollapsed] = useState(loadCollapsed)
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -47,10 +140,18 @@ export default function Sidebar({ isOpen }) {
     return () => clearTimeout(t)
   }, [])
 
-  function handleClick(idx, e) {
+  function handleClick(key, e) {
     const rect = e.currentTarget.getBoundingClientRect()
-    setRipple({ idx, x: e.clientX - rect.left, y: e.clientY - rect.top })
+    setRipple({ key, x: e.clientX - rect.left, y: e.clientY - rect.top })
     setTimeout(() => setRipple(null), 600)
+  }
+
+  function toggleSection(id) {
+    setCollapsed(prev => {
+      const next = { ...prev, [id]: !prev[id] }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      return next
+    })
   }
 
   return (
@@ -79,89 +180,69 @@ export default function Sidebar({ isOpen }) {
 
       {/* Nav */}
       <nav className="sidebar-nav" style={{ flex: 1, padding: '8px 12px', overflowY: 'auto' }}>
-        {MENU_ITEMS.map((item, idx) => {
-          const Icon = item.icon
-          const isHovered = hovered === idx
+        <NavItem
+          item={DASHBOARD_ITEM}
+          isHovered={hoveredKey === DASHBOARD_ITEM.to}
+          onHover={() => setHoveredKey(DASHBOARD_ITEM.to)}
+          onLeave={() => setHoveredKey(null)}
+          ripple={ripple?.key === DASHBOARD_ITEM.to ? ripple : null}
+          onClick={e => handleClick(DASHBOARD_ITEM.to, e)}
+        />
 
+        {SECTIONS.map(section => {
+          const hasActiveItem = section.items.some(it => location.pathname.startsWith(it.to))
+          const isCollapsed = !!collapsed[section.id] && !hasActiveItem
           return (
-            <NavLink
-              key={idx}
-              to={item.to}
-              onClick={e => handleClick(idx, e)}
-              onMouseEnter={() => setHovered(idx)}
-              onMouseLeave={() => setHovered(null)}
-              style={({ isActive }) => ({
-                ...styles.navBtn,
-                textDecoration: 'none',
-                ...(isActive ? styles.navBtnActive(item.color) : {}),
-                ...(!isActive && isHovered ? styles.navBtnHover(item.color) : {}),
-                animationDelay: `${idx * 40}ms`,
-              })}
-              className="nav-item-enter"
-            >
-              {({ isActive }) => (<>
-              {/* Ripple */}
-              {ripple?.idx === idx && (
-                <span
-                  style={{
-                    ...styles.ripple,
-                    left: ripple.x,
-                    top: ripple.y,
-                    background: item.color + '55',
-                  }}
-                  className="ripple-anim"
-                />
-              )}
-
-              {/* Icon glow wrapper */}
-              <span
-                style={{
-                  ...styles.iconWrap,
-                  background: isActive
-                    ? item.color + '25'
-                    : isHovered
-                    ? item.color + '18'
-                    : 'transparent',
-                  boxShadow: isActive ? `0 0 12px ${item.color}55` : 'none',
-                  transition: 'all 0.2s ease',
-                }}
+            <div key={section.id} style={{ marginTop: 10 }}>
+              <button
+                onClick={() => toggleSection(section.id)}
+                style={styles.sectionHeader}
               >
-                <Icon
-                  style={{
-                    width: 18, height: 18,
-                    color: isActive ? item.color : isHovered ? item.color : '#6b7280',
-                    transition: 'color 0.2s ease',
-                  }}
-                />
-              </span>
-
-              <span
-                style={{
-                  fontSize: 13.5,
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive ? '#ffffff' : isHovered ? '#e2e8f0' : '#9ca3af',
-                  transition: 'color 0.2s ease',
-                  letterSpacing: 0.1,
-                }}
-              >
-                {item.label}
-              </span>
-
-              {/* Active dot */}
-              {isActive && (
-                <span
-                  style={{
-                    ...styles.activeDot,
-                    background: item.color,
-                    boxShadow: `0 0 8px ${item.color}`,
-                  }}
-                  className="pulse-dot"
-                />
-              )}
-              </>)}
-            </NavLink>
+                <span>{section.label}</span>
+                <HiChevronDown style={{ width: 12, height: 12, transform: isCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+              <div className={`sidebar-section-items${isCollapsed ? ' collapsed' : ''}`}>
+                <div>
+                  {section.items.map(item => (
+                    <NavItem
+                      key={item.to}
+                      item={item}
+                      isHovered={hoveredKey === item.to}
+                      onHover={() => setHoveredKey(item.to)}
+                      onLeave={() => setHoveredKey(null)}
+                      ripple={ripple?.key === item.to ? ripple : null}
+                      onClick={e => handleClick(item.to, e)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
           )
         })}
+
+        {user?.role === 'admin' && (
+          <div style={{ marginTop: 10 }}>
+            <NavItem
+              item={{ icon: RiBook2Line, label: 'Recetas Ads', color: '#7c3aed', to: '/admin/ad-playbooks' }}
+              isHovered={hoveredKey === '/admin/ad-playbooks'}
+              onHover={() => setHoveredKey('/admin/ad-playbooks')}
+              onLeave={() => setHoveredKey(null)}
+              ripple={ripple?.key === '/admin/ad-playbooks' ? ripple : null}
+              onClick={e => handleClick('/admin/ad-playbooks', e)}
+            />
+          </div>
+        )}
+
+        <div style={{ marginTop: 10 }}>
+          <NavItem
+            item={{ icon: RiRocketLine, label: 'Nueva campaña', color: '#ec4899', to: '/captacion/nueva' }}
+            isHovered={hoveredKey === '/captacion/nueva'}
+            onHover={() => setHoveredKey('/captacion/nueva')}
+            onLeave={() => setHoveredKey(null)}
+            ripple={ripple?.key === '/captacion/nueva' ? ripple : null}
+            onClick={e => handleClick('/captacion/nueva', e)}
+          />
+        </div>
       </nav>
 
       {/* Status */}
@@ -290,6 +371,21 @@ const styles = {
     height: 1,
     background: 'linear-gradient(90deg, transparent, #1e2433 30%, #1e2433 70%, transparent)',
     margin: '0',
+  },
+  sectionHeader: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px 10px 6px',
+    fontSize: 10.5,
+    fontWeight: 700,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: '#374151',
   },
   navBtn: {
     position: 'relative',

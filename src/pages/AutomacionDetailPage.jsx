@@ -1,27 +1,14 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
-  RiArrowLeftLine, RiPlayLine, RiPauseLine, RiEditLine,
+  RiArrowLeftLine, RiPlayLine, RiPauseLine,
   RiArrowRightLine, RiFlowChart,
 } from 'react-icons/ri'
-import { HiArrowUp, HiArrowDown } from 'react-icons/hi'
-import { ResponsiveContainer, AreaChart, Area, XAxis } from 'recharts'
+import { mapAutomation, stableIndex } from '../lib/automationMapping'
 import '../dashboard.css'
 
-const CHART_DATA = [
-  { label:'Lun', v:1200 }, { label:'Mar', v:1450 }, { label:'MiÃ©', v:1320 },
-  { label:'Jue', v:1680 }, { label:'Vie', v:1823 }, { label:'SÃ¡b', v:980 }, { label:'Dom', v:740 },
-]
-
-const STEPS = [
-  { color:'#6366f1', label:'Disparador', desc:'Evento detectado' },
-  { color:'#8b5cf6', label:'Filtrado',   desc:'Verifica condiciones' },
-  { color:'#0891b2', label:'AcciÃ³n',     desc:'Ejecuta tarea' },
-  { color:'#10b981', label:'Log',        desc:'Registra resultado' },
-]
-
-const TABS = ['Resumen', 'Historial', 'ConfiguraciÃ³n']
+const TABS = ['Resumen', 'Historial', 'Configuración']
 
 export default function AutomacionDetailPage() {
   const { id } = useParams()
@@ -29,35 +16,23 @@ export default function AutomacionDetailPage() {
   const [auto, setAuto] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('Resumen')
-  const [savedAuto, setSavedAuto] = useState(false)
-  const [editKey, setEditKey] = useState(null)
-  const [cfgVals, setCfgVals] = useState({})
 
   useEffect(() => {
     apiFetch(`/api/automations/${id}`).then(r => r.ok ? r.json() : null).then(data => {
-      if (data) {
-        setAuto({
-          ...data,
-          status: data.isActive ? 'activa' : 'pausada',
-          trigger: typeof data.trigger === 'object' ? (data.trigger.type ?? JSON.stringify(data.trigger)) : data.trigger,
-          runs: data.runsCount ?? 0,
-          lastRun: data.lastRunAt ? new Date(data.lastRunAt).toLocaleDateString('es-ES') : 'â€”',
-          tags: [],
-        })
-      }
+      setAuto(data ? mapAutomation(data, stableIndex(data.id)) : null)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargandoâ€¦
+      Cargando…
     </div>
   )
 
   if (!auto) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      AutomatizaciÃ³n no encontrada
+      Automatización no encontrada
     </div>
   )
 
@@ -105,12 +80,14 @@ export default function AutomacionDetailPage() {
                 {isActive ? 'Activa' : 'Pausada'}
               </span>
             </div>
-            <p style={{ margin:'0 0 10px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>{auto.desc}</p>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-              {auto.tags.map(t => (
-                <span key={t} style={{ fontSize:11, color:'#6b7280', background:'#1e2433', border:'1px solid #2a3245', borderRadius:5, padding:'2px 8px', fontWeight:500 }}>{t}</span>
-              ))}
-            </div>
+            {auto.desc && <p style={{ margin:'0 0 10px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>{auto.desc}</p>}
+            {auto.tags.length > 0 && (
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                {auto.tags.map(t => (
+                  <span key={t} style={{ fontSize:11, color:'#6b7280', background:'#1e2433', border:'1px solid #2a3245', borderRadius:5, padding:'2px 8px', fontWeight:500 }}>{t}</span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ display:'flex', gap:8, flexShrink:0 }}>
@@ -124,42 +101,23 @@ export default function AutomacionDetailPage() {
               {isActive ? <RiPauseLine style={{ width:14, height:14 }} /> : <RiPlayLine style={{ width:14, height:14 }} />}
               {isActive ? 'Pausar' : 'Reanudar'}
             </button>
-            <button onClick={() => setTab('ConfiguraciÃ³n')} style={{
-              display:'flex', alignItems:'center', gap:6, background:'#111827',
-              border:'1px solid #1e2433', borderRadius:9, padding:'8px 12px',
-              color:'#94a3b8', fontSize:13, cursor:'pointer',
-            }}>
-              <RiEditLine style={{ width:13, height:13 }} /> Editar
-            </button>
           </div>
         </div>
       </div>
 
-      {/* KPI row */}
+      {/* KPI row — solo lo que existe de verdad en el modelo (runsCount, lastRunAt) */}
       <div style={{ padding:'0 24px 20px', flexShrink:0, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
         {[
-          { label:'Ejecuciones', value:auto.execs, delta:auto.execDelta, up:auto.execUp },
-          { label:'Conversiones', value:auto.convs, delta:`${auto.convRate}`, up:auto.execUp, note:'tasa' },
-          { label:'Ingresos', value:auto.rev, delta:auto.revDelta, up:auto.revUp },
-          { label:'Ãšltima ejecuciÃ³n', value:auto.last, delta:null },
-        ].map((k, i) => {
-          const Up = HiArrowUp, Down = HiArrowDown
-          const Arr = k.up ? Up : Down
-          const c = k.up ? '#4ade80' : '#f87171'
-          return (
-            <div key={i} style={{ flex:1, background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px 16px' }}>
-              <p style={{ margin:'0 0 6px', fontSize:11, color:'#4b5563', fontWeight:600 }}>{k.label}</p>
-              <p style={{ margin:'0 0 4px', fontSize:20, fontWeight:800, color:'#f1f5f9', letterSpacing:-0.5 }}>{k.value}</p>
-              {k.delta && (
-                <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-                  <Arr style={{ width:10, height:10, color:c }} />
-                  <span style={{ fontSize:11, color:c, fontWeight:700 }}>{k.delta.replace(/^[+-]/,'')}</span>
-                  {k.note && <span style={{ fontSize:10, color:'#4b5563' }}>{k.note}</span>}
-                </div>
-              )}
-            </div>
-          )
-        })}
+          { label:'Ejecuciones totales', value:auto.execs },
+          { label:'Última ejecución', value:auto.last },
+          { label:'Estado', value: isActive ? 'Activa' : 'Pausada' },
+          { label:'Acciones configuradas', value: String(auto.actions.length) },
+        ].map((k, i) => (
+          <div key={i} style={{ flex:1, background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px 16px' }}>
+            <p style={{ margin:'0 0 6px', fontSize:11, color:'#4b5563', fontWeight:600 }}>{k.label}</p>
+            <p style={{ margin:0, fontSize:20, fontWeight:800, color:'#f1f5f9', letterSpacing:-0.5 }}>{k.value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Body */}
@@ -181,131 +139,59 @@ export default function AutomacionDetailPage() {
           </div>
 
           {tab === 'Resumen' && (
-            <>
-              {/* Chart */}
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Ejecuciones esta semana</p>
-                <div style={{ height:140 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={CHART_DATA} margin={{ top:4, right:4, left:-24, bottom:0 }}>
-                      <defs>
-                        <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor={auto.iconBg} stopOpacity={0.4} />
-                          <stop offset="95%" stopColor={auto.iconBg} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="label" tick={{ fill:'#374151', fontSize:10 }} axisLine={false} tickLine={false} />
-                      <Area type="monotone" dataKey="v" stroke={auto.iconBg} strokeWidth={2} fill="url(#ag)" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Recent executions */}
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Ejecuciones recientes</p>
-                {[
-                  { time:'Hoy, 09:32', result:'Ã‰xito', color:'#10b981', lead:'MarÃ­a RodrÃ­guez' },
-                  { time:'Hoy, 08:18', result:'Ã‰xito', color:'#10b981', lead:'JosÃ© LÃ³pez' },
-                  { time:'Ayer, 18:45', result:'Error', color:'#ef4444', lead:'Carlos Ruiz' },
-                  { time:'Ayer, 16:22', result:'Ã‰xito', color:'#10b981', lead:'Laura PÃ©rez' },
-                  { time:'Ayer, 14:11', result:'Omitido', color:'#6b7280', lead:'Ana MartÃ­nez' },
-                ].map((e, i) => (
-                  <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #111827' }}>
-                    <div>
-                      <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#e2e8f0' }}>{e.lead}</p>
-                      <p style={{ margin:0, fontSize:11, color:'#4b5563' }}>{e.time}</p>
-                    </div>
-                    <span style={{ fontSize:11, fontWeight:600, color:e.color, background:`${e.color}15`, border:`1px solid ${e.color}30`, borderRadius:5, padding:'2px 8px' }}>{e.result}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {tab === 'Historial' && (
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#f1f5f9' }}>Ejecuciones Â· Ãºltimos 30 dÃ­as</p>
-                <div style={{ display:'flex', gap:6 }}>
-                  {['Todo', 'Ã‰xito', 'Error'].map((f, i) => (
-                    <button key={f} style={{ padding:'4px 10px', borderRadius:7, border:'1px solid ' + (i === 0 ? auto.iconColor : '#1e2433'), background: i === 0 ? auto.iconColor + '20' : 'transparent', color: i === 0 ? auto.iconColor : '#6b7280', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>{f}</button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, overflow:'hidden' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 90px 80px', padding:'9px 14px', borderBottom:'1px solid #1e2433' }}>
-                  {['Lead / empresa', 'Fecha', 'DuraciÃ³n', 'Resultado'].map(h => (
-                    <span key={h} style={{ fontSize:10.5, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:0.4 }}>{h}</span>
-                  ))}
-                </div>
-                {[
-                  { lead:'MarÃ­a RodrÃ­guez', company:'TechSolutions', date:'Hoy 09:32', dur:'4:32', result:'Ã‰xito', color:'#10b981' },
-                  { lead:'JosÃ© LÃ³pez', company:'DataPro', date:'Hoy 08:18', dur:'3:10', result:'Ã‰xito', color:'#10b981' },
-                  { lead:'Carlos Ruiz', company:'Innovate SA', date:'Ayer 18:45', dur:'0:48', result:'Error', color:'#ef4444' },
-                  { lead:'Laura PÃ©rez', company:'MedCare', date:'Ayer 16:22', dur:'5:07', result:'Ã‰xito', color:'#10b981' },
-                  { lead:'Ana MartÃ­nez', company:'NextGen', date:'Ayer 14:11', dur:'â€”', result:'Omitido', color:'#6b7280' },
-                  { lead:'Pablo GarcÃ­a', company:'Retail Group', date:'23 may 11:55', dur:'6:21', result:'Ã‰xito', color:'#10b981' },
-                  { lead:'Isabel Torres', company:'BuildIt Corp', date:'23 may 09:40', dur:'2:55', result:'Ã‰xito', color:'#10b981' },
-                  { lead:'RamÃ³n Blanco', company:'SaaS Tools', date:'22 may 17:30', dur:'1:12', result:'Error', color:'#ef4444' },
-                ].map((e, i) => (
-                  <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 120px 90px 80px', padding:'10px 14px', borderBottom:'1px solid #111827', alignItems:'center' }}>
-                    <div>
-                      <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#e2e8f0' }}>{e.lead}</p>
-                      <p style={{ margin:0, fontSize:11, color:'#4b5563' }}>{e.company}</p>
-                    </div>
-                    <span style={{ fontSize:11.5, color:'#4b5563' }}>{e.date}</span>
-                    <span style={{ fontSize:11.5, color:'#6b7280' }}>{e.dur}</span>
-                    <span style={{ fontSize:11, fontWeight:700, color:e.color, background:`${e.color}15`, border:`1px solid ${e.color}30`, borderRadius:5, padding:'2px 8px', whiteSpace:'nowrap' }}>{e.result}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {tab === 'ConfiguraciÃ³n' && (
-            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              {[
-                { section:'Disparador', items:[
-                  { label:'Tipo', value:auto.trigger },
-                  { label:'CondiciÃ³n', value:'Nuevo lead en CRM con tag "outbound"' },
-                  { label:'EvaluaciÃ³n', value:'Inmediata (en tiempo real)' },
-                ]},
-                { section:'Acciones', items:[
-                  { label:'AcciÃ³n 1', value:'Asignar agente AI (prioridad alta)' },
-                  { label:'AcciÃ³n 2', value:'Iniciar llamada saliente en 5 min' },
-                  { label:'AcciÃ³n 3', value:'Registrar resultado en CRM' },
-                  { label:'AcciÃ³n 4', value:'Enviar email de seguimiento si no contesta' },
-                ]},
-                { section:'LÃ­mites', items:[
-                  { label:'MÃ¡x. ejecuciones/dÃ­a', value:'500' },
-                  { label:'Cooldown por lead', value:'24 horas' },
-                  { label:'Reintentos', value:'2 (cada 30 min)' },
-                ]},
-              ].map(({ section, items }) => (
-                <div key={section} style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                  <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#f1f5f9' }}>{section}</p>
-                  {items.map(({ label, value }) => (
-                    <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #111827' }}>
-                      <span style={{ fontSize:12, color:'#4b5563' }}>{label}</span>
-                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        {editKey === label
-                          ? <input autoFocus defaultValue={cfgVals[label] ?? value}
-                              onBlur={e => { setCfgVals(v => ({ ...v, [label]: e.target.value })); setEditKey(null) }}
-                              onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
-                              style={{ background:'transparent', border:'none', borderBottom:'1px solid ' + auto.iconColor, color:'#94a3b8', fontSize:12.5, fontWeight:600, outline:'none', width:160, textAlign:'right', fontFamily:'inherit' }}
-                            />
-                          : <span style={{ fontSize:12.5, fontWeight:600, color:'#94a3b8' }}>{cfgVals[label] ?? value}</span>
-                        }
-                        <RiEditLine style={{ width:12, height:12, color:'#374151', cursor:'pointer', flexShrink:0 }} onClick={() => setEditKey(label)} />
+            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+              <p style={{ margin:'0 0 12px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Qué hace esta automatización</p>
+              {auto.actions.length === 0 ? (
+                <p style={{ color:'#4b5563', fontSize:13 }}>Sin acciones configuradas.</p>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {auto.actions.map((a, i) => (
+                    <div key={i} style={{ display:'flex', gap:10, alignItems:'center', padding:'10px 12px', background:'#111827', border:'1px solid #1a2235', borderRadius:9 }}>
+                      <span style={{ width:22, height:22, borderRadius:6, background:'#8b5cf620', border:'1px solid #8b5cf640', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10.5, fontWeight:700, color:'#a78bfa', flexShrink:0 }}>{i + 1}</span>
+                      <div>
+                        <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#e2e8f0' }}>{a.type ?? 'acción'}</p>
+                        {a.params && <p style={{ margin:0, fontSize:11, color:'#4b5563' }}>{JSON.stringify(a.params)}</p>}
                       </div>
                     </div>
                   ))}
                 </div>
-              ))}
-              <button onClick={() => { setSavedAuto(true); setTimeout(() => setSavedAuto(false), 2000) }} style={{ alignSelf:'flex-start', background: savedAuto ? '#10b981' : `linear-gradient(90deg, ${auto.iconBg}, ${auto.iconColor})`, border:'none', borderRadius:9, padding:'10px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', transition:'background .3s' }}>
-                {savedAuto ? 'âœ“ Guardado' : 'Guardar cambios'}
-              </button>
+              )}
+            </div>
+          )}
+
+          {tab === 'Historial' && (
+            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+              <p style={{ margin:'0 0 8px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Historial de ejecuciones</p>
+              <p style={{ margin:0, fontSize:13, color:'#4b5563', lineHeight:1.6 }}>
+                Todavía no se registra un historial detallado por ejecución — solo el conteo total.
+                Esta automatización se ejecutó <strong style={{ color:'#94a3b8' }}>{auto.execs}</strong> veces
+                {auto.lastRunAt && <> · última vez <strong style={{ color:'#94a3b8' }}>{auto.last}</strong></>}.
+              </p>
+            </div>
+          )}
+
+          {tab === 'Configuración' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#f1f5f9' }}>Disparador</p>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0' }}>
+                  <span style={{ fontSize:12, color:'#4b5563' }}>Evento</span>
+                  <span style={{ fontSize:12.5, fontWeight:600, color:'#94a3b8' }}>{auto.trigger}</span>
+                </div>
+              </div>
+              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#f1f5f9' }}>Acciones ({auto.actions.length})</p>
+                {auto.actions.length === 0 ? (
+                  <p style={{ color:'#4b5563', fontSize:13 }}>Sin acciones configuradas.</p>
+                ) : (
+                  auto.actions.map((a, i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom: i < auto.actions.length - 1 ? '1px solid #111827' : 'none' }}>
+                      <span style={{ fontSize:12, color:'#4b5563' }}>Acción {i + 1}</span>
+                      <span style={{ fontSize:12.5, fontWeight:600, color:'#94a3b8' }}>{a.type}{a.params ? ` — ${JSON.stringify(a.params)}` : ''}</span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -317,33 +203,35 @@ export default function AutomacionDetailPage() {
             <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Disparador</p>
             <div style={{ display:'flex', gap:10, alignItems:'center', background:'#111827', border:'1px solid #1e2433', borderRadius:9, padding:'10px 12px' }}>
               <auto.TriggerIcon style={{ width:18, height:18, color:auto.iconColor, flexShrink:0 }} />
-              <p style={{ margin:0, fontSize:11.5, color:'#94a3b8', lineHeight:1.4, whiteSpace:'pre-line' }}>{auto.trigger}</p>
+              <p style={{ margin:0, fontSize:11.5, color:'#94a3b8', lineHeight:1.4 }}>{auto.trigger}</p>
             </div>
           </div>
 
-          {/* Flow */}
+          {/* Flow — pasos reales de la automatización */}
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:12 }}>
               <RiFlowChart style={{ width:13, height:13, color:'#6b7280' }} />
               <p style={{ margin:0, fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Flujo</p>
             </div>
-            {STEPS.map((s, i) => (
-              <div key={i}>
-                <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-                  <div style={{ width:8, height:8, borderRadius:'50%', background:s.color, flexShrink:0, boxShadow:`0 0 5px ${s.color}80` }} />
-                  <div style={{ flex:1 }}>
-                    <p style={{ margin:0, fontSize:12, fontWeight:600, color:'#e2e8f0' }}>{s.label}</p>
-                    <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>{s.desc}</p>
+            {auto.actions.length === 0 ? (
+              <p style={{ margin:0, fontSize:11, color:'#4b5563' }}>Sin acciones configuradas.</p>
+            ) : (
+              auto.actions.map((a, i) => (
+                <div key={i}>
+                  <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:auto.iconColor, flexShrink:0, boxShadow:`0 0 5px ${auto.iconColor}80` }} />
+                    <div style={{ flex:1 }}>
+                      <p style={{ margin:0, fontSize:12, fontWeight:600, color:'#e2e8f0' }}>{a.type ?? 'acción'}</p>
+                    </div>
+                    {i < auto.actions.length - 1 && <RiArrowRightLine style={{ width:12, height:12, color:'#374151', flexShrink:0 }} />}
                   </div>
-                  {i < STEPS.length - 1 && <RiArrowRightLine style={{ width:12, height:12, color:'#374151', flexShrink:0 }} />}
+                  {i < auto.actions.length - 1 && <div style={{ width:1, height:14, background:'#1e2433', margin:'4px 0 4px 3.5px' }} />}
                 </div>
-                {i < STEPS.length - 1 && <div style={{ width:1, height:14, background:'#1e2433', marginLeft:3.5, margin:'4px 0 4px 3.5px' }} />}
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
     </div>
   )
 }
-

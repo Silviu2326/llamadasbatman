@@ -1,9 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   RiArrowLeftLine, RiPauseCircleLine, RiPlayCircleLine, RiEditLine, RiMore2Line,
   RiSendPlaneLine, RiGroupLine, RiCalendarLine, RiCalendar2Line, RiBarChartLine,
+  RiExternalLinkLine, RiMoneyDollarCircleLine,
 } from 'react-icons/ri'
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip } from 'recharts'
 import { apiFetch } from '../lib/api'
 import '../dashboard.css'
 
@@ -30,7 +32,15 @@ const KPI_LABELS = {
   ingresos:   { label: 'Ingresos',           color: '#22d3ee' },
 }
 
-const DETAIL_TABS = ['Resumen', 'Audiencia', 'Conversaciones', 'ConfiguraciÃ³n']
+const DETAIL_TABS = ['Resumen', 'Audiencia', 'Conversaciones', 'Anuncio', 'ConfiguraciÃ³n']
+
+const AD_STATUS_LABEL = {
+  draft: { label: 'Borrador', color: '#60a5fa' },
+  pending_review: { label: 'En revisiÃ³n', color: '#f59e0b' },
+  active: { label: 'Activo', color: '#10b981' },
+  rejected: { label: 'Rechazado', color: '#ef4444' },
+  paused: { label: 'Pausado', color: '#f59e0b' },
+}
 
 function Spark({ data, color }) {
   const w = 80, h = 32
@@ -52,11 +62,30 @@ function Spark({ data, color }) {
 export default function CampaignDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [campaign, setCampaign] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('Resumen')
+  const [tab, setTab] = useState(searchParams.get('tab') === 'anuncio' ? 'Anuncio' : 'Resumen')
   const [status, setStatus] = useState('borrador')
   const [savedCamp, setSavedCamp] = useState(false)
+  const [adInfo, setAdInfo] = useState(null)
+  const [insights, setInsights] = useState([])
+  const [maxCpl, setMaxCpl] = useState('')
+  const [savingCpl, setSavingCpl] = useState(false)
+  const [auditingBulk, setAuditingBulk] = useState(false)
+  const [auditBulkResult, setAuditBulkResult] = useState(null)
+
+  async function runAuditBulk() {
+    setAuditingBulk(true)
+    try {
+      const res = await apiFetch(`/api/campaigns/${id}/audit-bulk`, { method: 'POST', body: JSON.stringify({}) })
+      if (res.ok) setAuditBulkResult(await res.json())
+    } catch {
+      /* ignore */
+    } finally {
+      setAuditingBulk(false)
+    }
+  }
 
   useEffect(() => {
     apiFetch(`/api/campaigns/${id}`).then(r => r.ok ? r.json() : null).then(data => {
@@ -84,6 +113,76 @@ export default function CampaignDetailPage() {
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (tab !== 'Anuncio') return
+    apiFetch(`/api/ads/campaigns/${id}/status`).then(r => r.ok ? r.json() : null).then(data => {
+      if (data) {
+        setAdInfo(data)
+        setMaxCpl(data.maxCostPerLeadCents != null ? String(data.maxCostPerLeadCents / 100) : '')
+      }
+    }).catch(() => {})
+    apiFetch(`/api/ads/campaigns/${id}/insights`).then(r => r.ok ? r.json() : []).then(data => {
+      const rows = Array.isArray(data) ? data : []
+      setInsights(rows.map(r => ({
+        ...r,
+        spendEUR: r.spendCents / 100,
+        cplEUR: r.costPerLeadCents != null ? r.costPerLeadCents / 100 : null,
+        capturedAtLabel: new Date(r.capturedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      })))
+    }).catch(() => {})
+  }, [tab, id])
+
+  async function saveMaxCpl() {
+    const cents = Math.round(parseFloat(maxCpl) * 100)
+    if (Number.isNaN(cents) || cents < 0) return
+    setSavingCpl(true)
+    try {
+      const res = await apiFetch(`/api/ads/campaigns/${id}/max-cpl`, {
+        method: 'PUT',
+        body: JSON.stringify({ maxCostPerLeadCents: cents }),
+      })
+      if (!res.ok) throw new Error()
+      setAdInfo(prev => prev ? { ...prev, maxCostPerLeadCents: cents } : prev)
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingCpl(false)
+    }
+  }
+
+  // "Programar también como post orgánico" (Fase 3 punto 3 del plan): reusa
+  // el copy/imagen que ya generó el wizard de anuncios, no crea contenido
+  // nuevo. Requiere que la org ya haya conectado al menos una red en Postiz.
+  const [postingOrganic, setPostingOrganic] = useState(false)
+  const [organicMsg, setOrganicMsg] = useState('')
+
+  async function scheduleOrganicPost() {
+    const assets = adInfo?.adAssets
+    if (!assets?.adCopy) return
+    setPostingOrganic(true)
+    setOrganicMsg('')
+    try {
+      const statusRes = await apiFetch('/api/postiz')
+      if (statusRes.status === 403) {
+        setOrganicMsg('Redes sociales no está incluido en tu plan.')
+        return
+      }
+      const statusData = statusRes.ok ? await statusRes.json() : null
+      const platforms = (statusData?.integrations ?? []).map(i => i.id)
+      if (!platforms.length) {
+        setOrganicMsg('Conectá al menos una red social primero (menú "Redes sociales").')
+        return
+      }
+      const res = await apiFetch('/api/postiz/posts', {
+        method: 'POST',
+        body: JSON.stringify({ text: assets.adCopy, imageUrl: assets.imageUrl, platforms }),
+      })
+      setOrganicMsg(res.ok ? 'Post orgánico programado.' : 'No se pudo programar el post.')
+    } finally {
+      setPostingOrganic(false)
+    }
+  }
 
   if (loading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14, background: '#080c14' }}>
@@ -276,6 +375,23 @@ export default function CampaignDetailPage() {
 
           {tab === 'Audiencia' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '14px 18px' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Auditoría digital en bloque</p>
+                  <p style={{ margin: 0, fontSize: 11.5, color: '#6b7280' }}>
+                    {auditBulkResult
+                      ? `${auditBulkResult.audited} auditados, ${auditBulkResult.skipped} sin web/ya auditados${auditBulkResult.remaining > 0 ? `, ${auditBulkResult.remaining} pendientes (volvé a apretar el botón)` : ''}.`
+                      : 'Audita los leads de esta campaña que tienen web y todavía no fueron auditados.'}
+                  </p>
+                </div>
+                <button onClick={runAuditBulk} disabled={auditingBulk} style={{
+                  padding: '8px 16px', borderRadius: 8, border: 'none',
+                  background: auditingBulk ? '#374151' : '#6366f1', color: '#fff', fontSize: 12.5, fontWeight: 700,
+                  cursor: auditingBulk ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                }}>
+                  {auditingBulk ? 'Auditando…' : 'Auditar toda la campaña'}
+                </button>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
                   <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Segmento activo</p>
@@ -355,6 +471,114 @@ export default function CampaignDetailPage() {
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {tab === 'Anuncio' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {!adInfo ? (
+                <p style={{ color: '#6b7280', fontSize: 13 }}>Cargando datos del anuncio…</p>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                    {[
+                      { label: 'Estado del anuncio', value: AD_STATUS_LABEL[adInfo.adStatus]?.label || adInfo.adStatus || 'Borrador', color: AD_STATUS_LABEL[adInfo.adStatus]?.color || '#6b7280' },
+                      { label: 'Leads del anuncio', value: String(adInfo.totalLeads ?? 0) },
+                      { label: 'Reuniones agendadas', value: String(adInfo.meetingsScheduled ?? 0) },
+                    ].map((k, i) => (
+                      <div key={i} style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '16px' }}>
+                        <p style={{ margin: '0 0 6px', fontSize: 11, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase' }}>{k.label}</p>
+                        <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: k.color || '#f1f5f9' }}>{k.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Gasto y costo por lead (hoy)</p>
+                      {adInfo.landingSlug && (
+                        <a
+                          href={`/l/${adInfo.landingSlug}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#818cf8', fontSize: 12, textDecoration: 'none' }}
+                        >
+                          Ver landing <RiExternalLinkLine style={{ width: 13, height: 13 }} />
+                        </a>
+                      )}
+                    </div>
+                    {insights.length === 0 ? (
+                      <p style={{ color: '#4b5563', fontSize: 13 }}>Todavía no hay datos de Meta para esta campaña.</p>
+                    ) : (
+                      <div style={{ width: '100%', height: 240 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={insights} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
+                            <XAxis dataKey="capturedAtLabel" tick={{ fontSize: 10, fill: '#4b5563' }} axisLine={false} tickLine={false} />
+                            <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#4b5563' }} axisLine={false} tickLine={false} width={34} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#4b5563' }} axisLine={false} tickLine={false} width={34} />
+                            <Tooltip
+                              contentStyle={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, fontSize: 11 }}
+                              labelStyle={{ color: '#94a3b8' }}
+                              itemStyle={{ color: '#e2e8f0' }}
+                            />
+                            <Bar yAxisId="left" dataKey="spendEUR" name="Gasto (€)" fill="#6366f1" fillOpacity={0.7} radius={[3,3,0,0]} />
+                            <Line yAxisId="right" type="monotone" dataKey="cplEUR" name="CPL (€)" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: '#10b981' }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <RiMoneyDollarCircleLine style={{ width: 18, height: 18, color: '#ef4444' }} />
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Máximo costo por lead (€)</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={maxCpl}
+                        onChange={e => setMaxCpl(e.target.value)}
+                        placeholder="Sin tope"
+                        style={{ flex: 1, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 8, padding: '10px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                      />
+                      <button
+                        onClick={saveMaxCpl}
+                        disabled={savingCpl}
+                        style={{
+                          padding: '10px 16px', borderRadius: 8, border: 'none',
+                          background: savingCpl ? '#374151' : '#ef4444', color: '#fff',
+                          fontSize: 13, fontWeight: 600, cursor: savingCpl ? 'default' : 'pointer',
+                        }}
+                      >
+                        {savingCpl ? 'Guardando…' : 'Guardar'}
+                      </button>
+                    </div>
+                    <p style={{ margin: '8px 0 0', fontSize: 11, color: '#4b5563' }}>Si el costo por lead supera este valor, la campaña se pausa automáticamente.</p>
+                  </div>
+
+                  {adInfo.adAssets?.adCopy && (
+                    <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
+                      <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Redes sociales</p>
+                      <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#6b7280' }}>Programá el mismo copy e imagen del anuncio como post orgánico.</p>
+                      <button
+                        onClick={scheduleOrganicPost}
+                        disabled={postingOrganic}
+                        style={{
+                          padding: '10px 16px', borderRadius: 8, border: 'none',
+                          background: postingOrganic ? '#374151' : 'linear-gradient(90deg, #ec4899, #7c3aed)', color: '#fff',
+                          fontSize: 13, fontWeight: 600, cursor: postingOrganic ? 'default' : 'pointer',
+                        }}
+                      >
+                        {postingOrganic ? 'Programando…' : 'Programar también como post orgánico'}
+                      </button>
+                      {organicMsg && <p style={{ margin: '8px 0 0', fontSize: 12, color: organicMsg.includes('No se pudo') || organicMsg.includes('no está') ? '#ef4444' : '#10b981' }}>{organicMsg}</p>}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 

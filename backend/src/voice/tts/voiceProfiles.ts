@@ -7,21 +7,26 @@ export interface VoiceProfile {
   readonly pauseStoryBeatMs: number
 }
 
-// eleven_v3 is trained with native expressiveness — style > 0.20 causes theatrical
-// "performance" rather than natural speech. Keep style low; use stability to control
-// variability (lower = more natural pitch/rhythm variation).
+// eleven_v3 solo entiende 3 presets de stability: 0 (Creative), 0.5 (Natural), 1.0
+// (Robust) — valores intermedios se redondean en la API y pierden matiz. style > 0.20
+// causa "actuación" teatral en vez de habla natural, así que se mantiene bajo.
 export const VOICE_PROFILES: Record<string, VoiceProfile> = {
-  directo:      { stability: 0.25, similarityBoost: 0.80, style: 0.10, speed: 1.05, pauseAfterQMs: 0,   pauseStoryBeatMs: 150 },
-  cercano:      { stability: 0.15, similarityBoost: 0.80, style: 0.07, speed: 0.92, pauseAfterQMs: 300, pauseStoryBeatMs: 200 },
-  consultivo:   { stability: 0.40, similarityBoost: 0.78, style: 0.08, speed: 0.88, pauseAfterQMs: 500, pauseStoryBeatMs: 350 },
-  challenger:   { stability: 0.12, similarityBoost: 0.82, style: 0.18, speed: 0.97, pauseAfterQMs: 250, pauseStoryBeatMs: 300 },
-  storyteller:  { stability: 0.10, similarityBoost: 0.82, style: 0.22, speed: 0.87, pauseAfterQMs: 400, pauseStoryBeatMs: 450 },
-  snap:         { stability: 0.28, similarityBoost: 0.80, style: 0.10, speed: 1.12, pauseAfterQMs: 80,  pauseStoryBeatMs: 80  },
-  empatico:     { stability: 0.50, similarityBoost: 0.78, style: 0.06, speed: 0.83, pauseAfterQMs: 600, pauseStoryBeatMs: 450 },
-  urgente:      { stability: 0.12, similarityBoost: 0.82, style: 0.20, speed: 1.10, pauseAfterQMs: 100, pauseStoryBeatMs: 80  },
-  tecnico:      { stability: 0.55, similarityBoost: 0.75, style: 0.05, speed: 0.90, pauseAfterQMs: 450, pauseStoryBeatMs: 300 },
-  social_proof: { stability: 0.18, similarityBoost: 0.80, style: 0.12, speed: 0.95, pauseAfterQMs: 300, pauseStoryBeatMs: 280 },
-  mini_closer:  { stability: 0.22, similarityBoost: 0.80, style: 0.13, speed: 0.93, pauseAfterQMs: 500, pauseStoryBeatMs: 250 },
+  directo:      { stability: 0,   similarityBoost: 0.80, style: 0.10, speed: 1.05, pauseAfterQMs: 0,   pauseStoryBeatMs: 150 },
+  cercano:      { stability: 0,   similarityBoost: 0.80, style: 0.07, speed: 0.92, pauseAfterQMs: 300, pauseStoryBeatMs: 200 },
+  consultivo:   { stability: 0.5, similarityBoost: 0.78, style: 0.08, speed: 0.88, pauseAfterQMs: 500, pauseStoryBeatMs: 350 },
+  challenger:   { stability: 0,   similarityBoost: 0.82, style: 0.18, speed: 0.97, pauseAfterQMs: 250, pauseStoryBeatMs: 300 },
+  storyteller:  { stability: 0,   similarityBoost: 0.82, style: 0.22, speed: 0.87, pauseAfterQMs: 400, pauseStoryBeatMs: 450 },
+  snap:         { stability: 0,   similarityBoost: 0.80, style: 0.10, speed: 1.12, pauseAfterQMs: 80,  pauseStoryBeatMs: 80  },
+  empatico:     { stability: 0.5, similarityBoost: 0.78, style: 0.06, speed: 0.83, pauseAfterQMs: 600, pauseStoryBeatMs: 450 },
+  urgente:      { stability: 0,   similarityBoost: 0.82, style: 0.20, speed: 1.10, pauseAfterQMs: 100, pauseStoryBeatMs: 80  },
+  tecnico:      { stability: 0.5, similarityBoost: 0.75, style: 0.05, speed: 0.90, pauseAfterQMs: 450, pauseStoryBeatMs: 300 },
+  social_proof: { stability: 0,   similarityBoost: 0.80, style: 0.12, speed: 0.95, pauseAfterQMs: 300, pauseStoryBeatMs: 280 },
+  mini_closer:  { stability: 0,   similarityBoost: 0.80, style: 0.13, speed: 0.93, pauseAfterQMs: 500, pauseStoryBeatMs: 250 },
+}
+
+const STABILITY_PRESETS = [0, 0.5, 1]
+function snapStability(v: number): number {
+  return STABILITY_PRESETS.reduce((closest, p) => Math.abs(p - v) < Math.abs(closest - v) ? p : closest)
 }
 
 export const DEFAULT_PROFILE = VOICE_PROFILES['cercano']
@@ -48,7 +53,7 @@ export function applyModifiers(base: VoiceProfile, emocion = 'neutro', estadoAcu
   const stabilityBump = ['molesto', 'agitado', 'sarcastico'].includes(emocion) ? 0.10 : 0
 
   return {
-    stability: Math.max(0.08, Math.min(0.90, +(base.stability + stabilityBump).toFixed(3))),
+    stability: snapStability(base.stability + stabilityBump),
     similarityBoost: base.similarityBoost,
     style: Math.max(0.03, Math.min(0.30, +(base.style + styleDelta).toFixed(3))),
     speed: Math.max(0.72, Math.min(1.25, +(base.speed + speedDelta).toFixed(3))),
@@ -59,10 +64,17 @@ export function applyModifiers(base: VoiceProfile, emocion = 'neutro', estadoAcu
 
 const REVEAL_RE = /\b(y el resultado|y lo que paso|y la realidad es|lo que nadie sabe|el dato es|lo curioso es|resulta que|lo que encontraron|y eso se traduce en|la clave es|lo que marca la diferencia)\b/gi
 const STAT_RE = /(\b(?:un |el |del |unos |más de )?\d+(?:\.\d+)?\s*(?:%|euros?|€|meses?|ausencias?|citas?|horas?))/gi
+// Pausas breves que ElevenLabs v3 respeta dentro de una misma frase, para evitar
+// el efecto plano cuando no podemos encadenar peticiones entre frases.
+const CLAUSE_RE = /\b(por eso|porque|aunque|sin embargo|además|entonces|en cambio|es decir|o sea|bueno|mira|oye)\b/gi
 
 export function preprocessText(text: string, profile: VoiceProfile): string {
   if (!text.trim()) return text
   let r = text
+  // Pausa antes de giros argumentales para romper la monotonía.
+  if (profile.pauseStoryBeatMs >= 100) {
+    r = r.replace(CLAUSE_RE, ', $1')
+  }
   if (profile.pauseStoryBeatMs >= 400) r = r.replace(REVEAL_RE, '... $1')
   if (profile.pauseStoryBeatMs >= 300) r = r.replace(STAT_RE, ', $1')
   if (profile.pauseAfterQMs >= 400) r = r.replace(/\?(\s+)([A-ZÀ-ÿ¿])/g, '?... $2')

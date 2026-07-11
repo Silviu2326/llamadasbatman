@@ -1,3 +1,5 @@
+import { prisma } from '../lib/prisma'
+
 const LADA_TZ: Record<string, string> = {
   '55': 'America/Mexico_City',
   '33': 'America/Mexico_City',
@@ -10,6 +12,13 @@ const OPTOUT_PHRASES = [
   'no me llamen', 'no me vuelvan a llamar', 'quiten mi número',
   'no me contacten', 'bórrenme', 'elimínenme', 'no quiero que me llamen',
   'quíteme de la lista', 'quitenme de la lista', 'déjenme en paz', 'dejenme en paz',
+]
+
+const TRANSFER_PHRASES = [
+  'hablar con una persona', 'hablar con un humano', 'hablar con un agente',
+  'pásame con alguien', 'pasame con alguien', 'pásame con una persona',
+  'quiero hablar con alguien real', 'no quiero hablar con un robot', 'no quiero hablar con un bot',
+  'necesito un humano', 'quiero un representante', 'quiero hablar con un supervisor',
 ]
 
 const HOUR_START = parseInt(process.env.CALL_HOUR_START ?? '9')
@@ -26,17 +35,24 @@ export function detectOptout(text: string): boolean {
   return OPTOUT_PHRASES.some(p => t.includes(p))
 }
 
-// ponytail: Redis opt-out list skipped — use a simple in-memory set; add Prisma/Redis when needed
-const _optouts = new Set<string>()
+export function detectTransferRequest(text: string): boolean {
+  const t = text.toLowerCase()
+  return TRANSFER_PHRASES.some(p => t.includes(p))
+}
 
-export async function canCall(phone: string): Promise<{ allowed: boolean; reason: string }> {
-  if (_optouts.has(phone)) return { allowed: false, reason: 'optout' }
+export async function canCall(orgId: string, phone: string): Promise<{ allowed: boolean; reason: string }> {
+  const optOut = await prisma.optOut.findUnique({ where: { orgId_phone: { orgId, phone } } })
+  if (optOut) return { allowed: false, reason: 'optout' }
   if (!withinLegalHours(phone)) return { allowed: false, reason: 'outside_hours' }
   return { allowed: true, reason: '' }
 }
 
-export async function registerOptout(phone: string, reason = 'manual'): Promise<void> {
-  _optouts.add(phone)
+export async function registerOptout(orgId: string, phone: string, reason = 'manual'): Promise<void> {
+  await prisma.optOut.upsert({
+    where: { orgId_phone: { orgId, phone } },
+    create: { orgId, phone, reason },
+    update: { reason },
+  })
   console.info('[COMPLIANCE] Opt-out registrado:', phone, reason)
 }
 

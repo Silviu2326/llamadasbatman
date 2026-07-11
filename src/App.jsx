@@ -24,6 +24,14 @@ import ArticleDetailPage from './pages/ArticleDetailPage'
 import PlaybookDetailPage from './pages/PlaybookDetailPage'
 import OpportunityDetailPage from './pages/OpportunityDetailPage'
 import VoiceTestPage from './pages/VoiceTestPage'
+import ProspectFinderPage from './pages/ProspectFinderPage'
+import PublicLandingPage from './pages/PublicLandingPage'
+import MetaAccountPage from './pages/MetaAccountPage'
+import ConectarRedesPage from './pages/ConectarRedesPage'
+import EmailMarketingPage from './pages/EmailMarketingPage'
+import AdPlaybooksAdminPage from './pages/AdPlaybooksAdminPage'
+import AdsWizardPage from './pages/AdsWizardPage'
+import AdminRoute from './components/AdminRoute'
 
 export default function App() {
   return (
@@ -31,6 +39,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/l/:slug" element={<PublicLandingPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -55,6 +64,12 @@ export default function App() {
             <Route path="/playbooks/:id" element={<PlaybookDetailPage />} />
             <Route path="/pipeline/:id" element={<OpportunityDetailPage />} />
             <Route path="/voz/test" element={<VoiceTestPage />} />
+            <Route path="/prospectos" element={<ProspectFinderPage />} />
+            <Route path="/captacion/conectar" element={<MetaAccountPage />} />
+            <Route path="/redes-sociales" element={<ConectarRedesPage />} />
+            <Route path="/email-marketing" element={<EmailMarketingPage />} />
+            <Route path="/captacion/nueva" element={<AdsWizardPage />} />
+            <Route path="/admin/ad-playbooks" element={<AdminRoute><AdPlaybooksAdminPage /></AdminRoute>} />
           </Route>
         </Routes>
       </BrowserRouter>

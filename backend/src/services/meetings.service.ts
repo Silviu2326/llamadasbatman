@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma'
 import { MeetingStatus } from '@prisma/client'
+import { sendScheduleEvent } from './metaConversions.service'
 
 interface MeetingFilters {
   assignedTo?: string
@@ -45,7 +46,7 @@ export async function createMeeting(orgId: string, data: {
   notes?: string
   meetingUrl?: string
 }) {
-  return prisma.meeting.create({
+  const meeting = await prisma.meeting.create({
     data: {
       orgId,
       leadId: data.leadId,
@@ -58,6 +59,8 @@ export async function createMeeting(orgId: string, data: {
       meetingUrl: data.meetingUrl,
     },
   })
+  await sendScheduleEvent(orgId, meeting).catch(() => {})
+  return meeting
 }
 
 export async function updateMeeting(orgId: string, id: string, data: {
