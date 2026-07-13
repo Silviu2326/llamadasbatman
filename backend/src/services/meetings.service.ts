@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma'
 import { MeetingStatus } from '@prisma/client'
 import { sendScheduleEvent } from './metaConversions.service'
 import { writeAuditLog } from '../lib/audit'
+import { logSalesActivity } from '../lib/salesActivity'
 
 interface MeetingFilters {
   assignedTo?: string
@@ -121,6 +122,18 @@ export async function createMeeting(orgId: string, actorUserId: string | null | 
   })
 
   await sendScheduleEvent(orgId, meeting).catch(() => {})
+
+  await logSalesActivity({
+    orgId,
+    type: 'meeting',
+    leadId: data.leadId,
+    meetingId: meeting.id,
+    actorUserId,
+    subject: data.title,
+    source: 'meeting_created',
+    sourceId: meeting.id,
+  })
+
   return meeting
 }
 
@@ -167,6 +180,19 @@ export async function updateMeeting(orgId: string, actorUserId: string | null | 
     before,
     after: after ?? undefined,
   })
+
+  if (data.status === 'cancelled' && before.status !== 'cancelled') {
+    await logSalesActivity({
+      orgId,
+      type: 'meeting',
+      leadId: before.leadId,
+      meetingId: id,
+      actorUserId,
+      subject: 'Reunión cancelada',
+      source: 'meeting_cancelled',
+      sourceId: id,
+    })
+  }
 
   return after
 }

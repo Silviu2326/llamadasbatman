@@ -34,15 +34,21 @@ Fase 1 (backlog 04, sección 3): FND-01..06, luego LE-101/102/103/106/107, AU-10
 | ID | Estado | Notas |
 | --- | --- | --- |
 | FND-01 `updatedAt`/índices | ✅ hecho | `Lead.updatedAt`, `Opportunity.updatedAt`, `Meeting.updatedAt` + índices `(orgId, status/stage, updatedAt)`. |
-| FND-02 `SalesActivity` | 🔶 modelo listo, sin wiring | Modelo creado (lead/opportunity/meeting/conversation/actor, `source+sourceId+type` único para idempotencia). **Falta**: escribir filas desde los puntos de mutación reales (llamada, nota, archivo, email, cambio de estado/etapa, reunión) y exponer endpoint de timeline. Siguiente paso concreto. |
-| FND-03 `Task` | 🔶 modelo listo, sin API/UI | Modelo creado (owner, prioridad, estado, vencimiento, recordatorio, relaciones a lead/opportunity/meeting/conversation). **Falta**: servicio CRUD, rutas `/api/leads/:id/tasks` (ver API objetivo en `05-arquitectura-objetivo.md`), UI de "próxima acción" real en vez de `customFields.nextAction`. |
-| FND-04 `NextBestAction` → Task | 🔶 campo listo, sin lógica | Añadido `NextBestAction.convertedTaskId`. **Falta**: endpoint aceptar/descartar/ejecutar que cree el `Task` y enlace. |
+| FND-02 `SalesActivity` | ✅ hecho (backend) | `lib/salesActivity.ts` (`logSalesActivity`, idempotente por `sourceId` vía upsert). Volcado desde: nota/archivo/cambio de estado de lead, llamada completada, reunión creada/cancelada, oportunidad creada/cambio de etapa. `GET /api/leads/:id/activities` expone el timeline paginado. **Falta**: wiring en email (mautic send) y UI que consuma el endpoint nuevo en vez de la timeline parcial actual (`getLeadTimeline`). |
+| FND-03 `Task` | ✅ hecho (backend) | CRUD completo: `tasks.service.ts`/`tasks.controller.ts`/`routes/tasks.ts`, registrado en `/api/tasks` (list/get/create/update/complete/cancel), ownership+Zod+RBAC+audit log. **Falta**: UI (reemplazar `customFields.nextAction` en Leads.jsx/LeadDetailPage por tareas reales — es LE-105/106 en el backlog). |
+| FND-04 `NextBestAction` → Task | ✅ hecho (backend) | `POST /api/conversations/:conversationId/next-actions/:id/accept` crea un `Task` real (`source='next_best_action'`) y guarda `convertedTaskId`; `.../dismiss` marca `dismissed`. No existían estos endpoints antes (verificado antes de crearlos). **Falta**: UI que los use (hoy Conversaciones probablemente no tiene botones aceptar/descartar conectados — revisar en la siguiente pasada). |
 | FND-05 Ingestión unificada | ✅ hecho | `createLead()` e `importLeads()` (leads.service.ts) ahora llaman `syncContact()` + `orchestrateNewLead()` igual que `ingestLead()`; `orchestrateNewLead` es idempotente (upsert de conversación, outbox `lead.created` solo si es nueva), así que alta manual, CSV, Meta y landing producen los mismos efectos de dominio. `leadIngestion.service.ts` simplificado para no duplicar la orquestación. Pendiente conocido: `importLeads` sigue siendo secuencial por fila (LE-06/P1, no agravado aquí, requiere `ImportJob` async). |
 | FND-06 Errores/correlationId | ⬜ pendiente | No abordado; requiere decidir un formato común de error y dónde vive `correlationId` (candidato: columna en `AutomationRun`/`OutboxEvent`, ya sugerida en `05-arquitectura-objetivo.md` pero no aplicada). |
 
 Verificado: `npx tsc --noEmit` y `npx vite build` limpios tras el schema push (`SalesActivity`, `Task`, `updatedAt`+índices, `NextBestAction.convertedTaskId`) y el refactor de ingestión.
 
-**Siguiente paso concreto para continuar la Fase 1:** escribir `SalesActivity` desde los servicios existentes (calls, leads notes/files, meetings, pipeline stage changes, mautic email) y construir el CRUD de `Task` + su API, ya que LE-101..109 y OP-101..109 asumen que estos dos modelos ya emiten datos reales.
+Verificado tras esta pasada: `npx tsc --noEmit` y `npx vite build` limpios con Task CRUD + conversión de NextBestAction + volcado de SalesActivity integrados.
+
+**Siguiente paso concreto para continuar (Fase 1 backend ya tiene FND-01..05 completos; falta FND-06 y todo el frontend de Fase 1, más LE-101..109, AU-101..111 restante, OP-101..109, RE-101..108):**
+1. UI: conectar Leads.jsx/LeadDetailPage a `/api/tasks` y `/api/leads/:id/activities` en vez de `customFields.nextAction` y el timeline parcial.
+2. LE-101 (búsqueda/filtros/paginación server-side de Leads) — desbloquea LE-102/104.
+3. OP-101 (`OpportunityStageHistory` + `stageEnteredAt`) — desbloquea OP-102 (kanban DnD) y OP-104 (ganar/perder con invariantes).
+4. AU-101/102 (estado draft + `AutomationVersion` inmutable) — desbloquea AU-104 (historial UI) y AU-105 (condiciones/ramas).
 
 ## Fases siguientes (no iniciadas)
 

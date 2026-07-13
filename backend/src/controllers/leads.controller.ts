@@ -209,6 +209,26 @@ export async function callNow(
   return reply.send({ ok: true, queued })
 }
 
+const activitiesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+}).strict()
+
+/** FND-02: GET /api/leads/:id/activities — timeline unificado (SalesActivity). */
+export async function activities(
+  request: FastifyRequest<{ Params: { id: string }; Querystring: { page?: string; limit?: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const query = parseRequest(reply, activitiesQuerySchema, request.query)
+  if (!params || !query) return
+  const lead = await leadsService.getLead(orgId, params.id)
+  if (!lead) return reply.status(404).send({ error: 'Not found' })
+  const result = await leadsService.getLeadActivities(orgId, params.id, query)
+  return reply.send(result)
+}
+
 export async function timeline(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply

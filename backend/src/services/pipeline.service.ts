@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma'
 import { OpportunityStage } from '@prisma/client'
 import { writeAuditLog } from '../lib/audit'
+import { logSalesActivity } from '../lib/salesActivity'
 
 /** Errores de dominio para que el controller pueda mapear a códigos HTTP. */
 export class OwnershipError extends Error {
@@ -115,6 +116,15 @@ export async function createOpportunity(orgId: string, actorUserId: string | nul
     entityType: 'Opportunity',
     entityId: opportunity.id,
     after: opportunity,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'opportunity_created',
+    opportunityId: opportunity.id,
+    leadId: data.leadId,
+    actorUserId,
+    metadata: { stage: opportunity.stage },
   })
 
   return opportunity
@@ -235,6 +245,17 @@ export async function updateOpportunity(orgId: string, actorUserId: string | nul
     before,
     after: after ?? undefined,
   })
+
+  if (data.stage && after && data.stage !== before.stage) {
+    await logSalesActivity({
+      orgId,
+      type: 'stage_change',
+      opportunityId: id,
+      leadId: before.leadId,
+      actorUserId,
+      metadata: { from: before.stage, to: after.stage },
+    })
+  }
 
   return after
 }

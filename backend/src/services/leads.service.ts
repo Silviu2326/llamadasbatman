@@ -5,6 +5,7 @@ import { auditBusiness } from './digitalAudit.service'
 import { getPresignedUrl, putObject } from '../lib/s3'
 import { syncContact } from './mauticSync.service'
 import { writeAuditLog } from '../lib/audit'
+import { logSalesActivity } from '../lib/salesActivity'
 import { orchestrateNewLead, ChannelConsentInput } from './conversations.service'
 
 interface LeadFilters {
@@ -205,6 +206,16 @@ export async function updateLead(orgId: string, actorUserId: string | null | und
     await syncContact(after).catch(() => {})
   }
 
+  if (data.status && after && data.status !== before.status) {
+    await logSalesActivity({
+      orgId,
+      type: 'status_change',
+      leadId: id,
+      actorUserId,
+      metadata: { from: before.status, to: after.status },
+    })
+  }
+
   return after
 }
 
@@ -314,7 +325,11 @@ export async function uploadFile(orgId: string, leadId: string, name: string, bu
 
   const storageKey = `leads/${leadId}/${randomUUID()}-${name}`
   await putObject(storageKey, buffer, mimeType)
-  return prisma.leadFile.create({ data: { orgId, leadId, name, sizeBytes: buffer.length, storageKey } })
+  const file = await prisma.leadFile.create({ data: { orgId, leadId, name, sizeBytes: buffer.length, storageKey } })
+
+  await logSalesActivity({ orgId, type: 'file', leadId, subject: name })
+
+  return file
 }
 
 export async function listNotes(orgId: string, leadId: string) {
@@ -326,9 +341,36 @@ export async function createNote(orgId: string, leadId: string, authorId: string
   if (!lead) return null
 
   const user = await prisma.user.findUnique({ where: { id: authorId }, select: { name: true } })
-  return prisma.leadNote.create({
+  const note = await prisma.leadNote.create({
     data: { orgId, leadId, authorName: user?.name ?? 'Usuario', text },
   })
+
+  await logSalesActivity({ orgId, type: 'note', leadId, actorUserId: authorId, body: text })
+
+  return note
+}
+
+/**
+ * FND-02: timeline unificado del lead (SalesActivity), paginado igual que
+ * listLeads (page/limit → skip) para ser consistente con el resto del
+ * controller de leads.
+ */
+export async function getLeadActivities(orgId: string, leadId: string, opts: { page?: number; limit?: number } = {}) {
+  const { page = 1, limit = 50 } = opts
+  const skip = (page - 1) * limit
+
+  const where = { orgId, leadId }
+  const [data, total] = await Promise.all([
+    prisma.salesActivity.findMany({
+      where,
+      orderBy: { occurredAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.salesActivity.count({ where }),
+  ])
+
+  return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
 export async function getLeadTimeline(orgId: string, id: string) {
