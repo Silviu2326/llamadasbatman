@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import * as meetingsService from '../services/meetings.service'
-import { OwnershipError, MeetingNotFoundError } from '../services/meetings.service'
+import { OwnershipError, MeetingNotFoundError, MeetingStateError } from '../services/meetings.service'
 import type { MeetingStatus } from '@prisma/client'
 import { parseRequest } from '../lib/validation'
 
@@ -51,6 +51,21 @@ const rescheduleMeetingSchema = z
       message: 'scheduledAt debe ser una fecha futura',
     }),
     reason: z.string().trim().min(1).max(2000).optional(),
+  })
+  .strict()
+
+// RE-107: completar una reunión exige un outcome real (no un booleano vacío).
+const completeMeetingSchema = z
+  .object({
+    outcome: z.string().trim().min(1, 'outcome es requerido').max(500),
+    agreements: z.string().trim().max(2000).optional(),
+    createFollowUpTask: z.boolean().optional(),
+  })
+  .strict()
+
+const noShowMeetingSchema = z
+  .object({
+    notes: z.string().trim().max(2000).optional(),
   })
   .strict()
 
@@ -167,6 +182,59 @@ export async function reschedule(
   } catch (err) {
     if (err instanceof MeetingNotFoundError) {
       return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
+/** POST /:id/complete — RE-107: cierra la reunión con outcome/acuerdos y, salvo
+ * que se pida lo contrario, crea la tarea de seguimiento (+2 días). */
+export async function complete(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: unknown
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, completeMeetingSchema, request.body)
+  if (!data) return
+
+  try {
+    const result = await meetingsService.completeMeeting(orgId, userId, request.params.id, data)
+    return reply.send(result)
+  } catch (err) {
+    if (err instanceof MeetingNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    if (err instanceof MeetingStateError) {
+      return reply.status(409).send({ error: err.message })
+    }
+    throw err
+  }
+}
+
+/** POST /:id/no-show — RE-107: registra que el lead no se presentó. */
+export async function noShow(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: unknown
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, noShowMeetingSchema, request.body)
+  if (!data) return
+
+  try {
+    const meeting = await meetingsService.markNoShow(orgId, userId, request.params.id, data)
+    return reply.send(meeting)
+  } catch (err) {
+    if (err instanceof MeetingNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    if (err instanceof MeetingStateError) {
+      return reply.status(409).send({ error: err.message })
     }
     throw err
   }

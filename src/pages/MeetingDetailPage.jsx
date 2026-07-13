@@ -83,6 +83,13 @@ export default function MeetingDetailPage() {
   const [showReschedule, setShowReschedule] = useState(false)
   const [notes, setNotes] = useState('')
   const [notesSaving, setNotesSaving] = useState(false)
+  // RE-107: resultado de la reunión (outcome/acuerdos) y no-show.
+  const [outcome, setOutcome] = useState('')
+  const [agreements, setAgreements] = useState('')
+  const [createFollowUpTask, setCreateFollowUpTask] = useState(true)
+  const [completing, setCompleting] = useState(false)
+  const [markingNoShow, setMarkingNoShow] = useState(false)
+  const [resultError, setResultError] = useState('')
 
   function reload() {
     return apiFetch(`/api/meetings/${id}`)
@@ -117,6 +124,56 @@ export default function MeetingDetailPage() {
     }).catch(() => {})
     setShowCancel(false)
     navigate('/reuniones')
+  }
+
+  // RE-107: cierra la reunión con su resultado real (outcome requerido).
+  async function completeMeeting() {
+    if (!mtg || !outcome.trim()) { setResultError('El resultado es obligatorio'); return }
+    setResultError('')
+    setCompleting(true)
+    try {
+      const res = await apiFetch(`/api/meetings/${mtg.id}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({
+          outcome: outcome.trim(),
+          agreements: agreements.trim() || undefined,
+          createFollowUpTask,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setResultError(body?.error || 'No se pudo completar la reunión')
+        return
+      }
+      await reload()
+    } catch {
+      setResultError('No se pudo completar la reunión')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  // RE-107: registra que el lead no se presentó.
+  async function markNoShow() {
+    if (!mtg) return
+    setResultError('')
+    setMarkingNoShow(true)
+    try {
+      const res = await apiFetch(`/api/meetings/${mtg.id}/no-show`, {
+        method: 'POST',
+        body: JSON.stringify({ notes: outcome.trim() || undefined }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setResultError(body?.error || 'No se pudo marcar como no-show')
+        return
+      }
+      await reload()
+    } catch {
+      setResultError('No se pudo marcar como no-show')
+    } finally {
+      setMarkingNoShow(false)
+    }
   }
 
   if (loading) return (
@@ -340,6 +397,62 @@ export default function MeetingDetailPage() {
               )
             })}
           </div>
+
+          {/* Resultado de la reunión (RE-107): solo mientras no esté cerrada
+              (completada) ni cancelada — no-show sigue admitiendo cerrarla
+              con outcome después. */}
+          {mtg.status !== 'completed' && mtg.status !== 'cancelled' && (
+            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
+              <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Resultado de la reunión</p>
+              <textarea
+                value={outcome}
+                onChange={e => setOutcome(e.target.value)}
+                placeholder="¿Qué pasó en la reunión?"
+                style={{
+                  width:'100%', minHeight:60, background:'#080c14', border:'1px solid #1e2433', borderRadius:7,
+                  color:'#94a3b8', fontSize:11.5, outline:'none', resize:'vertical', lineHeight:1.5,
+                  fontFamily:'inherit', boxSizing:'border-box', padding:8, marginBottom:8,
+                }}
+              />
+              <textarea
+                value={agreements}
+                onChange={e => setAgreements(e.target.value)}
+                placeholder="Acuerdos alcanzados (opcional)"
+                style={{
+                  width:'100%', minHeight:44, background:'#080c14', border:'1px solid #1e2433', borderRadius:7,
+                  color:'#94a3b8', fontSize:11.5, outline:'none', resize:'vertical', lineHeight:1.5,
+                  fontFamily:'inherit', boxSizing:'border-box', padding:8, marginBottom:8,
+                }}
+              />
+              <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#94a3b8', marginBottom:10, cursor:'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={createFollowUpTask}
+                  onChange={e => setCreateFollowUpTask(e.target.checked)}
+                />
+                Crear tarea de seguimiento
+              </label>
+              {resultError && (
+                <p style={{ margin:'0 0 8px', fontSize:11, color:'#ef4444' }}>{resultError}</p>
+              )}
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <button onClick={completeMeeting} disabled={completing || markingNoShow} style={{
+                  background:'#10b98115', border:'1px solid #10b98130', borderRadius:7,
+                  padding:'8px 0', color:'#10b981', fontSize:12, fontWeight:700,
+                  cursor: (completing || markingNoShow) ? 'not-allowed' : 'pointer', opacity: (completing || markingNoShow) ? 0.6 : 1,
+                }}>
+                  {completing ? 'Completando…' : 'Completar reunión'}
+                </button>
+                <button onClick={markNoShow} disabled={completing || markingNoShow} style={{
+                  background:'#f59e0b15', border:'1px solid #f59e0b30', borderRadius:7,
+                  padding:'8px 0', color:'#f59e0b', fontSize:12, fontWeight:700,
+                  cursor: (completing || markingNoShow) ? 'not-allowed' : 'pointer', opacity: (completing || markingNoShow) ? 0.6 : 1,
+                }}>
+                  {markingNoShow ? 'Marcando…' : 'Marcar no-show'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -69,13 +69,27 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios con los tres cambios i
 
 Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 
+### Fase 1 · continuación (LE-106/107, OP-105, RE-107, AU-107/108)
+
+| ID | Estado | Notas |
+| --- | --- | --- |
+| LE-106 Owner/SLA | ✅ hecho | `Lead.ownerId`/`firstRespondedAt`; SLA de 4h derivado (no almacenado); `PUT /api/leads/:id/owner`, filtro `ownerId` en listado. |
+| LE-107 Timeline/consentimiento | ✅ hecho | `LeadDetailPage.jsx` consume `/api/leads/:id/activities` real; nueva pestaña Consentimiento vía `GET /api/leads/:id/consent`. |
+| OP-105 Próximo paso obligatorio | ✅ hecho | `moveStage` crea automáticamente una `Task` de seguimiento si no hay ninguna abierta al entrar en qualified/proposal/negotiation (se decidió auto-crear en vez de bloquear, documentado en el código). |
+| AU-107 Eventos de dominio | 🔶 parcial | Emitidos: `opportunity.created/stage.changed/won/lost/reopened`, `meeting.created/rescheduled/completed/cancelled/no_show`. **Falta**: `lead.updated`, `lead.owner.changed` (se audita pero no se emite a outbox), `lead.score.changed` (no aplica aún, no hay scoring real), `task.due/overdue`, `consent.changed`, `email.*`. |
+| RE-107 Outcome de reunión | ✅ hecho | `POST /:id/complete` y `/:id/no-show`; crea tarea de seguimiento automática; UI en `MeetingDetailPage.jsx`. |
+| AU-108 Acciones CRM | ✅ hecho | `create_task`, `set_owner`, `add_tag`, `update_field`, `create_opportunity`, `notify` añadidas a `AUTOMATION_ACTION_TYPES` con manejo `succeeded/skipped/blocked` igual que las acciones existentes. |
+
+Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
+
 **Siguiente paso concreto para continuar:**
-1. FND-06 (correlationId/errores normalizados) — pendiente desde el inicio de Fase 1, sigue sin abordar.
-2. LE-102 (export asíncrono completo), LE-103 (ImportJob asíncrono — `importLeads` sigue secuencial por fila).
-3. RE-104/105 (integración de calendario externo — XL, requiere OAuth con Google/Microsoft, decidir proveedor primero) y RE-106 (recordatorios T-24h/T-2h trazados — depende de RE-104 o de un mínimo sin calendario externo).
-4. AU-102/103/105/106/109/110 (versionado inmutable `AutomationVersion`, condiciones/ramas, esperas, dead-letter, simulador) — bloque grande restante de Automatizaciones, requiere diseño propio (no es una extensión trivial de lo ya construido).
-5. Email marketing (EM-101..110) sigue sin empezar — es Fase 2 completa del plan, empieza por EM-101/102/103 (binding de contacto + EmailDelivery/EmailEvent + cliente Mautic tipado) antes del wizard de campaña (EM-105).
-6. Empresa/Contacto (Account/Contact, sección 3 de `05-arquitectura-objetivo.md`) no se ha empezado — es la base de Fase 3, pero también desbloquea OP-108 (contactos/roles de compra).
+1. Completar AU-107 (eventos que faltan: `lead.owner.changed` a outbox, `task.due/overdue` — hay un job `temporalEventScheduler.ts` que podría ampliarse o crear uno nuevo `taskDueScheduler.ts`, `consent.changed`, `email.*`).
+2. FND-06 (correlationId/errores normalizados) — pendiente desde el inicio de Fase 1, sigue sin abordar.
+3. LE-102 (export asíncrono completo), LE-103 (ImportJob asíncrono — `importLeads` sigue secuencial por fila).
+4. RE-104/105 (integración de calendario externo — XL, requiere OAuth con Google/Microsoft, decidir proveedor primero) y RE-106 (recordatorios T-24h/T-2h trazados — depende de RE-104 o de un mínimo sin calendario externo).
+5. AU-102/103/105/106/109/110 (versionado inmutable `AutomationVersion`, condiciones/ramas, esperas, dead-letter, simulador) — bloque grande restante de Automatizaciones, requiere diseño propio (no es una extensión trivial de lo ya construido). Con esto se cierra el backlog P1 completo de Automatizaciones (Fase 1).
+6. Con lo anterior, **Fase 1 del backlog (04-backlog-priorizado.md sección "Orden recomendado", Fase 1) queda prácticamente completa** salvo FND-06 y AU-102/103/105/106/109/110. A partir de ahí, empezar Fase 2: Email marketing (EM-101..110, empezar por EM-101/102/103 — binding de contacto + EmailDelivery/EmailEvent + cliente Mautic tipado, antes del wizard EM-105).
+7. Empresa/Contacto (Account/Contact, sección 3 de `05-arquitectura-objetivo.md`) no se ha empezado — es la base de Fase 3, pero también desbloquea OP-108 (contactos/roles de compra).
 
 ## Fases siguientes (no iniciadas)
 

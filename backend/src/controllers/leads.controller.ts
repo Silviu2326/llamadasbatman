@@ -37,6 +37,8 @@ const listQuerySchema = z.object({
   status: z.enum(LEAD_STATUSES).optional(),
   search: z.string().trim().min(1).max(200).optional(),
   source: z.string().trim().min(1).max(100).optional(),
+  // LE-106: permite filtrar por propietario (p.ej. toggle "mis leads").
+  ownerId: z.string().trim().min(1).max(128).optional(),
   sort: z.enum(LEAD_SORT_OPTIONS).optional(),
   page: z.coerce.number().int().min(1).max(100_000).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
@@ -87,6 +89,9 @@ const auditSchema = z.object({
 
 const sendEmailSchema = z.object({ mauticEmailId: z.string().trim().min(1, 'mauticEmailId es requerido').max(128) }).strict()
 
+// LE-106: ownerId nullable — null desasigna el lead.
+const updateOwnerSchema = z.object({ ownerId: z.string().trim().min(1).max(128).nullable() }).strict()
+
 function ownershipStatus(err: unknown) {
   if (err instanceof OwnershipError) return { status: 404 as const, body: { error: `${err.field} no encontrado` } }
   return null
@@ -99,6 +104,7 @@ export async function list(
       status?: string
       search?: string
       source?: string
+      ownerId?: string
       sort?: string
       page?: string
       limit?: string
@@ -207,6 +213,52 @@ export async function update(
     if (mapped) return reply.status(mapped.status).send(mapped.body)
     throw err
   }
+}
+
+/** LE-106: PUT /api/leads/:id/owner — reasigna (o desasigna con ownerId=null) el propietario. */
+export async function updateOwner(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: unknown
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, updateOwnerSchema, request.body)
+  if (!params || !body) return
+  try {
+    const lead = await leadsService.assignOwner(orgId, userId, params.id, body.ownerId)
+    return reply.send(lead)
+  } catch (err) {
+    if (err instanceof LeadNotFoundError) return reply.status(404).send({ error: 'Not found' })
+    const mapped = ownershipStatus(err)
+    if (mapped) return reply.status(mapped.status).send(mapped.body)
+    throw err
+  }
+}
+
+/** LE-106: GET /api/leads/owners — usuarios de la organización asignables como owner. */
+export async function listOwners(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const owners = await leadsService.listOwnerOptions(orgId)
+  return reply.send(owners)
+}
+
+/** LE-107: GET /api/leads/:id/consent — estado de ContactConsent por canal. */
+export async function getConsent(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const result = await leadsService.getLeadConsent(orgId, params.id)
+  if (result === null) return reply.status(404).send({ error: 'Not found' })
+  return reply.send(result)
 }
 
 export async function callNow(

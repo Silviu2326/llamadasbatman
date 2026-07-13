@@ -1,8 +1,9 @@
 import { prisma } from '../lib/prisma'
-import { MeetingStatus } from '@prisma/client'
+import { MeetingStatus, Prisma } from '@prisma/client'
 import { sendScheduleEvent } from './metaConversions.service'
 import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
+import * as tasksService from './tasks.service'
 
 interface MeetingFilters {
   assignedTo?: string
@@ -152,6 +153,23 @@ export async function createMeeting(orgId: string, actorUserId: string | null | 
     sourceId: meeting.id,
   })
 
+  // AU-107: publica al outbox para que el motor de automatizaciones pueda
+  // reaccionar al evento 'meeting.created' (mismo patrón que conversations.service.ts).
+  await prisma.outboxEvent.create({
+    data: {
+      orgId,
+      topic: 'meeting.created',
+      aggregateType: 'Meeting',
+      aggregateId: meeting.id,
+      payload: {
+        eventId: `meeting.created:${meeting.id}`,
+        meetingId: meeting.id,
+        leadId: meeting.leadId,
+        scheduledAt: meeting.scheduledAt.toISOString(),
+      } as Prisma.InputJsonObject,
+    },
+  }).catch((err) => console.error('[meetings] error publicando meeting.created', err))
+
   return meeting
 }
 
@@ -160,6 +178,15 @@ export class MeetingNotFoundError extends Error {
   constructor() {
     super('Meeting not found')
     this.name = 'MeetingNotFoundError'
+  }
+}
+
+/** Error de dominio para 409 (RE-107): la reunión está en un estado desde el
+ * que no tiene sentido completarla / marcarla como no-show (p.ej. cancelada). */
+export class MeetingStateError extends Error {
+  constructor(public status: string) {
+    super(`La reunión está en estado "${status}" y no admite esta acción`)
+    this.name = 'MeetingStateError'
   }
 }
 
@@ -210,6 +237,17 @@ export async function updateMeeting(orgId: string, actorUserId: string | null | 
       source: 'meeting_cancelled',
       sourceId: id,
     })
+
+    // AU-107: evento de dominio 'meeting.cancelled'.
+    await prisma.outboxEvent.create({
+      data: {
+        orgId,
+        topic: 'meeting.cancelled',
+        aggregateType: 'Meeting',
+        aggregateId: id,
+        payload: { eventId: `meeting.cancelled:${id}`, meetingId: id, leadId: before.leadId } as Prisma.InputJsonObject,
+      },
+    }).catch((err) => console.error('[meetings] error publicando meeting.cancelled', err))
   }
 
   return after
@@ -271,6 +309,166 @@ export async function rescheduleMeeting(
       reason: data.reason ?? null,
     },
   })
+
+  // AU-107: evento de dominio 'meeting.rescheduled'.
+  await prisma.outboxEvent.create({
+    data: {
+      orgId,
+      topic: 'meeting.rescheduled',
+      aggregateType: 'Meeting',
+      aggregateId: id,
+      payload: {
+        eventId: `meeting.rescheduled:${id}:${newScheduledAt.getTime()}`,
+        meetingId: id,
+        leadId: before.leadId,
+        from: oldScheduledAt.toISOString(),
+        to: newScheduledAt.toISOString(),
+      } as Prisma.InputJsonObject,
+    },
+  }).catch((err) => console.error('[meetings] error publicando meeting.rescheduled', err))
+
+  return after
+}
+
+/**
+ * RE-107: cierra una reunión con su resultado real (outcome/acuerdos) — no es
+ * un simple cambio de status vía updateMeeting() porque además crea la tarea
+ * de seguimiento por defecto (AU-06) y deja rastro específico en el timeline
+ * comercial. No se puede completar una reunión ya cancelada.
+ */
+export async function completeMeeting(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  data: { outcome: string; agreements?: string; createFollowUpTask?: boolean }
+) {
+  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  if (!before) throw new MeetingNotFoundError()
+  if (before.status === 'cancelled') throw new MeetingStateError(before.status)
+
+  const result = await prisma.meeting.updateMany({
+    where: { id, orgId },
+    data: { status: 'completed', outcome: data.outcome, agreements: data.agreements },
+  })
+  if (result.count === 0) throw new MeetingNotFoundError()
+
+  const after = await prisma.meeting.findFirst({ where: { id, orgId } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'meeting.complete',
+    entityType: 'Meeting',
+    entityId: id,
+    before,
+    after: after ?? undefined,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'meeting',
+    leadId: before.leadId,
+    meetingId: id,
+    actorUserId,
+    subject: 'Reunión completada',
+    body: data.outcome,
+    source: 'meeting_completed',
+    sourceId: id,
+    metadata: { outcome: data.outcome, agreements: data.agreements ?? null },
+  })
+
+  // Salvo que se pida explícitamente lo contrario, cerrar una reunión deja
+  // una tarea de seguimiento real en la agenda del asignado (o de quien
+  // completa la reunión si no hay asignado), a +2 días.
+  let followUpTask = null
+  if (data.createFollowUpTask !== false) {
+    const dueAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+    followUpTask = await tasksService.createTask(orgId, actorUserId, {
+      type: 'follow_up',
+      title: `Seguimiento: ${before.title}`,
+      description: data.agreements ? `Acuerdos: ${data.agreements}` : undefined,
+      leadId: before.leadId,
+      meetingId: id,
+      ownerId: before.assignedTo ?? actorUserId ?? undefined,
+      dueAt: dueAt.toISOString(),
+      source: 'automation',
+      sourceId: `meeting-followup:${id}`,
+    })
+  }
+
+  await prisma.outboxEvent.create({
+    data: {
+      orgId,
+      topic: 'meeting.completed',
+      aggregateType: 'Meeting',
+      aggregateId: id,
+      payload: {
+        eventId: `meeting.completed:${id}`,
+        meetingId: id,
+        leadId: before.leadId,
+        outcome: data.outcome,
+        agreements: data.agreements ?? null,
+      } as Prisma.InputJsonObject,
+    },
+  }).catch((err) => console.error('[meetings] error publicando meeting.completed', err))
+
+  return { meeting: after, followUpTask }
+}
+
+/**
+ * RE-107: registra que el lead no se presentó. Distinto de 'cancelled' (que
+ * significa que la reunión se anuló de antemano) — no-show es que ocurrió el
+ * hueco y el lead no apareció.
+ */
+export async function markNoShow(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  data: { notes?: string }
+) {
+  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  if (!before) throw new MeetingNotFoundError()
+  if (before.status === 'cancelled') throw new MeetingStateError(before.status)
+
+  const result = await prisma.meeting.updateMany({
+    where: { id, orgId },
+    data: { status: 'no_show', notes: data.notes ?? before.notes },
+  })
+  if (result.count === 0) throw new MeetingNotFoundError()
+
+  const after = await prisma.meeting.findFirst({ where: { id, orgId } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'meeting.no_show',
+    entityType: 'Meeting',
+    entityId: id,
+    before,
+    after: after ?? undefined,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'meeting',
+    leadId: before.leadId,
+    meetingId: id,
+    actorUserId,
+    subject: 'Reunión: no se presentó',
+    body: data.notes,
+    source: 'meeting_no_show',
+    sourceId: id,
+  })
+
+  await prisma.outboxEvent.create({
+    data: {
+      orgId,
+      topic: 'meeting.no_show',
+      aggregateType: 'Meeting',
+      aggregateId: id,
+      payload: { eventId: `meeting.no_show:${id}`, meetingId: id, leadId: before.leadId } as Prisma.InputJsonObject,
+    },
+  }).catch((err) => console.error('[meetings] error publicando meeting.no_show', err))
 
   return after
 }

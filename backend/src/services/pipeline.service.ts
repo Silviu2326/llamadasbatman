@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma'
 import { OpportunityStage } from '@prisma/client'
 import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
+import { createTask, listTasks } from './tasks.service'
 
 /** Errores de dominio para que el controller pueda mapear a códigos HTTP. */
 export class OwnershipError extends Error {
@@ -36,6 +37,49 @@ export class PipelineStateError extends Error {
 }
 
 const CLOSED_STAGES: OpportunityStage[] = ['closed_won', 'closed_lost']
+
+/**
+ * OP-105: etapas "activas" del pipeline en las que toda oportunidad debe
+ * tener un siguiente paso (Task) abierto. closed_won/closed_lost quedan
+ * fuera: esos cierres se gestionan por markWon/markLost y no requieren un
+ * seguimiento futuro.
+ */
+const ACTIVE_FOLLOWUP_STAGES: OpportunityStage[] = ['qualified', 'proposal', 'negotiation']
+
+/**
+ * OP-105: garantiza que ninguna oportunidad quede sin seguimiento al entrar
+ * en una etapa activa. Decisión de diseño: en vez de BLOQUEAR moveStage()
+ * cuando no existe ya una tarea abierta (lo que rompería flujos existentes
+ * sin previo aviso), se CREA automáticamente una Task de seguimiento por
+ * defecto. Así se cumple "ninguna oportunidad sin siguiente paso" sin
+ * fricción para el usuario.
+ */
+async function ensureFollowUpTask(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  opportunity: { id: string; name: string; leadId: string; assignedTo: string | null },
+  toStage: OpportunityStage
+) {
+  if (!ACTIVE_FOLLOWUP_STAGES.includes(toStage)) return
+
+  const [open, inProgress] = await Promise.all([
+    listTasks(orgId, { opportunityId: opportunity.id, status: 'open', limit: 1 }),
+    listTasks(orgId, { opportunityId: opportunity.id, status: 'in_progress', limit: 1 }),
+  ])
+  if (open.total > 0 || inProgress.total > 0) return
+
+  await createTask(orgId, actorUserId, {
+    type: 'follow_up',
+    title: `Siguiente paso: ${opportunity.name}`,
+    opportunityId: opportunity.id,
+    leadId: opportunity.leadId,
+    ownerId: opportunity.assignedTo ?? actorUserId ?? undefined,
+    priority: 'normal',
+    dueAt: new Date(Date.now() + 2 * 86400_000).toISOString(),
+    source: 'automation',
+    sourceId: `opportunity-stage-task:${opportunity.id}:${toStage}`,
+  })
+}
 
 /**
  * Valida que las referencias recibidas del cliente (lead, usuario asignado)
@@ -143,6 +187,20 @@ export async function createOpportunity(orgId: string, actorUserId: string | nul
       },
     })
 
+    // AU-107: evento de dominio 'opportunity.created' — el dispatcher
+    // (jobs/outboxDispatcher.ts) lo consume genéricamente vía
+    // runAutomationsForEvent, sin eventId propio: se deduplica con el id
+    // de la propia fila de OutboxEvent (fallback en el dispatcher).
+    await tx.outboxEvent.create({
+      data: {
+        orgId,
+        topic: 'opportunity.created',
+        aggregateType: 'Opportunity',
+        aggregateId: created.id,
+        payload: { opportunityId: created.id, leadId: created.leadId, stage: created.stage },
+      },
+    })
+
     return created
   })
 
@@ -213,7 +271,7 @@ export async function moveStage(
       },
     })
 
-    return tx.opportunity.update({
+    const result = await tx.opportunity.update({
       where: { id },
       data: {
         stage: toStage,
@@ -222,6 +280,47 @@ export async function moveStage(
         lossReason: toStage === 'closed_lost' ? reason : opportunity.lossReason,
       },
     })
+
+    // AU-107: eventos de dominio de Oportunidad. Sin eventId propio en el
+    // payload: el dispatcher usa el id de la fila de OutboxEvent como
+    // dedupe key (ver jobs/outboxDispatcher.ts), lo que es correcto aquí
+    // porque una misma oportunidad puede cambiar de etapa (o ganar/perder)
+    // más de una vez a lo largo de su vida (p.ej. tras reopen()).
+    await tx.outboxEvent.create({
+      data: {
+        orgId,
+        topic: 'opportunity.stage.changed',
+        aggregateType: 'Opportunity',
+        aggregateId: id,
+        payload: { opportunityId: id, leadId: opportunity.leadId, fromStage, toStage },
+      },
+    })
+
+    if (toStage === 'closed_won') {
+      await tx.outboxEvent.create({
+        data: {
+          orgId,
+          topic: 'opportunity.won',
+          aggregateType: 'Opportunity',
+          aggregateId: id,
+          payload: { opportunityId: id, leadId: opportunity.leadId, fromStage },
+        },
+      })
+    }
+
+    if (toStage === 'closed_lost') {
+      await tx.outboxEvent.create({
+        data: {
+          orgId,
+          topic: 'opportunity.lost',
+          aggregateType: 'Opportunity',
+          aggregateId: id,
+          payload: { opportunityId: id, leadId: opportunity.leadId, fromStage, reason: reason ?? null },
+        },
+      })
+    }
+
+    return result
   })
 
   await logSalesActivity({
@@ -232,6 +331,14 @@ export async function moveStage(
     actorUserId,
     metadata: { from: fromStage, to: toStage },
   })
+
+  // OP-105: siguiente paso obligatorio en etapas activas (ver ensureFollowUpTask).
+  await ensureFollowUpTask(
+    orgId,
+    actorUserId,
+    { id: updated.id, name: updated.name, leadId: updated.leadId, assignedTo: updated.assignedTo },
+    toStage
+  )
 
   return updated
 }
@@ -364,12 +471,26 @@ export async function reopen(
   }
 
   const toStage = data.toStage ?? 'negotiation'
+  const fromStage = opportunity.stage
 
   await moveStage(orgId, actorUserId, id, toStage)
 
   const result = await prisma.opportunity.update({
     where: { id },
     data: { actualCloseDate: null, lossReason: null },
+  })
+
+  // AU-107: 'opportunity.reopened' es un evento propio de la acción de
+  // reabrir (distinto del 'opportunity.stage.changed' ya emitido dentro de
+  // moveStage() de arriba).
+  await prisma.outboxEvent.create({
+    data: {
+      orgId,
+      topic: 'opportunity.reopened',
+      aggregateType: 'Opportunity',
+      aggregateId: id,
+      payload: { opportunityId: id, leadId: opportunity.leadId, fromStage, toStage },
+    },
   })
 
   await writeAuditLog({

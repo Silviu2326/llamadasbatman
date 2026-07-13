@@ -158,6 +158,7 @@ model User {
   salesActivities       SalesActivity[]     @relation("SalesActivityActor")
   ownedTasks            Task[]              @relation("TaskOwner")
   createdTasks          Task[]              @relation("TaskCreatedBy")
+  ownedLeads            Lead[]              @relation("LeadOwner")
 }
 
 // Preferencias por usuario para /configuracion. Separado de User porque son
@@ -252,11 +253,14 @@ model Lead {
   customFields   Json?
   attempts       Int        @default(0)
   lastAttemptAt  DateTime?
+  ownerId        String?
+  firstRespondedAt DateTime?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
   org               Organization       @relation(fields: [orgId], references: [id])
   campaign          Campaign?          @relation(fields: [campaignId], references: [id])
+  owner             User?              @relation("LeadOwner", fields: [ownerId], references: [id])
   calls             Call[]
   meetings          Meeting[]
   opportunities     Opportunity[]
@@ -369,6 +373,8 @@ model Meeting {
   status          MeetingStatus @default(scheduled)
   notes           String?
   meetingUrl      String?
+  outcome         String?
+  agreements      String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

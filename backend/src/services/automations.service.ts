@@ -1,13 +1,18 @@
 import { prisma } from '../lib/prisma'
+import { Prisma } from '@prisma/client'
 import { sendEmailToLead, sendLeadToSegment } from './mauticSync.service'
 import { assertEmailSendAllowed, type EmailSendBlockReason } from '../lib/emailCompliance'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
 import { sendWhatsApp } from './whatsapp.service'
 import { suggestConversationReply } from './conversationAi.service'
+import * as tasksService from './tasks.service'
 
 export const CANONICAL_AUTOMATION_EVENTS = [
   'call.completed', 'lead.inactive.7d', 'meeting.scheduled.24h',
   'opportunity.proposal.3d', 'lead.created', 'lead.inactive.30d', 'message.received',
+  // AU-107: eventos de dominio de Reunión/Tarea.
+  'meeting.created', 'meeting.rescheduled', 'meeting.completed', 'meeting.cancelled', 'meeting.no_show',
+  'task.due', 'task.overdue',
 ] as const
 export type CanonicalAutomationEvent = typeof CANONICAL_AUTOMATION_EVENTS[number]
 const EVENT_ALIASES: Record<string, CanonicalAutomationEvent> = {
@@ -18,6 +23,13 @@ const EVENT_ALIASES: Record<string, CanonicalAutomationEvent> = {
   'lead.created': 'lead.created', nuevo_lead: 'lead.created',
   'lead.inactive.30d': 'lead.inactive.30d', lead_inactive_30d: 'lead.inactive.30d',
   'message.received': 'message.received', mensaje_recibido: 'message.received', 'mensaje recibido': 'message.received',
+  'meeting.created': 'meeting.created', reunion_creada: 'meeting.created', 'reunión creada': 'meeting.created',
+  'meeting.rescheduled': 'meeting.rescheduled', reunion_reprogramada: 'meeting.rescheduled', 'reunión reprogramada': 'meeting.rescheduled',
+  'meeting.completed': 'meeting.completed', reunion_completada: 'meeting.completed', 'reunión completada': 'meeting.completed',
+  'meeting.cancelled': 'meeting.cancelled', reunion_cancelada: 'meeting.cancelled', 'reunión cancelada': 'meeting.cancelled',
+  'meeting.no_show': 'meeting.no_show', reunion_no_show: 'meeting.no_show', 'no show': 'meeting.no_show',
+  'task.due': 'task.due', tarea_por_vencer: 'task.due',
+  'task.overdue': 'task.overdue', tarea_vencida: 'task.overdue',
 }
 export function normalizeAutomationEvent(value: unknown): CanonicalAutomationEvent | null {
   return EVENT_ALIASES[String(value ?? '').trim().toLowerCase()] ?? null
@@ -30,6 +42,8 @@ export function normalizeAutomationTrigger(trigger: Record<string, unknown>): Re
 export const AUTOMATION_ACTION_TYPES = [
   'log', 'update_lead_status', 'send_to_mautic_segment',
   'send_whatsapp_template', 'queue_voice_call', 'send_email_template', 'ai_reply_whatsapp',
+  // AU-108: nuevas acciones CRM.
+  'create_task', 'set_owner', 'add_tag', 'update_field', 'create_opportunity', 'notify',
 ] as const
 const SUPPORTED_ACTIONS = new Set<string>(AUTOMATION_ACTION_TYPES)
 export function validateAutomationActions(actions: unknown[]): asserts actions is Array<{ type: string; params?: Record<string, unknown> }> {
@@ -43,6 +57,18 @@ export function validateAutomationActions(actions: unknown[]): asserts actions i
     }
     if (typed.type === 'send_email_template' && !String(typed.params?.emailId ?? '').trim()) {
       throw new Error('send_email_template requiere emailId')
+    }
+    if (typed.type === 'create_task' && !String(typed.params?.title ?? '').trim()) {
+      throw new Error('create_task requiere title')
+    }
+    if (typed.type === 'set_owner' && !String(typed.params?.ownerId ?? '').trim()) {
+      throw new Error('set_owner requiere ownerId')
+    }
+    if (typed.type === 'add_tag' && !String(typed.params?.tag ?? '').trim()) {
+      throw new Error('add_tag requiere tag')
+    }
+    if (typed.type === 'update_field' && !String(typed.params?.field ?? '').trim()) {
+      throw new Error('update_field requiere field')
     }
   }
 }
@@ -160,6 +186,120 @@ async function executeAutomationAction(
       if (!suggestion) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'No se pudo generar la respuesta de IA' }
       await sendWhatsApp({ orgId, leadId, conversationId, to: lead.phone, body: suggestion.text, metadata: { aiGenerated: true, aiReason: suggestion.reason, automationId: automation.id, automationRunId: run.id } })
       return { status: 'succeeded', output: { leadId, channel: 'whatsapp', aiGenerated: true } }
+    }
+    // AU-108: crea una tarea real de seguimiento para el owner del lead.
+    case 'create_task': {
+      if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
+      const title = String(action.params?.title ?? '').trim()
+      if (!title) return { status: 'skipped', errorCode: 'MISSING_PARAM', errorDetail: 'Falta title en params' }
+      const leadId = String(payload.leadId)
+      const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
+      if (!lead) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
+      const dueInDays = Number(action.params?.dueInDays ?? 3)
+      const dueAt = new Date(Date.now() + (Number.isFinite(dueInDays) ? dueInDays : 3) * 24 * 60 * 60 * 1000)
+      const priorityParam = action.params?.priority as string | undefined
+      const priority = priorityParam && ['low', 'normal', 'high', 'urgent'].includes(priorityParam) ? priorityParam as 'low' | 'normal' | 'high' | 'urgent' : undefined
+      const task = await tasksService.createTask(orgId, null, {
+        type: 'automation',
+        title,
+        leadId,
+        ownerId: lead.ownerId ?? undefined,
+        priority,
+        dueAt: dueAt.toISOString(),
+        source: 'automation',
+        sourceId: `${automation.id}:${run.id}:create_task`,
+      })
+      return { status: 'succeeded', output: { taskId: task.id, leadId } }
+    }
+    // AU-108: reasigna el owner del lead (o el assignee de la oportunidad).
+    case 'set_owner': {
+      const ownerId = String(action.params?.ownerId ?? '').trim()
+      if (!ownerId) return { status: 'skipped', errorCode: 'MISSING_PARAM', errorDetail: 'Falta ownerId en params' }
+      const owner = await prisma.user.findFirst({ where: { id: ownerId, orgId }, select: { id: true } })
+      if (!owner) return { status: 'skipped', errorCode: 'OWNER_NOT_FOUND', errorDetail: 'El usuario no pertenece a la organización' }
+      if (action.params?.entityType === 'opportunity') {
+        if (!payload.opportunityId) return { status: 'skipped', errorCode: 'OPPORTUNITY_ID_MISSING', errorDetail: 'El evento no incluye opportunityId' }
+        const opportunityId = String(payload.opportunityId)
+        const updated = await prisma.opportunity.updateMany({ where: { id: opportunityId, orgId }, data: { assignedTo: ownerId } })
+        if (updated.count === 0) return { status: 'skipped', errorCode: 'OPPORTUNITY_NOT_FOUND', errorDetail: 'Oportunidad no encontrada' }
+        return { status: 'succeeded', output: { opportunityId, ownerId } }
+      }
+      if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
+      const leadId = String(payload.leadId)
+      const updated = await prisma.lead.updateMany({ where: { id: leadId, orgId }, data: { ownerId } })
+      if (updated.count === 0) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
+      return { status: 'succeeded', output: { leadId, ownerId } }
+    }
+    // AU-108: añade un tag al lead evitando duplicados.
+    case 'add_tag': {
+      if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
+      const tag = String(action.params?.tag ?? '').trim()
+      if (!tag) return { status: 'skipped', errorCode: 'MISSING_PARAM', errorDetail: 'Falta tag en params' }
+      const leadId = String(payload.leadId)
+      const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { tags: true } })
+      if (!lead) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
+      if (!lead.tags.includes(tag)) {
+        await prisma.lead.update({ where: { id: leadId }, data: { tags: { push: tag } } })
+      }
+      return { status: 'succeeded', output: { leadId, tag } }
+    }
+    // AU-108: actualiza un campo dentro de Lead.customFields — nunca un campo
+    // arbitrario del modelo, para no permitir escrituras fuera del sandbox.
+    case 'update_field': {
+      if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
+      const field = String(action.params?.field ?? '').trim()
+      if (!field) return { status: 'skipped', errorCode: 'MISSING_PARAM', errorDetail: 'Falta field en params' }
+      if (!action.params || !('value' in action.params)) return { status: 'skipped', errorCode: 'MISSING_PARAM', errorDetail: 'Falta value en params' }
+      const value = action.params.value
+      const leadId = String(payload.leadId)
+      const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { customFields: true } })
+      if (!lead) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
+      const customFields = lead.customFields && typeof lead.customFields === 'object' && !Array.isArray(lead.customFields)
+        ? { ...(lead.customFields as Record<string, unknown>) }
+        : {}
+      customFields[field] = value
+      await prisma.lead.update({ where: { id: leadId }, data: { customFields: customFields as Prisma.InputJsonValue } })
+      return { status: 'succeeded', output: { leadId, field } }
+    }
+    // AU-108: crea una oportunidad básica si el lead no tiene ya una abierta.
+    // Se usa prisma directo (no pipeline.service.ts) para no crear una
+    // dependencia circular entre servicios — excepción razonable acordada.
+    case 'create_opportunity': {
+      if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
+      const leadId = String(payload.leadId)
+      const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
+      if (!lead) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
+      const existingOpen = await prisma.opportunity.findFirst({
+        where: { orgId, leadId, stage: { notIn: ['closed_won', 'closed_lost'] } },
+        select: { id: true },
+      })
+      if (existingOpen) return { status: 'skipped', errorCode: 'OPPORTUNITY_ALREADY_OPEN', errorDetail: 'El lead ya tiene una oportunidad abierta' }
+      const name = String(action.params?.name ?? '').trim() || `Oportunidad — ${lead.name}`
+      const opportunity = await prisma.opportunity.create({ data: { orgId, leadId, name, stage: 'lead' } })
+      return { status: 'succeeded', output: { opportunityId: opportunity.id, leadId } }
+    }
+    // AU-108: notificación interna mínima — una Task de tipo 'notification'
+    // asignada al owner (no hay sistema de push, es deliberado).
+    case 'notify': {
+      let ownerId = action.params?.ownerId ? String(action.params.ownerId).trim() : ''
+      if (!ownerId && payload.leadId) {
+        const lead = await prisma.lead.findFirst({ where: { id: String(payload.leadId), orgId }, select: { ownerId: true } })
+        ownerId = lead?.ownerId ?? ''
+      }
+      if (!ownerId) return { status: 'skipped', errorCode: 'OWNER_MISSING', errorDetail: 'No hay ownerId ni owner de lead para notificar' }
+      const owner = await prisma.user.findFirst({ where: { id: ownerId, orgId }, select: { id: true } })
+      if (!owner) return { status: 'skipped', errorCode: 'OWNER_NOT_FOUND', errorDetail: 'El usuario no pertenece a la organización' }
+      const message = String(action.params?.message ?? `Notificación de automatización: ${automation.name}`)
+      const task = await tasksService.createTask(orgId, null, {
+        type: 'notification',
+        title: message.slice(0, 200),
+        description: message,
+        ownerId,
+        leadId: payload.leadId ? String(payload.leadId) : undefined,
+        source: 'automation',
+        sourceId: `${automation.id}:${run.id}:notify`,
+      })
+      return { status: 'succeeded', output: { taskId: task.id, ownerId } }
     }
     default:
       return { status: 'skipped', errorCode: 'UNSUPPORTED_ACTION', errorDetail: `Acción no soportada: ${action.type}` }

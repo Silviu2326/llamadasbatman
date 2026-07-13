@@ -44,6 +44,13 @@ function fmtDateInput(d) {
   return date.toISOString().slice(0, 10)
 }
 
+function fmtDateLabel(d) {
+  if (!d) return null
+  const date = new Date(d)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+}
+
 function Avatar({ text, bg, size = 48 }) {
   const letters = text.split(' ').map(w => w[0]).slice(0,2).join('')
   return (
@@ -64,6 +71,9 @@ export default function OpportunityDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('Resumen')
 
+  // OP-105: siguiente paso (Task) obligatorio en etapas activas del pipeline.
+  const [nextTask, setNextTask] = useState(null)
+
   const [showEdit, setShowEdit] = useState(false)
   const [form, setForm] = useState(null)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -81,7 +91,11 @@ export default function OpportunityDetailPage() {
   const [lostNotes, setLostNotes] = useState('')
 
   const load = useCallback(() => {
-    return apiFetch(`/api/pipeline/${id}`).then(r => r.ok ? r.json() : null).then(data => {
+    return Promise.all([
+      apiFetch(`/api/pipeline/${id}`).then(r => r.ok ? r.json() : null),
+      // OP-105: tarea de "siguiente paso" abierta/en curso de la oportunidad, si existe.
+      apiFetch(`/api/tasks?opportunityId=${id}&limit=5`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([data, tasksData]) => {
       if (data) {
         const stageMap = { lead: 'lead', qualified: 'interesado', proposal: 'propuesta', negotiation: 'negociacion', closed_won: 'ganado', closed_lost: 'lead' }
         setRaw(data)
@@ -97,6 +111,8 @@ export default function OpportunityDetailPage() {
           activities: [],
         })
       }
+      const active = tasksData?.data?.find(t => t.status === 'open' || t.status === 'in_progress')
+      setNextTask(active ?? null)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
@@ -470,6 +486,27 @@ export default function OpportunityDetailPage() {
 
         {/* Right */}
         <div style={{ width:220, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
+          {nextTask && (
+            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
+              <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Siguiente paso</p>
+              <p style={{ margin:'0 0 6px', fontSize:12.5, color:'#e2e8f0', fontWeight:600, lineHeight:1.4 }}>{nextTask.title}</p>
+              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                <span style={{
+                  fontSize:10.5, fontWeight:700, borderRadius:99, padding:'2px 8px',
+                  background: nextTask.status === 'in_progress' ? '#f59e0b20' : '#6366f120',
+                  color: nextTask.status === 'in_progress' ? '#f59e0b' : '#818cf8',
+                  border: `1px solid ${nextTask.status === 'in_progress' ? '#f59e0b40' : '#6366f140'}`,
+                }}>
+                  {nextTask.status === 'in_progress' ? 'En curso' : 'Pendiente'}
+                </span>
+                {fmtDateLabel(nextTask.dueAt) && (
+                  <span style={{ fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:4 }}>
+                    <RiCalendarLine style={{ width:11, height:11 }} /> {fmtDateLabel(nextTask.dueAt)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
             <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Acciones rÃ¡pidas</p>
             {[

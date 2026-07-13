@@ -1,745 +1,283 @@
-﻿import { useState, useRef, useEffect } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  RiArrowLeftLine, RiPhoneLine, RiMailLine, RiCalendar2Line,
-  RiFileTextLine, RiMoreLine, RiLightbulbLine, RiCalendarLine,
-  RiRobot2Line, RiSearchEyeLine, RiRefreshLine,
+  RiArrowLeftLine, RiArrowRightSLine, RiBarChartBoxLine, RiBuilding2Line,
+  RiCalendar2Line, RiCalendarLine, RiCheckboxCircleLine, RiCheckLine,
+  RiCloseLine, RiDownloadLine, RiExternalLinkLine, RiFileTextLine,
+  RiFireLine, RiGlobalLine, RiLightbulbLine, RiLinkM, RiMailLine,
+  RiMapPin2Line, RiMoreLine, RiGroupLine, RiPhoneLine, RiPulseLine, RiRefreshLine,
+  RiRobot2Line, RiSearchLine, RiSearchEyeLine, RiSendPlaneLine,
+  RiShieldCheckLine, RiSparkling2Line, RiStarLine, RiTimeLine, RiUploadCloud2Line,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { mapLead } from '../lib/leadMapping'
-import NewReunionModal from '../modals/NewReunionModal'
-import '../dashboard.css'
+import '../pages/leads.css'
 
-const STATUS_MAP = {
-  'Interesado':       { color: '#f59e0b', bg: '#f59e0b15' },
-  'En seguimiento':   { color: '#3b82f6', bg: '#3b82f615' },
-  'ReuniÃ³n agendada': { color: '#10b981', bg: '#10b98115' },
-  'Nuevo':            { color: '#94a3b8', bg: '#94a3b815' },
-  'NegociaciÃ³n':      { color: '#8b5cf6', bg: '#8b5cf615' },
-  'Contactado':       { color: '#06b6d4', bg: '#06b6d415' },
-  'Perdido':          { color: '#ef4444', bg: '#ef444415' },
-  'Ganado':           { color: '#10b981', bg: '#10b98115' },
+const STATUS_CONFIG = {
+  Nuevo: { color: '#94a3b8', bg: '#94a3b815' },
+  Contactado: { color: '#22d3ee', bg: '#22d3ee15' },
+  Interesado: { color: '#f59e0b', bg: '#f59e0b15' },
+  'En seguimiento': { color: '#818cf8', bg: '#818cf815' },
+  'Reunión agendada': { color: '#34d399', bg: '#34d39915' },
+  Negociación: { color: '#c084fc', bg: '#c084fc15' },
+  Ganado: { color: '#34d399', bg: '#34d39915' },
+  Perdido: { color: '#ef4444', bg: '#ef444415' },
 }
-const SCORE_COLOR = { 'Muy alto': '#10b981', 'Alto': '#3b82f6', 'Medio': '#f59e0b', 'Bajo': '#ef4444' }
-const TIER_COLOR = { HOT: '#ef4444', WARM: '#f59e0b', COLD: '#3b82f6' }
-const SEVERITY_COLOR = { high: '#ef4444', medium: '#f59e0b', low: '#6b7280' }
-const IMPACT_COLOR = { ALTO: '#ef4444', MEDIO: '#f59e0b', BAJO: '#6b7280' }
+const STAGES = ['Nuevo', 'Contactado', 'Interesado', 'En seguimiento', 'Reunión agendada', 'Negociación', 'Ganado']
+const STAGE_TO_BACKEND = { Nuevo: 'new', Contactado: 'contacted', Interesado: 'qualified', 'En seguimiento': 'qualified', 'Reunión agendada': 'qualified', Negociación: 'qualified', Ganado: 'converted', Perdido: 'unqualified' }
+const DETAIL_TABS = ['Resumen', 'Actividad', 'Consentimiento', 'Inteligencia', 'Notas', 'Archivos']
+const CALL_LABELS = { completed: 'Llamada saliente', no_answer: 'Llamada sin respuesta', failed: 'Llamada fallida', busy: 'Línea ocupada' }
 
-function pctLabel(diff) {
-  if (diff == null) return null
-  return `${diff > 0 ? '+' : ''}${diff}%`
+// LE-107: config visual del timeline de SalesActivity (GET /api/leads/:id/activities).
+const ACTIVITY_TYPE_CONFIG = {
+  call: { icon: RiPhoneLine, color: '#22d3ee', label: 'Llamada' },
+  message: { icon: RiSendPlaneLine, color: '#818cf8', label: 'Mensaje' },
+  email: { icon: RiMailLine, color: '#f59e0b', label: 'Email' },
+  note: { icon: RiFileTextLine, color: '#a78bfa', label: 'Nota' },
+  file: { icon: RiUploadCloud2Line, color: '#34d399', label: 'Archivo' },
+  meeting: { icon: RiCalendar2Line, color: '#34d399', label: 'Reunión' },
+  status_change: { icon: RiRefreshLine, color: '#94a3b8', label: 'Cambio de estado' },
+  stage_change: { icon: RiRefreshLine, color: '#94a3b8', label: 'Cambio de etapa' },
+  task: { icon: RiCheckboxCircleLine, color: '#f472b6', label: 'Tarea' },
+  owner_changed: { icon: RiGroupLine, color: '#60a5fa', label: 'Propietario reasignado' },
 }
-const DETAIL_TABS = ['Resumen', 'Actividad', 'InformaciÃ³n', 'Notas', 'Archivos']
-const AI_TIP_BY_LEVEL = {
-  'Muy alto': 'Alta probabilidad de cierre. Enfócate en demostrar el ROI y agendar una demo con el decisor.',
-  'Alto':     'Buena probabilidad de cierre. Reforzá el seguimiento y resolvé objeciones pendientes.',
-  'Medio':    'Probabilidad de cierre media. Priorizá entender el timing y el presupuesto real.',
-  'Bajo':     'Probabilidad de cierre baja por ahora. Conviene recalificar antes de invertir más tiempo comercial.',
-}
-const CALL_ACT_LABEL = { completed: 'Llamada realizada', no_answer: 'Llamada sin respuesta', failed: 'Llamada fallida', busy: 'Línea ocupada' }
-
-function formatDateEs(d) {
-  return new Date(d).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
-
-function buildActivityTimeline(calls, meetings) {
-  const items = [
-    ...(calls || []).map(c => ({
-      label: CALL_ACT_LABEL[c.status] ?? 'Llamada',
-      sub: c.summary || (c.durationSeconds ? `Duración: ${Math.floor(c.durationSeconds / 60)}:${String(c.durationSeconds % 60).padStart(2, '0')} min` : (c.outcome ?? '')),
-      time: formatDateEs(c.createdAt),
-      color: '#3b82f6',
-      ts: new Date(c.createdAt).getTime(),
-    })),
-    ...(meetings || []).map(m => ({
-      label: 'Reunión agendada',
-      sub: m.title ?? '',
-      time: formatDateEs(m.scheduledAt),
-      color: '#10b981',
-      ts: new Date(m.scheduledAt).getTime(),
-    })),
-  ]
-  return items.sort((a, b) => b.ts - a.ts)
+function activityConfig(type) { return ACTIVITY_TYPE_CONFIG[type] || { icon: RiPulseLine, color: '#94a3b8', label: type || 'Actividad' } }
+function activityText(item) {
+  if (item.body) return item.body
+  if (item.subject) return item.subject
+  if (item.type === 'status_change' && item.metadata) return `De "${item.metadata.from ?? '—'}" a "${item.metadata.to ?? '—'}"`
+  if (item.type === 'owner_changed') return 'Se reasignó el propietario del lead.'
+  return 'Actividad registrada'
 }
 
-function Ring({ pct, color = '#10b981', size = 96 }) {
-  const cx = size / 2, r = size * 0.37, sw = size * 0.11
-  const C = 2 * Math.PI * r, dash = (pct / 100) * C
-  return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size}>
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke="#1e2433" strokeWidth={sw} />
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth={sw}
-          strokeDasharray={`${dash.toFixed(1)} ${(C - dash).toFixed(1)}`}
-          style={{ transform: 'rotate(-90deg)', transformOrigin: `${cx}px ${cx}px`, filter: `drop-shadow(0 0 5px ${color}70)` }}
-        />
-      </svg>
-      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: size * 0.2, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{pct}%</p>
-      </div>
-    </div>
-  )
+// LE-107: consentimiento de contacto (ContactConsent) por canal.
+const CONSENT_CHANNEL_LABEL = { email: 'Email', whatsapp: 'WhatsApp', voice: 'Llamada de voz', sms: 'SMS' }
+const CONSENT_STATUS_CONFIG = {
+  granted: { label: 'Otorgado', color: '#34d399' },
+  denied: { label: 'Denegado', color: '#ef4444' },
+  revoked: { label: 'Revocado', color: '#ef4444' },
+  unknown: { label: 'Desconocido', color: '#94a3b8' },
 }
 
-function DigitalAuditCard({ leadId, initialAudit, initialSector, initialCity }) {
-  const [audit, setAudit] = useState(initialAudit)
-  const [website, setWebsite] = useState(initialAudit?.website ?? '')
-  const [sector, setSector] = useState(initialAudit?.benchmark?.sector ?? initialSector ?? '')
-  const [city, setCity] = useState(initialAudit?.benchmark?.city ?? initialCity ?? '')
-  const [loading, setLoading] = useState(false)
+function formatDate(date, fallback = 'Sin fecha') {
+  if (!date) return fallback
+  const parsed = new Date(date)
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function formatCurrency(value) {
+  if (value == null || value === '' || value === '—') return '—'
+  const numeric = Number(String(value).replace(/[^0-9.-]+/g, ''))
+  return Number.isFinite(numeric) ? `€${numeric.toLocaleString('es-ES')}` : String(value)
+}
+
+function buildTimeline(lead) {
+  const calls = (lead.calls || []).map(call => ({ icon: RiPhoneLine, color: '#22d3ee', label: CALL_LABELS[call.status] || 'Llamada', text: call.summary || call.outcome || 'Conversación registrada', date: call.createdAt, timestamp: new Date(call.createdAt).getTime() }))
+  const meetings = (lead.meetings || []).map(meeting => ({ icon: RiCalendar2Line, color: '#34d399', label: 'Reunión agendada', text: meeting.title || 'Revisión comercial', date: meeting.scheduledAt, timestamp: new Date(meeting.scheduledAt).getTime() }))
+  const items = [...calls, ...meetings].filter(item => item.date)
+  return items.sort((a, b) => b.timestamp - a.timestamp)
+}
+
+function DetailScoreRing({ score }) {
+  const radius = 39
+  const circumference = 2 * Math.PI * radius
+  return <div className="lead-detail-ring"><svg viewBox="0 0 100 100"><circle className="ring-bg" cx="50" cy="50" r={radius} /><circle className="ring-value" cx="50" cy="50" r={radius} strokeDasharray={`${(score / 100) * circumference} ${circumference}`} /></svg><div><strong>{score}</strong><span>{score >= 82 ? 'Muy alto' : score >= 65 ? 'Alto' : score >= 40 ? 'Medio' : 'Bajo'}</span></div></div>
+}
+
+function StageProgress({ current }) {
+  const currentIndex = Math.max(0, STAGES.indexOf(current))
+  return <div className="lead-detail-stages">{STAGES.map((stage, index) => <div className={`lead-detail-stage${index < currentIndex ? ' done' : ''}${index === currentIndex ? ' current' : ''}`} key={stage}><i>{index < currentIndex ? <RiCheckLine /> : index + 1}</i><span>{stage}</span></div>)}</div>
+}
+
+function ScheduleModal({ lead, onClose, onSaved }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const [form, setForm] = useState({ date: today, time: '10:00', duration: '30', title: `Demo personalizada con ${lead.name}`, notes: '' })
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [history, setHistory] = useState([])
 
-  useEffect(() => {
-    if (initialAudit) { setAudit(initialAudit); setWebsite(initialAudit.website ?? '') }
-  }, [initialAudit])
-
-  useEffect(() => {
-    apiFetch(`/api/leads/${leadId}/audit-history`).then(r => r.ok ? r.json() : []).then(data => {
-      setHistory(Array.isArray(data) ? data : [])
-    }).catch(() => {})
-  }, [leadId])
-
-  async function runAudit() {
-    if (!website.trim()) { setError('Indica una web para auditar'); return }
-    setLoading(true); setError('')
+  async function submit(event) {
+    event.preventDefault()
+    setSaving(true); setError('')
     try {
-      const res = await apiFetch(`/api/leads/${leadId}/audit`, {
-        method: 'POST',
-        body: JSON.stringify({ website: website.trim(), sector: sector.trim() || undefined, city: city.trim() || undefined }),
-      })
-      if (!res.ok) throw new Error()
-      const result = await res.json()
-      setAudit(result)
-      setHistory(h => [{ id: `local-${Date.now()}`, result, createdAt: new Date().toISOString() }, ...h])
-    } catch {
-      setError('No se pudo auditar la web')
-    } finally {
-      setLoading(false)
-    }
+      const response = await apiFetch('/api/meetings', { method: 'POST', body: JSON.stringify({ leadId: lead.id, title: form.title, scheduledAt: `${form.date}T${form.time}:00`, durationMinutes: Number(form.duration), notes: form.notes || undefined }) })
+      if (!response.ok) throw new Error()
+      onSaved(await response.json())
+    } catch { setError('No se pudo guardar la reunión. Revisa la conexión.') } finally { setSaving(false) }
   }
 
-  return (
-    <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-        <RiSearchEyeLine style={{ width: 15, height: 15, color: '#818cf8' }} />
-        <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: '#e2e8f0', flex: 1 }}>Auditoría digital / SEO</p>
-        {audit && (
-          <span style={{ fontSize: 10, fontWeight: 700, color: TIER_COLOR[audit.tier], background: `${TIER_COLOR[audit.tier]}18`, border: `1px solid ${TIER_COLOR[audit.tier]}40`, borderRadius: 99, padding: '2px 8px' }}>
-            {audit.tier}
-          </span>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <input
-          value={website}
-          onChange={e => setWebsite(e.target.value)}
-          placeholder="www.empresa.com"
-          style={{ flex: 1, background: '#111827', border: '1px solid #1e2433', borderRadius: 8, padding: '7px 10px', color: '#e2e8f0', fontSize: 12, outline: 'none', fontFamily: 'inherit' }}
-        />
-        <button onClick={runAudit} disabled={loading} style={{
-          display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: 'none',
-          background: loading ? '#374151' : 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', fontSize: 12,
-          fontWeight: 600, cursor: loading ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-        }}>
-          <RiRefreshLine style={{ width: 13, height: 13 }} />
-          {loading ? 'Auditando…' : audit ? 'Re-auditar' : 'Auditar ahora'}
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-        <input
-          value={sector}
-          onChange={e => setSector(e.target.value)}
-          placeholder="Sector (para benchmark)"
-          style={{ flex: 1, background: '#111827', border: '1px solid #1e2433', borderRadius: 8, padding: '6px 10px', color: '#94a3b8', fontSize: 11.5, outline: 'none', fontFamily: 'inherit' }}
-        />
-        <input
-          value={city}
-          onChange={e => setCity(e.target.value)}
-          placeholder="Ciudad (para benchmark)"
-          style={{ flex: 1, background: '#111827', border: '1px solid #1e2433', borderRadius: 8, padding: '6px 10px', color: '#94a3b8', fontSize: 11.5, outline: 'none', fontFamily: 'inherit' }}
-        />
-      </div>
-
-      {error && <p style={{ margin: '0 0 10px', fontSize: 11.5, color: '#ef4444' }}>{error}</p>}
-
-      {audit && (
-        <>
-          <div style={{ display: 'flex', gap: 14, marginBottom: 12 }}>
-            <div style={{ flex: 1, background: '#111827', borderRadius: 9, padding: '10px 12px', textAlign: 'center' }}>
-              <p style={{ margin: '0 0 2px', fontSize: 10, color: '#4b5563' }}>Presencia pública</p>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>{audit.publicScore}</p>
-            </div>
-            <div style={{ flex: 1, background: '#111827', borderRadius: 9, padding: '10px 12px', textAlign: 'center' }}>
-              <p style={{ margin: '0 0 2px', fontSize: 10, color: '#4b5563' }}>Madurez operativa</p>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>{audit.opsScore ?? '—'}</p>
-            </div>
-            <div style={{ flex: 1, background: '#111827', borderRadius: 9, padding: '10px 12px', textAlign: 'center' }}>
-              <p style={{ margin: '0 0 2px', fontSize: 10, color: '#4b5563' }}>Oportunidad global</p>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>{audit.leadOpportunityScore}</p>
-            </div>
-          </div>
-
-          <div style={{ background: '#6366f112', border: '1px solid #6366f130', borderRadius: 9, padding: '10px 12px', marginBottom: 12 }}>
-            <p style={{ margin: 0, fontSize: 11.5, color: '#c7d2fe', lineHeight: 1.5 }}>{audit.commercialPitch}</p>
-          </div>
-
-          <p style={{ margin: '0 0 10px', fontSize: 11.5, color: '#94a3b8', lineHeight: 1.5 }}>{audit.summary}</p>
-
-          {audit.benchmark && (
-            <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 9, padding: '10px 12px', marginBottom: 12 }}>
-              <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#e2e8f0' }}>
-                Benchmark: {audit.benchmark.sector} en {audit.benchmark.city} ({audit.benchmark.sampleSize} negocios)
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 11, color: '#94a3b8' }}>
-                {audit.benchmark.avgRating != null && (
-                  <span>Rating medio: {audit.benchmark.avgRating.toFixed(1)}★{audit.benchmark.ratingDiffPct != null && (
-                    <span style={{ color: audit.benchmark.ratingDiffPct >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}> ({pctLabel(audit.benchmark.ratingDiffPct)})</span>
-                  )}</span>
-                )}
-                {audit.benchmark.avgReviews != null && (
-                  <span>Reseñas medias: {Math.round(audit.benchmark.avgReviews)}{audit.benchmark.reviewsDiffPct != null && (
-                    <span style={{ color: audit.benchmark.reviewsDiffPct >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}> ({pctLabel(audit.benchmark.reviewsDiffPct)})</span>
-                  )}</span>
-                )}
-                {audit.benchmark.pctWithWebsite != null && (
-                  <span>{audit.benchmark.pctWithWebsite}% del sector tiene web</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {audit.opportunities?.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {audit.opportunities.slice(0, 5).map((o, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '7px 10px', background: '#111827', border: '1px solid #1a2235', borderRadius: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: SEVERITY_COLOR[o.severity], marginTop: 5, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4, flex: 1 }}>{o.title}</span>
-                  <span style={{ fontSize: 9.5, fontWeight: 700, color: IMPACT_COLOR[o.impact], background: `${IMPACT_COLOR[o.impact]}18`, border: `1px solid ${IMPACT_COLOR[o.impact]}40`, borderRadius: 99, padding: '1px 7px', flexShrink: 0 }}>
-                    {o.impact}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {history.length > 1 && (
-            <p style={{ margin: '10px 0 0', fontSize: 10.5, color: '#4b5563' }}>
-              Auditado {history.length} veces · primera vez hace {Math.round((Date.now() - new Date(history[history.length - 1].createdAt).getTime()) / 86400000)} días
-            </p>
-          )}
-        </>
-      )}
-    </div>
-  )
+  return <div className="lead-detail-overlay" role="presentation" onMouseDown={event => event.target === event.currentTarget && onClose()}><form className="lead-schedule-modal" onSubmit={submit}><header><div><h2>Agendar reunión</h2><p>Reserva el siguiente paso con {lead.name}.</p></div><button type="button" onClick={onClose} aria-label="Cerrar"><RiCloseLine /></button></header><div className="lead-schedule-form"><label>Título<input required value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} /></label><div className="lead-schedule-row"><label>Fecha<input type="date" required value={form.date} onChange={event => setForm({ ...form, date: event.target.value })} /></label><label>Hora<input type="time" required value={form.time} onChange={event => setForm({ ...form, time: event.target.value })} /></label></div><label>Duración<select value={form.duration} onChange={event => setForm({ ...form, duration: event.target.value })}><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></label><label>Contexto<textarea rows="3" placeholder="Objetivo de la reunión…" value={form.notes} onChange={event => setForm({ ...form, notes: event.target.value })} /></label>{error && <span className="lead-email-status" style={{ color: '#fda4af' }}>{error}</span>}<div className="lead-schedule-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary" type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Agendar reunión'}</button></div></div></form></div>
 }
 
 export default function LeadDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [lead, setLead] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('Resumen')
-  const [initialAudit, setInitialAudit] = useState(null)
-
-  useEffect(() => {
-    apiFetch(`/api/leads/${id}/timeline`).then(r => r.ok ? r.json() : null).then(data => {
-      if (data?.lead) {
-        setLead({
-          ...mapLead(data.lead, 0),
-          calls: data.calls || [],
-          meetings: data.meetings || [],
-          opportunities: data.opportunities || [],
-          opportunity: (data.opportunities || [])[0] ?? null,
-        })
-      }
-      setLoading(false)
-    }).catch(() => setLoading(false))
-    apiFetch(`/api/leads/${id}/audit`).then(r => r.ok ? r.json() : null).then(data => {
-      if (data?.audit) setInitialAudit(data.audit)
-    }).catch(() => {})
-    apiFetch(`/api/leads/${id}/notes`).then(r => r.ok ? r.json() : []).then(data => {
-      setTabNotes(Array.isArray(data) ? data : [])
-    }).catch(() => {})
-  }, [id])
-  const [showNote, setShowNote] = useState(false)
-  const [showSchedule, setShowSchedule] = useState(false)
-  const [showAllPains, setShowAllPains] = useState(false)
-  const [quickNoteText, setQuickNoteText] = useState('')
-  const [tabNoteText, setTabNoteText] = useState('')
-  const [tabSaved, setTabSaved] = useState(false)
-  const [tabNotes, setTabNotes] = useState([])
-
-  async function addNote(text) {
-    if (!text.trim()) return
-    const res = await apiFetch(`/api/leads/${id}/notes`, { method: 'POST', body: JSON.stringify({ text: text.trim() }) })
-    if (!res.ok) return
-    const note = await res.json()
-    setTabNotes(n => [note, ...n])
-  }
+  const [audit, setAudit] = useState(null)
+  const [notes, setNotes] = useState([])
   const [files, setFiles] = useState([])
+  const [activities, setActivities] = useState([])
+  const [consent, setConsent] = useState([])
+  const [owners, setOwners] = useState([])
+  const [ownerSaving, setOwnerSaving] = useState(false)
+  const [tab, setTab] = useState('Resumen')
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [noteText, setNoteText] = useState('')
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
-
-  // Pestaña Email (Mautic) — solo aparece si la org tiene Plan Completo con
-  // el módulo activado, ver PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md sección 4.
+  const [showSchedule, setShowSchedule] = useState(false)
   const [emailEnabled, setEmailEnabled] = useState(false)
   const [templateId, setTemplateId] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
-  const [emailMsg, setEmailMsg] = useState('')
+  const [emailStatus, setEmailStatus] = useState('')
+  const [fileInputKey, setFileInputKey] = useState(0)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
-    apiFetch('/api/dashboard/stats').then(r => r.ok ? r.json() : null).then(data => {
-      if (data?.orgPlan === 'completo' && data?.mauticEnabled) setEmailEnabled(true)
-    }).catch(() => {})
-  }, [])
+    let active = true
+    Promise.allSettled([
+      apiFetch(`/api/leads/${id}/timeline`).then(response => response.ok ? response.json() : null),
+      apiFetch(`/api/leads/${id}/audit`).then(response => response.ok ? response.json() : null),
+      apiFetch(`/api/leads/${id}/notes`).then(response => response.ok ? response.json() : []),
+      apiFetch(`/api/leads/${id}/files`).then(response => response.ok ? response.json() : []),
+      apiFetch('/api/dashboard/stats').then(response => response.ok ? response.json() : null),
+      apiFetch(`/api/leads/${id}/activities`).then(response => response.ok ? response.json() : null),
+      apiFetch(`/api/leads/${id}/consent`).then(response => response.ok ? response.json() : []),
+      apiFetch('/api/leads/owners').then(response => response.ok ? response.json() : []),
+    ]).then(([timelineResult, auditResult, notesResult, filesResult, statsResult, activitiesResult, consentResult, ownersResult]) => {
+      if (!active) return
+      const timeline = timelineResult.status === 'fulfilled' ? timelineResult.value : null
+      if (timeline?.lead) setLead({
+        ...mapLead(timeline.lead, 0),
+        calls: timeline.calls || [],
+        meetings: timeline.meetings || [],
+        opportunities: timeline.opportunities || [],
+        opportunity: timeline.opportunities?.[0] || null,
+        ownerId: timeline.lead.ownerId || null,
+        owner: timeline.lead.owner || null,
+        firstResponseOverdue: !!timeline.lead.firstResponseOverdue,
+      })
+      else setLoadError('No se encontró este lead.')
+      const auditValue = auditResult.status === 'fulfilled' ? auditResult.value : null
+      setAudit(auditValue?.audit || auditValue || null)
+      const notesValue = notesResult.status === 'fulfilled' ? notesResult.value : []
+      setNotes(Array.isArray(notesValue) ? notesValue : [])
+      const filesValue = filesResult.status === 'fulfilled' ? filesResult.value : []
+      setFiles(Array.isArray(filesValue) ? filesValue : [])
+      const stats = statsResult.status === 'fulfilled' ? statsResult.value : null
+      setEmailEnabled(stats?.orgPlan === 'completo' && stats?.mauticEnabled)
+      const activitiesValue = activitiesResult.status === 'fulfilled' ? activitiesResult.value : null
+      setActivities(Array.isArray(activitiesValue?.data) ? activitiesValue.data : [])
+      const consentValue = consentResult.status === 'fulfilled' ? consentResult.value : []
+      setConsent(Array.isArray(consentValue) ? consentValue : [])
+      const ownersValue = ownersResult.status === 'fulfilled' ? ownersResult.value : []
+      setOwners(Array.isArray(ownersValue) ? ownersValue : [])
+      setLoading(false)
+    }).catch(() => { if (active) setLoadError('No se pudo cargar el lead. Revisa la conexión.') })
+    return () => { active = false }
+  }, [id])
+
+
+  const timeline = useMemo(() => lead ? buildTimeline(lead) : [], [lead])
+  const currentStage = lead?.status || 'Nuevo'
+  const score = lead?.score
+  const statusStyle = STATUS_CONFIG[currentStage] || STATUS_CONFIG.Nuevo
+  const tabs = emailEnabled ? [...DETAIL_TABS, 'Email'] : DETAIL_TABS
+
+  async function addNote(event) {
+    event.preventDefault()
+    if (!noteText.trim()) return
+    try {
+      const response = await apiFetch(`/api/leads/${id}/notes`, { method: 'POST', body: JSON.stringify({ text: noteText.trim() }) })
+      if (!response.ok) throw new Error()
+      const saved = await response.json()
+      setNotes(previous => [saved, ...previous]); setNoteText('')
+    } catch { setLoadError('No se pudo guardar la nota.') }
+  }
+
+  async function updateStage(event) {
+    const nextStatus = event.target.value
+    const response = await apiFetch(`/api/leads/${id}`, { method: 'PUT', body: JSON.stringify({ status: STAGE_TO_BACKEND[nextStatus] || 'qualified' }) })
+    if (response.ok) setLead(previous => ({ ...previous, status: nextStatus }))
+    else setLoadError('No se pudo actualizar el estado.')
+  }
+
+  // LE-106: reasigna el propietario del lead (o lo desasigna con '' → null).
+  async function changeOwner(event) {
+    const nextOwnerId = event.target.value || null
+    setOwnerSaving(true)
+    try {
+      const response = await apiFetch(`/api/leads/${id}/owner`, { method: 'PUT', body: JSON.stringify({ ownerId: nextOwnerId }) })
+      if (!response.ok) throw new Error()
+      const updated = await response.json()
+      setLead(previous => ({ ...previous, ownerId: updated.ownerId || null, owner: owners.find(o => o.id === updated.ownerId) || null }))
+    } catch { setLoadError('No se pudo reasignar el propietario.') } finally { setOwnerSaving(false) }
+  }
+
+  async function runAudit() {
+    try {
+      const response = await apiFetch(`/api/leads/${id}/audit`, { method: 'POST', body: JSON.stringify({ website: lead.website || undefined, city: lead.city || undefined, sector: lead.customFields?.sector || undefined }) })
+      const result = response.ok ? await response.json() : null
+      if (result) setAudit(result.audit || result)
+      if (!response.ok) setLoadError('No se pudo ejecutar la auditoría.')
+    } catch { setLoadError('No se pudo ejecutar la auditoría.') }
+  }
 
   async function sendTemplate() {
     if (!templateId.trim()) return
-    setSendingEmail(true)
-    setEmailMsg('')
+    setSendingEmail(true); setEmailStatus('')
     try {
-      const res = await apiFetch(`/api/leads/${id}/send-email`, {
-        method: 'POST',
-        body: JSON.stringify({ mauticEmailId: templateId.trim() }),
-      })
-      setEmailMsg(res.ok ? 'Email enviado.' : 'No se pudo enviar el email.')
-    } finally {
-      setSendingEmail(false)
-    }
+      const response = await apiFetch(`/api/leads/${id}/send-email`, { method: 'POST', body: JSON.stringify({ mauticEmailId: templateId.trim() }) })
+      setEmailStatus(response.ok ? 'Email enviado correctamente.' : 'No se pudo enviar el email.')
+    } finally { setSendingEmail(false) }
   }
 
-  useEffect(() => {
-    apiFetch(`/api/leads/${id}/files`).then(r => r.ok ? r.json() : []).then(data => {
-      setFiles(Array.isArray(data) ? data : [])
-    }).catch(() => {})
-  }, [id])
-
-  function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result.split(',')[1] ?? '')
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
-
+  function fileToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1] || ''); reader.onerror = reject; reader.readAsDataURL(file) }) }
   async function uploadFile(file) {
+    if (!file) return
     setUploading(true)
     try {
-      const contentBase64 = await fileToBase64(file)
-      const res = await apiFetch(`/api/leads/${id}/files`, {
-        method: 'POST',
-        body: JSON.stringify({ name: file.name, contentBase64, mimeType: file.type || undefined }),
-      })
-      if (!res.ok) return
-      const saved = await res.json()
-      setFiles(prev => [saved, ...prev])
-    } finally {
-      setUploading(false)
-    }
+      const response = await apiFetch(`/api/leads/${id}/files`, { method: 'POST', body: JSON.stringify({ name: file.name, contentBase64: await fileToBase64(file), mimeType: file.type || undefined }) })
+      if (!response.ok) throw new Error()
+      const saved = await response.json()
+      setFiles(previous => [saved, ...previous])
+    } catch { setLoadError('No se pudo subir el archivo.') } finally { setUploading(false); setFileInputKey(key => key + 1) }
   }
 
-  function formatFileSize(bytes) {
-    return bytes > 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`
+  function scheduleSaved(meeting) {
+    setLead(previous => ({ ...previous, status: 'Reunión agendada', meetings: [meeting, ...(previous.meetings || [])] }))
+    setShowSchedule(false)
   }
 
-  if (loading) return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14, background: '#080c14' }}>
-      Cargandoâ€¦
+  if (loading) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: '#64748b', fontSize: 13 }}>Cargando ficha del lead…</div>
+  if (!lead) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: '#64748b', fontSize: 13 }}>{loadError || 'Lead no encontrado'}</div>
+
+  const nextAction = lead.nextAction
+  const scoreBreakdown = lead.scoreBreakdown || []
+
+  return <div className="dark-scroll lead-detail-page">
+    <header className="lead-detail-topbar"><div className="lead-detail-breadcrumb"><button onClick={() => navigate('/leads')}><RiArrowLeftLine /> Leads</button><RiArrowRightSLine /><div className="lead-detail-brand-icon"><RiGroupLine /></div><div><h1>{lead.name}</h1><p>{lead.company} · Ficha comercial</p></div></div></header>
+
+    <section className="lead-detail-header"><div className="lead-detail-identity"><div className="lead-detail-avatar" style={{ '--avatar-bg': lead.bg || '#6366f1' }}>{lead.initials}</div><div className="lead-detail-identity-main"><div className="lead-detail-name-line"><h2>{lead.name}</h2>{score >= 80 && <span className="lead-hot-label"><RiFireLine /> Hot lead</span>}{lead.firstResponseOverdue && <span className="lead-hot-label" style={{ color: '#fca5a5', borderColor: '#ef444450', background: '#ef444418' }}><RiTimeLine /> SLA de 1ª respuesta superado</span>}<span className="lead-status" style={{ '--status-color': statusStyle.color, '--status-bg': statusStyle.bg }}><i />{currentStage}</span></div><p>{lead.role || 'Contacto principal'} en {lead.company}</p><div className="lead-detail-identity-meta"><span><RiBuilding2Line /> {lead.source || 'Fuente no definida'}</span><span><RiMapPin2Line /> {lead.city || 'Ubicación no disponible'}</span><span><RiGroupLine /> {lead.owner?.name || 'Sin propietario'}</span></div></div><div className="lead-detail-score-box"><div><strong>{score ?? '—'}</strong><span>{score != null ? (score >= 82 ? 'Muy alto' : score >= 65 ? 'Alto' : 'Medio') : 'Sin score'}</span><small>Score proporcionado por la API</small></div></div><div className="lead-detail-actions"><button className="primary" onClick={() => lead.phone && window.open(`tel:${lead.phone}`)} disabled={!lead.phone}><RiPhoneLine /> Llamar</button><button onClick={() => lead.email && window.open(`mailto:${lead.email}?subject=Seguimiento - ${lead.name}`)} disabled={!lead.email}><RiMailLine /> Email</button><button onClick={() => setShowSchedule(true)}><RiCalendar2Line /> Agendar</button><button onClick={() => setTab('Actividad')}><RiMoreLine /> Más</button></div><div className="lead-detail-stage-select"><label>Estado actual<select value={currentStage} onChange={updateStage}>{STAGES.map(stage => <option key={stage}>{stage}</option>)}</select></label><label>Propietario<select value={lead.ownerId || ''} onChange={changeOwner} disabled={ownerSaving}><option value="">Sin asignar</option>{owners.map(owner => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select></label></div></div><StageProgress current={currentStage} /></section>
+
+    <main className="lead-detail-main"><div className="lead-detail-content"><nav className="lead-detail-tabs" aria-label="Secciones de la ficha">{tabs.map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}{item === 'Notas' && notes.length > 0 && <span style={{ marginLeft: 4, color: '#818cf8' }}>({notes.length})</span>}</button>)}</nav>
+
+      {tab === 'Resumen' && <div className="lead-detail-grid"><div><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Puntuación VozIA</h3><span>{score != null ? 'Dato de la API' : 'Sin score'}</span></div>{score != null ? <div className="lead-detail-score-layout"><DetailScoreRing score={score} /><div className="lead-breakdown">{scoreBreakdown.map(item => <div className="lead-breakdown-row" key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div></div> : <div className="lead-audit-card"><strong>No hay score disponible</strong><p>La API no ha proporcionado una puntuación para este lead.</p></div>}</section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Información de contacto</h3></div><div className="lead-contact-list"><div className="lead-contact-row"><RiMailLine /><span>{lead.email || 'Email no disponible'}</span></div><div className="lead-contact-row"><RiPhoneLine /><span>{lead.phone || 'Teléfono no disponible'}</span></div><div className="lead-contact-row"><RiMapPin2Line /><span>{lead.city || 'Ubicación no disponible'}</span></div><div className="lead-contact-row"><RiGlobalLine /><span>{lead.website || 'Web no disponible'}</span></div></div></section></div><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Actividad registrada</h3><span>{timeline.length} eventos</span></div>{timeline.length ? <div className="lead-activity-timeline">{timeline.slice(0, 4).map((item, index) => { const Icon = item.icon; return <div className="lead-activity-item" key={`${item.label}-${index}`}><span className="lead-activity-dot"><Icon /></span><div><strong>{item.label}</strong><p>{item.text}</p></div><time>{formatDate(item.date)}</time></div> })}</div> : <div className="lead-audit-card"><strong>No hay actividad registrada</strong><p>La API no ha devuelto eventos para este lead.</p></div>}</section></div>}
+
+      {tab === 'Actividad' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Historial del lead</h3><span>{activities.length} eventos</span></div>{activities.length ? <div className="lead-activity-timeline">{activities.map(item => { const cfg = activityConfig(item.type); const Icon = cfg.icon; return <div className="lead-activity-item" key={item.id}><span className="lead-activity-dot" style={{ color: cfg.color, borderColor: `${cfg.color}55`, background: `${cfg.color}15` }}><Icon /></span><div><strong>{cfg.label}</strong><p>{activityText(item)}</p></div><time>{formatDate(item.occurredAt)}</time></div> })}</div> : <div className="lead-audit-card"><strong>No hay actividad registrada</strong><p>Notas, llamadas, cambios de estado y reuniones aparecerán aquí en orden cronológico.</p></div>}</section>}
+
+      {tab === 'Consentimiento' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Consentimiento de contacto</h3><span>{consent.length} canales</span></div>{consent.length ? <div className="lead-contact-list">{consent.map(item => { const statusCfg = CONSENT_STATUS_CONFIG[item.status] || CONSENT_STATUS_CONFIG.unknown; return <div className="lead-contact-row" key={item.id}><RiShieldCheckLine /><span>{CONSENT_CHANNEL_LABEL[item.channel] || item.channel} · {item.purpose}</span><span className="lead-status" style={{ '--status-color': statusCfg.color, '--status-bg': `${statusCfg.color}18`, marginLeft: 'auto' }}><i />{statusCfg.label}</span></div> })}</div> : <div className="lead-audit-card"><strong>Sin registros de consentimiento</strong><p>Todavía no se ha capturado consentimiento para ningún canal de este lead.</p></div>}</section>}
+
+      {tab === 'Inteligencia' && <div className="lead-detail-grid"><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Auditoría digital / SEO</h3><button className="leads-text-button" onClick={runAudit}><RiSearchEyeLine /> {audit ? 'Re-auditar' : 'Auditar ahora'}</button></div>{audit ? <><div className="lead-audit-grid"><span>Presencia pública<b>{audit.publicScore ?? '—'}</b></span><span>Madurez operativa<b>{audit.opsScore ?? '—'}</b></span><span>Oportunidad global<b>{audit.leadOpportunityScore ?? '—'}</b></span></div><p>{audit.summary || audit.commercialPitch || 'La API no ha devuelto un resumen de auditoría.'}</p></> : <div className="lead-audit-card"><strong>Sin auditoría todavía</strong><p>Ejecuta la auditoría para obtener datos reales.</p></div>}</section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Oportunidades detectadas</h3><span>{lead.opportunities?.length || 0}</span></div>{lead.opportunities?.length ? lead.opportunities.map((item, index) => <div className="lead-activity-item" key={item.title || index}><span className="lead-activity-dot"><RiLightbulbLine /></span><div><strong>{item.title}</strong><p>{item.description || 'Sin descripción disponible'}</p></div><time>{item.impact || '—'}</time></div>) : <div className="lead-audit-card"><strong>No hay oportunidades registradas</strong><p>La API no ha devuelto oportunidades para este lead.</p></div>}</section></div>}
+
+      {tab === 'Notas' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Notas del equipo</h3><span>{notes.length} notas</span></div><form className="lead-note-form" onSubmit={addNote}><textarea rows="3" placeholder="Añade contexto para el siguiente contacto…" value={noteText} onChange={event => setNoteText(event.target.value)} /><button type="submit"><RiSendPlaneLine /> Guardar nota</button></form><div className="lead-notes-list">{notes.length ? notes.map(note => <article className="lead-note" key={note.id}><p>{note.text}</p><small>{formatDate(note.createdAt)} · Equipo comercial</small></article>) : <div className="lead-audit-card"><strong>Aún no hay notas</strong><p>Deja aquí objeciones, contexto de la cuenta y acuerdos para que la próxima acción empiece con ventaja.</p></div>}</div></section>}
+
+      {tab === 'Archivos' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Archivos y recursos</h3><span>{files.length} archivos</span></div><div className="lead-file-upload"><span>Sube una propuesta, brief o caso de éxito para mantener todo junto.</span><button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}><RiUploadCloud2Line /> {uploading ? 'Subiendo…' : 'Subir archivo'}</button><input key={fileInputKey} ref={fileInputRef} type="file" hidden onChange={event => uploadFile(event.target.files?.[0])} /></div><div className="lead-files-list">{files.length ? files.map(file => <div className="lead-file-row" key={file.id || file.name}><RiFileTextLine /><div><strong>{file.name}</strong><span>{file.size ? `${Math.round(file.size / 1024)} KB` : 'Archivo del lead'} · {formatDate(file.createdAt)}</span></div>{file.url && <button className="leads-text-button" onClick={() => window.open(file.url, '_blank')}><RiExternalLinkLine /></button>}</div>) : <div className="lead-audit-card"><strong>Espacio listo para tus archivos</strong><p>La propuesta y los recursos de contexto aparecerán aquí para cualquier persona del equipo.</p></div>}</div></section>}
+
+      {tab === 'Email' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Enviar plantilla de email</h3><span>Mautic conectado</span></div><div className="lead-email-form"><input value={templateId} onChange={event => setTemplateId(event.target.value)} placeholder="ID de plantilla Mautic" /><button onClick={sendTemplate} disabled={sendingEmail}>{sendingEmail ? 'Enviando…' : 'Enviar email'}</button></div>{emailStatus && <p className="lead-email-status">{emailStatus}</p>}</section>}
     </div>
-  )
 
-  if (!lead) return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14, background: '#080c14' }}>
-      Lead no encontrado
-    </div>
-  )
+    <aside className="lead-detail-side"><section className="lead-detail-side-card"><h3><RiLightbulbLine /> Siguiente acción</h3><div className="lead-next-action-card"><div><RiStarLine /><div><strong>{nextAction || 'Sin próxima acción'}</strong><p>{nextAction ? 'Acción proporcionada por los datos del lead.' : 'La API no ha registrado una próxima acción.'}</p></div></div>{nextAction?.toLowerCase().includes('demo') && <button onClick={() => setShowSchedule(true)}><RiCalendar2Line /> Agendar ahora</button>}</div></section><section className="lead-detail-side-card"><h3><RiShieldCheckLine /> Auditoría</h3><p>{audit ? 'Hay resultados de auditoría disponibles.' : 'No hay resultados de auditoría.'}</p><button className="leads-text-button" onClick={() => setTab('Inteligencia')}>Ver análisis <RiArrowRightSLine /></button></section></aside></main>
 
-  const st = STATUS_MAP[lead.status] || { color: '#6b7280', bg: '#6b728015' }
-  const closeColor = SCORE_COLOR[lead.sl] || '#10b981'
-  const tabs = emailEnabled ? [...DETAIL_TABS, 'Email'] : DETAIL_TABS
-
-  return (
-    <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', background: '#080c14', padding: '26px 32px 40px' }}>
-
-      {/* Back */}
-      <button onClick={() => navigate('/leads')} style={{
-        display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-        color: '#6b7280', cursor: 'pointer', fontSize: 12.5, padding: 0, marginBottom: 22, fontFamily: 'inherit',
-      }}>
-        <RiArrowLeftLine style={{ width: 14, height: 14 }} /> Leads
-      </button>
-
-      {/* Header card */}
-      <div style={{ padding: '20px 24px', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 16, marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          {/* Avatar */}
-          <div style={{
-            width: 72, height: 72, borderRadius: '50%', flexShrink: 0,
-            background: `linear-gradient(135deg,${lead.bg},${lead.bg}bb)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26, fontWeight: 700, color: '#fff', boxShadow: `0 0 18px ${lead.bg}55`,
-          }}>{lead.initials}</div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>{lead.name}</h1>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#fff', background: '#374151', borderRadius: 6, padding: '2px 9px', flexShrink: 0 }}>{lead.score}</span>
-              <span style={{ fontSize: 10.5, fontWeight: 700, background: st.bg, color: st.color, border: `1px solid ${st.color}40`, borderRadius: 99, padding: '2px 9px', flexShrink: 0 }}>{lead.status}</span>
-            </div>
-            <p style={{ margin: '0 0 6px', fontSize: 13, color: '#6b7280' }}>{lead.role} Â· {lead.company}</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {lead.tags.map(t => (
-                <span key={t} style={{ fontSize: 11, padding: '2px 9px', borderRadius: 99, background: '#111827', border: '1px solid #1e2433', color: '#94a3b8' }}>{t}</span>
-              ))}
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
-            {[
-              { Icon: RiPhoneLine,    label: 'Llamar',  action: () => lead.phone && window.open(`tel:${lead.phone}`) },
-              { Icon: RiMailLine,     label: 'Email',   action: () => lead.email && window.open(`mailto:${lead.email}?subject=Seguimiento - ${lead.name}`) },
-              { Icon: RiCalendar2Line,label: 'Agendar', action: () => setShowSchedule(true) },
-              { Icon: RiFileTextLine, label: 'Nota',    action: () => setShowNote(v => !v) },
-              { Icon: RiMoreLine,     label: 'MÃ¡s',     action: () => {} },
-            ].map(({ Icon, label, action }) => (
-              <button key={label} onClick={action} style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                padding: '10px 13px', background: '#111827', border: '1px solid #1e2433',
-                borderRadius: 10, cursor: 'pointer', color: '#94a3b8', fontFamily: 'inherit',
-                minWidth: 54,
-              }}>
-                <Icon style={{ width: 16, height: 16 }} />
-                <span style={{ fontSize: 10.5, whiteSpace: 'nowrap' }}>{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {showNote && (
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #1e2433' }}>
-            <textarea placeholder="Escribe una nota sobre este lead..." rows={3} value={quickNoteText} onChange={e => setQuickNoteText(e.target.value)} style={{
-              width: '100%', background: '#111827', border: '1px solid #1e2433', borderRadius: 9,
-              padding: '10px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', resize: 'vertical',
-              fontFamily: 'inherit', boxSizing: 'border-box',
-            }} />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowNote(false); setQuickNoteText('') }} style={{ padding: '6px 14px', background: 'none', border: '1px solid #1e2433', borderRadius: 8, color: '#6b7280', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Cancelar</button>
-              <button onClick={() => { addNote(quickNoteText); setQuickNoteText(''); setShowNote(false) }} style={{ padding: '6px 14px', background: '#4f46e5', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Guardar nota</button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Body 2-col */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(270px,1fr))', gap: 16, alignItems: 'start' }}>
-
-        {/* Left */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* Close probability */}
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '18px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <p style={{ margin: 0, fontSize: 10.5, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, alignSelf: 'flex-start' }}>Probabilidad de cierre</p>
-            <Ring pct={lead.closePct} color={closeColor} size={96} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: closeColor }}>{lead.closeLevel}</span>
-            <div style={{ width: '100%', padding: '10px 12px', background: '#111827', borderRadius: 9, textAlign: 'center' }}>
-              <p style={{ margin: '0 0 2px', fontSize: 11, color: '#4b5563' }}>Valor potencial</p>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>{lead.opportunity?.value != null ? `${lead.opportunity.currency === 'EUR' ? '€' : (lead.opportunity.currency ?? '')}${Number(lead.opportunity.value).toLocaleString('es-ES')}` : '-'}</p>
-            </div>
-          </div>
-
-          {/* AI recommendation */}
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-              <div style={{ width: 24, height: 24, borderRadius: 7, background: 'linear-gradient(135deg,#4f46e5,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <RiRobot2Line style={{ width: 13, height: 13, color: '#fff' }} />
-              </div>
-              <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: '#818cf8' }}>RecomendaciÃ³n IA</p>
-            </div>
-            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
-              {AI_TIP_BY_LEVEL[lead.closeLevel] ?? AI_TIP_BY_LEVEL.Medio}
-            </p>
-            <button onClick={() => setShowSchedule(true)} style={{
-              width: '100%', padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg,#4f46e5,#6366f1)', color: '#fff', fontSize: 12,
-              fontWeight: 600, boxShadow: '0 0 12px #6366f155', fontFamily: 'inherit',
-            }}>
-              Agendar demo
-            </button>
-          </div>
-
-          {/* Pain points */}
-          {lead.painPoints.length > 0 && (
-            <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <p style={{ margin: 0, fontSize: 10.5, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>Pain Points</p>
-                <button onClick={() => setShowAllPains(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1', fontSize: 11, fontWeight: 600, padding: 0, fontFamily: 'inherit' }}>
-                  {showAllPains ? 'Ver menos' : 'Ver todos'}
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {(showAllPains ? lead.painPoints : lead.painPoints.slice(0, 3)).map(p => (
-                  <span key={p} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99, background: '#111827', border: '1px solid #1e2433', color: '#94a3b8' }}>{p}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Source & agent */}
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px' }}>
-            {[
-              { label: 'Fuente', value: lead.source },
-              { label: 'Valor estimado', value: lead.opportunity?.value != null ? `${lead.opportunity.currency === 'EUR' ? '€' : (lead.opportunity.currency ?? '')}${Number(lead.opportunity.value).toLocaleString('es-ES')}` : '-' },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #111827' }}>
-                <span style={{ fontSize: 11.5, color: '#4b5563' }}>{label}</span>
-                <span style={{ fontSize: 11.5, fontWeight: 600, color: '#94a3b8' }}>{value}</span>
-              </div>
-            ))}
-          </div>
-
-          <DigitalAuditCard
-            leadId={id}
-            initialAudit={initialAudit}
-            initialSector={lead.customFields?.sector}
-            initialCity={lead.customFields?.city}
-          />
-        </div>
-
-        {/* Right: tabs */}
-        <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', borderBottom: '1px solid #1e2433', padding: '0 16px' }}>
-            {tabs.map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                background: 'none', border: 'none', padding: '13px 13px',
-                fontSize: 12.5, fontWeight: tab === t ? 700 : 400,
-                color: tab === t ? '#818cf8' : '#4b5563',
-                borderBottom: `2px solid ${tab === t ? '#6366f1' : 'transparent'}`,
-                cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
-              }}>{t}</button>
-            ))}
-          </div>
-
-          <div style={{ padding: '22px 22px' }}>
-            {tab === 'Resumen' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-
-                {/* Last activity card */}
-                <div style={{ padding: '16px', background: '#111827', border: '1px solid #1a2235', borderRadius: 12 }}>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Última actividad</p>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 9, background: '#3b82f615', border: '1px solid #3b82f630', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <RiPhoneLine style={{ width: 16, height: 16, color: '#3b82f6' }} />
-                    </div>
-                    <div>
-                      <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{(buildActivityTimeline(lead.calls, lead.meetings)[0]?.label) ?? lead.act.action}</p>
-                      <p style={{ margin: 0, fontSize: 11.5, color: '#6b7280' }}>{(buildActivityTimeline(lead.calls, lead.meetings)[0]?.time) ?? lead.act.date}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Next steps */}
-                <div>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Próximos pasos sugeridos</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {[
-                      { icon: RiCalendarLine, text: 'Agendar llamada de seguimiento', color: '#10b981' },
-                      { icon: RiMailLine,     text: 'Enviar propuesta económica',      color: '#8b5cf6' },
-                      { icon: RiLightbulbLine,text: 'Preparar caso de uso específico', color: '#f59e0b' },
-                    ].map(({ icon: Icon, text, color }, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: '#111827', border: '1px solid #1a2235', borderRadius: 10 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 7, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <Icon style={{ width: 13, height: 13, color }} />
-                        </div>
-                        <span style={{ fontSize: 12.5, color: '#94a3b8' }}>{text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Score breakdown */}
-                <div>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Desglose del score</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {[
-                      { label: 'Fit de producto',    val: Math.min(100, lead.score + 5) },
-                      { label: 'Engagement',         val: Math.max(0, lead.score - 10) },
-                      { label: 'Timing',             val: Math.min(100, lead.score + 12) },
-                      { label: 'Presupuesto',        val: Math.max(0, lead.score - 8) },
-                    ].map(({ label, val }) => (
-                      <div key={label}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, color: '#6b7280' }}>{label}</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>{val}</span>
-                        </div>
-                        <div style={{ height: 5, background: '#1e2433', borderRadius: 99 }}>
-                          <div style={{ width: `${val}%`, height: '100%', background: `linear-gradient(90deg, #6366f1, #818cf8)`, borderRadius: 99 }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {tab === 'Actividad' && (
-              <div>
-                <p style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Timeline de actividad</p>
-                {(() => {
-                  const timeline = buildActivityTimeline(lead.calls, lead.meetings)
-                  if (!timeline.length) return <p style={{ color: '#4b5563', fontSize: 13 }}>Sin actividad todavía.</p>
-                  return (
-                    <div style={{ position: 'relative', paddingLeft: 20 }}>
-                      <div style={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 1, background: '#1e2433' }} />
-                      {timeline.map((a, i) => (
-                        <div key={i} style={{ position: 'relative', marginBottom: 20 }}>
-                          <div style={{ position: 'absolute', left: -20, top: 4, width: 9, height: 9, borderRadius: '50%', background: a.color, boxShadow: `0 0 6px ${a.color}80` }} />
-                          <div style={{ padding: '11px 14px', background: '#111827', border: '1px solid #1a2235', borderRadius: 10 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <span style={{ fontSize: 12.5, fontWeight: 600, color: '#e2e8f0' }}>{a.label}</span>
-                              <span style={{ fontSize: 11, color: '#4b5563' }}>{a.time}</span>
-                            </div>
-                            {a.sub && <p style={{ margin: 0, fontSize: 11.5, color: '#6b7280' }}>{a.sub}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })()}
-              </div>
-            )}
-
-            {tab === 'InformaciÃ³n' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
-                  <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Datos de contacto</p>
-                  {[
-                    { label: 'Email', value: lead.email || '-' },
-                    { label: 'Teléfono', value: lead.phone || '-' },
-                    { label: 'Empresa', value: lead.company || '-' },
-                    { label: 'Cargo', value: lead.role || '-' },
-                    { label: 'Ciudad', value: lead.city || '-' },
-                  ].map(({ label, value }) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #1e2433' }}>
-                      <span style={{ fontSize: 12, color: '#4b5563' }}>{label}</span>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#94a3b8' }}>{value}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
-                  <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Origen y etiquetas</p>
-                  {[
-                    { label: 'Fuente', value: lead.source || '-' },
-                    { label: 'Estado', value: lead.status || '-' },
-                    { label: 'Valor estimado', value: lead.opportunity?.value != null ? `${lead.opportunity.currency === 'EUR' ? '€' : (lead.opportunity.currency ?? '')}${Number(lead.opportunity.value).toLocaleString('es-ES')}` : '-' },
-                    { label: 'Creado', value: lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('es-ES') : '-' },
-                  ].map(({ label, value }) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #1e2433' }}>
-                      <span style={{ fontSize: 12, color: '#4b5563' }}>{label}</span>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#94a3b8' }}>{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {tab === 'Notas' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '14px' }}>
-                  <textarea placeholder="Añade una nota..." value={tabNoteText} onChange={e => setTabNoteText(e.target.value)} style={{ width: '100%', minHeight: 90, background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 13, outline: 'none', resize: 'vertical', lineHeight: 1.6, fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                    <button onClick={async () => {
-                      if (!tabNoteText.trim()) return
-                      await addNote(tabNoteText)
-                      setTabNoteText('')
-                      setTabSaved(true)
-                      setTimeout(() => setTabSaved(false), 1500)
-                    }} style={{ background: tabSaved ? '#10b981' : '#6366f115', border: '1px solid ' + (tabSaved ? '#10b98130' : '#6366f130'), borderRadius: 8, padding: '6px 14px', color: tabSaved ? '#10b981' : '#818cf8', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', transition: 'all .2s' }}>
-                      {tabSaved ? '✓ Guardada' : 'Guardar nota'}
-                    </button>
-                  </div>
-                </div>
-                {tabNotes.length === 0 && <p style={{ color: '#4b5563', fontSize: 13 }}>Sin notas todavía.</p>}
-                {tabNotes.map(n => (
-                  <div key={n.id} style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 11, padding: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#6366f1' }}>{n.authorName}</span>
-                      <span style={{ fontSize: 11, color: '#374151' }}>{new Date(n.createdAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 13, color: '#94a3b8', lineHeight: 1.5 }}>{n.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {tab === 'Archivos' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => {
-                  const f = e.target.files[0]
-                  if (f) uploadFile(f)
-                  e.target.value = ''
-                }} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                  <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{ background: '#6366f115', border: '1px solid #6366f130', borderRadius: 8, padding: '7px 14px', color: '#818cf8', fontSize: 12, fontWeight: 700, cursor: uploading ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-                    {uploading ? 'Subiendo...' : '+ Subir archivo'}
-                  </button>
-                </div>
-                {files.length === 0 && <p style={{ color: '#4b5563', fontSize: 13 }}>Sin archivos todavia.</p>}
-                {files.map(f => (
-                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#111827', border: '1px solid #1a2235', borderRadius: 11, padding: '13px 16px' }}>
-                    <RiFileTextLine style={{ width: 18, height: 18, color: '#6b7280', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: '#4b5563' }}>{formatFileSize(f.sizeBytes)} - {new Date(f.createdAt).toLocaleDateString('es-ES')}</p>
-                    </div>
-                    <a href={f.url} target="_blank" rel="noreferrer" style={{ color: '#818cf8', fontSize: 11.5, fontWeight: 600, textDecoration: 'none', flexShrink: 0 }}>Descargar</a>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {tab === 'Email' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '14px' }}>
-                  <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Enviar plantilla</p>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <input
-                      value={templateId}
-                      onChange={e => setTemplateId(e.target.value)}
-                      placeholder="ID de email en Mautic"
-                      style={{ flex: 1, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 8, padding: '9px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
-                    />
-                    <button onClick={sendTemplate} disabled={sendingEmail} style={{ background: sendingEmail ? '#374151' : '#6366f1', border: 'none', borderRadius: 8, padding: '9px 16px', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: sendingEmail ? 'default' : 'pointer', fontFamily: 'inherit' }}>
-                      {sendingEmail ? 'Enviando…' : 'Enviar'}
-                    </button>
-                  </div>
-                  {emailMsg && <p style={{ margin: '8px 0 0', fontSize: 12, color: emailMsg.includes('No se pudo') ? '#ef4444' : '#10b981' }}>{emailMsg}</p>}
-                </div>
-
-                <div>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Actividad de email</p>
-                  {(lead.customFields?.mauticActivity ?? []).length === 0 && (
-                    <p style={{ color: '#4b5563', fontSize: 13 }}>Sin aperturas ni clics todavía.</p>
-                  )}
-                  {(lead.customFields?.mauticActivity ?? []).map((a, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#111827', border: '1px solid #1a2235', borderRadius: 10, marginBottom: 8 }}>
-                      <span style={{ fontSize: 12.5, color: '#94a3b8' }}>{a.type === 'open' ? 'Abrió' : 'Clic en'} {a.detail ? `— ${a.detail}` : ''}</span>
-                      <span style={{ fontSize: 11, color: '#4b5563' }}>{new Date(a.at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {showSchedule && <NewReunionModal onClose={() => setShowSchedule(false)} />}
-    </div>
-  )
+    {showSchedule && <ScheduleModal lead={lead} onClose={() => setShowSchedule(false)} onSaved={scheduleSaved} />}
+  </div>
 }
-

@@ -11,11 +11,28 @@ import { orchestrateNewLead, ChannelConsentInput } from './conversations.service
 /** LE-101: campos permitidos para ordenar server-side; 'campo:direccion'. */
 const SORTABLE_LEAD_FIELDS = new Set(['createdAt', 'updatedAt', 'name'])
 
+/**
+ * LE-106: SLA de primera respuesta simplificado (horas reales, sin
+ * calendario laboral). Un lead está "sin primera respuesta" cuando
+ * `firstRespondedAt` es null y ya pasaron más de estas horas desde su alta.
+ * No se persiste como `dueAt`: se deriva en cada lectura para no tener que
+ * mantenerlo sincronizado.
+ */
+const FIRST_RESPONSE_SLA_HOURS = 4
+
+function isFirstResponseOverdue(lead: { firstRespondedAt: Date | null; createdAt: Date }): boolean {
+  if (lead.firstRespondedAt) return false
+  const elapsedMs = Date.now() - lead.createdAt.getTime()
+  return elapsedMs > FIRST_RESPONSE_SLA_HOURS * 60 * 60 * 1000
+}
+
 interface LeadFilters {
   campaignId?: string
   status?: LeadStatus
   search?: string
   source?: string
+  /** LE-106: filtra por propietario, p.ej. para el toggle "mis leads". */
+  ownerId?: string
   /** Formato 'campo:asc' | 'campo:desc', campo en SORTABLE_LEAD_FIELDS. */
   sort?: string
   page?: number
@@ -49,13 +66,14 @@ async function assertOwnedCampaign(orgId: string, campaignId?: string | null) {
 }
 
 export async function listLeads(orgId: string, filters: LeadFilters = {}) {
-  const { campaignId, status, search, source, sort, page = 1, limit = 20 } = filters
+  const { campaignId, status, search, source, ownerId, sort, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
 
   const where: Record<string, unknown> = { orgId }
   if (campaignId) where.campaignId = campaignId
   if (status) where.status = status
   if (source) where.source = source
+  if (ownerId) where.ownerId = ownerId
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -75,7 +93,7 @@ export async function listLeads(orgId: string, filters: LeadFilters = {}) {
     }
   }
 
-  const [data, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     prisma.lead.findMany({
       where,
       orderBy,
@@ -85,11 +103,67 @@ export async function listLeads(orgId: string, filters: LeadFilters = {}) {
     prisma.lead.count({ where }),
   ])
 
+  const data = rows.map((lead) => ({ ...lead, firstResponseOverdue: isFirstResponseOverdue(lead) }))
+
   return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
 export async function getLead(orgId: string, id: string) {
-  return prisma.lead.findFirst({ where: { id, orgId } })
+  const lead = await prisma.lead.findFirst({ where: { id, orgId } })
+  if (!lead) return null
+  return { ...lead, firstResponseOverdue: isFirstResponseOverdue(lead) }
+}
+
+/** LE-106: usuarios de la organización asignables como propietario de un lead. */
+export async function listOwnerOptions(orgId: string) {
+  return prisma.user.findMany({
+    where: { orgId },
+    select: { id: true, name: true, email: true, role: true },
+    orderBy: { name: 'asc' },
+  })
+}
+
+/**
+ * LE-106: reasigna (o desasigna con `ownerId: null`) el propietario de un
+ * lead. Valida que el nuevo owner pertenezca a la misma organización antes
+ * de tocar la base (mismo patrón que assertOwnedCampaign).
+ */
+export async function assignOwner(orgId: string, actorUserId: string | null | undefined, leadId: string, ownerId: string | null) {
+  if (ownerId) {
+    const owner = await prisma.user.findFirst({ where: { id: ownerId, orgId }, select: { id: true } })
+    if (!owner) throw new OwnershipError('ownerId')
+  }
+
+  const before = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
+  if (!before) throw new LeadNotFoundError()
+
+  const result = await prisma.lead.updateMany({
+    where: { id: leadId, orgId },
+    data: { ownerId },
+  })
+  if (result.count === 0) throw new LeadNotFoundError()
+
+  const after = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'lead.owner.changed',
+    entityType: 'Lead',
+    entityId: leadId,
+    before,
+    after: after ?? undefined,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'owner_changed',
+    leadId,
+    actorUserId,
+    metadata: { from: before.ownerId, to: ownerId },
+  })
+
+  return after
 }
 
 /**
@@ -208,9 +282,17 @@ export async function updateLead(orgId: string, actorUserId: string | null | und
   const before = await prisma.lead.findFirst({ where: { id, orgId } })
   if (!before) throw new LeadNotFoundError()
 
+  // LE-106: la primera vez que un lead sale de 'new' se marca firstRespondedAt,
+  // que es lo que apaga la alerta de SLA de primera respuesta. No se
+  // sobreescribe si ya tenía una respuesta previa registrada.
+  const updateData: Record<string, unknown> = { ...data }
+  if (data.status && data.status !== 'new' && before.status === 'new' && !before.firstRespondedAt) {
+    updateData.firstRespondedAt = new Date()
+  }
+
   const result = await prisma.lead.updateMany({
     where: { id, orgId },
-    data: data as any,
+    data: updateData as any,
   })
   if (result.count === 0) throw new LeadNotFoundError()
 
@@ -399,9 +481,19 @@ export async function getLeadActivities(orgId: string, leadId: string, opts: { p
   return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
+/** LE-107: consentimiento de contacto del lead por canal (email/whatsapp/voice). */
+export async function getLeadConsent(orgId: string, leadId: string) {
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { id: true } })
+  if (!lead) return null
+  return prisma.contactConsent.findMany({ where: { orgId, leadId }, orderBy: { channel: 'asc' } })
+}
+
 export async function getLeadTimeline(orgId: string, id: string) {
-  const [lead, calls, meetings, opportunities] = await Promise.all([
-    prisma.lead.findFirst({ where: { id, orgId } }),
+  const [rawLead, calls, meetings, opportunities] = await Promise.all([
+    prisma.lead.findFirst({
+      where: { id, orgId },
+      include: { owner: { select: { id: true, name: true, email: true } } },
+    }),
     prisma.call.findMany({
       where: { leadId: id, orgId },
       orderBy: { createdAt: 'desc' },
@@ -415,6 +507,8 @@ export async function getLeadTimeline(orgId: string, id: string) {
       orderBy: { createdAt: 'desc' },
     }),
   ])
+
+  const lead = rawLead ? { ...rawLead, firstResponseOverdue: isFirstResponseOverdue(rawLead) } : null
 
   return { lead, calls, meetings, opportunities }
 }
