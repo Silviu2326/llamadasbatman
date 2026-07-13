@@ -1,14 +1,49 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
   RiArrowLeftLine, RiPlayLine, RiPauseLine,
-  RiArrowRightLine, RiFlowChart,
+  RiArrowRightLine, RiFlowChart, RiCloseLine, RiGitBranchLine,
 } from 'react-icons/ri'
 import { mapAutomation, stableIndex } from '../lib/automationMapping'
 import '../dashboard.css'
 
 const TABS = ['Resumen', 'Historial', 'Configuración']
+
+const RUN_STATUS_STYLE = {
+  queued: { label: 'En cola', bg: '#6b728015', color: '#9ca3af', border: '#2a3245' },
+  running: { label: 'Ejecutando', bg: '#3b82f620', color: '#60a5fa', border: '#3b82f640' },
+  succeeded: { label: 'Completado', bg: '#10b98120', color: '#10b981', border: '#10b98140' },
+  failed: { label: 'Fallido', bg: '#ef444420', color: '#ef4444', border: '#ef444440' },
+}
+const STEP_STATUS_STYLE = {
+  pending: { label: 'Pendiente', bg: '#6b728015', color: '#9ca3af', border: '#2a3245' },
+  succeeded: { label: 'Éxito', bg: '#10b98120', color: '#10b981', border: '#10b98140' },
+  skipped: { label: 'Omitido', bg: '#6b728020', color: '#9ca3af', border: '#2a324550' },
+  blocked: { label: 'Bloqueado', bg: '#f9731620', color: '#fb923c', border: '#f9731640' },
+  failed: { label: 'Fallido', bg: '#ef444420', color: '#ef4444', border: '#ef444440' },
+}
+const RUN_STATUS_FILTERS = ['', 'queued', 'running', 'succeeded', 'failed']
+
+function StatusBadge({ status, map }) {
+  const s = map[status] ?? { label: status ?? '—', bg: '#6b728015', color: '#9ca3af', border: '#2a3245' }
+  return (
+    <span style={{ fontSize:10.5, fontWeight:600, borderRadius:99, padding:'2px 9px', background:s.bg, color:s.color, border:`1px solid ${s.border}`, whiteSpace:'nowrap' }}>
+      {s.label}
+    </span>
+  )
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('es-ES', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+}
+
+function truncate(value, max = 220) {
+  if (value == null) return ''
+  const str = typeof value === 'string' ? value : JSON.stringify(value)
+  return str.length > max ? `${str.slice(0, max)}…` : str
+}
 
 export default function AutomacionDetailPage() {
   const { id } = useParams()
@@ -17,12 +52,89 @@ export default function AutomacionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('Resumen')
 
+  // AU-104: historial de runs de la automatización
+  const [runs, setRuns] = useState([])
+  const [runsPage, setRunsPage] = useState(1)
+  const [runsTotalPages, setRunsTotalPages] = useState(1)
+  const [runsStatus, setRunsStatus] = useState('')
+  const [runsLoading, setRunsLoading] = useState(false)
+  const [selectedRunId, setSelectedRunId] = useState(null)
+  const [runDetail, setRunDetail] = useState(null)
+  const [runDetailLoading, setRunDetailLoading] = useState(false)
+
+  // AU-102: versionado inmutable — última versión publicada (si hay alguna)
+  const [versions, setVersions] = useState([])
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState('')
+
+  const loadVersions = useCallback(() => {
+    apiFetch(`/api/automations/${id}/versions`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setVersions(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [id])
+
   useEffect(() => {
     apiFetch(`/api/automations/${id}`).then(r => r.ok ? r.json() : null).then(data => {
       setAuto(data ? mapAutomation(data, stableIndex(data.id)) : null)
       setLoading(false)
     }).catch(() => setLoading(false))
+    loadVersions()
+  }, [id, loadVersions])
+
+  const latestVersion = versions.length > 0 ? versions[0].version : null
+
+  const publishVersion = () => {
+    setPublishing(true)
+    setPublishError('')
+    apiFetch(`/api/automations/${id}/publish`, { method: 'POST' })
+      .then(async r => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => null)
+          throw new Error(body?.error ?? 'No se pudo publicar la versión')
+        }
+        return r.json()
+      })
+      .then(() => {
+        loadVersions()
+        setAuto(prev => prev ? { ...prev, rawStatus: 'active' } : prev)
+      })
+      .catch(err => setPublishError(err.message))
+      .finally(() => setPublishing(false))
+  }
+
+  const loadRuns = useCallback((page, status, append) => {
+    setRunsLoading(true)
+    const params = new URLSearchParams({ page: String(page), limit: '15' })
+    if (status) params.set('status', status)
+    apiFetch(`/api/automations/${id}/runs?${params.toString()}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        setRuns(prev => append ? [...prev, ...data.items] : data.items)
+        setRunsPage(data.page)
+        setRunsTotalPages(data.totalPages)
+      })
+      .finally(() => setRunsLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (tab !== 'Historial') return
+    setRuns([])
+    setSelectedRunId(null)
+    setRunDetail(null)
+    loadRuns(1, runsStatus, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, runsStatus, id])
+
+  useEffect(() => {
+    if (!selectedRunId) { setRunDetail(null); return }
+    setRunDetailLoading(true)
+    apiFetch(`/api/automations/${id}/runs/${selectedRunId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setRunDetail(data))
+      .finally(() => setRunDetailLoading(false))
+  }, [selectedRunId, id])
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
@@ -90,17 +202,32 @@ export default function AutomacionDetailPage() {
             )}
           </div>
 
-          <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-            <button onClick={toggle} style={{
-              display:'flex', alignItems:'center', gap:6,
-              background: isActive ? '#ef444410' : 'linear-gradient(90deg,#4f46e5,#7c3aed)',
-              border: isActive ? '1px solid #ef444430' : 'none',
-              borderRadius:9, padding:'8px 14px',
-              color: isActive ? '#ef4444' : '#fff', fontSize:13, fontWeight:600, cursor:'pointer',
-            }}>
-              {isActive ? <RiPauseLine style={{ width:14, height:14 }} /> : <RiPlayLine style={{ width:14, height:14 }} />}
-              {isActive ? 'Pausar' : 'Reanudar'}
-            </button>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0 }}>
+            <div style={{ display:'flex', gap:8 }}>
+              {auto.actions.length > 0 && (
+                <button onClick={publishVersion} disabled={publishing} style={{
+                  display:'flex', alignItems:'center', gap:6,
+                  background:'#10b98115', border:'1px solid #10b98140',
+                  borderRadius:9, padding:'8px 14px',
+                  color:'#10b981', fontSize:13, fontWeight:600,
+                  cursor: publishing ? 'default' : 'pointer', opacity: publishing ? 0.6 : 1,
+                }}>
+                  <RiGitBranchLine style={{ width:14, height:14 }} />
+                  {publishing ? 'Publicando…' : latestVersion ? `Publicar nueva versión (v${latestVersion} actual)` : 'Publicar versión'}
+                </button>
+              )}
+              <button onClick={toggle} style={{
+                display:'flex', alignItems:'center', gap:6,
+                background: isActive ? '#ef444410' : 'linear-gradient(90deg,#4f46e5,#7c3aed)',
+                border: isActive ? '1px solid #ef444430' : 'none',
+                borderRadius:9, padding:'8px 14px',
+                color: isActive ? '#ef4444' : '#fff', fontSize:13, fontWeight:600, cursor:'pointer',
+              }}>
+                {isActive ? <RiPauseLine style={{ width:14, height:14 }} /> : <RiPlayLine style={{ width:14, height:14 }} />}
+                {isActive ? 'Pausar' : 'Reanudar'}
+              </button>
+            </div>
+            {publishError && <p style={{ margin:0, fontSize:11, color:'#ef4444', maxWidth:220, textAlign:'right' }}>{publishError}</p>}
           </div>
         </div>
       </div>
@@ -160,13 +287,140 @@ export default function AutomacionDetailPage() {
           )}
 
           {tab === 'Historial' && (
-            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-              <p style={{ margin:'0 0 8px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Historial de ejecuciones</p>
-              <p style={{ margin:0, fontSize:13, color:'#4b5563', lineHeight:1.6 }}>
-                Todavía no se registra un historial detallado por ejecución — solo el conteo total.
-                Esta automatización se ejecutó <strong style={{ color:'#94a3b8' }}>{auto.execs}</strong> veces
-                {auto.lastRunAt && <> · última vez <strong style={{ color:'#94a3b8' }}>{auto.last}</strong></>}.
-              </p>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:8 }}>
+                  <p style={{ margin:0, fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Historial de ejecuciones</p>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                    {RUN_STATUS_FILTERS.map(s => (
+                      <button key={s || 'all'} onClick={() => setRunsStatus(s)} style={{
+                        fontSize:11, fontWeight:600, borderRadius:99, padding:'4px 11px', cursor:'pointer',
+                        background: runsStatus === s ? '#8b5cf620' : 'transparent',
+                        color: runsStatus === s ? '#a78bfa' : '#6b7280',
+                        border: `1px solid ${runsStatus === s ? '#8b5cf650' : '#1e2433'}`,
+                      }}>
+                        {s ? (RUN_STATUS_STYLE[s]?.label ?? s) : 'Todos'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {runs.length === 0 && !runsLoading ? (
+                  <p style={{ margin:0, fontSize:13, color:'#4b5563' }}>
+                    Todavía no hay ejecuciones registradas{runsStatus ? ' con este estado' : ''}.
+                  </p>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                    {runs.map(run => (
+                      <button key={run.id} onClick={() => setSelectedRunId(run.id)} style={{
+                        display:'flex', alignItems:'center', gap:10, padding:'10px 12px', textAlign:'left',
+                        background: selectedRunId === run.id ? '#8b5cf615' : '#111827',
+                        border: `1px solid ${selectedRunId === run.id ? '#8b5cf650' : '#1a2235'}`,
+                        borderRadius:9, cursor:'pointer', width:'100%',
+                      }}>
+                        <StatusBadge status={run.status} map={RUN_STATUS_STYLE} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ margin:0, fontSize:12, fontWeight:600, color:'#e2e8f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {run.triggerEventId}
+                          </p>
+                          <p style={{ margin:0, fontSize:11, color:'#4b5563' }}>
+                            {formatDateTime(run.startedAt ?? run.createdAt)}
+                            {run.finishedAt ? ` → ${formatDateTime(run.finishedAt)}` : ''}
+                          </p>
+                        </div>
+                        <span style={{ fontSize:10.5, fontWeight:600, color: run.automationVersionNumber ? '#a78bfa' : '#4b5563', flexShrink:0, whiteSpace:'nowrap' }}>
+                          {run.automationVersionNumber ? `v${run.automationVersionNumber}` : 'sin versión publicada'}
+                        </span>
+                        <div style={{ display:'flex', gap:5, flexShrink:0, fontSize:10.5, color:'#4b5563' }}>
+                          {run.stepCounts.succeeded > 0 && <span style={{ color:'#10b981' }}>{run.stepCounts.succeeded} ok</span>}
+                          {run.stepCounts.skipped > 0 && <span>{run.stepCounts.skipped} omit.</span>}
+                          {run.stepCounts.blocked > 0 && <span style={{ color:'#fb923c' }}>{run.stepCounts.blocked} bloq.</span>}
+                          {run.stepCounts.failed > 0 && <span style={{ color:'#ef4444' }}>{run.stepCounts.failed} error</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {runsPage < runsTotalPages && (
+                  <div style={{ display:'flex', justifyContent:'center', marginTop:12 }}>
+                    <button
+                      disabled={runsLoading}
+                      onClick={() => loadRuns(runsPage + 1, runsStatus, true)}
+                      style={{
+                        fontSize:12, fontWeight:600, color:'#a78bfa', background:'#8b5cf615',
+                        border:'1px solid #8b5cf640', borderRadius:8, padding:'7px 16px',
+                        cursor: runsLoading ? 'default' : 'pointer', opacity: runsLoading ? 0.6 : 1,
+                      }}
+                    >
+                      {runsLoading ? 'Cargando…' : 'Cargar más'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {selectedRunId && (
+                <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                    <p style={{ margin:0, fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Detalle de ejecución</p>
+                    <button onClick={() => setSelectedRunId(null)} style={{ background:'none', border:'none', color:'#4b5563', cursor:'pointer', padding:2, display:'flex' }}>
+                      <RiCloseLine style={{ width:16, height:16 }} />
+                    </button>
+                  </div>
+
+                  {runDetailLoading ? (
+                    <p style={{ margin:0, fontSize:13, color:'#4b5563' }}>Cargando…</p>
+                  ) : !runDetail ? (
+                    <p style={{ margin:0, fontSize:13, color:'#4b5563' }}>No se pudo cargar el detalle.</p>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                      <div style={{ display:'flex', gap:16, flexWrap:'wrap', fontSize:11.5, color:'#6b7280' }}>
+                        <span>Estado: <StatusBadge status={runDetail.status} map={RUN_STATUS_STYLE} /></span>
+                        <span>Intento: <strong style={{ color:'#94a3b8' }}>{runDetail.attempt}</strong></span>
+                        <span>Inicio: <strong style={{ color:'#94a3b8' }}>{formatDateTime(runDetail.startedAt)}</strong></span>
+                        <span>Fin: <strong style={{ color:'#94a3b8' }}>{formatDateTime(runDetail.finishedAt)}</strong></span>
+                      </div>
+                      {runDetail.error && (
+                        <div style={{ background:'#ef444410', border:'1px solid #ef444440', borderRadius:8, padding:'8px 10px' }}>
+                          <p style={{ margin:0, fontSize:11.5, color:'#fca5a5' }}>{truncate(runDetail.error)}</p>
+                        </div>
+                      )}
+
+                      <p style={{ margin:'4px 0 0', fontSize:11.5, fontWeight:700, color:'#94a3b8' }}>Pasos ({(runDetail.stepRuns ?? []).length})</p>
+                      {(runDetail.stepRuns ?? []).length === 0 ? (
+                        <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>Este run todavía no ejecutó pasos.</p>
+                      ) : (
+                        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                          {runDetail.stepRuns.map(step => (
+                            <div key={step.id} style={{ background:'#111827', border:'1px solid #1a2235', borderRadius:9, padding:'10px 12px' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: (step.errorDetail || step.output || step.input) ? 6 : 0 }}>
+                                <span style={{ fontSize:10.5, fontWeight:700, color:'#4b5563' }}>#{step.stepKey}</span>
+                                <span style={{ fontSize:12, fontWeight:600, color:'#e2e8f0' }}>{step.type}</span>
+                                <StatusBadge status={step.status} map={STEP_STATUS_STYLE} />
+                              </div>
+                              {step.errorCode && (
+                                <p style={{ margin:'4px 0', fontSize:11, color:'#fb923c' }}>
+                                  <strong>{step.errorCode}</strong>{step.errorDetail ? ` — ${truncate(step.errorDetail, 160)}` : ''}
+                                </p>
+                              )}
+                              {step.input != null && (
+                                <p style={{ margin:'2px 0', fontSize:10.5, color:'#4b5563', wordBreak:'break-all' }}>
+                                  input: {truncate(step.input, 160)}
+                                </p>
+                              )}
+                              {step.output != null && (
+                                <p style={{ margin:'2px 0', fontSize:10.5, color:'#4b5563', wordBreak:'break-all' }}>
+                                  output: {truncate(step.output, 160)}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

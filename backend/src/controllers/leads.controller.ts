@@ -148,6 +148,11 @@ export async function create(
   }
 }
 
+/**
+ * LE-103: parsea/normaliza el CSV igual que antes, pero ya no procesa las
+ * filas en la propia petición HTTP — crea un ImportJob 'pending' que
+ * importJobRunner.ts procesa en background y responde 202 de inmediato.
+ */
 export async function importCsv(
   request: FastifyRequest<{
     Querystring: { campaignId: string; autoCall?: string }
@@ -179,18 +184,101 @@ export async function importCsv(
   }
 
   try {
-    const result = await leadsService.importLeads(orgId, userId, campaignId, rows)
-
-    if (autoCall === 'true') {
-      for (const lead of result.leads) await enqueueLeadCall(orgId, lead.id)
-    }
-
-    return reply.send({ imported: result.imported })
+    const job = await leadsService.createImportJob(orgId, userId, campaignId, rows, { autoCall: autoCall === 'true' })
+    return reply.status(202).send({ id: job.id, status: job.status, totalRows: job.totalRows })
   } catch (err) {
     const mapped = ownershipStatus(err)
     if (mapped) return reply.status(mapped.status).send(mapped.body)
     throw err
   }
+}
+
+const importJobIdParamsSchema = z.object({ id: z.string().trim().min(1).max(128) }).strict()
+
+const importJobsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+}).strict()
+
+/** LE-103: GET /api/leads/imports/:id — estado de un ImportJob para hacer polling desde el frontend. */
+export async function getImportJob(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, importJobIdParamsSchema, request.params)
+  if (!params) return
+  const job = await leadsService.getImportJob(orgId, params.id)
+  if (!job) return reply.status(404).send({ error: 'Not found' })
+  return reply.send(job)
+}
+
+/** LE-103: GET /api/leads/imports — lista paginada de ImportJob de la organización. */
+export async function listImportJobs(
+  request: FastifyRequest<{ Querystring: { page?: string; limit?: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const query = parseRequest(reply, importJobsQuerySchema, request.query)
+  if (!query) return
+  const result = await leadsService.listImportJobs(orgId, query)
+  return reply.send(result)
+}
+
+const exportQuerySchema = listQuerySchema.omit({ page: true, limit: true })
+
+function csvEscape(value: unknown): string {
+  const str = value == null ? '' : String(value)
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str
+}
+
+/**
+ * LE-102: export server-side del conjunto filtrado completo (mismos filtros
+ * que list()), sin paginación — acotado a exportLeadsForCsv()'s
+ * MAX_EXPORT_ROWS como tope de seguridad. Se genera el CSV en memoria: a
+ * ese volumen de filas no compensa la complejidad de un job asíncrono.
+ */
+export async function exportCsv(
+  request: FastifyRequest<{
+    Querystring: {
+      campaignId?: string
+      status?: string
+      search?: string
+      source?: string
+      ownerId?: string
+      sort?: string
+    }
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const query = parseRequest(reply, exportQuerySchema, request.query)
+  if (!query) return
+
+  const leads = await leadsService.exportLeadsForCsv(orgId, query)
+
+  const headers = ['id', 'nombre', 'email', 'telefono', 'empresa', 'estado', 'fuente', 'campaña', 'propietario', 'etiquetas', 'creado']
+  const lines = [headers.join(',')]
+  for (const lead of leads) {
+    lines.push([
+      lead.id,
+      lead.name,
+      lead.email ?? '',
+      lead.phone ?? '',
+      lead.company ?? '',
+      lead.status,
+      lead.source ?? '',
+      lead.campaign?.name ?? '',
+      lead.owner?.name ?? '',
+      (lead.tags ?? []).join('; '),
+      lead.createdAt.toISOString(),
+    ].map(csvEscape).join(','))
+  }
+
+  reply
+    .header('Content-Type', 'text/csv; charset=utf-8')
+    .header('Content-Disposition', `attachment; filename="leads-export-${Date.now()}.csv"`)
+    .send('﻿' + lines.join('\n'))
 }
 
 export async function update(

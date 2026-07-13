@@ -142,6 +142,7 @@ export default function LeadsPage() {
   const [sourceFilter, setSourceFilter] = useState('all')
   const [auditFilters, setAuditFilters] = useState(new Set())
   const [refreshKey, setRefreshKey] = useState(0)
+  const [exporting, setExporting] = useState(false)
 
   // LE-101: búsqueda con debounce (300ms) para no disparar una petición por
   // tecla — solo `debouncedSearch` viaja al backend.
@@ -252,14 +253,29 @@ export default function LeadsPage() {
     setSelected(new Set())
   }
 
-  // LE-102 (fuera de alcance de LE-101): no hay export completo del listado
-  // filtrado — solo se exportan los leads visibles en la página actual, así
-  // que se advierte explícitamente antes de generar el CSV.
-  function handleExportCsv() {
-    if (!filtered.length) return
-    const confirmed = window.confirm(`Se exportarán los ${filtered.length} leads de esta página (no el listado completo de ${meta.total} leads). ¿Continuar?`)
-    if (!confirmed) return
-    downloadCsv('leads.csv', filtered.map(lead => ({ nombre: lead.name, empresa: lead.company, estado: lead.status, score: lead.score, telefono: lead.phone, oportunidad: lead.potValue, fuente: lead.source })))
+  // LE-102: exporta el conjunto filtrado completo (no solo la página cargada)
+  // vía el endpoint server-side, con los mismos filtros que la lista.
+  async function handleExportCsv() {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      if (debouncedSearch) params.set('search', debouncedSearch)
+      if (sourceFilter !== 'all') params.set('source', sourceFilter)
+      if (sortBy) params.set('sort', sortBy)
+      const response = await apiFetch(`/api/leads/export?${params.toString()}`)
+      if (!response.ok) { setError('No se pudo exportar los leads.'); return }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'leads.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('No se pudo exportar los leads.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (loading) return <div className="dark-scroll leads-page" role="status"><div className="leads-empty-state"><RiRefreshLine /><strong>Cargando leads…</strong></div></div>
@@ -273,7 +289,7 @@ export default function LeadsPage() {
 
     <section className="leads-funnel-grid"><div className="leads-funnel-panel"><div className="leads-panel-heading"><div><span className="leads-heading-kicker"><RiPulseLine /> Pipeline en movimiento</span><h2>Embudo de leads</h2></div></div><div className="leads-funnel">{STAGES.slice(0, 6).map((stage, index) => { const item = stats?.funnel?.find(entry => entry.label === stage); const count = item?.value ?? leads.filter(lead => lead.status === stage).length; return <div className={`funnel-stage ${['blue', 'cyan', 'green', 'violet', 'pink', 'lime'][index]}`} key={stage}><strong>{stage}</strong><b>{Number(count).toLocaleString('es-ES')}</b><small>Datos disponibles</small></div> })}</div><div className="leads-funnel-footer"><span>Conversión total: <b>{stats?.conversionRate != null ? `${stats.conversionRate}%` : '—'}</b></span><span><i className="live-dot" /> Datos sincronizados</span></div></div><FocusPanel leads={leads} onOpenLead={id => navigate(`/leads/${id}`)} /></section>
 
-    <section className="leads-workspace"><div className="leads-workspace-toolbar"><div className="leads-toolbar-left"><div className="leads-filter-tabs">{FILTER_TABS.map(tab => <button key={tab} className={activeFilter === tab ? 'active' : ''} onClick={() => setActiveFilter(tab)}>{tab}{tab === 'Hot' && <span>{hotCount}</span>}</button>)}</div><button className={`leads-filter-button${showFilters || filterCount ? ' active' : ''}`} onClick={() => setShowFilters(value => !value)}><RiFilterLine /> Filtros {filterCount > 0 && <span>{filterCount}</span>}</button></div><div className="leads-toolbar-right"><label className="leads-sort">Ordenar por <select value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="createdAt:desc">Más recientes</option><option value="createdAt:asc">Más antiguos</option><option value="name:asc">Nombre A-Z</option><option value="name:desc">Nombre Z-A</option></select><HiChevronDown /></label><button className="leads-button ghost compact" onClick={handleExportCsv} title="Exporta solo los leads de la página actual"><RiFileDownloadLine /> Exportar página</button><div className="leads-view-switcher"><button className={view === 'table' ? 'active' : ''} onClick={() => setView('table')} aria-label="Vista tabla"><RiTableLine /></button><button className={view === 'kanban' ? 'active' : ''} onClick={() => setView('kanban')} aria-label="Vista kanban"><RiLayoutGridLine /></button></div></div></div>
+    <section className="leads-workspace"><div className="leads-workspace-toolbar"><div className="leads-toolbar-left"><div className="leads-filter-tabs">{FILTER_TABS.map(tab => <button key={tab} className={activeFilter === tab ? 'active' : ''} onClick={() => setActiveFilter(tab)}>{tab}{tab === 'Hot' && <span>{hotCount}</span>}</button>)}</div><button className={`leads-filter-button${showFilters || filterCount ? ' active' : ''}`} onClick={() => setShowFilters(value => !value)}><RiFilterLine /> Filtros {filterCount > 0 && <span>{filterCount}</span>}</button></div><div className="leads-toolbar-right"><label className="leads-sort">Ordenar por <select value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="createdAt:desc">Más recientes</option><option value="createdAt:asc">Más antiguos</option><option value="name:asc">Nombre A-Z</option><option value="name:desc">Nombre Z-A</option></select><HiChevronDown /></label><button className="leads-button ghost compact" onClick={handleExportCsv} disabled={exporting} title="Exporta todos los leads que cumplen los filtros activos"><RiFileDownloadLine /> {exporting ? 'Exportando…' : 'Exportar'}</button><div className="leads-view-switcher"><button className={view === 'table' ? 'active' : ''} onClick={() => setView('table')} aria-label="Vista tabla"><RiTableLine /></button><button className={view === 'kanban' ? 'active' : ''} onClick={() => setView('kanban')} aria-label="Vista kanban"><RiLayoutGridLine /></button></div></div></div>
 
       {showFilters && <div className="leads-filter-drawer"><div><strong>Filtros avanzados</strong><span>Combina criterios para encontrar el siguiente foco.</span></div><label>Puntuación mínima<select value={scoreFilter} onChange={event => setScoreFilter(event.target.value)}><option value="all">Cualquier score</option><option value="80">80+ · Hot</option><option value="65">65+ · Alto</option><option value="40">40+ · Medio</option></select></label><label>Fuente<select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}><option value="all">Todas las fuentes</option>{sources.map(source => <option key={source}>{source}</option>)}</select></label><div className="leads-audit-filters">{AUDIT_FILTERS.map(filter => <label key={filter.key}><input type="checkbox" checked={auditFilters.has(filter.key)} onChange={() => toggleAuditFilter(filter.key)} />{filter.label}</label>)}</div><button className="leads-text-button" onClick={() => { setScoreFilter('all'); setSourceFilter('all'); setAuditFilters(new Set()) }}><RiCloseLine /> Limpiar filtros</button></div>}
 

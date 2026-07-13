@@ -114,6 +114,42 @@ export async function create(
   }
 }
 
+/** POST /:id/publish — congela la config actual como nueva versión inmutable (AU-102). */
+export async function publish(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const before = await automationsService.getAutomation(orgId, request.params.id)
+  if (!before) return reply.status(404).send({ error: 'Automation not found' })
+  try {
+    const version = await automationsService.publishAutomation(orgId, userId, request.params.id)
+    await writeAuditLog({
+      orgId,
+      actorUserId: userId,
+      action: 'automation.publish',
+      entityType: 'Automation',
+      entityId: request.params.id,
+      after: { version: version.version, automationVersionId: version.id },
+      correlationId: request.correlationId,
+    })
+    return reply.status(201).send(version)
+  } catch (err) {
+    return reply.status(400).send({ error: (err as Error).message })
+  }
+}
+
+/** GET /:id/versions — historial de versiones publicadas, solo lectura (AU-102). */
+export async function listVersions(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const versions = await automationsService.listAutomationVersions(orgId, request.params.id)
+  if (versions === null) return reply.status(404).send({ error: 'Automation not found' })
+  return reply.send(versions)
+}
+
 export async function toggle(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply

@@ -65,9 +65,13 @@ async function assertOwnedCampaign(orgId: string, campaignId?: string | null) {
   if (!campaign) throw new OwnershipError('campaignId')
 }
 
-export async function listLeads(orgId: string, filters: LeadFilters = {}) {
-  const { campaignId, status, search, source, ownerId, sort, page = 1, limit = 20 } = filters
-  const skip = (page - 1) * limit
+/**
+ * LE-101/LE-102: construye el `where`/`orderBy` de Prisma compartido entre
+ * `listLeads()` (paginado) y `exportLeadsCsv()` (sin paginar) para que ambos
+ * apliquen exactamente los mismos filtros sin duplicar la lógica.
+ */
+function buildLeadQuery(orgId: string, filters: Omit<LeadFilters, 'page' | 'limit'>) {
+  const { campaignId, status, search, source, ownerId, sort } = filters
 
   const where: Record<string, unknown> = { orgId }
   if (campaignId) where.campaignId = campaignId
@@ -93,6 +97,14 @@ export async function listLeads(orgId: string, filters: LeadFilters = {}) {
     }
   }
 
+  return { where, orderBy }
+}
+
+export async function listLeads(orgId: string, filters: LeadFilters = {}) {
+  const { page = 1, limit = 20 } = filters
+  const skip = (page - 1) * limit
+  const { where, orderBy } = buildLeadQuery(orgId, filters)
+
   const [rows, total] = await Promise.all([
     prisma.lead.findMany({
       where,
@@ -106,6 +118,29 @@ export async function listLeads(orgId: string, filters: LeadFilters = {}) {
   const data = rows.map((lead) => ({ ...lead, firstResponseOverdue: isFirstResponseOverdue(lead) }))
 
   return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+}
+
+/**
+ * LE-102: export server-side del conjunto filtrado completo (sin la
+ * paginación de listLeads). Se acota a MAX_EXPORT_ROWS como tope de
+ * seguridad — a este volumen de datos no compensa la complejidad de un job
+ * asíncrono como el de importación; se genera el CSV en memoria en el propio
+ * handler.
+ */
+const MAX_EXPORT_ROWS = 10_000
+
+export async function exportLeadsForCsv(orgId: string, filters: Omit<LeadFilters, 'page' | 'limit'> = {}) {
+  const { where, orderBy } = buildLeadQuery(orgId, filters)
+  const rows = await prisma.lead.findMany({
+    where,
+    orderBy,
+    take: MAX_EXPORT_ROWS,
+    include: {
+      campaign: { select: { name: true } },
+      owner: { select: { name: true } },
+    },
+  })
+  return rows
 }
 
 export async function getLead(orgId: string, id: string) {
@@ -220,50 +255,106 @@ export async function createLead(orgId: string, actorUserId: string | null | und
   return lead
 }
 
-export async function importLeads(
+/** LE-103: forma de una fila de CSV ya parseada/normalizada. */
+export interface ImportCsvRow {
+  name: string
+  phone?: string
+  email?: string
+  company?: string
+}
+
+/** Una fila deduplicada conserva su número original (1-based, +1 por cabecera) para poder señalarla en `errors`. */
+export interface ImportJobRow extends ImportCsvRow {
+  row: number
+}
+
+export interface ImportJobError {
+  row: number
+  message: string
+}
+
+/** Forma persistida en `ImportJob.rows` (Json): filas a procesar + flags de la corrida. */
+export interface ImportJobRowsPayload {
+  autoCall: boolean
+  items: ImportJobRow[]
+}
+
+/**
+ * LE-103: deduplica por email/teléfono dentro del propio archivo — si dos
+ * filas comparten email o teléfono, solo la primera se conserva; el resto se
+ * reporta en `errors` con motivo 'duplicate_in_file' y no llega a crear un
+ * Lead. `row` es 1-based e incluye la cabecera (fila 1), igual que vería el
+ * usuario al abrir el CSV en una hoja de cálculo.
+ */
+function dedupeImportRows(rows: ImportCsvRow[]): { items: ImportJobRow[]; duplicates: ImportJobError[] } {
+  const seenEmails = new Set<string>()
+  const seenPhones = new Set<string>()
+  const items: ImportJobRow[] = []
+  const duplicates: ImportJobError[] = []
+
+  rows.forEach((raw, index) => {
+    const row = index + 2
+    const email = raw.email?.trim().toLowerCase() || undefined
+    const phone = raw.phone?.trim() || undefined
+    const isDuplicate = (email && seenEmails.has(email)) || (phone && seenPhones.has(phone))
+    if (isDuplicate) {
+      duplicates.push({ row, message: 'duplicate_in_file' })
+      return
+    }
+    if (email) seenEmails.add(email)
+    if (phone) seenPhones.add(phone)
+    items.push({ row, name: raw.name, phone: raw.phone, email: raw.email, company: raw.company })
+  })
+
+  return { items, duplicates }
+}
+
+/**
+ * LE-103: reemplaza el importLeads() síncrono. Deduplica dentro del archivo
+ * y encola un ImportJob 'pending' para que importJobRunner.ts lo procese
+ * fila a fila en background, en vez de bloquear la petición HTTP con
+ * importaciones grandes (LE-06/P1).
+ */
+export async function createImportJob(
   orgId: string,
   actorUserId: string | null | undefined,
   campaignId: string,
-  rows: Array<{ name: string; phone?: string; email?: string; company?: string }>
+  rows: ImportCsvRow[],
+  opts: { autoCall?: boolean; fileName?: string } = {}
 ) {
   await assertOwnedCampaign(orgId, campaignId)
 
-  // FND-05: mismos efectos de dominio que un alta manual/API para cada fila
-  // (sync Mautic + conversación + evento lead.created). Import secuencial de
-  // filas es una limitación conocida (LE-06/P1: falta ImportJob asíncrono),
-  // no se agrava aquí — ya lo era antes de sumar la orquestación.
-  const created = []
-  for (const row of rows) {
-    if (!row.name) continue
-    const lead = await prisma.lead.create({
-      data: { orgId, campaignId, name: row.name, phone: row.phone, email: row.email, company: row.company, status: 'new' as LeadStatus },
-    })
-    created.push(lead)
-    await syncContact(lead).catch(() => {})
-    await orchestrateNewLead(orgId, lead.id).catch((error) => {
-      console.error('[Leads] import orchestration failed:', (error as Error).message)
-    })
-  }
+  const { items, duplicates } = dedupeImportRows(rows)
+  const rowsPayload: ImportJobRowsPayload = { autoCall: Boolean(opts.autoCall), items }
 
-  await prisma.campaign.updateMany({
-    where: { id: campaignId, orgId },
-    data: { totalLeads: { increment: created.length } },
-  })
-
-  // Un registro de auditoría por fila inflaría demasiado AuditLog en
-  // importaciones grandes; se guarda un resumen de la corrida (P0-12).
-  if (created.length) {
-    await writeAuditLog({
+  return prisma.importJob.create({
+    data: {
       orgId,
-      actorUserId,
-      action: 'lead.import',
-      entityType: 'Lead',
-      entityId: campaignId,
-      after: { importedCount: created.length, campaignId, leadIds: created.map((lead) => lead.id) },
-    })
-  }
+      campaignId,
+      createdById: actorUserId ?? null,
+      fileName: opts.fileName,
+      status: 'pending',
+      totalRows: items.length,
+      skippedCount: duplicates.length,
+      errors: duplicates as any,
+      rows: rowsPayload as any,
+    },
+  })
+}
 
-  return { imported: created.length, leads: created }
+export async function getImportJob(orgId: string, id: string) {
+  return prisma.importJob.findFirst({ where: { id, orgId } })
+}
+
+export async function listImportJobs(orgId: string, opts: { page?: number; limit?: number } = {}) {
+  const { page = 1, limit = 20 } = opts
+  const skip = (page - 1) * limit
+  const where = { orgId }
+  const [data, total] = await Promise.all([
+    prisma.importJob.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take: limit }),
+    prisma.importJob.count({ where }),
+  ])
+  return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
 export async function updateLead(orgId: string, actorUserId: string | null | undefined, id: string, data: {

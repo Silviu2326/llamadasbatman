@@ -8,7 +8,7 @@ const SIZES = {
   xl: 800,
 }
 
-export default function FormModal({ title, children, onClose, onSubmit, submitText = 'Crear', size = 'md' }) {
+export default function FormModal({ title, children, onClose, onSubmit, submitText = 'Crear', submitDisabled = false, size = 'md' }) {
   useEffect(() => {
     function handleKey(e) {
       if (e.key === 'Escape') onClose()
@@ -122,6 +122,7 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
           <button
             type="submit"
             form="modal-form"
+            disabled={submitDisabled}
             style={{
               background: 'linear-gradient(90deg,#4f46e5,#7c3aed)',
               border: 'none',
@@ -130,7 +131,8 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
               color: '#fff',
               fontSize: 13,
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: submitDisabled ? 'not-allowed' : 'pointer',
+              opacity: submitDisabled ? 0.6 : 1,
               boxShadow: '0 0 20px #6366f140',
             }}
           >

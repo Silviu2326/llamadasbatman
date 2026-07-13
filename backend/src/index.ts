@@ -37,11 +37,19 @@ import { campaignShareRoutes } from './routes/campaignShare'
 import { settingsRoutes } from './routes/settings'
 import { conversationsRoutes } from './routes/conversations'
 import { whatsappRoutes } from './routes/whatsapp'
+import { getOrCreateCorrelationId } from './lib/correlationId'
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     payload: { userId: string; orgId: string; role: string; email: string }
     user:    { userId: string; orgId: string; role: string; email: string }
+  }
+}
+
+// FND-06: correlationId por request, disponible en toda la cadena de handlers.
+declare module 'fastify' {
+  interface FastifyRequest {
+    correlationId?: string
   }
 }
 
@@ -57,6 +65,13 @@ async function build() {
   // x-www-form-urlencoded para Twilio webhooks
   app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => {
     done(null, Object.fromEntries(new URLSearchParams(body as string)))
+  })
+
+  // FND-06: asigna/propaga un correlationId por request para poder rastrear
+  // una petición a través de logs, AutomationRun y OutboxEvent.
+  app.addHook('onRequest', async (request, reply) => {
+    request.correlationId = getOrCreateCorrelationId(request)
+    reply.header('x-correlation-id', request.correlationId)
   })
 
   await app.register(authRoutes,       { prefix: '/api/auth' })

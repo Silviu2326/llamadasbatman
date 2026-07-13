@@ -7,6 +7,7 @@ Promise.all([
   import('./jobs/adInsightsSync'),
   import('./jobs/outboxDispatcher'),
   import('./jobs/temporalEventScheduler'),
+  import('./jobs/importJobRunner'),
 ])
   .then(() => console.log('[Vozia] Workers iniciados'))
   .catch((error) => {

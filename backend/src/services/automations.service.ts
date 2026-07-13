@@ -6,6 +6,7 @@ import { enqueueLeadCall } from '../jobs/leadCallDispatch'
 import { sendWhatsApp } from './whatsapp.service'
 import { suggestConversationReply } from './conversationAi.service'
 import * as tasksService from './tasks.service'
+import { generateCorrelationId } from '../lib/correlationId'
 
 export const CANONICAL_AUTOMATION_EVENTS = [
   'call.completed', 'lead.inactive.7d', 'meeting.scheduled.24h',
@@ -351,17 +352,19 @@ export async function listRuns(orgId: string, automationId: string, filters: {
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
-      include: { stepRuns: { select: { status: true } } },
+      // AU-102: version es la que quedó atada en el momento del run — puede
+      // no coincidir con la última publicada si la automation se republicó después.
+      include: { stepRuns: { select: { status: true } }, automationVersion: { select: { version: true } } },
     }),
     prisma.automationRun.count({ where }),
   ])
 
-  const runs = items.map(({ stepRuns, ...run }) => {
+  const runs = items.map(({ stepRuns, automationVersion, ...run }) => {
     const stepCounts = { succeeded: 0, skipped: 0, blocked: 0, failed: 0, pending: 0 }
     for (const step of stepRuns) {
       if (step.status in stepCounts) stepCounts[step.status as keyof typeof stepCounts] += 1
     }
-    return { ...run, stepCounts, stepsTotal: stepRuns.length }
+    return { ...run, stepCounts, stepsTotal: stepRuns.length, automationVersionNumber: automationVersion?.version ?? null }
   })
 
   return { items: runs, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }
@@ -426,6 +429,51 @@ export async function toggleAutomation(orgId: string, id: string) {
   })
 }
 
+// AU-102: versionado inmutable — cada publicación congela un snapshot de
+// name/description/trigger/actions en una fila nueva de AutomationVersion.
+// Los runs futuros quedan atados a esa versión exacta (ver runAutomationsForEvent),
+// así el historial sigue siendo explicable aunque la automatización se edite después.
+export async function publishAutomation(orgId: string, actorUserId: string | undefined, id: string) {
+  const automation = await prisma.automation.findFirst({ where: { id, orgId } })
+  if (!automation) throw new Error('Automation not found')
+
+  const actions = Array.isArray(automation.actions) ? automation.actions : []
+  if (actions.length === 0) {
+    throw new Error('No se puede publicar una automatización sin acciones configuradas')
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const existingCount = await tx.automationVersion.count({ where: { automationId: id } })
+    const version = await tx.automationVersion.create({
+      data: {
+        orgId,
+        automationId: id,
+        version: existingCount + 1,
+        name: automation.name,
+        description: automation.description,
+        trigger: automation.trigger as any,
+        actions: automation.actions as any,
+        publishedById: actorUserId ?? null,
+      },
+    })
+    if (automation.status === 'draft') {
+      await tx.automation.update({ where: { id }, data: { status: 'active' } })
+    }
+    return version
+  })
+}
+
+// AU-102: solo lectura — la automation debe pertenecer a la org antes de
+// exponer su historial de versiones publicadas.
+export async function listAutomationVersions(orgId: string, automationId: string) {
+  const automation = await prisma.automation.findFirst({ where: { id: automationId, orgId } })
+  if (!automation) return null
+  return prisma.automationVersion.findMany({
+    where: { orgId, automationId },
+    orderBy: { version: 'desc' },
+  })
+}
+
 export async function deleteAutomation(orgId: string, id: string) {
   const result = await prisma.automation.deleteMany({ where: { id, orgId } })
   if (result.count === 0) throw new Error('Automation not found')
@@ -450,13 +498,27 @@ export async function runAutomationsForEvent(
   for (const automation of matching) {
     const triggerEventId = String(payload.eventId ?? `${canonicalEvent}:${payload.leadId ?? payload.id ?? 'unknown'}`)
     const conversationId = payload.conversationId ? String(payload.conversationId) : undefined
+    // FND-06: reusa el correlationId del evento entrante (payload u OutboxEvent)
+    // si viene, o genera uno propio — mejor tener uno rastreable que null.
+    const incomingCorrelationId = String(payload.correlationId ?? '').trim()
+    const correlationId = incomingCorrelationId || generateCorrelationId()
+    // AU-102: si ya hay al menos una versión publicada, el run queda atado a
+    // la más reciente. Automatizaciones sin ninguna versión publicada aún
+    // (creadas antes de AU-102) simplemente corren con automationVersionId null.
+    const latestVersion = await prisma.automationVersion.findFirst({
+      where: { orgId, automationId: automation.id },
+      orderBy: { version: 'desc' },
+      select: { id: true },
+    })
     const run = await prisma.automationRun.upsert({
       where: { orgId_automationId_triggerEventId: { orgId, automationId: automation.id, triggerEventId } },
       create: {
         orgId,
         automationId: automation.id,
+        automationVersionId: latestVersion?.id ?? null,
         conversationId,
         triggerEventId,
+        correlationId,
         status: 'queued',
         attempt: 0,
         input: payload as any,

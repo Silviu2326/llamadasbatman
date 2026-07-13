@@ -12,6 +12,8 @@ export async function automationsRoutes(app: FastifyInstance) {
   app.get('/:id', ctrl.get)
   app.get('/:id/runs', ctrl.listRuns as any)
   app.get('/:id/runs/:runId', ctrl.getRunDetail)
+  app.get('/:id/versions', ctrl.listVersions as any)
+  app.post('/:id/publish', { preHandler: authorize(['admin', 'agent']) }, ctrl.publish as any)
   app.put('/:id/toggle', { preHandler: authorize(['admin', 'agent']) }, ctrl.toggle as any)
   app.delete('/:id', { preHandler: authorize(['admin', 'agent']) }, ctrl.remove as any)
 }

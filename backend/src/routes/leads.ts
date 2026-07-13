@@ -11,6 +11,11 @@ export async function leadsRoutes(app: FastifyInstance) {
   // Lectura: cualquier rol autenticado (viewer incluido).
   app.get('/', ctrl.list as any)
   app.get('/owners', ctrl.listOwners as any)
+  // LE-102: export CSV del conjunto filtrado completo.
+  app.get('/export', ctrl.exportCsv as any)
+  // LE-103: estado/lista de ImportJob para el polling del frontend.
+  app.get('/imports', ctrl.listImportJobs as any)
+  app.get('/imports/:id', ctrl.getImportJob as any)
   app.get('/:id', ctrl.get as any)
   app.get('/:id/timeline', ctrl.timeline as any)
   app.get('/:id/activities', ctrl.activities as any)

@@ -82,14 +82,24 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 
 Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 
-**Siguiente paso concreto para continuar:**
-1. Completar AU-107 (eventos que faltan: `lead.owner.changed` a outbox, `task.due/overdue` — hay un job `temporalEventScheduler.ts` que podría ampliarse o crear uno nuevo `taskDueScheduler.ts`, `consent.changed`, `email.*`).
-2. FND-06 (correlationId/errores normalizados) — pendiente desde el inicio de Fase 1, sigue sin abordar.
-3. LE-102 (export asíncrono completo), LE-103 (ImportJob asíncrono — `importLeads` sigue secuencial por fila).
-4. RE-104/105 (integración de calendario externo — XL, requiere OAuth con Google/Microsoft, decidir proveedor primero) y RE-106 (recordatorios T-24h/T-2h trazados — depende de RE-104 o de un mínimo sin calendario externo).
-5. AU-102/103/105/106/109/110 (versionado inmutable `AutomationVersion`, condiciones/ramas, esperas, dead-letter, simulador) — bloque grande restante de Automatizaciones, requiere diseño propio (no es una extensión trivial de lo ya construido). Con esto se cierra el backlog P1 completo de Automatizaciones (Fase 1).
-6. Con lo anterior, **Fase 1 del backlog (04-backlog-priorizado.md sección "Orden recomendado", Fase 1) queda prácticamente completa** salvo FND-06 y AU-102/103/105/106/109/110. A partir de ahí, empezar Fase 2: Email marketing (EM-101..110, empezar por EM-101/102/103 — binding de contacto + EmailDelivery/EmailEvent + cliente Mautic tipado, antes del wizard EM-105).
-7. Empresa/Contacto (Account/Contact, sección 3 de `05-arquitectura-objetivo.md`) no se ha empezado — es la base de Fase 3, pero también desbloquea OP-108 (contactos/roles de compra).
+### Fase 1 · continuación (LE-102/103, AU-102, FND-06)
+
+| ID | Estado | Notas |
+| --- | --- | --- |
+| LE-103 Import asíncrono | ✅ hecho | `ImportJob` + `jobs/importJobRunner.ts` (patrón outbox: claim atómico, procesa por lotes, dedupe por email/teléfono dentro del archivo, reporte de errores por fila). `POST /api/leads/import` responde 202; `GET /api/leads/imports/:id` para polling. `ImportLeadsModal.jsx` muestra progreso real. |
+| LE-102 Export asíncrono | ✅ hecho (sin job) | `GET /api/leads/export` aplica los mismos filtros que LE-101 sin paginar (tope de seguridad 10.000 filas documentado), devuelve CSV directo — se decidió no crear un job aparte por ser sobre-ingeniería para el volumen actual. |
+| AU-102 Versionado inmutable | ✅ hecho (mínimo viable) | `AutomationVersion` + `publishAutomation()`; cada `AutomationRun` nuevo referencia la última versión publicada. Falta diff entre versiones y rollback (quedan como mejora futura, no bloquean uso). |
+| FND-06 correlationId/errores | ✅ hecho (alcance acotado) | Hook HTTP asigna/propaga `x-correlation-id`; `AutomationRun.correlationId` siempre poblado; `OutboxEvent.lastErrorCode` clasificado con heurísticas simples. **No** se propagó correlationId a través de leads/pipeline/meetings todavía (alcance explícitamente acotado a HTTP+automation run+outbox). |
+
+Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
+
+**Con esto, el backlog P1 explícito de Fase 1 (`04-backlog-priorizado.md` sección "Orden recomendado de implementación → Fase 1") queda completo**: FND-01..06, LE-101/102/103/106/107, AU-101/102/103/104/107/108/109 (109 dead-letter sigue pendiente, ver abajo), OP-101/102/104/105, RE-101/102/103/107.
+
+**Siguiente paso concreto para continuar (empieza Fase 2 del plan — Nutrición medible):**
+1. Pendientes menores de Fase 1 no bloqueantes: AU-109 (dead-letter/máximo de reintentos con replay — el outbox reintenta con backoff pero sin límite ni estado `dead`), AU-105/106 (condiciones AND/OR, ramas if/else, esperas — el motor sigue siendo lineal), eventos AU-107 restantes (`task.due/overdue`, `consent.changed`, `email.*`, `lead.owner.changed` a outbox).
+2. Email marketing (EM-101..110) — Fase 2 completa, empezar por EM-101 (`MauticContactBinding`)/EM-102 (`EmailDelivery`+`EmailEvent`)/EM-103 (cliente Mautic tipado) antes del wizard EM-105.
+3. RE-104/105/106 (calendario externo — XL, requiere decidir proveedor OAuth primero; recordatorios T-24h/T-2h dependen de esto o de un mínimo sin calendario).
+4. Empresa/Contacto (`Account`/`Contact`, sección 3 de `05-arquitectura-objetivo.md`) — base de Fase 3, desbloquea OP-108/109.
 
 ## Fases siguientes (no iniciadas)
 
