@@ -7,6 +7,7 @@ import {
   RiMoneyDollarBoxLine, RiRobotLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
+import NewReunionModal from '../modals/NewReunionModal'
 
 const BG_POOL = ['#2563eb','#0891b2','#7c3aed','#b45309','#be185d','#059669','#d97706','#0d9488']
 const STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistiÃ³' }
@@ -59,12 +60,16 @@ function mapRaw(data, id) {
     hasJoin: !!data.meetingUrl && data.status === 'scheduled',
     isLive: data.status === 'scheduled' && d <= now && now <= end,
     objetivo: data.title ?? '',
+    title: data.title ?? '',
     summary: '',
     notes: data.notes ?? '',
     value: 'â€”', leadStatus: 'â€”', leadStatusColor: '#94a3b8',
     priority: 'Media', prioColor: '#60a5fa',
     resources: [],
     meetingUrl: data.meetingUrl,
+    // RE-102: crudos, necesarios para precargar el modal de reprogramación.
+    scheduledAt: data.scheduledAt,
+    durationMinutes: dur,
   }
 }
 
@@ -75,11 +80,12 @@ export default function MeetingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('PreparaciÃ³n')
   const [showCancel, setShowCancel] = useState(false)
+  const [showReschedule, setShowReschedule] = useState(false)
   const [notes, setNotes] = useState('')
   const [notesSaving, setNotesSaving] = useState(false)
 
-  useEffect(() => {
-    apiFetch(`/api/meetings/${id}`)
+  function reload() {
+    return apiFetch(`/api/meetings/${id}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data) {
@@ -90,7 +96,9 @@ export default function MeetingDetailPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [id])
+  }
+
+  useEffect(() => { reload() }, [id])
 
   async function saveNotes() {
     if (!mtg) return
@@ -179,7 +187,7 @@ export default function MeetingDetailPage() {
                   <RiVideoLine style={{ width:14, height:14 }} /> Unirse
                 </button>
               )}
-              <button onClick={() => navigate('/reuniones')} style={{
+              <button onClick={() => setShowReschedule(true)} style={{
                 display:'flex', alignItems:'center', gap:6, background:'#111827',
                 border:'1px solid #1e2433', borderRadius:9, padding:'8px 12px',
                 color:'#94a3b8', fontSize:13, cursor:'pointer',
@@ -334,6 +342,16 @@ export default function MeetingDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Reschedule modal (RE-102): precargado con la reunión actual, nunca
+          crea una reunión nueva ni pierde la referencia a esta. */}
+      {showReschedule && mtg && (
+        <NewReunionModal
+          meeting={mtg}
+          onClose={() => setShowReschedule(false)}
+          onSuccess={() => { setShowReschedule(false); reload() }}
+        />
+      )}
 
       {/* Cancel modal */}
       {showCancel && (

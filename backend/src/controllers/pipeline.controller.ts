@@ -1,12 +1,16 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import * as pipelineService from '../services/pipeline.service'
-import { OwnershipError, OpportunityNotFoundError, PipelineValidationError } from '../services/pipeline.service'
+import { OwnershipError, OpportunityNotFoundError, PipelineValidationError, PipelineStateError } from '../services/pipeline.service'
 import { parseRequest } from '../lib/validation'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
 const OPPORTUNITY_STAGES = ['lead', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] as const
+// OP-104: reopen() vuelve la oportunidad a una etapa activa; no tiene
+// sentido "reabrir" directamente hacia closed_won/closed_lost (para eso
+// están mark-won/mark-lost).
+const REOPEN_STAGES = ['lead', 'qualified', 'proposal', 'negotiation'] as const
 // Monedas soportadas por el formulario de oportunidad (ver OpportunityDetailPage.jsx).
 const SUPPORTED_CURRENCIES = ['EUR', 'USD', 'GBP', 'MXN'] as const
 
@@ -47,6 +51,26 @@ const moveStageSchema = z
     toStage: z.enum(OPPORTUNITY_STAGES),
     reason: z.string().trim().max(500).optional(),
     probability: z.coerce.number().int().min(0).max(100).optional(),
+  })
+  .strict()
+
+const markWonSchema = z
+  .object({
+    actualCloseDate: expectedCloseDateSchema.optional(),
+    finalValue: z.coerce.number().min(0).optional(),
+  })
+  .strict()
+
+const markLostSchema = z
+  .object({
+    reason: z.string().trim().min(1, 'reason es requerido').max(500),
+    lossNotes: z.string().trim().max(2000).optional(),
+  })
+  .strict()
+
+const reopenSchema = z
+  .object({
+    toStage: z.enum(REOPEN_STAGES).optional(),
   })
   .strict()
 
@@ -148,6 +172,72 @@ export async function moveStage(
       return reply.status(404).send({ error: `${err.field} no encontrado` })
     }
     if (err instanceof PipelineValidationError) {
+      return reply.status(400).send({ error: err.message })
+    }
+    throw err
+  }
+}
+
+export async function markWon(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, markWonSchema, request.body)
+  if (!data) return
+
+  try {
+    const opp = await pipelineService.markWon(orgId, userId, request.params.id, data)
+    return reply.send(opp)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    if (err instanceof PipelineStateError || err instanceof PipelineValidationError) {
+      return reply.status(400).send({ error: err.message })
+    }
+    throw err
+  }
+}
+
+export async function markLost(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, markLostSchema, request.body)
+  if (!data) return
+
+  try {
+    const opp = await pipelineService.markLost(orgId, userId, request.params.id, data)
+    return reply.send(opp)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    if (err instanceof PipelineStateError || err instanceof PipelineValidationError) {
+      return reply.status(400).send({ error: err.message })
+    }
+    throw err
+  }
+}
+
+export async function reopen(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, reopenSchema, request.body)
+  if (!data) return
+
+  try {
+    const opp = await pipelineService.reopen(orgId, userId, request.params.id, data)
+    return reply.send(opp)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    if (err instanceof PipelineStateError || err instanceof PipelineValidationError) {
       return reply.status(400).send({ error: err.message })
     }
     throw err

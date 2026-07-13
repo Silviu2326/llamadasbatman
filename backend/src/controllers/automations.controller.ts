@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import * as automationsService from '../services/automations.service'
-import { AUTOMATION_ACTION_TYPES } from '../services/automations.service'
+import { AUTOMATION_ACTION_TYPES, AUTOMATION_RUN_STATUSES } from '../services/automations.service'
 import { parseRequest } from '../lib/validation'
 import { writeAuditLog } from '../lib/audit'
 
@@ -28,6 +28,12 @@ const createAutomationSchema = z.object({
   isDraft: z.boolean().optional(),
 }).strict()
 
+const listRunsQuerySchema = z.object({
+  status: z.enum(AUTOMATION_RUN_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).max(100_000).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+}).strict()
+
 export async function get(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
@@ -47,6 +53,33 @@ export async function list(request: FastifyRequest, reply: FastifyReply) {
 export async function health(request: FastifyRequest, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
   return reply.send(await automationsService.getEngineHealth(orgId))
+}
+
+/** GET /:id/runs — historial de ejecuciones de una automatización (AU-104). */
+export async function listRuns(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Querystring: { status?: string; page?: string; limit?: string }
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const query = parseRequest(reply, listRunsQuerySchema, request.query)
+  if (!query) return
+  const result = await automationsService.listRuns(orgId, request.params.id, query)
+  if (!result) return reply.status(404).send({ error: 'Automation not found' })
+  return reply.send(result)
+}
+
+/** GET /:id/runs/:runId — detalle de un run con sus pasos (AU-104). */
+export async function getRunDetail(
+  request: FastifyRequest<{ Params: { id: string; runId: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const run = await automationsService.getRunDetail(orgId, request.params.id, request.params.runId)
+  if (!run) return reply.status(404).send({ error: 'Run not found' })
+  return reply.send(run)
 }
 
 export async function create(

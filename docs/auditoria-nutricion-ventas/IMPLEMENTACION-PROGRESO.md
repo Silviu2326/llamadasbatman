@@ -56,12 +56,26 @@ Verificado tras esta pasada: `npx tsc --noEmit` y `npx vite build` limpios con T
 
 Verificado: `npx tsc --noEmit` y `npx vite build` limpios con los tres cambios integrados.
 
+### Fase 1 · continuación (OP-104, RE-101..104, AU-104)
+
+| ID | Estado | Notas |
+| --- | --- | --- |
+| OP-104 Ganar/perder/reabrir | ✅ hecho | `markWon`/`markLost`/`reopen` sobre `moveStage`; `closed_lost` exige motivo, `closed_won` fija `actualCloseDate`/valor final, `reopen` solo `admin` y limpia `actualCloseDate`/`lossReason`. Botones en `OpportunityDetailPage.jsx`. |
+| LE-07 (lado Oportunidad) | ✅ hecho | `NewOportunidadModal.jsx`: toggle crear nuevo / usar lead existente con búsqueda real (`GET /api/leads?search=`). |
+| RE-101 Selector de lead existente | ✅ hecho | Mismo patrón en `NewReunionModal.jsx`. |
+| RE-102 Reprogramar real | ✅ hecho | `POST /api/meetings/:id/reschedule` + historial vía `SalesActivity` (`meeting_rescheduled`); el botón "Reprogramar" (listado y ficha) ya no crea una reunión nueva ni pierde la referencia. |
+| RE-103/RE-04 Búsqueda server-side | ✅ hecho | `listMeetings` con `search`/paginación; `Reuniones.jsx` conectado (antes buscador/filtros/paginación estaban inertes). Tabs de fecha siguen siendo client-side sobre la página cargada (documentado, igual que Leads). |
+| AU-104 Historial de runs | ✅ hecho | `GET /:id/runs` (paginado, conteo de pasos por estado) y `GET /:id/runs/:runId` (detalle de `AutomationStepRun`); `AutomacionDetailPage.jsx` ya lista runs y su detalle en vez de solo el conteo total. |
+
+Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
+
 **Siguiente paso concreto para continuar:**
-1. FND-06 (correlationId/errores normalizados) — pendiente desde el inicio de Fase 1.
-2. LE-102 (export asíncrono completo, hoy solo exporta la página visible con aviso explícito), LE-103 (ImportJob asíncrono — importLeads sigue siendo secuencial por fila).
-3. OP-104 (comandos ganar/perder/reabrir con invariantes completos — hoy `moveStage` cubre el motivo de pérdida pero no fecha/valor final de cierre ganado ni el control de reabrir).
-4. AU-102..109 (versionado inmutable, condiciones/ramas, historial UI, dead-letter) — es el bloque más grande que queda de Automatizaciones.
-5. RE-101..108 (Reuniones) y EM-101..110 (Email marketing completo) siguen sin empezar — son Fase 2/3 del plan.
+1. FND-06 (correlationId/errores normalizados) — pendiente desde el inicio de Fase 1, sigue sin abordar.
+2. LE-102 (export asíncrono completo), LE-103 (ImportJob asíncrono — `importLeads` sigue secuencial por fila).
+3. RE-104/105 (integración de calendario externo — XL, requiere OAuth con Google/Microsoft, decidir proveedor primero) y RE-106 (recordatorios T-24h/T-2h trazados — depende de RE-104 o de un mínimo sin calendario externo).
+4. AU-102/103/105/106/109/110 (versionado inmutable `AutomationVersion`, condiciones/ramas, esperas, dead-letter, simulador) — bloque grande restante de Automatizaciones, requiere diseño propio (no es una extensión trivial de lo ya construido).
+5. Email marketing (EM-101..110) sigue sin empezar — es Fase 2 completa del plan, empieza por EM-101/102/103 (binding de contacto + EmailDelivery/EmailEvent + cliente Mautic tipado) antes del wizard de campaña (EM-105).
+6. Empresa/Contacto (Account/Contact, sección 3 de `05-arquitectura-objetivo.md`) no se ha empezado — es la base de Fase 3, pero también desbloquea OP-108 (contactos/roles de compra).
 
 ## Fases siguientes (no iniciadas)
 

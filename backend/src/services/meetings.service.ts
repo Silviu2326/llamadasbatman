@@ -9,6 +9,10 @@ interface MeetingFilters {
   status?: MeetingStatus
   dateFrom?: string
   dateTo?: string
+  /** RE-103: busca por título de la reunión o nombre del lead asociado. */
+  search?: string
+  page?: number
+  limit?: number
 }
 
 /** Errores de dominio para que el controller pueda mapear a códigos HTTP. */
@@ -27,7 +31,8 @@ export async function getMeeting(orgId: string, id: string) {
 }
 
 export async function listMeetings(orgId: string, filters: MeetingFilters = {}) {
-  const { assignedTo, status, dateFrom, dateTo } = filters
+  const { assignedTo, status, dateFrom, dateTo, search, page = 1, limit = 20 } = filters
+  const skip = (page - 1) * limit
 
   const where: Record<string, unknown> = { orgId }
   if (assignedTo) where.assignedTo = assignedTo
@@ -38,12 +43,25 @@ export async function listMeetings(orgId: string, filters: MeetingFilters = {}) 
       ...(dateTo ? { lte: new Date(dateTo) } : {}),
     }
   }
+  if (search) {
+    where.OR = [
+      { title: { contains: search, mode: 'insensitive' } },
+      { lead: { name: { contains: search, mode: 'insensitive' } } },
+    ]
+  }
 
-  return prisma.meeting.findMany({
-    where,
-    include: { lead: true, assignee: { select: { id: true, name: true, role: true } } },
-    orderBy: { scheduledAt: 'asc' },
-  })
+  const [data, total] = await Promise.all([
+    prisma.meeting.findMany({
+      where,
+      include: { lead: true, assignee: { select: { id: true, name: true, role: true } } },
+      orderBy: { scheduledAt: 'asc' },
+      skip,
+      take: limit,
+    }),
+    prisma.meeting.count({ where }),
+  ])
+
+  return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
 /**
@@ -193,6 +211,66 @@ export async function updateMeeting(orgId: string, actorUserId: string | null | 
       sourceId: id,
     })
   }
+
+  return after
+}
+
+/**
+ * RE-102: reprogramar una reunión de verdad — actualiza scheduledAt (y
+ * vuelve el status a 'scheduled' si estaba cancelada/no_show/completed, que
+ * son los únicos estados desde los que tiene sentido reprogramar) y deja
+ * rastro en SalesActivity con el from/to para que se pueda ver el historial.
+ * No usamos updateMeeting() porque necesitamos capturar el scheduledAt
+ * anterior atómicamente junto con la comprobación de ownership.
+ */
+export async function rescheduleMeeting(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  data: { scheduledAt: string; reason?: string }
+) {
+  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  if (!before) throw new MeetingNotFoundError()
+
+  const oldScheduledAt = before.scheduledAt
+  const newScheduledAt = new Date(data.scheduledAt)
+
+  const result = await prisma.meeting.updateMany({
+    where: { id, orgId },
+    data: {
+      scheduledAt: newScheduledAt,
+      status: 'scheduled',
+    },
+  })
+
+  if (result.count === 0) throw new MeetingNotFoundError()
+
+  const after = await prisma.meeting.findFirst({ where: { id, orgId } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'meeting.reschedule',
+    entityType: 'Meeting',
+    entityId: id,
+    before,
+    after: after ?? undefined,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'meeting',
+    leadId: before.leadId,
+    meetingId: id,
+    actorUserId,
+    subject: 'Reunión reprogramada',
+    source: 'meeting_rescheduled',
+    metadata: {
+      from: oldScheduledAt.toISOString(),
+      to: newScheduledAt.toISOString(),
+      reason: data.reason ?? null,
+    },
+  })
 
   return after
 }

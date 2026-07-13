@@ -27,6 +27,16 @@ export class PipelineValidationError extends Error {
   }
 }
 
+/** 400: la acción no es válida para el estado actual (OP-104, p.ej. mark-won sobre una ya cerrada). */
+export class PipelineStateError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PipelineStateError'
+  }
+}
+
+const CLOSED_STAGES: OpportunityStage[] = ['closed_won', 'closed_lost']
+
 /**
  * Valida que las referencias recibidas del cliente (lead, usuario asignado)
  * pertenezcan a la organización antes de dejarlas tocar la base (P0-01/VE-01).
@@ -224,6 +234,164 @@ export async function moveStage(
   })
 
   return updated
+}
+
+/**
+ * OP-104: marca la oportunidad como ganada. Reutiliza moveStage() para dejar
+ * el rastro en OpportunityStageHistory (probability=100) y luego fija
+ * actualCloseDate (hoy si no se pasa) y, opcionalmente, el valor final.
+ * No permite ganar una oportunidad ya cerrada (won o lost): hay que pasar
+ * por reopen() primero para no pisar un cierre existente en silencio.
+ */
+export async function markWon(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  data: { actualCloseDate?: string; finalValue?: number }
+) {
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  if (!opportunity) throw new OpportunityNotFoundError()
+
+  if (CLOSED_STAGES.includes(opportunity.stage)) {
+    throw new PipelineStateError('La oportunidad ya está cerrada; reábrela antes de marcarla como ganada')
+  }
+
+  if (data.finalValue !== undefined && data.finalValue < 0) {
+    throw new PipelineValidationError('finalValue debe ser mayor o igual a 0')
+  }
+
+  await moveStage(orgId, actorUserId, id, 'closed_won', undefined, 100)
+
+  const result = await prisma.opportunity.update({
+    where: { id },
+    data: {
+      actualCloseDate: data.actualCloseDate ? new Date(data.actualCloseDate) : new Date(),
+      ...(data.finalValue !== undefined ? { value: data.finalValue } : {}),
+    },
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.mark_won',
+    entityType: 'Opportunity',
+    entityId: id,
+    before: opportunity,
+    after: result,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'opportunity_won',
+    opportunityId: id,
+    leadId: opportunity.leadId,
+    actorUserId,
+    metadata: { finalValue: data.finalValue ?? null, actualCloseDate: result.actualCloseDate },
+  })
+
+  return result
+}
+
+/**
+ * OP-104: marca la oportunidad como perdida. `reason` es obligatorio (lo
+ * exige también moveStage() para 'closed_lost', que lo persiste en
+ * `lossReason`); `lossNotes` no tiene columna propia en el schema, así que
+ * se registra como SalesActivity (reutilizando el timeline, sin modelo
+ * nuevo). No permite perder una oportunidad ya cerrada.
+ */
+export async function markLost(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  data: { reason: string; lossNotes?: string }
+) {
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  if (!opportunity) throw new OpportunityNotFoundError()
+
+  if (CLOSED_STAGES.includes(opportunity.stage)) {
+    throw new PipelineStateError('La oportunidad ya está cerrada; reábrela antes de marcarla como perdida')
+  }
+
+  await moveStage(orgId, actorUserId, id, 'closed_lost', data.reason)
+
+  const result = await prisma.opportunity.update({
+    where: { id },
+    data: { actualCloseDate: new Date() },
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.mark_lost',
+    entityType: 'Opportunity',
+    entityId: id,
+    before: opportunity,
+    after: result,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'opportunity_lost',
+    opportunityId: id,
+    leadId: opportunity.leadId,
+    actorUserId,
+    body: data.lossNotes,
+    metadata: { reason: data.reason },
+  })
+
+  return result
+}
+
+/**
+ * OP-104: reabre una oportunidad cerrada (won o lost) devolviéndola a una
+ * etapa activa del pipeline. A diferencia de un move-stage normal, esta
+ * acción deshace un cierre que se consideraba definitivo (revierte una
+ * venta ganada o descarta el motivo de pérdida registrado), por eso el
+ * controlador/ruta la restringe a rol 'admin' — no es un cambio de etapa
+ * cualquiera. Solo aplica si la oportunidad está actualmente cerrada.
+ */
+export async function reopen(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  data: { toStage?: OpportunityStage }
+) {
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  if (!opportunity) throw new OpportunityNotFoundError()
+
+  if (!CLOSED_STAGES.includes(opportunity.stage)) {
+    throw new PipelineStateError('Solo se puede reabrir una oportunidad que esté cerrada (ganada o perdida)')
+  }
+
+  const toStage = data.toStage ?? 'negotiation'
+
+  await moveStage(orgId, actorUserId, id, toStage)
+
+  const result = await prisma.opportunity.update({
+    where: { id },
+    data: { actualCloseDate: null, lossReason: null },
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.reopen',
+    entityType: 'Opportunity',
+    entityId: id,
+    before: opportunity,
+    after: result,
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'opportunity_reopened',
+    opportunityId: id,
+    leadId: opportunity.leadId,
+    actorUserId,
+    metadata: { from: opportunity.stage, to: toStage },
+  })
+
+  return result
 }
 
 export async function getStageHistory(orgId: string, id: string) {

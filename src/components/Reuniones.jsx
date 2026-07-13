@@ -13,6 +13,14 @@ import DataTable from './DataTable'
 import '../dashboard.css'
 import NewReunionModal from '../modals/NewReunionModal'
 
+const MEETING_STATUS_OPTIONS = [
+  { value: '', label: 'Cualquier estado' },
+  { value: 'scheduled', label: 'Confirmada' },
+  { value: 'completed', label: 'Completada' },
+  { value: 'cancelled', label: 'Cancelada' },
+  { value: 'no_show', label: 'No asistió' },
+]
+
 // ─── constants ────────────────────────────────────────────────────────────────
 const STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistió' }
 const STATUS_COLOR = { scheduled:'#10b981', completed:'#6b7280', cancelled:'#ef4444', no_show:'#f59e0b' }
@@ -55,10 +63,14 @@ function mapMeeting(m, i) {
     value: '—', priority: 'Media', prioColor: '#60a5fa',
     hasJoin: !!m.meetingUrl && m.status === 'scheduled', isLive,
     objetivo: m.title ?? '',
+    title: m.title ?? '',
     leadStatus: 'Interesado', leadStatusColor: '#22d3ee',
     summary: m.notes ?? '', resources: [],
     meetingUrl: m.meetingUrl,
     scheduledAt: m.scheduledAt,
+    // RE-102: se necesita el número crudo (no el "30 min" formateado) para
+    // precargar el formulario de reprogramación.
+    durationMinutes: dur,
   }
 }
 
@@ -76,7 +88,11 @@ function filterByTab(meetings, tab) {
   return meetings
 }
 
-function buildKPIs(raw) {
+// RE-103/RE-04: `raw` es la página actual devuelta por el backend (paginado
+// server-side), no el listado completo — igual que en Leads.jsx, los KPIs
+// aquí reflejan solo lo cargado en pantalla. `totalMeetings` (meta.total del
+// backend) sí es la cifra global y se usa para el primer tile.
+function buildKPIs(raw, totalMeetings) {
   const total = raw.length
   const completed = raw.filter(m => m.status === 'completed').length
   const cancelled = raw.filter(m => m.status === 'cancelled').length
@@ -87,7 +103,7 @@ function buildKPIs(raw) {
   // ponytail: flat data array — no historical series available from backend
   const flat = (n, len = 12) => Array(len).fill(n)
   return [
-    { Icon: RiCalendar2Line, iconBg:'#6d28d9', label:'Reuniones\nagendadas',  value: String(total),       pct:0, color:'#a78bfa', data: flat(total) },
+    { Icon: RiCalendar2Line, iconBg:'#6d28d9', label:'Reuniones\nagendadas',  value: String(totalMeetings ?? total), pct:0, color:'#a78bfa', data: flat(totalMeetings ?? total) },
     { Icon: RiCalendarLine,  iconBg:'#047857', label:'Reuniones\ncompletadas', value: String(completed),   pct:0, color:'#34d399', data: flat(completed) },
     { Icon: RiGroupLine,     iconBg:'#0e7490', label:'Tasa de\nasistencia',    value: `${attendRate}%`,    pct:0, color:'#22d3ee', data: flat(parseFloat(attendRate)) },
     { Icon: RiMoneyDollarBoxLine, iconBg:'#b45309', label:'Canceladas',        value: String(cancelled),   pct:0, color:'#fbbf24', data: flat(cancelled) },
@@ -203,20 +219,61 @@ export default function Reuniones() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('Todas')
   const [showNewMeeting, setShowNewMeeting] = useState(false)
+  const [rescheduleTarget, setRescheduleTarget] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
   const [raw, setRaw] = useState([])
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
 
+  // RE-103/RE-04: búsqueda/filtros/paginación server-side, mismo patrón que
+  // LE-101 en Leads.jsx.
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+
   useEffect(() => {
-    apiFetch('/api/meetings')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setRaw(Array.isArray(data) ? data : []))
-      .catch(() => {})
-  }, [refreshKey])
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(timeout)
+  }, [search])
+
+  // Cualquier cambio de búsqueda/filtro redefine el conjunto de resultados:
+  // vuelve a la página 1.
+  useEffect(() => { setPage(1) }, [debouncedSearch, statusFilter, dateFrom, dateTo, limit])
+
+  useEffect(() => {
+    let active = true
+    setLoading(true); setError('')
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (debouncedSearch) params.set('search', debouncedSearch)
+    if (statusFilter) params.set('status', statusFilter)
+    if (dateFrom) params.set('dateFrom', dateFrom)
+    if (dateTo) params.set('dateTo', dateTo)
+    apiFetch(`/api/meetings?${params.toString()}`)
+      .then(r => { if (!r.ok) throw new Error('meetings'); return r.json() })
+      .then(data => {
+        if (!active) return
+        const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+        setRaw(items)
+        setMeta({ total: data.total ?? items.length, totalPages: data.totalPages ?? 1 })
+      })
+      .catch(() => { if (active) setError('No se pudieron cargar las reuniones.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [page, limit, debouncedSearch, statusFilter, dateFrom, dateTo, refreshKey])
 
   const mapped = useMemo(() => raw.map(mapMeeting), [raw])
-  const kpis = useMemo(() => buildKPIs(raw), [raw])
+  const kpis = useMemo(() => buildKPIs(raw, meta.total), [raw, meta.total])
+  // TABS aplica solo sobre la página ya cargada (igual que FILTER_TABS en
+  // Leads.jsx) — search/status/fecha ya se resolvieron en el backend arriba.
   const meetings = useMemo(() => filterByTab(mapped, activeTab), [mapped, activeTab])
+  const filterCount = (statusFilter ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0)
 
   async function handleCancel() {
     await apiFetch(`/api/meetings/${cancelTarget.id}`, {
@@ -225,6 +282,10 @@ export default function Reuniones() {
     }).catch(() => {})
     setRaw(prev => prev.map(m => m.id === cancelTarget.id ? { ...m, status: 'cancelled' } : m))
     setCancelTarget(null)
+  }
+
+  function clearFilters() {
+    setStatusFilter(''); setDateFrom(''); setDateTo('')
   }
 
   function exportCSV() {
@@ -275,7 +336,7 @@ export default function Reuniones() {
           Unirse
         </button>
       )}
-      <RowMenu mtg={mtg} onDetail={m => navigate('/reuniones/' + m.id)} onReschedule={() => setShowNewMeeting(true)} onCancel={setCancelTarget} />
+      <RowMenu mtg={mtg} onDetail={m => navigate('/reuniones/' + m.id)} onReschedule={setRescheduleTarget} onCancel={setCancelTarget} />
     </div>,
   ]
 
@@ -292,8 +353,8 @@ export default function Reuniones() {
           <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Gestiona todas las reuniones agendadas por tus agentes IA.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 13px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
-            <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros
+          <button onClick={() => setShowFilters(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: showFilters || filterCount ? '#8b5cf620' : '#0d1117', border: `1px solid ${showFilters || filterCount ? '#8b5cf6' : '#1e2433'}`, borderRadius: 9, padding: '7px 13px', color: showFilters || filterCount ? '#c4b5fd' : '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+            <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros{filterCount > 0 && ` (${filterCount})`}
           </button>
           <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 13px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
             <RiDownloadLine style={{ width: 13, height: 13 }} /> Exportar
@@ -304,7 +365,39 @@ export default function Reuniones() {
         </div>
       </div>
 
+      {showFilters && (
+        <div style={{ margin: '0 24px 14px', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Estado
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }}>
+              {MEETING_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Desde
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Hasta
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+          </label>
+          {filterCount > 0 && (
+            <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 0' }}>
+              <RiCloseLine style={{ width: 13, height: 13 }} /> Limpiar filtros
+            </button>
+          )}
+        </div>
+      )}
+
       {showNewMeeting && <NewReunionModal onClose={() => setShowNewMeeting(false)} onSuccess={() => { setShowNewMeeting(false); setRefreshKey(k => k + 1) }} />}
+
+      {rescheduleTarget && (
+        <NewReunionModal
+          meeting={rescheduleTarget}
+          onClose={() => setRescheduleTarget(null)}
+          onSuccess={() => { setRescheduleTarget(null); setRefreshKey(k => k + 1) }}
+        />
+      )}
 
       {cancelTarget && (
         <div onClick={() => setCancelTarget(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -350,13 +443,20 @@ export default function Reuniones() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '6px 11px' }}>
                 <RiSearchLine style={{ width: 12, height: 12, color: '#6b7280' }} />
-                <input placeholder="Buscar reuniones…" style={{ background: 'none', border: 'none', outline: 'none', color: '#94a3b8', fontSize: 11.5, width: 130 }} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar reuniones…" style={{ background: 'none', border: 'none', outline: 'none', color: '#94a3b8', fontSize: 11.5, width: 130 }} />
               </div>
-              <button style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '6px 9px', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <button onClick={() => setShowFilters(v => !v)} style={{ background: showFilters || filterCount ? '#8b5cf620' : '#0d1117', border: `1px solid ${showFilters || filterCount ? '#8b5cf6' : '#1e2433'}`, borderRadius: 9, padding: '6px 9px', color: showFilters || filterCount ? '#c4b5fd' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                 <RiFilterLine style={{ width: 13, height: 13 }} />
               </button>
             </div>
           </div>
+
+          {error && (
+            <div style={{ background: '#ef444412', border: '1px solid #ef444430', borderRadius: 9, padding: '9px 13px', color: '#ef4444', fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span>{error}</span>
+              <button onClick={() => setRefreshKey(k => k + 1)} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
+            </div>
+          )}
 
           {/* table */}
           <DataTable
@@ -371,19 +471,20 @@ export default function Reuniones() {
 
           {/* pagination */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, color: '#6b7280' }}>Mostrando {meetings.length} de {mapped.length} reuniones</span>
+            <span style={{ fontSize: 12, color: '#6b7280' }}>{loading ? 'Cargando…' : `Mostrando ${raw.length ? (page - 1) * limit + 1 : 0} a ${Math.min((page - 1) * limit + raw.length, meta.total)} de ${meta.total} reuniones`}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page <= 1 ? '#374151' : '#6b7280', cursor: page <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
                 <RiArrowLeftSLine style={{ width: 14, height: 14 }} />
               </button>
-              <button style={{ background: '#4f46e5', border: '1px solid #4f46e5', borderRadius: 7, padding: '5px 9px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>1</button>
-              <button style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <button style={{ background: '#4f46e5', border: '1px solid #4f46e5', borderRadius: 7, padding: '5px 9px', color: '#fff', cursor: 'default', fontSize: 12, fontWeight: 700 }}>{page}</button>
+              <span style={{ fontSize: 11, color: '#4b5563' }}>de {meta.totalPages}</span>
+              <button disabled={page >= meta.totalPages} onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page >= meta.totalPages ? '#374151' : '#6b7280', cursor: page >= meta.totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
                 <RiArrowRightSLine style={{ width: 14, height: 14 }} />
               </button>
-              <select style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 9px', color: '#6b7280', fontSize: 12, cursor: 'pointer', outline: 'none' }}>
-                <option>10 por página</option>
-                <option>25 por página</option>
-                <option>50 por página</option>
+              <select value={limit} onChange={e => setLimit(Number(e.target.value))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 9px', color: '#6b7280', fontSize: 12, cursor: 'pointer', outline: 'none' }}>
+                <option value={10}>10 por página</option>
+                <option value={25}>25 por página</option>
+                <option value={50}>50 por página</option>
               </select>
             </div>
           </div>

@@ -43,6 +43,30 @@ const updateMeetingSchema = z
   })
   .strict()
 
+// RE-102: reprogramar exige una fecha futura (si se manda una fecha pasada
+// no tiene sentido "reprogramar" a un hueco que ya ocurrió).
+const rescheduleMeetingSchema = z
+  .object({
+    scheduledAt: scheduledAtSchema.refine((value) => new Date(value).getTime() > Date.now(), {
+      message: 'scheduledAt debe ser una fecha futura',
+    }),
+    reason: z.string().trim().min(1).max(2000).optional(),
+  })
+  .strict()
+
+// RE-103/RE-04: querystring de búsqueda/filtros/paginación server-side.
+const listMeetingsQuerySchema = z
+  .object({
+    assignedTo: z.string().trim().min(1).max(128).optional(),
+    status: z.enum(MEETING_STATUSES).optional(),
+    dateFrom: z.string().trim().min(1).max(64).optional(),
+    dateTo: z.string().trim().min(1).max(64).optional(),
+    search: z.string().trim().min(1).max(200).optional(),
+    page: z.coerce.number().int().min(1).max(100_000).optional(),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict()
+
 export async function get(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
@@ -60,17 +84,24 @@ export async function list(
       status?: string
       dateFrom?: string
       dateTo?: string
+      search?: string
+      page?: string
+      limit?: string
     }
   }>,
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const q = request.query
+  const query = parseRequest(reply, listMeetingsQuerySchema, request.query)
+  if (!query) return
   const result = await meetingsService.listMeetings(orgId, {
-    assignedTo: q.assignedTo,
-    status: q.status as MeetingStatus | undefined,
-    dateFrom: q.dateFrom,
-    dateTo: q.dateTo,
+    assignedTo: query.assignedTo,
+    status: query.status as MeetingStatus | undefined,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+    search: query.search,
+    page: query.page,
+    limit: query.limit,
   })
   return reply.send(result)
 }
@@ -114,6 +145,28 @@ export async function update(
     }
     if (err instanceof OwnershipError) {
       return reply.status(404).send({ error: `${err.field} no encontrado` })
+    }
+    throw err
+  }
+}
+
+export async function reschedule(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: unknown
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, rescheduleMeetingSchema, request.body)
+  if (!data) return
+
+  try {
+    const meeting = await meetingsService.rescheduleMeeting(orgId, userId, request.params.id, data)
+    return reply.send(meeting)
+  } catch (err) {
+    if (err instanceof MeetingNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
     }
     throw err
   }

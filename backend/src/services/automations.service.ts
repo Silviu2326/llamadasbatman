@@ -185,6 +185,59 @@ export async function listAutomations(orgId: string) {
   })
 }
 
+// AU-104: historial de runs — la automation debe pertenecer a la org antes
+// de exponer cualquier run; devolvemos un conteo de pasos por estado en vez
+// del detalle completo de stepRuns para mantener la lista liviana.
+export const AUTOMATION_RUN_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const
+export type AutomationRunStatus = typeof AUTOMATION_RUN_STATUSES[number]
+
+export async function listRuns(orgId: string, automationId: string, filters: {
+  status?: AutomationRunStatus
+  page?: number
+  limit?: number
+} = {}) {
+  const automation = await prisma.automation.findFirst({ where: { id: automationId, orgId } })
+  if (!automation) return null
+
+  const page = filters.page && filters.page > 0 ? filters.page : 1
+  const limit = filters.limit && filters.limit > 0 ? filters.limit : 20
+
+  const where: any = { orgId, automationId }
+  if (filters.status) where.status = filters.status
+
+  const [items, total] = await Promise.all([
+    prisma.automationRun.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: { stepRuns: { select: { status: true } } },
+    }),
+    prisma.automationRun.count({ where }),
+  ])
+
+  const runs = items.map(({ stepRuns, ...run }) => {
+    const stepCounts = { succeeded: 0, skipped: 0, blocked: 0, failed: 0, pending: 0 }
+    for (const step of stepRuns) {
+      if (step.status in stepCounts) stepCounts[step.status as keyof typeof stepCounts] += 1
+    }
+    return { ...run, stepCounts, stepsTotal: stepRuns.length }
+  })
+
+  return { items: runs, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }
+}
+
+export async function getRunDetail(orgId: string, automationId: string, runId: string) {
+  const automation = await prisma.automation.findFirst({ where: { id: automationId, orgId } })
+  if (!automation) return null
+
+  const run = await prisma.automationRun.findFirst({
+    where: { id: runId, orgId, automationId },
+    include: { stepRuns: { orderBy: { stepKey: 'asc' } } },
+  })
+  return run
+}
+
 export async function createAutomation(orgId: string, data: {
   name: string
   description?: string

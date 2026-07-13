@@ -1,10 +1,10 @@
-﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
   RiArrowLeftLine, RiMapPinLine, RiMoneyDollarBoxLine,
   RiCalendarLine, RiEditLine, RiAddLine, RiPhoneLine,
-  RiCheckLine,
+  RiCheckLine, RiCloseLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
 
@@ -20,7 +20,29 @@ const ALL_STAGES = [
 
 const STAGE_COLOR = { lead:'#6366f1', contactado:'#0891b2', interesado:'#f59e0b', reunion:'#059669', propuesta:'#8b5cf6', negociacion:'#ea580c', ganado:'#10b981' }
 
+// Opciones del formulario de ediciÃ³n: usan directamente el valor del enum
+// OpportunityStage del backend (no el stageMap de arriba, que es solo para
+// mostrar la barra de progreso y pierde informaciÃ³n â€” "closed_lost" colapsa
+// en "lead" ahÃ­, asÃ­ que invertirlo perderÃ­a la opciÃ³n "Perdido").
+const STAGE_OPTIONS = [
+  { value:'lead',        label:'Lead' },
+  { value:'qualified',   label:'Calificado' },
+  { value:'proposal',    label:'Propuesta' },
+  { value:'negotiation', label:'NegociaciÃ³n' },
+  { value:'closed_won',  label:'Ganado' },
+  { value:'closed_lost', label:'Perdido' },
+]
+
+const CURRENCY_OPTIONS = ['EUR', 'USD', 'GBP', 'MXN']
+
 const TABS = ['Resumen', 'Actividad', 'Notas']
+
+function fmtDateInput(d) {
+  if (!d) return ''
+  const date = new Date(d)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().slice(0, 10)
+}
 
 function Avatar({ text, bg, size = 48 }) {
   const letters = text.split(' ').map(w => w[0]).slice(0,2).join('')
@@ -38,13 +60,32 @@ export default function OpportunityDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [opp, setOpp] = useState(null)
+  const [raw, setRaw] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('Resumen')
 
-  useEffect(() => {
-    apiFetch(`/api/pipeline/${id}`).then(r => r.ok ? r.json() : null).then(data => {
+  const [showEdit, setShowEdit] = useState(false)
+  const [form, setForm] = useState(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState(null)
+
+  const [notesText, setNotesText] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
+  const [notesMessage, setNotesMessage] = useState(null)
+
+  // OP-104: ganar/perder/reabrir
+  const [actioning, setActioning] = useState(false)
+  const [actionError, setActionError] = useState(null)
+  const [showLostForm, setShowLostForm] = useState(false)
+  const [lostReason, setLostReason] = useState('')
+  const [lostNotes, setLostNotes] = useState('')
+
+  const load = useCallback(() => {
+    return apiFetch(`/api/pipeline/${id}`).then(r => r.ok ? r.json() : null).then(data => {
       if (data) {
         const stageMap = { lead: 'lead', qualified: 'interesado', proposal: 'propuesta', negotiation: 'negociacion', closed_won: 'ganado', closed_lost: 'lead' }
+        setRaw(data)
+        setNotesText(data.notes ?? '')
         setOpp({
           ...data,
           company: data.lead?.name ?? data.name,
@@ -60,6 +101,131 @@ export default function OpportunityDetailPage() {
     }).catch(() => setLoading(false))
   }, [id])
 
+  useEffect(() => { load() }, [load])
+
+  function openEdit() {
+    if (!raw) return
+    setEditError(null)
+    setForm({
+      name: raw.name ?? '',
+      stage: raw.stage ?? 'lead',
+      value: raw.value != null ? String(raw.value) : '',
+      currency: raw.currency ?? 'EUR',
+      probability: raw.probability != null ? String(raw.probability) : '0',
+      expectedCloseDate: fmtDateInput(raw.expectedCloseDate),
+      notes: raw.notes ?? '',
+      assignedTo: raw.assignedTo ?? '',
+    })
+    setShowEdit(true)
+  }
+
+  async function handleSaveEdit() {
+    if (!form) return
+    setSavingEdit(true)
+    setEditError(null)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: form.name,
+          stage: form.stage,
+          value: form.value === '' ? undefined : Number(form.value),
+          currency: form.currency,
+          probability: Math.max(0, Math.min(100, Number(form.probability) || 0)),
+          expectedCloseDate: form.expectedCloseDate || undefined,
+          notes: form.notes,
+          assignedTo: form.assignedTo || undefined,
+        }),
+      })
+      if (!res.ok) throw new Error('save failed')
+      await load()
+      setShowEdit(false)
+    } catch {
+      setEditError('No se pudieron guardar los cambios.')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  async function handleSaveNotes() {
+    setSavingNotes(true)
+    setNotesMessage(null)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ notes: notesText }),
+      })
+      if (!res.ok) throw new Error('save failed')
+      setNotesMessage('Notas guardadas.')
+      setRaw(r => r ? { ...r, notes: notesText } : r)
+    } catch {
+      setNotesMessage('No se pudieron guardar las notas.')
+    } finally {
+      setSavingNotes(false)
+    }
+  }
+
+  async function handleMarkWon() {
+    setActioning(true)
+    setActionError(null)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}/mark-won`, { method: 'POST', body: JSON.stringify({}) })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'No se pudo marcar como ganada.')
+      }
+      await load()
+    } catch (e) {
+      setActionError(e.message || 'No se pudo marcar como ganada.')
+    } finally {
+      setActioning(false)
+    }
+  }
+
+  async function handleMarkLost() {
+    if (!lostReason.trim()) {
+      setActionError('El motivo es obligatorio.')
+      return
+    }
+    setActioning(true)
+    setActionError(null)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}/mark-lost`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: lostReason.trim(), lossNotes: lostNotes.trim() || undefined }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'No se pudo marcar como perdida.')
+      }
+      setShowLostForm(false)
+      setLostReason('')
+      setLostNotes('')
+      await load()
+    } catch (e) {
+      setActionError(e.message || 'No se pudo marcar como perdida.')
+    } finally {
+      setActioning(false)
+    }
+  }
+
+  async function handleReopen() {
+    setActioning(true)
+    setActionError(null)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}/reopen`, { method: 'POST', body: JSON.stringify({}) })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'No se pudo reabrir la oportunidad.')
+      }
+      await load()
+    } catch (e) {
+      setActionError(e.message || 'No se pudo reabrir la oportunidad.')
+    } finally {
+      setActioning(false)
+    }
+  }
+
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
       Cargandoâ€¦
@@ -74,6 +240,7 @@ export default function OpportunityDetailPage() {
 
   const stageIdx = ALL_STAGES.findIndex(s => s.id === opp.stage)
   const stageColor = STAGE_COLOR[opp.stage] || '#6366f1'
+  const isClosed = raw?.stage === 'closed_won' || raw?.stage === 'closed_lost'
 
   return (
     <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'#080c14', display:'flex', flexDirection:'column' }}>
@@ -156,14 +323,44 @@ export default function OpportunityDetailPage() {
             }}>
               <RiPhoneLine style={{ width:13, height:13 }} /> Llamar
             </button>
-            <button onClick={() => setTab('Resumen')} style={{
+            <button onClick={openEdit} style={{
               display:'flex', alignItems:'center', gap:6, background:'#111827', border:'1px solid #1e2433',
               borderRadius:9, padding:'8px 12px', color:'#94a3b8', fontSize:13, cursor:'pointer',
             }}>
               <RiEditLine style={{ width:13, height:13 }} /> Editar
             </button>
+            {!isClosed && (
+              <>
+                <button onClick={handleMarkWon} disabled={actioning} style={{
+                  display:'flex', alignItems:'center', gap:6, background:'#065f4620', border:'1px solid #10b98150',
+                  borderRadius:9, padding:'8px 12px', color:'#10b981', fontSize:13, fontWeight:600,
+                  cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
+                }}>
+                  <RiCheckLine style={{ width:13, height:13 }} /> Marcar como ganada
+                </button>
+                <button onClick={() => { setActionError(null); setShowLostForm(true) }} disabled={actioning} style={{
+                  display:'flex', alignItems:'center', gap:6, background:'#7f1d1d20', border:'1px solid #ef444450',
+                  borderRadius:9, padding:'8px 12px', color:'#f87171', fontSize:13, fontWeight:600,
+                  cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
+                }}>
+                  <RiCloseLine style={{ width:13, height:13 }} /> Marcar como perdida
+                </button>
+              </>
+            )}
+            {isClosed && (
+              <button onClick={handleReopen} disabled={actioning} style={{
+                display:'flex', alignItems:'center', gap:6, background:'#111827', border:'1px solid #1e2433',
+                borderRadius:9, padding:'8px 12px', color:'#94a3b8', fontSize:13,
+                cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
+              }}>
+                Reabrir
+              </button>
+            )}
           </div>
         </div>
+        {actionError && (
+          <p style={{ margin:'10px 0 0', fontSize:12.5, color:'#f87171' }}>{actionError}</p>
+        )}
       </div>
 
       {/* Body */}
@@ -243,11 +440,30 @@ export default function OpportunityDetailPage() {
 
           {tab === 'Notas' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-              <textarea placeholder="Escribe tus notas aquÃ­..." style={{
-                width:'100%', minHeight:180, background:'transparent', border:'none',
-                color:'#94a3b8', fontSize:13, outline:'none', resize:'vertical', lineHeight:1.6,
-                fontFamily:'inherit',
-              }} />
+              <textarea
+                placeholder="Escribe tus notas aquÃ­..."
+                value={notesText}
+                onChange={e => setNotesText(e.target.value)}
+                style={{
+                  width:'100%', minHeight:180, background:'transparent', border:'none',
+                  color:'#94a3b8', fontSize:13, outline:'none', resize:'vertical', lineHeight:1.6,
+                  fontFamily:'inherit',
+                }}
+              />
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:8, paddingTop:8, borderTop:'1px solid #1e2433' }}>
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={savingNotes}
+                  style={{
+                    background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8,
+                    padding:'7px 14px', color:'#fff', fontSize:12.5, fontWeight:600,
+                    cursor: savingNotes ? 'not-allowed' : 'pointer', opacity: savingNotes ? 0.6 : 1,
+                  }}
+                >
+                  {savingNotes ? 'Guardandoâ€¦' : 'Guardar notas'}
+                </button>
+                {notesMessage && <span style={{ fontSize:11.5, color:'#94a3b8' }}>{notesMessage}</span>}
+              </div>
             </div>
           )}
         </div>
@@ -260,7 +476,7 @@ export default function OpportunityDetailPage() {
               { Icon:RiPhoneLine, label:'Nueva llamada', color:'#6366f1', action:() => navigate('/llamadas') },
               { Icon:RiCalendarLine, label:'Agendar reuniÃ³n', color:'#8b5cf6', action:() => navigate('/reuniones') },
               { Icon:RiAddLine, label:'AÃ±adir nota', color:'#10b981', action:() => setTab('Notas') },
-              { Icon:RiEditLine, label:'Editar oportunidad', color:'#0891b2', action:() => setTab('Resumen') },
+              { Icon:RiEditLine, label:'Editar oportunidad', color:'#0891b2', action:openEdit },
             ].map(({ Icon, label, color, action }) => (
               <button key={label} onClick={action} style={{
                 display:'flex', alignItems:'center', gap:9, width:'100%', background:'transparent',
@@ -277,6 +493,202 @@ export default function OpportunityDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit modal */}
+      {showEdit && form && (
+        <div style={{
+          position:'fixed', inset:0, background:'#000000a0', zIndex:100,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+        }} onClick={() => !savingEdit && setShowEdit(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width:'100%', maxWidth:480, maxHeight:'86vh', overflowY:'auto',
+              background:'#0d1117', border:'1px solid #1e2433', borderRadius:16, padding:'20px 22px',
+            }}
+          >
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <p style={{ margin:0, fontSize:15, fontWeight:700, color:'#f1f5f9' }}>Editar oportunidad</p>
+              <button onClick={() => setShowEdit(false)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4 }}>
+                <RiCloseLine style={{ width:18, height:18 }} />
+              </button>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Nombre</label>
+                <input
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name:e.target.value }))}
+                  style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                />
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Etapa</label>
+                  <select
+                    value={form.stage}
+                    onChange={e => setForm(f => ({ ...f, stage:e.target.value }))}
+                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                  >
+                    {STAGE_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Probabilidad (%)</label>
+                  <input
+                    type="number" min={0} max={100}
+                    value={form.probability}
+                    onChange={e => setForm(f => ({ ...f, probability:e.target.value }))}
+                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Valor</label>
+                  <input
+                    type="number" min={0}
+                    value={form.value}
+                    onChange={e => setForm(f => ({ ...f, value:e.target.value }))}
+                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Moneda</label>
+                  <select
+                    value={form.currency}
+                    onChange={e => setForm(f => ({ ...f, currency:e.target.value }))}
+                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                  >
+                    {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Fecha de cierre estimada</label>
+                  <input
+                    type="date"
+                    value={form.expectedCloseDate}
+                    onChange={e => setForm(f => ({ ...f, expectedCloseDate:e.target.value }))}
+                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Asignado a (ID usuario)</label>
+                  <input
+                    value={form.assignedTo}
+                    onChange={e => setForm(f => ({ ...f, assignedTo:e.target.value }))}
+                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Notas</label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes:e.target.value }))}
+                  style={{ width:'100%', minHeight:90, boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', resize:'vertical', fontFamily:'inherit' }}
+                />
+              </div>
+
+              {editError && <p style={{ margin:0, fontSize:12, color:'#f87171' }}>{editError}</p>}
+
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4 }}>
+                <button
+                  onClick={() => setShowEdit(false)}
+                  disabled={savingEdit}
+                  style={{ background:'transparent', border:'1px solid #1e2433', borderRadius:9, padding:'8px 16px', color:'#94a3b8', fontSize:13, cursor:'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit}
+                  style={{
+                    background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:9,
+                    padding:'8px 18px', color:'#fff', fontSize:13, fontWeight:700,
+                    cursor: savingEdit ? 'not-allowed' : 'pointer', opacity: savingEdit ? 0.6 : 1,
+                  }}
+                >
+                  {savingEdit ? 'Guardandoâ€¦' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark as lost modal */}
+      {showLostForm && (
+        <div style={{
+          position:'fixed', inset:0, background:'#000000a0', zIndex:100,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+        }} onClick={() => !actioning && setShowLostForm(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width:'100%', maxWidth:420, background:'#0d1117', border:'1px solid #1e2433',
+              borderRadius:16, padding:'20px 22px',
+            }}
+          >
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <p style={{ margin:0, fontSize:15, fontWeight:700, color:'#f1f5f9' }}>Marcar oportunidad como perdida</p>
+              <button onClick={() => setShowLostForm(false)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4 }}>
+                <RiCloseLine style={{ width:18, height:18 }} />
+              </button>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Motivo *</label>
+                <input
+                  value={lostReason}
+                  onChange={e => setLostReason(e.target.value)}
+                  placeholder="Ej. Presupuesto insuficiente"
+                  style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Notas adicionales</label>
+                <textarea
+                  value={lostNotes}
+                  onChange={e => setLostNotes(e.target.value)}
+                  style={{ width:'100%', minHeight:70, boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', resize:'vertical', fontFamily:'inherit' }}
+                />
+              </div>
+
+              {actionError && <p style={{ margin:0, fontSize:12, color:'#f87171' }}>{actionError}</p>}
+
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4 }}>
+                <button
+                  onClick={() => setShowLostForm(false)}
+                  disabled={actioning}
+                  style={{ background:'transparent', border:'1px solid #1e2433', borderRadius:9, padding:'8px 16px', color:'#94a3b8', fontSize:13, cursor:'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleMarkLost}
+                  disabled={actioning}
+                  style={{
+                    background:'#dc2626', border:'none', borderRadius:9,
+                    padding:'8px 18px', color:'#fff', fontSize:13, fontWeight:700,
+                    cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
+                  }}
+                >
+                  {actioning ? 'Guardandoâ€¦' : 'Confirmar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
