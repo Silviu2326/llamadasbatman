@@ -1,12 +1,21 @@
 import { prisma } from '../lib/prisma'
 import { MeetingStatus } from '@prisma/client'
 import { sendScheduleEvent } from './metaConversions.service'
+import { writeAuditLog } from '../lib/audit'
 
 interface MeetingFilters {
   assignedTo?: string
   status?: MeetingStatus
   dateFrom?: string
   dateTo?: string
+}
+
+/** Errores de dominio para que el controller pueda mapear a códigos HTTP. */
+export class OwnershipError extends Error {
+  constructor(public field: string) {
+    super(`${field} no pertenece a la organización`)
+    this.name = 'OwnershipError'
+  }
 }
 
 export async function getMeeting(orgId: string, id: string) {
@@ -36,7 +45,43 @@ export async function listMeetings(orgId: string, filters: MeetingFilters = {}) 
   })
 }
 
-export async function createMeeting(orgId: string, data: {
+/**
+ * Valida que las referencias recibidas del cliente (lead, call, usuario asignado)
+ * pertenezcan a la organización antes de dejarlas tocar la base (P0-01/VE-01).
+ */
+async function assertOwnedReferences(orgId: string, refs: {
+  leadId?: string
+  callId?: string
+  assignedTo?: string
+}) {
+  const checks: Promise<void>[] = []
+
+  if (refs.leadId !== undefined) {
+    checks.push(
+      prisma.lead.findFirst({ where: { id: refs.leadId, orgId }, select: { id: true } }).then((lead) => {
+        if (!lead) throw new OwnershipError('leadId')
+      })
+    )
+  }
+  if (refs.callId) {
+    checks.push(
+      prisma.call.findFirst({ where: { id: refs.callId, orgId }, select: { id: true } }).then((call) => {
+        if (!call) throw new OwnershipError('callId')
+      })
+    )
+  }
+  if (refs.assignedTo) {
+    checks.push(
+      prisma.user.findFirst({ where: { id: refs.assignedTo, orgId }, select: { id: true } }).then((user) => {
+        if (!user) throw new OwnershipError('assignedTo')
+      })
+    )
+  }
+
+  await Promise.all(checks)
+}
+
+export async function createMeeting(orgId: string, actorUserId: string | null | undefined, data: {
   leadId: string
   callId?: string
   assignedTo?: string
@@ -46,6 +91,12 @@ export async function createMeeting(orgId: string, data: {
   notes?: string
   meetingUrl?: string
 }) {
+  await assertOwnedReferences(orgId, {
+    leadId: data.leadId,
+    callId: data.callId,
+    assignedTo: data.assignedTo,
+  })
+
   const meeting = await prisma.meeting.create({
     data: {
       orgId,
@@ -59,11 +110,29 @@ export async function createMeeting(orgId: string, data: {
       meetingUrl: data.meetingUrl,
     },
   })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'meeting.create',
+    entityType: 'Meeting',
+    entityId: meeting.id,
+    after: meeting,
+  })
+
   await sendScheduleEvent(orgId, meeting).catch(() => {})
   return meeting
 }
 
-export async function updateMeeting(orgId: string, id: string, data: {
+/** Error de dominio para 404 (P0-02): la fila no existe o no pertenece a la org. */
+export class MeetingNotFoundError extends Error {
+  constructor() {
+    super('Meeting not found')
+    this.name = 'MeetingNotFoundError'
+  }
+}
+
+export async function updateMeeting(orgId: string, actorUserId: string | null | undefined, id: string, data: {
   title?: string
   scheduledAt?: string
   durationMinutes?: number
@@ -72,11 +141,32 @@ export async function updateMeeting(orgId: string, id: string, data: {
   meetingUrl?: string
   assignedTo?: string
 }) {
-  return prisma.meeting.updateMany({
+  await assertOwnedReferences(orgId, { assignedTo: data.assignedTo })
+
+  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  if (!before) throw new MeetingNotFoundError()
+
+  const result = await prisma.meeting.updateMany({
     where: { id, orgId },
     data: {
       ...data,
       scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
     },
   })
+
+  if (result.count === 0) throw new MeetingNotFoundError()
+
+  const after = await prisma.meeting.findFirst({ where: { id, orgId } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: data.status === 'cancelled' && before.status !== 'cancelled' ? 'meeting.cancel' : 'meeting.update',
+    entityType: 'Meeting',
+    entityId: id,
+    before,
+    after: after ?? undefined,
+  })
+
+  return after
 }

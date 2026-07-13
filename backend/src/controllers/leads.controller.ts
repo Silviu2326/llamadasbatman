@@ -1,12 +1,86 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import * as leadsService from '../services/leads.service'
+import { OwnershipError, LeadNotFoundError } from '../services/leads.service'
 import { enqueueLeadCall } from '../services/leadIngestion.service'
-import { sendEmailToLead } from '../services/mauticSync.service'
+import { sendEmailToLead, isTemplateOwnedByOrg } from '../services/mauticSync.service'
+import { assertEmailSendAllowed } from '../lib/emailCompliance'
 import { prisma } from '../lib/prisma'
+import { parseRequest } from '../lib/validation'
 import { parse } from 'csv-parse/sync'
 import { LeadStatus } from '@prisma/client'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
+
+const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted'] as const satisfies readonly LeadStatus[]
+
+// Importaciones muy grandes deben pasar por un flujo asíncrono (LE-06, P1);
+// mientras tanto se acota el tamaño de una importación síncrona.
+const MAX_IMPORT_ROWS = 2000
+
+const idParamsSchema = z.object({ id: z.string().trim().min(1).max(128) }).strict()
+
+const emailSchema = z.string().trim().email('Email inválido').max(254)
+const phoneSchema = z.string().trim().regex(/^[0-9+()\-.\s]{3,40}$/, 'Teléfono inválido').max(40)
+const tagsSchema = z.array(z.string().trim().min(1).max(60)).max(50)
+const customFieldsSchema = z.record(z.unknown())
+
+const listQuerySchema = z.object({
+  campaignId: z.string().trim().min(1).max(128).optional(),
+  status: z.enum(LEAD_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).max(100_000).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+}).strict()
+
+const createLeadSchema = z.object({
+  name: z.string().trim().min(1, 'name es requerido').max(160),
+  phone: phoneSchema.optional(),
+  email: emailSchema.optional(),
+  company: z.string().trim().max(160).optional(),
+  campaignId: z.string().trim().min(1).max(128).optional(),
+  source: z.string().trim().max(80).optional(),
+  status: z.enum(LEAD_STATUSES).optional(),
+  tags: tagsSchema.optional(),
+  customFields: customFieldsSchema.optional(),
+}).strict()
+
+const updateLeadSchema = z.object({
+  name: z.string().trim().min(1).max(160).optional(),
+  phone: phoneSchema.optional(),
+  email: emailSchema.optional(),
+  company: z.string().trim().max(160).optional(),
+  status: z.enum(LEAD_STATUSES).optional(),
+  source: z.string().trim().max(80).optional(),
+  tags: tagsSchema.optional(),
+  customFields: customFieldsSchema.optional(),
+  campaignId: z.string().trim().min(1).max(128).optional().nullable(),
+}).strict().refine((value) => Object.values(value).some((item) => item !== undefined), 'Incluye al menos un campo para actualizar')
+
+const importQuerySchema = z.object({
+  campaignId: z.string().trim().min(1, 'campaignId es requerido').max(128),
+  autoCall: z.enum(['true', 'false']).optional(),
+}).strict()
+
+const noteSchema = z.object({ text: z.string().trim().min(1, 'text es requerido').max(4_000) }).strict()
+
+const fileUploadSchema = z.object({
+  name: z.string().trim().min(1, 'name es requerido').max(255),
+  contentBase64: z.string().min(1, 'contentBase64 es requerido').max(20_000_000),
+  mimeType: z.string().trim().max(120).optional(),
+}).strict()
+
+const auditSchema = z.object({
+  website: z.string().trim().max(2_048).optional(),
+  sector: z.string().trim().max(160).optional(),
+  city: z.string().trim().max(160).optional(),
+}).strict()
+
+const sendEmailSchema = z.object({ mauticEmailId: z.string().trim().min(1, 'mauticEmailId es requerido').max(128) }).strict()
+
+function ownershipStatus(err: unknown) {
+  if (err instanceof OwnershipError) return { status: 404 as const, body: { error: `${err.field} no encontrado` } }
+  return null
+}
 
 export async function list(
   request: FastifyRequest<{
@@ -20,13 +94,9 @@ export async function list(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const q = request.query
-  const result = await leadsService.listLeads(orgId, {
-    campaignId: q.campaignId,
-    status: q.status as LeadStatus | undefined,
-    page: q.page ? parseInt(q.page) : undefined,
-    limit: q.limit ? parseInt(q.limit) : undefined,
-  })
+  const query = parseRequest(reply, listQuerySchema, request.query)
+  if (!query) return
+  const result = await leadsService.listLeads(orgId, query)
   return reply.send(result)
 }
 
@@ -35,29 +105,28 @@ export async function get(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const lead = await leadsService.getLead(orgId, request.params.id)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const lead = await leadsService.getLead(orgId, params.id)
   if (!lead) return reply.status(404).send({ error: 'Not found' })
   return reply.send(lead)
 }
 
 export async function create(
-  request: FastifyRequest<{
-    Body: {
-      name: string
-      phone?: string
-      email?: string
-      company?: string
-      campaignId?: string
-      source?: string
-      tags?: string[]
-      customFields?: Record<string, unknown>
-    }
-  }>,
+  request: FastifyRequest<{ Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
-  const lead = await leadsService.createLead(orgId, request.body)
-  return reply.status(201).send(lead)
+  const { orgId, userId } = request.user as JWTUser
+  const body = parseRequest(reply, createLeadSchema, request.body)
+  if (!body) return
+  try {
+    const lead = await leadsService.createLead(orgId, userId, body)
+    return reply.status(201).send(lead)
+  } catch (err) {
+    const mapped = ownershipStatus(err)
+    if (mapped) return reply.status(mapped.status).send(mapped.body)
+    throw err
+  }
 }
 
 export async function importCsv(
@@ -67,12 +136,10 @@ export async function importCsv(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
-  const { campaignId, autoCall } = request.query
-
-  if (!campaignId) {
-    return reply.status(400).send({ error: 'campaignId is required' })
-  }
+  const { orgId, userId } = request.user as JWTUser
+  const query = parseRequest(reply, importQuerySchema, request.query)
+  if (!query) return
+  const { campaignId, autoCall } = query
 
   let rows: Array<{ name: string; phone?: string; email?: string; company?: string }>
   try {
@@ -88,35 +155,45 @@ export async function importCsv(
   if (!rows.length) {
     return reply.status(400).send({ error: 'CSV is empty' })
   }
-
-  const result = await leadsService.importLeads(orgId, campaignId, rows)
-
-  if (autoCall === 'true') {
-    for (const lead of result.leads) await enqueueLeadCall(orgId, lead.id)
+  if (rows.length > MAX_IMPORT_ROWS) {
+    return reply.status(400).send({ error: `El CSV supera el máximo de ${MAX_IMPORT_ROWS} filas por importación` })
   }
 
-  return reply.send({ imported: result.imported })
+  try {
+    const result = await leadsService.importLeads(orgId, userId, campaignId, rows)
+
+    if (autoCall === 'true') {
+      for (const lead of result.leads) await enqueueLeadCall(orgId, lead.id)
+    }
+
+    return reply.send({ imported: result.imported })
+  } catch (err) {
+    const mapped = ownershipStatus(err)
+    if (mapped) return reply.status(mapped.status).send(mapped.body)
+    throw err
+  }
 }
 
 export async function update(
   request: FastifyRequest<{
     Params: { id: string }
-    Body: {
-      name?: string
-      phone?: string
-      email?: string
-      company?: string
-      status?: LeadStatus
-      source?: string
-      tags?: string[]
-      customFields?: Record<string, unknown>
-    }
+    Body: unknown
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
-  await leadsService.updateLead(orgId, request.params.id, request.body)
-  return reply.send({ ok: true })
+  const { orgId, userId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, updateLeadSchema, request.body)
+  if (!params || !body) return
+  try {
+    await leadsService.updateLead(orgId, userId, params.id, body)
+    return reply.send({ ok: true })
+  } catch (err) {
+    if (err instanceof LeadNotFoundError) return reply.status(404).send({ error: 'Not found' })
+    const mapped = ownershipStatus(err)
+    if (mapped) return reply.status(mapped.status).send(mapped.body)
+    throw err
+  }
 }
 
 export async function callNow(
@@ -124,7 +201,9 @@ export async function callNow(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const lead = await leadsService.getLead(orgId, request.params.id)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const lead = await leadsService.getLead(orgId, params.id)
   if (!lead) return reply.status(404).send({ error: 'Not found' })
   const queued = await enqueueLeadCall(orgId, lead.id)
   return reply.send({ ok: true, queued })
@@ -135,7 +214,9 @@ export async function timeline(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const result = await leadsService.getLeadTimeline(orgId, request.params.id)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const result = await leadsService.getLeadTimeline(orgId, params.id)
   if (!result.lead) return reply.status(404).send({ error: 'Not found' })
   return reply.send(result)
 }
@@ -143,12 +224,15 @@ export async function timeline(
 export async function audit(
   request: FastifyRequest<{
     Params: { id: string }
-    Body: { website?: string; sector?: string; city?: string }
+    Body: unknown
   }>,
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const result = await leadsService.auditLead(orgId, request.params.id, request.body ?? {})
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, auditSchema, request.body ?? {})
+  if (!params || !body) return
+  const result = await leadsService.auditLead(orgId, params.id, body)
   if (!result) return reply.status(404).send({ error: 'Not found' })
   return reply.send(result)
 }
@@ -158,24 +242,26 @@ export async function listFiles(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const files = await leadsService.listFiles(orgId, request.params.id)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const files = await leadsService.listFiles(orgId, params.id)
   return reply.send(files)
 }
 
 export async function uploadFile(
   request: FastifyRequest<{
     Params: { id: string }
-    Body: { name: string; contentBase64: string; mimeType?: string }
+    Body: unknown
   }>,
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const { name, contentBase64, mimeType } = request.body ?? ({} as any)
-  if (!name || !contentBase64) {
-    return reply.status(400).send({ error: 'name y contentBase64 son requeridos' })
-  }
-  const buffer = Buffer.from(contentBase64, 'base64')
-  const file = await leadsService.uploadFile(orgId, request.params.id, name, buffer, mimeType)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, fileUploadSchema, request.body)
+  if (!params || !body) return
+  const buffer = Buffer.from(body.contentBase64, 'base64')
+  const file = await leadsService.uploadFile(orgId, params.id, body.name, buffer, body.mimeType)
+  if (!file) return reply.status(404).send({ error: 'Not found' })
   return reply.status(201).send(file)
 }
 
@@ -184,7 +270,9 @@ export async function auditHistory(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const rows = await leadsService.getAuditHistory(orgId, request.params.id)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const rows = await leadsService.getAuditHistory(orgId, params.id)
   return reply.send(rows)
 }
 
@@ -193,35 +281,56 @@ export async function listNotes(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const notes = await leadsService.listNotes(orgId, request.params.id)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const notes = await leadsService.listNotes(orgId, params.id)
   return reply.send(notes)
 }
 
 export async function createNote(
-  request: FastifyRequest<{ Params: { id: string }; Body: { text: string } }>,
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
   const { orgId, userId } = request.user as JWTUser
-  const text = request.body?.text?.trim()
-  if (!text) return reply.status(400).send({ error: 'text es requerido' })
-  const note = await leadsService.createNote(orgId, request.params.id, userId, text)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, noteSchema, request.body)
+  if (!params || !body) return
+  const note = await leadsService.createNote(orgId, params.id, userId, body.text)
+  if (!note) return reply.status(404).send({ error: 'Not found' })
   return reply.status(201).send(note)
 }
 
 /** Botón "Enviar plantilla" de la ficha del lead (sección 4 punto 6/7.3 del plan). */
 export async function sendEmail(
-  request: FastifyRequest<{ Params: { id: string }; Body: { mauticEmailId: string } }>,
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, sendEmailSchema, request.body)
+  if (!params || !body) return
+
   const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true } })
   if (org?.plan !== 'completo' || !org.mauticEnabled) {
     return reply.status(403).send({ error: 'Email marketing no está incluido en tu plan' })
   }
 
-  const mauticEmailId = request.body?.mauticEmailId
-  if (!mauticEmailId) return reply.status(400).send({ error: 'mauticEmailId es requerido' })
-  const sent = await sendEmailToLead(request.params.id, mauticEmailId)
+  const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true } })
+  if (!lead) return reply.status(404).send({ error: 'Lead no encontrado' })
+
+  // P0-04/EM-01: el mauticEmailId lo manda el navegador — nunca confiar en él
+  // sin comprobar antes que la plantilla está vinculada a esta organización.
+  if (!(await isTemplateOwnedByOrg(orgId, body.mauticEmailId))) {
+    return reply.status(404).send({ error: 'Plantilla no encontrada' })
+  }
+
+  // P0-05/EM-02: barrera única de consentimiento antes de cualquier envío.
+  const decision = await assertEmailSendAllowed(orgId, lead.id, 'contact')
+  if (!decision.allowed) {
+    return reply.status(409).send({ error: 'Envío bloqueado por cumplimiento', reason: decision.reason })
+  }
+
+  const sent = await sendEmailToLead(lead.id, body.mauticEmailId, orgId)
   if (!sent) return reply.status(502).send({ error: 'No se pudo enviar el email (contacto no sincronizado o Mautic no disponible)' })
   return reply.send({ ok: true })
 }
@@ -231,7 +340,9 @@ export async function getAudit(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const result = await leadsService.getLeadAudit(orgId, request.params.id)
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const result = await leadsService.getLeadAudit(orgId, params.id)
   if (result === undefined) return reply.status(404).send({ error: 'Not found' })
   return reply.send({ audit: result })
 }

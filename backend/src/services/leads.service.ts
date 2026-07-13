@@ -4,12 +4,39 @@ import { LeadStatus } from '@prisma/client'
 import { auditBusiness } from './digitalAudit.service'
 import { getPresignedUrl, putObject } from '../lib/s3'
 import { syncContact } from './mauticSync.service'
+import { writeAuditLog } from '../lib/audit'
 
 interface LeadFilters {
   campaignId?: string
   status?: LeadStatus
   page?: number
   limit?: number
+}
+
+/** Errores de dominio para que el controller pueda mapear a códigos HTTP (P0-01/P0-02). */
+export class OwnershipError extends Error {
+  constructor(public field: string) {
+    super(`${field} no pertenece a la organización`)
+    this.name = 'OwnershipError'
+  }
+}
+
+export class LeadNotFoundError extends Error {
+  constructor() {
+    super('Lead not found')
+    this.name = 'LeadNotFoundError'
+  }
+}
+
+/**
+ * Valida que una referencia externa recibida del cliente (campaignId) exista
+ * y pertenezca a la organización antes de dejarla tocar la base (P0-01/VE-01).
+ * `campaignId` ausente o vacío no es un error: la campaña es opcional.
+ */
+async function assertOwnedCampaign(orgId: string, campaignId?: string | null) {
+  if (!campaignId) return
+  const campaign = await prisma.campaign.findFirst({ where: { id: campaignId, orgId }, select: { id: true } })
+  if (!campaign) throw new OwnershipError('campaignId')
 }
 
 export async function listLeads(orgId: string, filters: LeadFilters = {}) {
@@ -37,7 +64,7 @@ export async function getLead(orgId: string, id: string) {
   return prisma.lead.findFirst({ where: { id, orgId } })
 }
 
-export async function createLead(orgId: string, data: {
+export async function createLead(orgId: string, actorUserId: string | null | undefined, data: {
   name: string
   phone?: string
   email?: string
@@ -45,9 +72,12 @@ export async function createLead(orgId: string, data: {
   campaignId?: string
   source?: string
   externalLeadId?: string
+  status?: LeadStatus
   tags?: string[]
   customFields?: Record<string, unknown>
 }) {
+  await assertOwnedCampaign(orgId, data.campaignId)
+
   const lead = await prisma.lead.create({
     data: { orgId, ...data } as any,
   })
@@ -60,14 +90,26 @@ export async function createLead(orgId: string, data: {
     })
   }
 
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'lead.create',
+    entityType: 'Lead',
+    entityId: lead.id,
+    after: lead,
+  })
+
   return lead
 }
 
 export async function importLeads(
   orgId: string,
+  actorUserId: string | null | undefined,
   campaignId: string,
   rows: Array<{ name: string; phone?: string; email?: string; company?: string }>
 ) {
+  await assertOwnedCampaign(orgId, campaignId)
+
   const created = []
   for (const row of rows) {
     if (!row.name) continue
@@ -83,10 +125,23 @@ export async function importLeads(
     data: { totalLeads: { increment: created.length } },
   })
 
+  // Un registro de auditoría por fila inflaría demasiado AuditLog en
+  // importaciones grandes; se guarda un resumen de la corrida (P0-12).
+  if (created.length) {
+    await writeAuditLog({
+      orgId,
+      actorUserId,
+      action: 'lead.import',
+      entityType: 'Lead',
+      entityId: campaignId,
+      after: { importedCount: created.length, campaignId, leadIds: created.map((lead) => lead.id) },
+    })
+  }
+
   return { imported: created.length, leads: created }
 }
 
-export async function updateLead(orgId: string, id: string, data: {
+export async function updateLead(orgId: string, actorUserId: string | null | undefined, id: string, data: {
   name?: string
   phone?: string
   email?: string
@@ -95,21 +150,38 @@ export async function updateLead(orgId: string, id: string, data: {
   source?: string
   tags?: string[]
   customFields?: Record<string, unknown>
-  campaignId?: string
+  campaignId?: string | null
 }) {
+  await assertOwnedCampaign(orgId, data.campaignId)
+
+  const before = await prisma.lead.findFirst({ where: { id, orgId } })
+  if (!before) throw new LeadNotFoundError()
+
   const result = await prisma.lead.updateMany({
     where: { id, orgId },
     data: data as any,
   })
+  if (result.count === 0) throw new LeadNotFoundError()
+
+  const after = await prisma.lead.findFirst({ where: { id, orgId } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'lead.update',
+    entityType: 'Lead',
+    entityId: id,
+    before,
+    after: after ?? undefined,
+  })
 
   // Solo re-sincroniza si cambió el estado (el segmento de Mautic depende
   // de eso) — evita un fetch a Mautic en cada edición de nombre/tags.
-  if (data.status) {
-    const lead = await prisma.lead.findFirst({ where: { id, orgId } })
-    if (lead) await syncContact(lead).catch(() => {})
+  if (data.status && after) {
+    await syncContact(after).catch(() => {})
   }
 
-  return result
+  return after
 }
 
 export async function auditLead(
@@ -213,6 +285,9 @@ export async function listFiles(orgId: string, leadId: string) {
 }
 
 export async function uploadFile(orgId: string, leadId: string, name: string, buffer: Buffer, mimeType?: string) {
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { id: true } })
+  if (!lead) return null
+
   const storageKey = `leads/${leadId}/${randomUUID()}-${name}`
   await putObject(storageKey, buffer, mimeType)
   return prisma.leadFile.create({ data: { orgId, leadId, name, sizeBytes: buffer.length, storageKey } })
@@ -223,6 +298,9 @@ export async function listNotes(orgId: string, leadId: string) {
 }
 
 export async function createNote(orgId: string, leadId: string, authorId: string, text: string) {
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { id: true } })
+  if (!lead) return null
+
   const user = await prisma.user.findUnique({ where: { id: authorId }, select: { name: true } })
   return prisma.leadNote.create({
     data: { orgId, leadId, authorName: user?.name ?? 'Usuario', text },

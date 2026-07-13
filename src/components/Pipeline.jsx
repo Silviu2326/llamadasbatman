@@ -36,16 +36,13 @@ const STAGE_CONFIG = [
   { id:'closed_lost', label:'Perdido',     color:'#6b7280', Icon:null },
 ]
 
-// ponytail: sparkline data is decorative; no historical endpoint exists
+// KPI_DECO trae solo config visual (icono/color); value y pct salen siempre
+// de datos reales del backend (P0-09: sin series ni deltas decorativos).
 const KPI_DECO = [
-  { Icon: RiMoneyDollarBoxLine, iconBg:'#6d28d9', label:'Valor total del\npipeline',  color:'#a78bfa',
-    data:[880,920,950,1000,1050,1080,1100,1120,1140,1160,1170,1180,1190,1200,1210,1220,1230,1235,1240,1245] },
-  { Icon: RiBriefcaseLine,      iconBg:'#0e7490', label:'Oportunidades',              color:'#22d3ee',
-    data:[200,215,222,230,240,248,255,262,268,275,280,285,290,298,305,312,318,325,334,342] },
-  { Icon: RiLineChartLine,      iconBg:'#1e40af', label:'Valor\nponderado',           color:'#60a5fa',
-    data:[380,395,405,418,430,442,452,465,476,488,498,508,518,527,535,542,548,553,558,562] },
-  { Icon: RiPercentLine,        iconBg:'#b45309', label:'Tasa de conversión\nglobal', color:'#fbbf24',
-    data:[11,11.5,11.8,12,12.3,12.6,12.9,13.1,13.4,13.6,13.8,14,14.1,14.2,14.3,14.4,14.5,14.6,14.65,14.7] },
+  { Icon: RiMoneyDollarBoxLine, iconBg:'#6d28d9', label:'Valor total del\npipeline',  color:'#a78bfa' },
+  { Icon: RiBriefcaseLine,      iconBg:'#0e7490', label:'Oportunidades',              color:'#22d3ee' },
+  { Icon: RiLineChartLine,      iconBg:'#1e40af', label:'Valor\nponderado',           color:'#60a5fa' },
+  { Icon: RiPercentLine,        iconBg:'#b45309', label:'Tasa de conversión\nglobal', color:'#fbbf24' },
 ]
 
 const ACTION_DECO = [
@@ -306,7 +303,7 @@ export default function Pipeline() {
 
   const [opps, setOpps]         = useState([])
   const [stages, setStages]     = useState(STAGE_CONFIG.map(s => ({ ...s, count: 0, value: '€0' })))
-  const [kpis, setKpis]         = useState(KPI_DECO.map(k => ({ ...k, value: '—', pct: 0 })))
+  const [kpis, setKpis]         = useState(KPI_DECO.map(k => ({ ...k, value: '—', pct: null })))
   const [funnelData, setFunnel] = useState([])
   const [donutData, setDonut]   = useState([])
   const [totalValue, setTotalValue]   = useState(0)
@@ -360,11 +357,13 @@ export default function Pipeline() {
       const lost = (data.closed_lost ?? []).length
       const conv = (won + lost) > 0 ? ((won / (won + lost)) * 100).toFixed(1) : '—'
       setTotalValue(tv)
+      // Sin endpoint de histórico semanal todavía: no se muestra "pct" (P0-09,
+      // ningún fallback positivo). Cuando exista una fuente real, se recalcula aquí.
       setKpis([
-        { ...KPI_DECO[0], value: `€${tv.toLocaleString('es-ES')}`, pct: 0 },
-        { ...KPI_DECO[1], value: String(all.length), pct: 0 },
-        { ...KPI_DECO[2], value: `€${Math.round(wv).toLocaleString('es-ES')}`, pct: 0 },
-        { ...KPI_DECO[3], value: conv === '—' ? '—' : `${conv}%`, pct: 0 },
+        { ...KPI_DECO[0], value: `€${tv.toLocaleString('es-ES')}`, pct: null },
+        { ...KPI_DECO[1], value: String(all.length), pct: null },
+        { ...KPI_DECO[2], value: `€${Math.round(wv).toLocaleString('es-ES')}`, pct: null },
+        { ...KPI_DECO[3], value: conv === '—' ? '—' : `${conv}%`, pct: null },
       ])
 
       // Funnel (relative to max stage count)
@@ -401,9 +400,6 @@ export default function Pipeline() {
           <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Visualiza y gestiona tu pipeline de ventas impulsado por IA.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 13px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
-            <RiCalendarLine style={{ width: 13, height: 13 }} /> 12 may 2024 - 18 may 2024
-          </button>
           <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 13px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
             <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros
           </button>

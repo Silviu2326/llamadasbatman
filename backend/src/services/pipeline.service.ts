@@ -1,5 +1,50 @@
 import { prisma } from '../lib/prisma'
 import { OpportunityStage } from '@prisma/client'
+import { writeAuditLog } from '../lib/audit'
+
+/** Errores de dominio para que el controller pueda mapear a códigos HTTP. */
+export class OwnershipError extends Error {
+  constructor(public field: string) {
+    super(`${field} no pertenece a la organización`)
+    this.name = 'OwnershipError'
+  }
+}
+
+/** 404 (P0-02): la fila no existe o no pertenece a la organización. */
+export class OpportunityNotFoundError extends Error {
+  constructor() {
+    super('Opportunity not found')
+    this.name = 'OpportunityNotFoundError'
+  }
+}
+
+/**
+ * Valida que las referencias recibidas del cliente (lead, usuario asignado)
+ * pertenezcan a la organización antes de dejarlas tocar la base (P0-01/VE-01).
+ */
+async function assertOwnedReferences(orgId: string, refs: {
+  leadId?: string
+  assignedTo?: string
+}) {
+  const checks: Promise<void>[] = []
+
+  if (refs.leadId !== undefined) {
+    checks.push(
+      prisma.lead.findFirst({ where: { id: refs.leadId, orgId }, select: { id: true } }).then((lead) => {
+        if (!lead) throw new OwnershipError('leadId')
+      })
+    )
+  }
+  if (refs.assignedTo) {
+    checks.push(
+      prisma.user.findFirst({ where: { id: refs.assignedTo, orgId }, select: { id: true } }).then((user) => {
+        if (!user) throw new OwnershipError('assignedTo')
+      })
+    )
+  }
+
+  await Promise.all(checks)
+}
 
 export async function getOpportunity(orgId: string, id: string) {
   return prisma.opportunity.findFirst({
@@ -35,7 +80,7 @@ export async function listByStage(orgId: string) {
   return grouped
 }
 
-export async function createOpportunity(orgId: string, data: {
+export async function createOpportunity(orgId: string, actorUserId: string | null | undefined, data: {
   leadId: string
   assignedTo?: string
   name: string
@@ -46,7 +91,9 @@ export async function createOpportunity(orgId: string, data: {
   expectedCloseDate?: string
   notes?: string
 }) {
-  return prisma.opportunity.create({
+  await assertOwnedReferences(orgId, { leadId: data.leadId, assignedTo: data.assignedTo })
+
+  const opportunity = await prisma.opportunity.create({
     data: {
       orgId,
       leadId: data.leadId,
@@ -60,6 +107,17 @@ export async function createOpportunity(orgId: string, data: {
       notes: data.notes,
     },
   })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.create',
+    entityType: 'Opportunity',
+    entityId: opportunity.id,
+    after: opportunity,
+  })
+
+  return opportunity
 }
 
 const DAYS_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
@@ -141,7 +199,7 @@ export async function getPipelineActions(orgId: string) {
   ]
 }
 
-export async function updateOpportunity(orgId: string, id: string, data: {
+export async function updateOpportunity(orgId: string, actorUserId: string | null | undefined, id: string, data: {
   name?: string
   stage?: OpportunityStage
   value?: number
@@ -151,11 +209,32 @@ export async function updateOpportunity(orgId: string, id: string, data: {
   notes?: string
   assignedTo?: string
 }) {
-  return prisma.opportunity.updateMany({
+  await assertOwnedReferences(orgId, { assignedTo: data.assignedTo })
+
+  const before = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  if (!before) throw new OpportunityNotFoundError()
+
+  const result = await prisma.opportunity.updateMany({
     where: { id, orgId },
     data: {
       ...data,
       expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : undefined,
     },
   })
+
+  if (result.count === 0) throw new OpportunityNotFoundError()
+
+  const after = await prisma.opportunity.findFirst({ where: { id, orgId } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.update',
+    entityType: 'Opportunity',
+    entityId: id,
+    before,
+    after: after ?? undefined,
+  })
+
+  return after
 }

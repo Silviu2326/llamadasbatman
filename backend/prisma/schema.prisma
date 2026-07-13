@@ -51,6 +51,12 @@ enum OpportunityStage {
   closed_lost
 }
 
+enum MauticAssetType {
+  template
+  segment
+  campaign
+}
+
 model Organization {
   id                 String   @id @default(cuid())
   name               String
@@ -66,6 +72,16 @@ model Organization {
   mauticCompanyId   String?
   postizEnabled     Boolean @default(false)
   postizWorkspaceId String?
+
+  // Datos de empresa para /configuracion — evita un modelo OrganizationSetting
+  // aparte para una relación 1:1 que nunca se consulta sin la Organization.
+  email    String?
+  website  String?
+  phone    String?
+  industry String?
+  timezone String  @default("Europe/Madrid")
+  address  String?
+  currency String  @default("EUR")
 
   users              User[]
   agents             Agent[]
@@ -83,6 +99,23 @@ model Organization {
   leadNotes          LeadNote[]
   leadAudits         LeadAudit[]
   leadFiles          LeadFile[]
+  adWizardDrafts     AdWizardDraft[]
+  callTasks          CallTask[]
+  knowledgeFavorites KnowledgeFavorite[]
+  acquisitionEvents  AcquisitionEvent[]
+  channelIdentities  ChannelIdentity[]
+  conversations      Conversation[]
+  messages           Message[]
+  contactConsents    ContactConsent[]
+  messageTemplates   MessageTemplate[]
+  webhookEvents      WebhookEvent[]
+  automationRuns     AutomationRun[]
+  outboxEvents       OutboxEvent[]
+  nextBestActions    NextBestAction[]
+  auditLogs          AuditLog[]
+  mauticAssetBindings MauticAssetBinding[]
+  automationStepRuns AutomationStepRun[]
+  scheduledTriggers  ScheduledTrigger[]
 }
 
 model User {
@@ -94,9 +127,34 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
-  org           Organization  @relation(fields: [orgId], references: [id])
-  meetings      Meeting[]     @relation("AssignedMeetings")
-  opportunities Opportunity[] @relation("AssignedOpportunities")
+  org                   Organization        @relation(fields: [orgId], references: [id])
+  meetings              Meeting[]           @relation("AssignedMeetings")
+  opportunities         Opportunity[]       @relation("AssignedOpportunities")
+  adWizardDrafts        AdWizardDraft[]
+  preference            UserPreference?
+  callTasks             CallTask[]
+  knowledgeFavorites    KnowledgeFavorite[]
+  assignedConversations Conversation[]      @relation("ConversationAssignee")
+  authoredMessages      Message[]           @relation("MessageAuthor")
+  acceptedNextActions   NextBestAction[]    @relation("NextActionAcceptedBy")
+  auditLogs             AuditLog[]          @relation("AuditLogActor")
+}
+
+// Preferencias por usuario para /configuracion. Separado de User porque son
+// campos opcionales de UI que no hacen falta en el resto del sistema.
+model UserPreference {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  locale               String   @default("es")
+  timezone             String   @default("Europe/Madrid")
+  emailNotifications   Boolean  @default(true)
+  desktopNotifications Boolean  @default(true)
+  weeklyDigest         Boolean  @default(true)
+  theme                String   @default("system")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Agent {
@@ -109,6 +167,9 @@ model Agent {
   systemPrompt String?
   language     String   @default("es")
   isActive     Boolean  @default(true)
+  // Límites operativos y horario activo del tab "Configuración" — sin
+  // columnas propias porque son opcionales y varían por tipo de agente.
+  settings     Json?
   createdAt    DateTime @default(now())
 
   org       Organization @relation(fields: [orgId], references: [id])
@@ -137,6 +198,13 @@ model Campaign {
   totalLeads          Int            @default(0)
   contacted           Int            @default(0)
   meetingsScheduled   Int            @default(0)
+  budgetCents         Int?
+  goal                String?
+  // Toggles de la pestaña "Configuración" del detalle de campaña (scoring,
+  // alertas, publicación orgánica, frecuencia...) — 1:1 con la campaña, no
+  // amerita un modelo aparte.
+  settings            Json?
+  shareToken          String?        @unique
   createdAt           DateTime       @default(now())
 
   org                Organization        @relation(fields: [orgId], references: [id])
@@ -146,6 +214,7 @@ model Campaign {
   leads              Lead[]
   calls              Call[]
   adInsightSnapshots AdInsightSnapshot[]
+  acquisitionEvents  AcquisitionEvent[]
 }
 
 model Lead {
@@ -165,16 +234,52 @@ model Lead {
   lastAttemptAt  DateTime?
   createdAt      DateTime   @default(now())
 
-  org           Organization  @relation(fields: [orgId], references: [id])
-  campaign      Campaign?     @relation(fields: [campaignId], references: [id])
-  calls         Call[]
-  meetings      Meeting[]
-  opportunities Opportunity[]
-  notes         LeadNote[]
-  audits        LeadAudit[]
-  files         LeadFile[]
+  org               Organization       @relation(fields: [orgId], references: [id])
+  campaign          Campaign?          @relation(fields: [campaignId], references: [id])
+  calls             Call[]
+  meetings          Meeting[]
+  opportunities     Opportunity[]
+  notes             LeadNote[]
+  audits            LeadAudit[]
+  files             LeadFile[]
+  acquisitionEvents AcquisitionEvent[]
+  channelIdentities ChannelIdentity[]
+  conversations     Conversation[]
+  messages          Message[]
+  contactConsents   ContactConsent[]
+  nextBestActions   NextBestAction[]
 
   @@unique([orgId, externalLeadId])
+}
+
+// Registro normalizado de atribucion para todas las fuentes de captacion.
+// `type` y los campos de canal se mantienen como String para poder incorporar
+// nuevos proveedores/eventos sin una migracion de enum por cada integracion.
+model AcquisitionEvent {
+  id          String   @id @default(cuid())
+  orgId       String
+  campaignId  String
+  leadId      String?
+  type        String
+  source      String   @default("direct")
+  medium      String?
+  content     String?
+  sessionId   String?
+  externalKey String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Una visita/conversion por sesion y campana; PostgreSQL permite multiples
+  // NULL, de modo que los eventos sin sessionId siguen siendo registrables.
+  @@unique([campaignId, type, sessionId])
+  @@unique([orgId, type, externalKey])
+  @@index([orgId, createdAt])
+  @@index([campaignId, createdAt])
+  @@index([leadId])
 }
 
 model Call {
@@ -197,6 +302,7 @@ model Call {
   callbackAt      DateTime?
   startedAt       DateTime?
   endedAt         DateTime?
+  isFavorite      Boolean    @default(false)
   createdAt       DateTime   @default(now())
 
   org      Organization @relation(fields: [orgId], references: [id])
@@ -204,6 +310,27 @@ model Call {
   lead     Lead         @relation(fields: [leadId], references: [id])
   campaign Campaign?    @relation(fields: [campaignId], references: [id])
   meetings Meeting[]
+  notes    LeadNote[]
+  tasks    CallTask[]
+
+  @@unique([orgId, externalCallId])
+}
+
+// Tarea de seguimiento de una llamada (checklist en CallDetailPage). No hay
+// equivalente reusable en el schema, de ahí el modelo nuevo.
+model CallTask {
+  id        String    @id @default(cuid())
+  orgId     String
+  callId    String
+  userId    String?
+  title     String
+  done      Boolean   @default(false)
+  dueAt     DateTime?
+  createdAt DateTime  @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  call Call         @relation(fields: [callId], references: [id])
+  user User?        @relation(fields: [userId], references: [id])
 }
 
 model Meeting {
@@ -296,6 +423,28 @@ model MetaAdAccount {
   @@unique([orgId, metaAdAccountId])
 }
 
+// Brief persistido del laboratorio de campañas. Es por organización y usuario
+// para que el autoguardado no mezcle borradores entre miembros del equipo.
+model AdWizardDraft {
+  id                 String   @id @default(cuid())
+  orgId              String
+  userId             String
+  vertical           String   @default("")
+  objective          String   @default("")
+  audience           String?
+  monthlyBudgetCents Int?
+  strategy           Json?
+  creativeIndex      Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  user User         @relation(fields: [userId], references: [id])
+
+  @@unique([orgId, userId])
+  @@index([orgId, updatedAt])
+}
+
 // Snapshot periódico de /insights por campaña (job ad-insights-sync).
 model AdInsightSnapshot {
   id               String   @id @default(cuid())
@@ -324,7 +473,285 @@ model Automation {
   lastRunAt DateTime?
   createdAt DateTime  @default(now())
 
-  org Organization @relation(fields: [orgId], references: [id])
+  org  Organization    @relation(fields: [orgId], references: [id])
+  runs AutomationRun[]
+}
+
+// Identidad operativa de un canal (numero de WhatsApp, email o linea de voz).
+// El address se normaliza antes de persistir para poder resolver webhooks sin
+// confiar en un orgId enviado por el proveedor.
+model ChannelIdentity {
+  id                 String   @id @default(cuid())
+  orgId              String
+  leadId             String?
+  channel            String
+  provider           String
+  providerAccountId  String?
+  externalIdentityId String?
+  address            String
+  displayName        String?
+  isActive           Boolean  @default(true)
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  org      Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead     Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  consents ContactConsent[]
+
+  @@unique([orgId, provider, address])
+  @@index([provider, channel, address])
+  @@index([leadId])
+}
+
+// Agregado omnicanal por lead. Cada mensaje conserva su canal, de modo que un
+// mismo hilo puede combinar WhatsApp, llamadas, email y notas internas.
+model Conversation {
+  id             String    @id @default(cuid())
+  orgId          String
+  leadId         String?
+  assignedUserId String?
+  channel        String    @default("mixed")
+  provider       String?
+  address        String?
+  status         String    @default("open")
+  priority       String    @default("normal")
+  subject        String?
+  lastMessageAt  DateTime?
+  lastInboundAt  DateTime?
+  closedAt       DateTime?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead            Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  assignedUser    User?            @relation("ConversationAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  messages        Message[]
+  automationRuns  AutomationRun[]
+  nextBestActions NextBestAction[]
+
+  @@unique([orgId, channel, address])
+  @@index([orgId, status, updatedAt])
+  @@index([orgId, assignedUserId, updatedAt])
+  @@index([leadId])
+}
+
+model MessageTemplate {
+  id                 String   @id @default(cuid())
+  orgId              String
+  channel            String
+  provider           String
+  externalTemplateId String?
+  name               String
+  language           String   @default("es")
+  category           String   @default("utility")
+  body               String
+  variablesSchema    Json?
+  approvalStatus     String   @default("draft")
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([orgId, channel, name, language])
+  @@index([orgId, channel, approvalStatus])
+}
+
+model Message {
+  id                String    @id @default(cuid())
+  orgId             String
+  conversationId    String
+  leadId            String?
+  authorUserId      String?
+  templateId        String?
+  replyToId         String?
+  channel           String
+  provider          String
+  address           String?
+  direction         String
+  contentType       String    @default("text")
+  body              String?
+  status            String    @default("queued")
+  providerMessageId String?
+  externalEventId   String?
+  metadata          Json?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  org              Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  conversation     Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  lead             Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  authorUser       User?             @relation("MessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  template         MessageTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  replyTo          Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies          Message[]         @relation("MessageReplies")
+  deliveryAttempts DeliveryAttempt[]
+
+  @@unique([provider, providerMessageId])
+  @@unique([orgId, externalEventId])
+  @@index([conversationId, createdAt])
+  @@index([orgId, status, createdAt])
+  @@index([leadId])
+  @@index([authorUserId])
+  @@index([templateId])
+  @@index([replyToId])
+}
+
+model DeliveryAttempt {
+  id                String    @id @default(cuid())
+  messageId         String
+  provider          String
+  attemptNo         Int       @default(1)
+  status            String    @default("queued")
+  idempotencyKey    String?
+  providerMessageId String?
+  errorCode         String?
+  errorMessage      String?
+  metadata          Json?
+  nextRetryAt       DateTime?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, attemptNo])
+  @@unique([provider, idempotencyKey])
+  @@index([status, nextRetryAt])
+  @@index([providerMessageId])
+}
+
+model ContactConsent {
+  id                String    @id @default(cuid())
+  orgId             String
+  leadId            String?
+  channelIdentityId String?
+  channel           String
+  purpose           String    @default("contact")
+  status            String    @default("unknown")
+  source            String
+  evidence          String?
+  metadata          Json?
+  occurredAt        DateTime  @default(now())
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  org             Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead            Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  channelIdentity ChannelIdentity? @relation(fields: [channelIdentityId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, leadId, channel, purpose])
+  @@unique([orgId, channelIdentityId, channel, purpose])
+  @@index([orgId, channel, status])
+  @@index([leadId])
+  @@index([channelIdentityId])
+}
+
+// Inbox durable para callbacks externos. externalEventId evita reprocesar
+// reintentos del proveedor y permite contestar el webhook rapidamente.
+model WebhookEvent {
+  id              String    @id @default(cuid())
+  orgId           String?
+  externalEventId String    @unique
+  provider        String
+  channel         String
+  eventType       String?
+  status          String    @default("received")
+  metadata        Json?
+  error           String?
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([provider, channel, receivedAt])
+  @@index([orgId, status, receivedAt])
+}
+
+model AutomationRun {
+  id             String    @id @default(cuid())
+  orgId          String
+  automationId   String
+  conversationId String?
+  triggerEventId String
+  status         String    @default("queued")
+  currentStep    Int       @default(0)
+  attempt        Int       @default(0)
+  input          Json?
+  output         Json?
+  error          String?
+  nextRunAt      DateTime?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  org          Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  automation   Automation          @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  conversation Conversation?       @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  stepRuns     AutomationStepRun[]
+
+  @@unique([orgId, automationId, triggerEventId])
+  @@index([orgId, status, nextRunAt])
+  @@index([conversationId])
+}
+
+model OutboxEvent {
+  id            String    @id @default(cuid())
+  orgId         String
+  topic         String
+  aggregateType String
+  aggregateId   String
+  payload       Json
+  status        String    @default("pending")
+  attempts      Int       @default(0)
+  availableAt   DateTime  @default(now())
+  processedAt   DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+  @@index([orgId, aggregateType, aggregateId])
+}
+
+model NextBestAction {
+  id             String    @id @default(cuid())
+  orgId          String
+  conversationId String
+  leadId         String?
+  acceptedById   String?
+  type           String
+  channel        String?
+  score          Float     @default(0)
+  reason         String
+  status         String    @default("proposed")
+  metadata       Json?
+  expiresAt      DateTime?
+  acceptedAt     DateTime?
+  executedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  lead         Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  acceptedBy   User?        @relation("NextActionAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([orgId, status, score])
+  @@index([conversationId, status])
+  @@index([leadId])
+  @@index([acceptedById])
 }
 
 // Lista de "no llamar" (opt-out). Antes era un Set en memoria en
@@ -345,12 +772,14 @@ model LeadNote {
   id         String   @id @default(cuid())
   orgId      String
   leadId     String
+  callId     String?
   authorName String
   text       String
   createdAt  DateTime @default(now())
 
   org  Organization @relation(fields: [orgId], references: [id])
   lead Lead         @relation(fields: [leadId], references: [id])
+  call Call?        @relation(fields: [callId], references: [id])
 }
 
 // Histórico de auditorías digitales — leads.service.ts#auditLead sigue
@@ -392,5 +821,116 @@ model KnowledgeBase {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  org Organization @relation(fields: [orgId], references: [id])
+  org       Organization        @relation(fields: [orgId], references: [id])
+  favorites KnowledgeFavorite[]
+}
+
+// Favorito ("guardado") o reacción ("útil") de un artículo por usuario —
+// @@unique evita duplicados y permite alternar (toggle) de forma idempotente.
+model KnowledgeFavorite {
+  id              String   @id @default(cuid())
+  orgId           String
+  userId          String
+  knowledgeBaseId String
+  type            String // 'favorite' | 'helpful'
+  createdAt       DateTime @default(now())
+
+  org           Organization  @relation(fields: [orgId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id])
+
+  @@unique([userId, knowledgeBaseId, type])
+}
+
+// Auditoría de mutaciones sensibles (P0-12). Un registro por cambio: quién,
+// qué, sobre qué entidad y el before/after. No sustituye AutomationRun ni
+// AcquisitionEvent — esos son dominio; esto es forense/cumplimiento.
+model AuditLog {
+  id            String   @id @default(cuid())
+  orgId         String
+  actorUserId   String?
+  actorType     String   @default("user") // user | system
+  action        String // ej. "opportunity.update", "meeting.cancel"
+  entityType    String
+  entityId      String
+  before        Json?
+  after         Json?
+  correlationId String?
+  createdAt     DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor User?        @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, entityType, entityId])
+  @@index([orgId, createdAt])
+}
+
+// Vincula un activo remoto de Mautic (plantilla/segmento/campaña) a la
+// organización que puede verlo y usarlo (P0-04/EM-01). Sin este binding,
+// ningún externalId se lista ni se acepta en un envío.
+model MauticAssetBinding {
+  id         String          @id @default(cuid())
+  orgId      String
+  assetType  MauticAssetType
+  externalId String
+  name       String
+  metadata   Json?
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, assetType, externalId])
+  @@index([orgId, assetType, isActive])
+}
+
+// Idempotencia por paso de automatización (P0-07/AU-02). Se reserva la fila
+// antes de ejecutar el efecto externo; el unique de runId+stepKey impide que
+// una caída entre proveedor y DB repita el envío al reintentar el run.
+model AutomationStepRun {
+  id             String    @id @default(cuid())
+  orgId          String
+  runId          String
+  stepKey        String
+  attempt        Int       @default(1)
+  type           String
+  status         String    @default("pending") // pending|succeeded|skipped|blocked|failed
+  input          Json?
+  output         Json?
+  idempotencyKey String?
+  errorCode      String?
+  errorDetail    String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  org Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  run AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, stepKey])
+  @@index([orgId, status])
+}
+
+// Materializa un disparador temporal futuro (P0-08/AU-01): inactividad de
+// lead, reunión próxima, propuesta estancada. El scheduler los crea una vez
+// por dedupeKey y los publica al outbox cuando vencen; evita reevaluar
+// queries sin memoria en cada tick y evita doble emisión por entidad+regla.
+model ScheduledTrigger {
+  id         String    @id @default(cuid())
+  orgId      String
+  ruleKey    String
+  entityType String
+  entityId   String
+  dedupeKey  String    @unique
+  dueAt      DateTime
+  status     String    @default("pending") // pending|fired|cancelled
+  payload    Json?
+  firedAt    DateTime?
+  createdAt  DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([status, dueAt])
+  @@index([orgId, ruleKey])
 }

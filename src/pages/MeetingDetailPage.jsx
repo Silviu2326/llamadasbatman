@@ -297,19 +297,40 @@ export default function MeetingDetailPage() {
           {/* Checklist */}
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
             <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Checklist</p>
+            {/*
+              No inventar estados "hecho" sin datos que los respalden (P0-09).
+              El sistema de recordatorios reales aun no existe (ver RE-03), asi
+              que ese item y "Agenda preparada" se muestran como "No disponible"
+              en lugar de marcarse como completados por defecto.
+            */}
             {[
-              { done:true,  label:'Recordatorio enviado' },
-              { done:true,  label:'Agenda preparada' },
-              { done:false, label:'Materiales enviados' },
-              { done:false, label:'CRM actualizado' },
-            ].map((c, i) => (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                <div style={{ width:16, height:16, borderRadius:5, border:`1px solid ${c.done ? '#10b981' : '#1e2433'}`, background: c.done ? '#10b98120' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  {c.done && <RiCheckLine style={{ width:10, height:10, color:'#10b981' }} />}
+              { status:'unavailable', label:'Recordatorio' },
+              { status:'unavailable', label:'Agenda preparada' },
+              { status:'pending',     label:'Materiales enviados' },
+              { status:'pending',     label:'CRM actualizado' },
+            ].map((c, i) => {
+              const isDone = c.status === 'done'
+              const isUnavailable = c.status === 'unavailable'
+              return (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                  <div style={{
+                    width:16, height:16, borderRadius:5, flexShrink:0,
+                    border:`1px solid ${isDone ? '#10b981' : '#1e2433'}`,
+                    background: isDone ? '#10b98120' : 'transparent',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    {isDone && <RiCheckLine style={{ width:10, height:10, color:'#10b981' }} />}
+                    {isUnavailable && <span style={{ fontSize:10, color:'#4b5563', lineHeight:1 }}>–</span>}
+                  </div>
+                  <p style={{
+                    margin:0, fontSize:11.5,
+                    color: isDone ? '#6b7280' : isUnavailable ? '#4b5563' : '#94a3b8',
+                    textDecoration: isDone ? 'line-through' : 'none',
+                    fontStyle: isUnavailable ? 'italic' : 'normal',
+                  }}>{c.label}{isUnavailable ? ' · No disponible' : ''}</p>
                 </div>
-                <p style={{ margin:0, fontSize:11.5, color: c.done ? '#6b7280' : '#94a3b8', textDecoration: c.done ? 'line-through' : 'none' }}>{c.label}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>

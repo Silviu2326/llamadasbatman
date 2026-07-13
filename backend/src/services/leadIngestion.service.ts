@@ -1,8 +1,9 @@
-import { leadCallQueue } from '../jobs/leadCallDispatch'
+import { enqueueLeadCall as enqueueLeadCallJob } from '../jobs/leadCallDispatch'
 import { createLead } from './leads.service'
 import { prisma } from '../lib/prisma'
 import { sendLeadEvent } from './metaConversions.service'
 import { syncContact } from './mauticSync.service'
+import { ChannelConsentInput, orchestrateNewLead } from './conversations.service'
 
 /**
  * Encola la llamada de un lead ya existente con prioridad máxima y sin delay.
@@ -11,16 +12,7 @@ import { syncContact } from './mauticSync.service'
  * el lead queda creado igual, solo no se dispara la llamada automática.
  */
 export async function enqueueLeadCall(orgId: string, leadId: string): Promise<boolean> {
-  if (!leadCallQueue) {
-    console.warn(`[LeadIngestion] cola no disponible, lead ${leadId} no fue encolado`)
-    return false
-  }
-  await leadCallQueue.add(
-    'call',
-    { orgId, leadId },
-    { priority: 1, removeOnComplete: 1000, removeOnFail: 1000 }
-  )
-  return true
+  return enqueueLeadCallJob(orgId, leadId)
 }
 
 /**
@@ -40,6 +32,7 @@ export async function ingestLead(
     source: string
     externalLeadId?: string
     customFields?: Record<string, unknown>
+    consent?: ChannelConsentInput
   }
 ) {
   // Idempotencia: Meta reintenta el webhook si no confirmamos rápido, no
@@ -51,9 +44,12 @@ export async function ingestLead(
     if (existing) return existing
   }
 
-  const lead = await createLead(orgId, input)
-  await enqueueLeadCall(orgId, lead.id)
+  // Fuentes automáticas (webhook Meta, landing) no tienen un usuario detrás.
+  const lead = await createLead(orgId, null, input)
   await sendLeadEvent(orgId, lead).catch(() => {})
   await syncContact(lead).catch(() => {})
+  await orchestrateNewLead(orgId, lead.id, input.consent).catch((error) => {
+    console.error('[LeadIngestion] conversation orchestration failed:', (error as Error).message)
+  })
   return lead
 }

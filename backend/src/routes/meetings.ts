@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middlewares/authenticate'
+import { authorize } from '../middlewares/authorize'
 import * as ctrl from '../controllers/meetings.controller'
 
 export async function meetingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
   app.get('/', ctrl.list)
-  app.post('/', ctrl.create)
+  app.post('/', { preHandler: authorize(['admin', 'agent']) }, ctrl.create as any)
   app.get('/:id', ctrl.get)
-  app.put('/:id', ctrl.update)
+  app.put('/:id', { preHandler: authorize(['admin', 'agent']) }, ctrl.update as any)
 }

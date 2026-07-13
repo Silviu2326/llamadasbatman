@@ -1,8 +1,15 @@
-// Proceso separado para los workers de BullMQ — correr con `npm run worker`.
-// Cada job se auto-arranca al importarse (ver el try/catch de cada archivo).
-import './jobs/automationRunner'
-import './jobs/leadCallDispatch'
-import './jobs/adReviewPoll'
-import './jobs/adInsightsSync'
+process.env.BACKGROUND_WORKERS_ENABLED = 'true'
 
-console.log('[Vozia] Workers iniciados (automation-runner, lead-call-dispatch, ad-review-poll, ad-insights-sync)')
+Promise.all([
+  import('./jobs/automationRunner'),
+  import('./jobs/leadCallDispatch'),
+  import('./jobs/adReviewPoll'),
+  import('./jobs/adInsightsSync'),
+  import('./jobs/outboxDispatcher'),
+  import('./jobs/temporalEventScheduler'),
+])
+  .then(() => console.log('[Vozia] Workers iniciados'))
+  .catch((error) => {
+    console.error('[Vozia] No se pudieron iniciar los workers:', error)
+    process.exitCode = 1
+  })

@@ -1,23 +1,29 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middlewares/authenticate'
+import { authorize } from '../middlewares/authorize'
 import * as ctrl from '../controllers/leads.controller'
 
 export async function leadsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
-  app.get('/', ctrl.list)
-  app.post('/', ctrl.create)
-  app.post('/import', ctrl.importCsv)
-  app.get('/:id', ctrl.get)
-  app.put('/:id', ctrl.update)
-  app.post('/:id/call-now', ctrl.callNow)
-  app.get('/:id/timeline', ctrl.timeline)
-  app.post('/:id/audit', ctrl.audit)
-  app.get('/:id/audit', ctrl.getAudit)
-  app.get('/:id/audit-history', ctrl.auditHistory)
-  app.get('/:id/notes', ctrl.listNotes)
-  app.post('/:id/notes', ctrl.createNote)
-  app.get('/:id/files', ctrl.listFiles)
-  app.post('/:id/files', ctrl.uploadFile)
-  app.post('/:id/send-email', ctrl.sendEmail)
+  const canMutate = { preHandler: authorize(['admin', 'agent']) }
+
+  // Lectura: cualquier rol autenticado (viewer incluido).
+  app.get('/', ctrl.list as any)
+  app.get('/:id', ctrl.get as any)
+  app.get('/:id/timeline', ctrl.timeline as any)
+  app.get('/:id/audit', ctrl.getAudit as any)
+  app.get('/:id/audit-history', ctrl.auditHistory as any)
+  app.get('/:id/notes', ctrl.listNotes as any)
+  app.get('/:id/files', ctrl.listFiles as any)
+
+  // Mutación: viewer nunca escribe (P0-03/VE-04).
+  app.post('/', canMutate, ctrl.create as any)
+  app.post('/import', canMutate, ctrl.importCsv as any)
+  app.put('/:id', canMutate, ctrl.update as any)
+  app.post('/:id/call-now', canMutate, ctrl.callNow as any)
+  app.post('/:id/audit', canMutate, ctrl.audit as any)
+  app.post('/:id/notes', canMutate, ctrl.createNote as any)
+  app.post('/:id/files', canMutate, ctrl.uploadFile as any)
+  app.post('/:id/send-email', canMutate, ctrl.sendEmail as any)
 }
