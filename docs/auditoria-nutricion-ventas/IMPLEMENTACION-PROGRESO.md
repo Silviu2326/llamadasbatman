@@ -44,11 +44,24 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios tras el schema push (`
 
 Verificado tras esta pasada: `npx tsc --noEmit` y `npx vite build` limpios con Task CRUD + conversión de NextBestAction + volcado de SalesActivity integrados.
 
-**Siguiente paso concreto para continuar (Fase 1 backend ya tiene FND-01..05 completos; falta FND-06 y todo el frontend de Fase 1, más LE-101..109, AU-101..111 restante, OP-101..109, RE-101..108):**
-1. UI: conectar Leads.jsx/LeadDetailPage a `/api/tasks` y `/api/leads/:id/activities` en vez de `customFields.nextAction` y el timeline parcial.
-2. LE-101 (búsqueda/filtros/paginación server-side de Leads) — desbloquea LE-102/104.
-3. OP-101 (`OpportunityStageHistory` + `stageEnteredAt`) — desbloquea OP-102 (kanban DnD) y OP-104 (ganar/perder con invariantes).
-4. AU-101/102 (estado draft + `AutomationVersion` inmutable) — desbloquea AU-104 (historial UI) y AU-105 (condiciones/ramas).
+### Fase 1 · continuación (OP-101/102, LE-101, AU-08/09)
+
+| ID | Estado | Notas |
+| --- | --- | --- |
+| OP-101 `OpportunityStageHistory` | ✅ hecho | Transaccional en `createOpportunity`/`moveStage`; `stageEnteredAt` real sustituye `createdAt` en la detección de "estancado". `closed_lost` exige `reason`. |
+| OP-102 Kanban DnD | ✅ hecho | Drag-and-drop nativo (sin librerías) en `Pipeline.jsx`, `POST /api/pipeline/:id/move-stage` con rollback optimista si falla. `GET /api/pipeline/:id/history` expone el historial. |
+| LE-101 Búsqueda server-side | ✅ hecho | `search`/`source`/`sort` en `listLeads` + querystring validada con Zod; `Leads.jsx` ya no filtra/ordena solo la página cargada. Quedan en cliente las facetas sin columna real (score heurístico, próxima acción, auditoría) — documentado en el propio código. |
+| AU-08 Descripción perdida | ✅ hecho | `Automation.description` real; el modal ya no la mete en `trigger.description`. |
+| AU-09 Estado draft (mínimo) | ✅ hecho | `status='draft'` si se crea sin acciones o con `isDraft:true`; no se puede activar un draft vacío. Versionado completo (`AutomationVersion`, diff, rollback) sigue pendiente — es AU-102, L/XL, distinto ítem. |
+
+Verificado: `npx tsc --noEmit` y `npx vite build` limpios con los tres cambios integrados.
+
+**Siguiente paso concreto para continuar:**
+1. FND-06 (correlationId/errores normalizados) — pendiente desde el inicio de Fase 1.
+2. LE-102 (export asíncrono completo, hoy solo exporta la página visible con aviso explícito), LE-103 (ImportJob asíncrono — importLeads sigue siendo secuencial por fila).
+3. OP-104 (comandos ganar/perder/reabrir con invariantes completos — hoy `moveStage` cubre el motivo de pérdida pero no fecha/valor final de cierre ganado ni el control de reabrir).
+4. AU-102..109 (versionado inmutable, condiciones/ramas, historial UI, dead-letter) — es el bloque más grande que queda de Automatizaciones.
+5. RE-101..108 (Reuniones) y EM-101..110 (Email marketing completo) siguen sin empezar — son Fase 2/3 del plan.
 
 ## Fases siguientes (no iniciadas)
 

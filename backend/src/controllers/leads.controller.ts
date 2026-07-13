@@ -25,9 +25,19 @@ const phoneSchema = z.string().trim().regex(/^[0-9+()\-.\s]{3,40}$/, 'Teléfono 
 const tagsSchema = z.array(z.string().trim().min(1).max(60)).max(50)
 const customFieldsSchema = z.record(z.unknown())
 
+// LE-101: campos/direcciones de orden permitidos vía querystring (?sort=campo:direccion).
+const LEAD_SORT_OPTIONS = [
+  'createdAt:asc', 'createdAt:desc',
+  'updatedAt:asc', 'updatedAt:desc',
+  'name:asc', 'name:desc',
+] as const
+
 const listQuerySchema = z.object({
   campaignId: z.string().trim().min(1).max(128).optional(),
   status: z.enum(LEAD_STATUSES).optional(),
+  search: z.string().trim().min(1).max(200).optional(),
+  source: z.string().trim().min(1).max(100).optional(),
+  sort: z.enum(LEAD_SORT_OPTIONS).optional(),
   page: z.coerce.number().int().min(1).max(100_000).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 }).strict()
@@ -87,6 +97,9 @@ export async function list(
     Querystring: {
       campaignId?: string
       status?: string
+      search?: string
+      source?: string
+      sort?: string
       page?: string
       limit?: string
     }

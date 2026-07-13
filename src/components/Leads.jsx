@@ -130,24 +130,40 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState('Todos')
   const [view, setView] = useState('table')
   const [selected, setSelected] = useState(new Set())
   const [showFilters, setShowFilters] = useState(false)
   const [showNewLead, setShowNewLead] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const [sortBy, setSortBy] = useState('score')
+  const [sortBy, setSortBy] = useState('createdAt:desc')
   const [scoreFilter, setScoreFilter] = useState('all')
   const [sourceFilter, setSourceFilter] = useState('all')
   const [auditFilters, setAuditFilters] = useState(new Set())
   const [refreshKey, setRefreshKey] = useState(0)
 
+  // LE-101: búsqueda con debounce (300ms) para no disparar una petición por
+  // tecla — solo `debouncedSearch` viaja al backend.
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(timeout)
+  }, [search])
+
+  // Cualquier cambio en búsqueda/fuente/orden redefine el conjunto global de
+  // resultados: vuelve a la página 1 (si ya estaba en 1 esto es un no-op).
+  useEffect(() => { setPage(1) }, [debouncedSearch, sourceFilter, sortBy])
+
   useEffect(() => {
     let active = true
     setLoading(true); setError('')
+    const params = new URLSearchParams({ page: String(page), limit: '24' })
+    if (debouncedSearch) params.set('search', debouncedSearch)
+    if (sourceFilter !== 'all') params.set('source', sourceFilter)
+    if (sortBy) params.set('sort', sortBy)
     Promise.all([
       apiFetch('/api/dashboard/stats').then(response => response.ok ? response.json() : null),
-      apiFetch(`/api/leads?page=${page}&limit=24`).then(response => { if (!response.ok) throw new Error('leads'); return response.json() }),
+      apiFetch(`/api/leads?${params.toString()}`).then(response => { if (!response.ok) throw new Error('leads'); return response.json() }),
     ]).then(([statsValue, data]) => {
       if (!active) return
       if (statsValue) setStats(statsValue)
@@ -155,7 +171,7 @@ export default function LeadsPage() {
       setLeads(items.map(enhanceLead)); setMeta({ total: data.total ?? items.length, totalPages: data.totalPages ?? 1 })
     }).catch(() => { if (active) setError('No se pudieron cargar los leads. Revisa la conexión.') }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [page, refreshKey])
+  }, [page, refreshKey, debouncedSearch, sourceFilter, sortBy])
 
   useEffect(() => {
     const onKey = event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); document.querySelector('.leads-search input')?.focus() } }
@@ -163,24 +179,28 @@ export default function LeadsPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Nota: solo lista fuentes presentes en la página cargada (no hay endpoint
+  // de fuentes distintas). El filtro sí aplica de forma global vía backend
+  // aunque esta lista de opciones pueda no incluir alguna fuente que solo
+  // exista en otra página.
   const sources = useMemo(() => [...new Set(leads.map(lead => lead.source).filter(Boolean))], [leads])
   const filterCount = auditFilters.size + (scoreFilter !== 'all' ? 1 : 0) + (sourceFilter !== 'all' ? 1 : 0)
 
+  // search/source/sort ya se resolvieron en el backend (LE-101, ver query de
+  // /api/leads más arriba). Lo que queda aquí son facetas sin columna propia
+  // en el backend (score heurístico, flags de auditoría, tabs derivadas) —
+  // solo pueden aplicarse sobre la página ya cargada.
   const filtered = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase()
-    const result = leads.filter(lead => {
-      if (normalizedSearch && !`${lead.name} ${lead.company} ${lead.email} ${lead.tags?.join(' ')}`.toLowerCase().includes(normalizedSearch)) return false
+    return leads.filter(lead => {
       if (activeFilter === 'Hot' && lead.score < 80) return false
       if (activeFilter === 'En seguimiento' && !['En seguimiento', 'Contactado', 'Interesado'].includes(lead.status)) return false
       if (activeFilter === 'Nuevos' && lead.status !== 'Nuevo') return false
       if (activeFilter === 'Sin próxima acción' && lead.nextAction !== 'Sin próxima acción') return false
       if (scoreFilter !== 'all' && lead.score < Number(scoreFilter)) return false
-      if (sourceFilter !== 'all' && lead.source !== sourceFilter) return false
       for (const key of auditFilters) if (!lead.auditFlags?.[key]) return false
       return true
     })
-    return result.sort((a, b) => sortBy === 'score' ? b.score - a.score : sortBy === 'name' ? a.name.localeCompare(b.name) : String(a.nextActionDate).localeCompare(String(b.nextActionDate)))
-  }, [activeFilter, auditFilters, leads, scoreFilter, search, sortBy, sourceFilter])
+  }, [activeFilter, auditFilters, leads, scoreFilter])
 
   const totalLeads = stats?.totalLeads ?? meta.total
   const hotCount = stats?.funnel?.find(item => ['Calificados', 'Leads Hot'].includes(item.label))?.value ?? leads.filter(lead => lead.score >= 80).length
@@ -232,7 +252,13 @@ export default function LeadsPage() {
     setSelected(new Set())
   }
 
+  // LE-102 (fuera de alcance de LE-101): no hay export completo del listado
+  // filtrado — solo se exportan los leads visibles en la página actual, así
+  // que se advierte explícitamente antes de generar el CSV.
   function handleExportCsv() {
+    if (!filtered.length) return
+    const confirmed = window.confirm(`Se exportarán los ${filtered.length} leads de esta página (no el listado completo de ${meta.total} leads). ¿Continuar?`)
+    if (!confirmed) return
     downloadCsv('leads.csv', filtered.map(lead => ({ nombre: lead.name, empresa: lead.company, estado: lead.status, score: lead.score, telefono: lead.phone, oportunidad: lead.potValue, fuente: lead.source })))
   }
 
@@ -247,7 +273,7 @@ export default function LeadsPage() {
 
     <section className="leads-funnel-grid"><div className="leads-funnel-panel"><div className="leads-panel-heading"><div><span className="leads-heading-kicker"><RiPulseLine /> Pipeline en movimiento</span><h2>Embudo de leads</h2></div></div><div className="leads-funnel">{STAGES.slice(0, 6).map((stage, index) => { const item = stats?.funnel?.find(entry => entry.label === stage); const count = item?.value ?? leads.filter(lead => lead.status === stage).length; return <div className={`funnel-stage ${['blue', 'cyan', 'green', 'violet', 'pink', 'lime'][index]}`} key={stage}><strong>{stage}</strong><b>{Number(count).toLocaleString('es-ES')}</b><small>Datos disponibles</small></div> })}</div><div className="leads-funnel-footer"><span>Conversión total: <b>{stats?.conversionRate != null ? `${stats.conversionRate}%` : '—'}</b></span><span><i className="live-dot" /> Datos sincronizados</span></div></div><FocusPanel leads={leads} onOpenLead={id => navigate(`/leads/${id}`)} /></section>
 
-    <section className="leads-workspace"><div className="leads-workspace-toolbar"><div className="leads-toolbar-left"><div className="leads-filter-tabs">{FILTER_TABS.map(tab => <button key={tab} className={activeFilter === tab ? 'active' : ''} onClick={() => setActiveFilter(tab)}>{tab}{tab === 'Hot' && <span>{hotCount}</span>}</button>)}</div><button className={`leads-filter-button${showFilters || filterCount ? ' active' : ''}`} onClick={() => setShowFilters(value => !value)}><RiFilterLine /> Filtros {filterCount > 0 && <span>{filterCount}</span>}</button></div><div className="leads-toolbar-right"><label className="leads-sort">Ordenar por <select value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="score">Prioridad</option><option value="name">Nombre</option><option value="next">Próxima acción</option></select><HiChevronDown /></label><button className="leads-button ghost compact" onClick={handleExportCsv}><RiFileDownloadLine /> Exportar</button><div className="leads-view-switcher"><button className={view === 'table' ? 'active' : ''} onClick={() => setView('table')} aria-label="Vista tabla"><RiTableLine /></button><button className={view === 'kanban' ? 'active' : ''} onClick={() => setView('kanban')} aria-label="Vista kanban"><RiLayoutGridLine /></button></div></div></div>
+    <section className="leads-workspace"><div className="leads-workspace-toolbar"><div className="leads-toolbar-left"><div className="leads-filter-tabs">{FILTER_TABS.map(tab => <button key={tab} className={activeFilter === tab ? 'active' : ''} onClick={() => setActiveFilter(tab)}>{tab}{tab === 'Hot' && <span>{hotCount}</span>}</button>)}</div><button className={`leads-filter-button${showFilters || filterCount ? ' active' : ''}`} onClick={() => setShowFilters(value => !value)}><RiFilterLine /> Filtros {filterCount > 0 && <span>{filterCount}</span>}</button></div><div className="leads-toolbar-right"><label className="leads-sort">Ordenar por <select value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="createdAt:desc">Más recientes</option><option value="createdAt:asc">Más antiguos</option><option value="name:asc">Nombre A-Z</option><option value="name:desc">Nombre Z-A</option></select><HiChevronDown /></label><button className="leads-button ghost compact" onClick={handleExportCsv} title="Exporta solo los leads de la página actual"><RiFileDownloadLine /> Exportar página</button><div className="leads-view-switcher"><button className={view === 'table' ? 'active' : ''} onClick={() => setView('table')} aria-label="Vista tabla"><RiTableLine /></button><button className={view === 'kanban' ? 'active' : ''} onClick={() => setView('kanban')} aria-label="Vista kanban"><RiLayoutGridLine /></button></div></div></div>
 
       {showFilters && <div className="leads-filter-drawer"><div><strong>Filtros avanzados</strong><span>Combina criterios para encontrar el siguiente foco.</span></div><label>Puntuación mínima<select value={scoreFilter} onChange={event => setScoreFilter(event.target.value)}><option value="all">Cualquier score</option><option value="80">80+ · Hot</option><option value="65">65+ · Alto</option><option value="40">40+ · Medio</option></select></label><label>Fuente<select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}><option value="all">Todas las fuentes</option>{sources.map(source => <option key={source}>{source}</option>)}</select></label><div className="leads-audit-filters">{AUDIT_FILTERS.map(filter => <label key={filter.key}><input type="checkbox" checked={auditFilters.has(filter.key)} onChange={() => toggleAuditFilter(filter.key)} />{filter.label}</label>)}</div><button className="leads-text-button" onClick={() => { setScoreFilter('all'); setSourceFilter('all'); setAuditFilters(new Set()) }}><RiCloseLine /> Limpiar filtros</button></div>}
 

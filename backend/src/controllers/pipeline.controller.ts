@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import * as pipelineService from '../services/pipeline.service'
-import { OwnershipError, OpportunityNotFoundError } from '../services/pipeline.service'
+import { OwnershipError, OpportunityNotFoundError, PipelineValidationError } from '../services/pipeline.service'
 import { parseRequest } from '../lib/validation'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
@@ -33,13 +33,20 @@ const createOpportunitySchema = z
 const updateOpportunitySchema = z
   .object({
     name: z.string().trim().min(1).max(200).optional(),
-    stage: z.enum(OPPORTUNITY_STAGES).optional(),
     value: z.coerce.number().min(0).optional(),
     currency: z.enum(SUPPORTED_CURRENCIES).optional(),
     probability: z.coerce.number().int().min(0).max(100).optional(),
     expectedCloseDate: expectedCloseDateSchema.optional(),
     notes: z.string().trim().max(5000).optional(),
     assignedTo: z.string().trim().min(1).optional(),
+  })
+  .strict()
+
+const moveStageSchema = z
+  .object({
+    toStage: z.enum(OPPORTUNITY_STAGES),
+    reason: z.string().trim().max(500).optional(),
+    probability: z.coerce.number().int().min(0).max(100).optional(),
   })
   .strict()
 
@@ -110,6 +117,54 @@ export async function update(
     }
     if (err instanceof OwnershipError) {
       return reply.status(404).send({ error: `${err.field} no encontrado` })
+    }
+    throw err
+  }
+}
+
+export async function moveStage(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, moveStageSchema, request.body)
+  if (!data) return
+
+  try {
+    const opp = await pipelineService.moveStage(
+      orgId,
+      userId,
+      request.params.id,
+      data.toStage,
+      data.reason,
+      data.probability
+    )
+    return reply.send(opp)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    if (err instanceof OwnershipError) {
+      return reply.status(404).send({ error: `${err.field} no encontrado` })
+    }
+    if (err instanceof PipelineValidationError) {
+      return reply.status(400).send({ error: err.message })
+    }
+    throw err
+  }
+}
+
+export async function history(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  try {
+    const rows = await pipelineService.getStageHistory(orgId, request.params.id)
+    return reply.send(rows)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
     }
     throw err
   }

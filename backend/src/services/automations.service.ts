@@ -187,19 +187,29 @@ export async function listAutomations(orgId: string) {
 
 export async function createAutomation(orgId: string, data: {
   name: string
+  description?: string
   trigger: Record<string, unknown>
   actions: unknown[]
   isActive?: boolean
+  isDraft?: boolean
+  actorUserId?: string
 }) {
   const trigger = normalizeAutomationTrigger(data.trigger)
   validateAutomationActions(data.actions)
+  // AU-09 (mínimo): una automatización sin acciones reales nace en draft.
+  // Si trae acciones, solo queda en draft cuando el caller lo pide explícitamente
+  // (isDraft) — nunca por accidente para un flujo ya configurado.
+  const status = data.actions.length === 0 ? 'draft' : data.isDraft ? 'draft' : 'active'
   return prisma.automation.create({
     data: {
       orgId,
       name: data.name,
+      description: data.description ?? null,
       trigger: trigger as any,
       actions: data.actions as any,
-      isActive: data.isActive ?? true,
+      isActive: status === 'draft' ? false : (data.isActive ?? true),
+      status,
+      createdById: data.actorUserId ?? null,
     },
   })
 }
@@ -208,9 +218,18 @@ export async function toggleAutomation(orgId: string, id: string) {
   const automation = await prisma.automation.findFirst({ where: { id, orgId } })
   if (!automation) throw new Error('Automation not found')
 
+  const activating = !automation.isActive
+  const actions = Array.isArray(automation.actions) ? automation.actions : []
+  if (activating && automation.status === 'draft' && actions.length === 0) {
+    throw new Error('No se puede activar un borrador sin acciones configuradas')
+  }
+
   return prisma.automation.update({
     where: { id },
-    data: { isActive: !automation.isActive },
+    data: {
+      isActive: activating,
+      status: activating ? 'active' : automation.status === 'draft' ? 'draft' : 'paused',
+    },
   })
 }
 

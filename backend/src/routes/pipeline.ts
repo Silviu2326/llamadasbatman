@@ -14,4 +14,6 @@ export async function pipelineRoutes(app: FastifyInstance) {
   app.get('/actions',    ctrl.actions)
   app.get('/:id', ctrl.get)
   app.put('/:id', { preHandler: authorize(['admin', 'agent']) }, ctrl.update as any)
+  app.post('/:id/move-stage', { preHandler: authorize(['admin', 'agent']) }, ctrl.moveStage as any)
+  app.get('/:id/history', ctrl.history as any)
 }

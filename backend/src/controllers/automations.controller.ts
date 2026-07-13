@@ -21,9 +21,11 @@ const triggerSchema = z.object({
 
 const createAutomationSchema = z.object({
   name: z.string().trim().min(1).max(120),
+  description: z.string().max(500).optional(),
   trigger: triggerSchema,
   actions: z.array(actionSchema).max(20),
   isActive: z.boolean().optional(),
+  isDraft: z.boolean().optional(),
 }).strict()
 
 export async function get(
@@ -51,9 +53,11 @@ export async function create(
   request: FastifyRequest<{
     Body: {
       name: string
+      description?: string
       trigger: Record<string, unknown>
       actions: unknown[]
       isActive?: boolean
+      isDraft?: boolean
     }
   }>,
   reply: FastifyReply
@@ -62,7 +66,7 @@ export async function create(
   const data = parseRequest(reply, createAutomationSchema, request.body)
   if (!data) return
   try {
-    const automation = await automationsService.createAutomation(orgId, data)
+    const automation = await automationsService.createAutomation(orgId, { ...data, actorUserId: userId })
     await writeAuditLog({
       orgId,
       actorUserId: userId,

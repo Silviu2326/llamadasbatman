@@ -132,6 +132,7 @@ model Organization {
   scheduledTriggers  ScheduledTrigger[]
   salesActivities    SalesActivity[]
   tasks              Task[]
+  opportunityStageHistory OpportunityStageHistory[]
 }
 
 model User {
@@ -393,16 +394,47 @@ model Opportunity {
   probability       Int              @default(0)
   expectedCloseDate DateTime?
   notes             String?
+  stageEnteredAt    DateTime         @default(now())
+  lossReason        String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  org             Organization    @relation(fields: [orgId], references: [id])
-  lead            Lead            @relation(fields: [leadId], references: [id])
-  assignee        User?           @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
+  org             Organization           @relation(fields: [orgId], references: [id])
+  lead            Lead                   @relation(fields: [leadId], references: [id])
+  assignee        User?                  @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
   salesActivities SalesActivity[]
   tasks           Task[]
+  stageHistory    OpportunityStageHistory[]
 
   @@index([orgId, stage, updatedAt])
+  @@index([orgId, stage, stageEnteredAt])
+}
+
+// Historial de transición de etapa (OP-101/OP-02). Sin esto, "estancado" se
+// medía con createdAt: una oportunidad vieja movida hoy a Propuesta se
+// marcaba como estancada de inmediato. Se escribe en la misma transacción
+// que el cambio de etapa; `leftAt` nulo significa que sigue siendo la etapa
+// vigente (permite calcular aging con una sola fila por transición).
+model OpportunityStageHistory {
+  id             String    @id @default(cuid())
+  orgId          String
+  opportunityId  String
+  fromStage      String?
+  toStage        String
+  fromProbability Int?
+  toProbability  Int?
+  actorUserId    String?
+  source         String    @default("manual") // manual|automation
+  reason         String?
+  metadata       Json?
+  enteredAt      DateTime  @default(now())
+  leftAt         DateTime?
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  opportunity Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, opportunityId, enteredAt])
+  @@index([opportunityId, leftAt])
 }
 
 model Playbook {
@@ -496,15 +528,19 @@ model AdInsightSnapshot {
 }
 
 model Automation {
-  id        String    @id @default(cuid())
-  orgId     String
-  name      String
-  trigger   Json
-  actions   Json
-  isActive  Boolean   @default(true)
-  runsCount Int       @default(0)
-  lastRunAt DateTime?
-  createdAt DateTime  @default(now())
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  status      String    @default("active") // draft|active|paused|archived — AU-09/AU-101
+  trigger     Json
+  actions     Json
+  isActive    Boolean   @default(true)
+  runsCount   Int       @default(0)
+  lastRunAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   org  Organization    @relation(fields: [orgId], references: [id])
   runs AutomationRun[]

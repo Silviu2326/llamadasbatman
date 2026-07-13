@@ -83,12 +83,18 @@ function ScoreGauge({ score, color }) {
   )
 }
 
-function OppCard({ opp, stageColor, onClick }) {
+function OppCard({ opp, stageColor, onClick, onDragStart, onDragEnd, isDragging }) {
   return (
-    <div onClick={onClick} style={{
-      background: '#0a0e18', border: '1px solid #1e2433', borderRadius: 10,
-      padding: '9px 9px', display: 'flex', flexDirection: 'column', gap: 7, cursor: 'pointer',
-    }}>
+    <div
+      onClick={onClick}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      style={{
+        background: '#0a0e18', border: '1px solid #1e2433', borderRadius: 10,
+        padding: '9px 9px', display: 'flex', flexDirection: 'column', gap: 7, cursor: 'grab',
+        opacity: isDragging ? 0.4 : 1,
+      }}>
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         <CompanyLogo name={opp.company} bg={opp.bg} />
         <div style={{ minWidth: 0 }}>
@@ -117,17 +123,25 @@ function OppCard({ opp, stageColor, onClick }) {
   )
 }
 
-function KanbanColumn({ stage, opps, onSelect }) {
+function KanbanColumn({ stage, opps, onSelect, draggingId, onDragStartCard, onDragEndCard, onDropCard }) {
   const [expanded, setExpanded] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const allOpps = opps.filter(o => o.stage === stage.id)
   const VISIBLE = 3
   const visible = expanded ? allOpps : allOpps.slice(0, VISIBLE)
   return (
-    <div style={{
-      minWidth: 163, width: 163, display: 'flex', flexDirection: 'column',
-      background: '#090d18', border: '1px solid #1a2235', borderRadius: 13,
-      borderTop: `3px solid ${stage.color}`, flexShrink: 0,
-    }}>
+    <div
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); onDropCard?.(stage.id, e) }}
+      style={{
+        minWidth: 163, width: 163, display: 'flex', flexDirection: 'column',
+        background: dragOver ? '#0d1424' : '#090d18',
+        border: dragOver ? `1px solid ${stage.color}` : '1px solid #1a2235',
+        borderRadius: 13,
+        borderTop: `3px solid ${stage.color}`, flexShrink: 0,
+        transition: 'background 0.12s, border-color 0.12s',
+      }}>
       <div style={{ padding: '11px 11px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{stage.label}</span>
@@ -138,7 +152,17 @@ function KanbanColumn({ stage, opps, onSelect }) {
       </div>
 
       <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {visible.map((opp, i) => <OppCard key={opp.id ?? i} opp={opp} stageColor={stage.color} onClick={() => onSelect?.(opp)} />)}
+        {visible.map((opp, i) => (
+          <OppCard
+            key={opp.id ?? i}
+            opp={opp}
+            stageColor={stage.color}
+            onClick={() => onSelect?.(opp)}
+            isDragging={draggingId === opp.id}
+            onDragStart={(e) => onDragStartCard?.(opp, e)}
+            onDragEnd={() => onDragEndCard?.()}
+          />
+        ))}
       </div>
 
       <div style={{ padding: '8px 11px 11px', marginTop: 6, borderTop: '1px solid #1a2235' }}>
@@ -310,6 +334,8 @@ export default function Pipeline() {
   const [insights, setInsights]       = useState([])
   const [prediction, setPrediction]   = useState({ total: 0, weeks: [] })
   const [acciones, setAcciones]       = useState([])
+  const [draggingId, setDraggingId]   = useState(null)
+  const [dragError, setDragError]     = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -387,6 +413,52 @@ export default function Pipeline() {
     }).catch(() => {})
   }, [refreshKey])
 
+  function handleDragStartCard(opp, e) {
+    setDraggingId(opp.id)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', opp.id)
+  }
+
+  function handleDragEndCard() {
+    setDraggingId(null)
+  }
+
+  async function handleDropCard(targetStageId, e) {
+    const oppId = e.dataTransfer.getData('text/plain') || draggingId
+    setDraggingId(null)
+    if (!oppId) return
+
+    const opp = opps.find(o => o.id === oppId)
+    if (!opp || opp.stage === targetStageId) return
+
+    let reason
+    if (targetStageId === 'closed_lost') {
+      reason = window.prompt('Motivo de la pérdida (obligatorio):')
+      if (!reason || !reason.trim()) return
+      reason = reason.trim()
+    }
+
+    const previousStage = opp.stage
+    setDragError('')
+    setOpps(prev => prev.map(o => (o.id === oppId ? { ...o, stage: targetStageId } : o)))
+
+    try {
+      const res = await apiFetch(`/api/pipeline/${oppId}/move-stage`, {
+        method: 'POST',
+        body: JSON.stringify({ toStage: targetStageId, ...(reason ? { reason } : {}) }),
+      })
+      if (!res.ok) {
+        let msg = 'No se pudo mover la oportunidad.'
+        try { const body = await res.json(); if (body?.error) msg = body.error } catch {}
+        throw new Error(msg)
+      }
+      setRefreshKey(k => k + 1)
+    } catch (err) {
+      setOpps(prev => prev.map(o => (o.id === oppId ? { ...o, stage: previousStage } : o)))
+      setDragError(err.message || 'No se pudo mover la oportunidad. Intenta de nuevo.')
+    }
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#080c14', minWidth: 0, overflow: 'hidden' }}>
 
@@ -414,6 +486,17 @@ export default function Pipeline() {
 
       {showNewOpp && <NewOportunidadModal onClose={() => setShowNewOpp(false)} onSuccess={() => { setShowNewOpp(false); setRefreshKey(k => k + 1) }} />}
 
+      {dragError && (
+        <div style={{
+          margin: '0 24px', padding: '9px 14px', borderRadius: 9,
+          background: '#7f1d1d20', border: '1px solid #ef444440', color: '#fca5a5',
+          fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0,
+        }}>
+          <span>{dragError}</span>
+          <button onClick={() => setDragError('')} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
+
       {/* body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
@@ -428,7 +511,18 @@ export default function Pipeline() {
           {/* Kanban board */}
           <div className="dark-scroll" style={{ overflowX: 'auto', paddingBottom: 6 }}>
             <div style={{ display: 'flex', gap: 10 }}>
-              {stages.map(stage => <KanbanColumn key={stage.id} stage={stage} opps={opps} onSelect={opp => navigate('/pipeline/' + opp.id)} />)}
+              {stages.map(stage => (
+                <KanbanColumn
+                  key={stage.id}
+                  stage={stage}
+                  opps={opps}
+                  onSelect={opp => navigate('/pipeline/' + opp.id)}
+                  draggingId={draggingId}
+                  onDragStartCard={handleDragStartCard}
+                  onDragEndCard={handleDragEndCard}
+                  onDropCard={handleDropCard}
+                />
+              ))}
             </div>
           </div>
 

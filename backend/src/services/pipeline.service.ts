@@ -19,6 +19,14 @@ export class OpportunityNotFoundError extends Error {
   }
 }
 
+/** 400: violación de una regla de negocio (p.ej. cerrar perdida sin motivo). */
+export class PipelineValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PipelineValidationError'
+  }
+}
+
 /**
  * Valida que las referencias recibidas del cliente (lead, usuario asignado)
  * pertenezcan a la organización antes de dejarlas tocar la base (P0-01/VE-01).
@@ -94,19 +102,38 @@ export async function createOpportunity(orgId: string, actorUserId: string | nul
 }) {
   await assertOwnedReferences(orgId, { leadId: data.leadId, assignedTo: data.assignedTo })
 
-  const opportunity = await prisma.opportunity.create({
-    data: {
-      orgId,
-      leadId: data.leadId,
-      assignedTo: data.assignedTo,
-      name: data.name,
-      stage: data.stage ?? 'lead',
-      value: data.value,
-      currency: data.currency ?? 'EUR',
-      probability: data.probability ?? 0,
-      expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : undefined,
-      notes: data.notes,
-    },
+  const initialStage = data.stage ?? 'lead'
+
+  const opportunity = await prisma.$transaction(async (tx) => {
+    const created = await tx.opportunity.create({
+      data: {
+        orgId,
+        leadId: data.leadId,
+        assignedTo: data.assignedTo,
+        name: data.name,
+        stage: initialStage,
+        value: data.value,
+        currency: data.currency ?? 'EUR',
+        probability: data.probability ?? 0,
+        expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : undefined,
+        notes: data.notes,
+      },
+    })
+
+    await tx.opportunityStageHistory.create({
+      data: {
+        orgId,
+        opportunityId: created.id,
+        fromStage: null,
+        toStage: created.stage,
+        toProbability: created.probability,
+        actorUserId,
+        source: 'manual',
+        enteredAt: created.createdAt,
+      },
+    })
+
+    return created
   })
 
   await writeAuditLog({
@@ -128,6 +155,85 @@ export async function createOpportunity(orgId: string, actorUserId: string | nul
   })
 
   return opportunity
+}
+
+/**
+ * OP-101/OP-02: mueve una oportunidad de etapa dejando rastro en
+ * OpportunityStageHistory (cierra la fila vigente y abre una nueva).
+ * Cerrar como 'closed_lost' exige `reason` (OP-07, alcance mínimo aquí).
+ */
+export async function moveStage(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  toStage: OpportunityStage,
+  reason?: string,
+  probability?: number
+) {
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  if (!opportunity) throw new OpportunityNotFoundError()
+
+  if (toStage === opportunity.stage) return opportunity
+
+  if (toStage === 'closed_lost' && !reason) {
+    throw new PipelineValidationError('Se requiere un motivo (reason) para marcar la oportunidad como perdida')
+  }
+
+  const fromStage = opportunity.stage
+  const fromProbability = opportunity.probability
+  const toProbability = probability ?? opportunity.probability
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.opportunityStageHistory.updateMany({
+      where: { opportunityId: id, leftAt: null },
+      data: { leftAt: new Date() },
+    })
+
+    await tx.opportunityStageHistory.create({
+      data: {
+        orgId,
+        opportunityId: id,
+        fromStage,
+        toStage,
+        fromProbability,
+        toProbability,
+        actorUserId,
+        source: 'manual',
+        reason,
+      },
+    })
+
+    return tx.opportunity.update({
+      where: { id },
+      data: {
+        stage: toStage,
+        stageEnteredAt: new Date(),
+        probability: toProbability,
+        lossReason: toStage === 'closed_lost' ? reason : opportunity.lossReason,
+      },
+    })
+  })
+
+  await logSalesActivity({
+    orgId,
+    type: 'stage_change',
+    opportunityId: id,
+    leadId: opportunity.leadId,
+    actorUserId,
+    metadata: { from: fromStage, to: toStage },
+  })
+
+  return updated
+}
+
+export async function getStageHistory(orgId: string, id: string) {
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId }, select: { id: true } })
+  if (!opportunity) throw new OpportunityNotFoundError()
+
+  return prisma.opportunityStageHistory.findMany({
+    where: { orgId, opportunityId: id },
+    orderBy: { enteredAt: 'asc' },
+  })
 }
 
 const DAYS_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
@@ -188,9 +294,9 @@ export async function getPipelineActions(orgId: string) {
   const threeAgo = new Date(Date.now() - 3 * 86400_000)
 
   const [staleCount, staleAgg, staleProposals, goodCalls] = await Promise.all([
-    prisma.opportunity.count({ where: { orgId, stage: { in: ['lead', 'qualified'] }, createdAt: { lt: sevenAgo } } }),
-    prisma.opportunity.aggregate({ where: { orgId, stage: { in: ['lead', 'qualified'] }, createdAt: { lt: sevenAgo } }, _sum: { value: true } }),
-    prisma.opportunity.count({ where: { orgId, stage: 'proposal', createdAt: { lt: threeAgo } } }),
+    prisma.opportunity.count({ where: { orgId, stage: { in: ['lead', 'qualified'] }, stageEnteredAt: { lt: sevenAgo } } }),
+    prisma.opportunity.aggregate({ where: { orgId, stage: { in: ['lead', 'qualified'] }, stageEnteredAt: { lt: sevenAgo } }, _sum: { value: true } }),
+    prisma.opportunity.count({ where: { orgId, stage: 'proposal', stageEnteredAt: { lt: threeAgo } } }),
     prisma.call.findMany({ where: { orgId, outcome: { in: ['meeting_scheduled', 'interested'] }, startedAt: { not: null } }, select: { startedAt: true }, take: 100, orderBy: { createdAt: 'desc' } }),
   ])
 
@@ -211,7 +317,6 @@ export async function getPipelineActions(orgId: string) {
 
 export async function updateOpportunity(orgId: string, actorUserId: string | null | undefined, id: string, data: {
   name?: string
-  stage?: OpportunityStage
   value?: number
   currency?: string
   probability?: number
@@ -245,17 +350,6 @@ export async function updateOpportunity(orgId: string, actorUserId: string | nul
     before,
     after: after ?? undefined,
   })
-
-  if (data.stage && after && data.stage !== before.stage) {
-    await logSalesActivity({
-      orgId,
-      type: 'stage_change',
-      opportunityId: id,
-      leadId: before.leadId,
-      actorUserId,
-      metadata: { from: before.stage, to: after.stage },
-    })
-  }
 
   return after
 }

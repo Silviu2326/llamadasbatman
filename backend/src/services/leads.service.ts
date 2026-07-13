@@ -8,9 +8,16 @@ import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
 import { orchestrateNewLead, ChannelConsentInput } from './conversations.service'
 
+/** LE-101: campos permitidos para ordenar server-side; 'campo:direccion'. */
+const SORTABLE_LEAD_FIELDS = new Set(['createdAt', 'updatedAt', 'name'])
+
 interface LeadFilters {
   campaignId?: string
   status?: LeadStatus
+  search?: string
+  source?: string
+  /** Formato 'campo:asc' | 'campo:desc', campo en SORTABLE_LEAD_FIELDS. */
+  sort?: string
   page?: number
   limit?: number
 }
@@ -42,17 +49,36 @@ async function assertOwnedCampaign(orgId: string, campaignId?: string | null) {
 }
 
 export async function listLeads(orgId: string, filters: LeadFilters = {}) {
-  const { campaignId, status, page = 1, limit = 20 } = filters
+  const { campaignId, status, search, source, sort, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
 
   const where: Record<string, unknown> = { orgId }
   if (campaignId) where.campaignId = campaignId
   if (status) where.status = status
+  if (source) where.source = source
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+      { company: { contains: search, mode: 'insensitive' } },
+    ]
+  }
+
+  // 'campo:direccion' validado contra SORTABLE_LEAD_FIELDS; cualquier otra
+  // cosa (incluido ausente) cae al orden por defecto.
+  let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
+  if (sort) {
+    const [field, direction] = sort.split(':')
+    if (SORTABLE_LEAD_FIELDS.has(field) && (direction === 'asc' || direction === 'desc')) {
+      orderBy = { [field]: direction }
+    }
+  }
 
   const [data, total] = await Promise.all([
     prisma.lead.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip,
       take: limit,
     }),
