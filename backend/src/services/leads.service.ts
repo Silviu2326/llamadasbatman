@@ -5,6 +5,7 @@ import { auditBusiness } from './digitalAudit.service'
 import { getPresignedUrl, putObject } from '../lib/s3'
 import { syncContact } from './mauticSync.service'
 import { writeAuditLog } from '../lib/audit'
+import { orchestrateNewLead, ChannelConsentInput } from './conversations.service'
 
 interface LeadFilters {
   campaignId?: string
@@ -64,6 +65,15 @@ export async function getLead(orgId: string, id: string) {
   return prisma.lead.findFirst({ where: { id, orgId } })
 }
 
+/**
+ * FND-05: punto único de creación de Lead para todas las fuentes (manual,
+ * CSV, Meta, landing, API). Antes solo `ingestLead()` sincronizaba Mautic y
+ * orquestaba la conversación/consentimiento/evento `lead.created`; un lead
+ * dado de alta desde la UI o importado quedaba sin ninguno de esos efectos.
+ * `orchestrateNewLead()` es idempotente (upsert de conversación + outbox
+ * solo si es nueva), así que puede llamarse aquí para cualquier origen sin
+ * riesgo de duplicar conversación o evento en reintentos.
+ */
 export async function createLead(orgId: string, actorUserId: string | null | undefined, data: {
   name: string
   phone?: string
@@ -75,11 +85,13 @@ export async function createLead(orgId: string, actorUserId: string | null | und
   status?: LeadStatus
   tags?: string[]
   customFields?: Record<string, unknown>
+  consent?: ChannelConsentInput
 }) {
   await assertOwnedCampaign(orgId, data.campaignId)
 
+  const { consent, ...leadData } = data
   const lead = await prisma.lead.create({
-    data: { orgId, ...data } as any,
+    data: { orgId, ...leadData } as any,
   })
 
   // Update campaign totalLeads
@@ -99,6 +111,11 @@ export async function createLead(orgId: string, actorUserId: string | null | und
     after: lead,
   })
 
+  await syncContact(lead).catch(() => {})
+  await orchestrateNewLead(orgId, lead.id, consent).catch((error) => {
+    console.error('[Leads] orchestration failed:', (error as Error).message)
+  })
+
   return lead
 }
 
@@ -110,14 +127,21 @@ export async function importLeads(
 ) {
   await assertOwnedCampaign(orgId, campaignId)
 
+  // FND-05: mismos efectos de dominio que un alta manual/API para cada fila
+  // (sync Mautic + conversación + evento lead.created). Import secuencial de
+  // filas es una limitación conocida (LE-06/P1: falta ImportJob asíncrono),
+  // no se agrava aquí — ya lo era antes de sumar la orquestación.
   const created = []
   for (const row of rows) {
     if (!row.name) continue
-    created.push(
-      await prisma.lead.create({
-        data: { orgId, campaignId, name: row.name, phone: row.phone, email: row.email, company: row.company, status: 'new' as LeadStatus },
-      })
-    )
+    const lead = await prisma.lead.create({
+      data: { orgId, campaignId, name: row.name, phone: row.phone, email: row.email, company: row.company, status: 'new' as LeadStatus },
+    })
+    created.push(lead)
+    await syncContact(lead).catch(() => {})
+    await orchestrateNewLead(orgId, lead.id).catch((error) => {
+      console.error('[Leads] import orchestration failed:', (error as Error).message)
+    })
   }
 
   await prisma.campaign.updateMany({

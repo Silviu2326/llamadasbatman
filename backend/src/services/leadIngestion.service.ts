@@ -2,8 +2,7 @@ import { enqueueLeadCall as enqueueLeadCallJob } from '../jobs/leadCallDispatch'
 import { createLead } from './leads.service'
 import { prisma } from '../lib/prisma'
 import { sendLeadEvent } from './metaConversions.service'
-import { syncContact } from './mauticSync.service'
-import { ChannelConsentInput, orchestrateNewLead } from './conversations.service'
+import { ChannelConsentInput } from './conversations.service'
 
 /**
  * Encola la llamada de un lead ya existente con prioridad máxima y sin delay.
@@ -45,11 +44,10 @@ export async function ingestLead(
   }
 
   // Fuentes automáticas (webhook Meta, landing) no tienen un usuario detrás.
+  // createLead() ya sincroniza Mautic y orquesta conversación/consentimiento/
+  // evento lead.created (FND-05) — aquí solo queda lo específico de esta
+  // fuente: el evento de conversión a Meta.
   const lead = await createLead(orgId, null, input)
   await sendLeadEvent(orgId, lead).catch(() => {})
-  await syncContact(lead).catch(() => {})
-  await orchestrateNewLead(orgId, lead.id, input.consent).catch((error) => {
-    console.error('[LeadIngestion] conversation orchestration failed:', (error as Error).message)
-  })
   return lead
 }

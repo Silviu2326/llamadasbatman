@@ -57,6 +57,20 @@ enum MauticAssetType {
   campaign
 }
 
+enum TaskStatus {
+  open
+  in_progress
+  completed
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  normal
+  high
+  urgent
+}
+
 model Organization {
   id                 String   @id @default(cuid())
   name               String
@@ -116,6 +130,8 @@ model Organization {
   mauticAssetBindings MauticAssetBinding[]
   automationStepRuns AutomationStepRun[]
   scheduledTriggers  ScheduledTrigger[]
+  salesActivities    SalesActivity[]
+  tasks              Task[]
 }
 
 model User {
@@ -138,6 +154,9 @@ model User {
   authoredMessages      Message[]           @relation("MessageAuthor")
   acceptedNextActions   NextBestAction[]    @relation("NextActionAcceptedBy")
   auditLogs             AuditLog[]          @relation("AuditLogActor")
+  salesActivities       SalesActivity[]     @relation("SalesActivityActor")
+  ownedTasks            Task[]              @relation("TaskOwner")
+  createdTasks          Task[]              @relation("TaskCreatedBy")
 }
 
 // Preferencias por usuario para /configuracion. Separado de User porque son
@@ -233,6 +252,7 @@ model Lead {
   attempts       Int        @default(0)
   lastAttemptAt  DateTime?
   createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   org               Organization       @relation(fields: [orgId], references: [id])
   campaign          Campaign?          @relation(fields: [campaignId], references: [id])
@@ -248,8 +268,11 @@ model Lead {
   messages          Message[]
   contactConsents   ContactConsent[]
   nextBestActions   NextBestAction[]
+  salesActivities   SalesActivity[]
+  tasks             Task[]
 
   @@unique([orgId, externalLeadId])
+  @@index([orgId, status, updatedAt])
 }
 
 // Registro normalizado de atribucion para todas las fuentes de captacion.
@@ -346,11 +369,16 @@ model Meeting {
   notes           String?
   meetingUrl      String?
   createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  org      Organization @relation(fields: [orgId], references: [id])
-  lead     Lead         @relation(fields: [leadId], references: [id])
-  call     Call?        @relation(fields: [callId], references: [id])
-  assignee User?        @relation("AssignedMeetings", fields: [assignedTo], references: [id])
+  org             Organization    @relation(fields: [orgId], references: [id])
+  lead            Lead            @relation(fields: [leadId], references: [id])
+  call            Call?           @relation(fields: [callId], references: [id])
+  assignee        User?           @relation("AssignedMeetings", fields: [assignedTo], references: [id])
+  salesActivities SalesActivity[]
+  tasks           Task[]
+
+  @@index([orgId, status, scheduledAt])
 }
 
 model Opportunity {
@@ -366,10 +394,15 @@ model Opportunity {
   expectedCloseDate DateTime?
   notes             String?
   createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  org      Organization @relation(fields: [orgId], references: [id])
-  lead     Lead         @relation(fields: [leadId], references: [id])
-  assignee User?        @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
+  org             Organization    @relation(fields: [orgId], references: [id])
+  lead            Lead            @relation(fields: [leadId], references: [id])
+  assignee        User?           @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
+  salesActivities SalesActivity[]
+  tasks           Task[]
+
+  @@index([orgId, stage, updatedAt])
 }
 
 model Playbook {
@@ -530,6 +563,8 @@ model Conversation {
   messages        Message[]
   automationRuns  AutomationRun[]
   nextBestActions NextBestAction[]
+  salesActivities SalesActivity[]
+  tasks           Task[]
 
   @@unique([orgId, channel, address])
   @@index([orgId, status, updatedAt])
@@ -735,11 +770,12 @@ model NextBestAction {
   channel        String?
   score          Float     @default(0)
   reason         String
-  status         String    @default("proposed")
+  status         String    @default("proposed") // proposed|accepted|dismissed|executed
   metadata       Json?
   expiresAt      DateTime?
   acceptedAt     DateTime?
   executedAt     DateTime?
+  convertedTaskId String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -933,4 +969,79 @@ model ScheduledTrigger {
 
   @@index([status, dueAt])
   @@index([orgId, ruleKey])
+}
+
+// Timeline unificado de actividad comercial (FND-02). Llamadas, mensajes,
+// emails, notas, archivos, reuniones y cambios de estado/etapa se proyectan
+// aquí para que una ficha muestre un único historial cronológico en vez de
+// componerlo a mano en el frontend a partir de varias tablas.
+// `source + sourceId + type` permite proyectar de forma idempotente: escribir
+// la actividad más de una vez desde un job reintentado no la duplica.
+model SalesActivity {
+  id             String   @id @default(cuid())
+  orgId          String
+  type           String // call|message|email|note|file|meeting|status_change|stage_change|task
+  leadId         String?
+  opportunityId  String?
+  meetingId      String?
+  conversationId String?
+  actorUserId    String?
+  source         String   @default("manual")
+  sourceId       String?
+  subject        String?
+  body           String?
+  metadata       Json?
+  occurredAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead         Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  opportunity  Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  meeting      Meeting?      @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("SalesActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, source, sourceId, type])
+  @@index([orgId, leadId, occurredAt])
+  @@index([orgId, opportunityId, occurredAt])
+  @@index([orgId, occurredAt])
+}
+
+// Siguiente acción real con owner/vencimiento (FND-03). Sustituye a
+// `customFields.nextAction`, que VE-05 señala como no filtrable (undefined
+// vs. string fijo) y sin propietario ni SLA.
+model Task {
+  id             String       @id @default(cuid())
+  orgId          String
+  type           String       @default("follow_up")
+  title          String
+  description    String?
+  ownerId        String?
+  priority       TaskPriority @default(normal)
+  status         TaskStatus   @default(open)
+  dueAt          DateTime?
+  completedAt    DateTime?
+  reminderAt     DateTime?
+  leadId         String?
+  opportunityId  String?
+  meetingId      String?
+  conversationId String?
+  source         String       @default("manual") // manual|automation|next_best_action
+  sourceId       String?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner        User?         @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy    User?         @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lead         Lead?         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  opportunity  Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  meeting      Meeting?      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, ownerId, status, dueAt])
+  @@index([orgId, leadId, status])
+  @@index([orgId, opportunityId, status])
+  @@index([orgId, status, dueAt])
 }

@@ -27,7 +27,22 @@ Pendiente real de Fase 0 antes de darla por cerrada: solo P0-11 (contrato Mautic
 
 ## Siguiente fase a atacar
 
-Fase 1 (backlog 04, sección 3): FND-01..06 (SalesActivity, Task, updatedAt/índices, ingestión unificada), luego LE-101/102/103/106/107, AU-101..111 restante (versionado, condiciones/ramas, historial UI), OP-101/102/104/105 (stage history, kanban DnD, ganar/perder), RE-101/102/103/107. Empezar por FND-01..05 porque desbloquea al resto.
+Fase 1 (backlog 04, sección 3): FND-01..06, luego LE-101/102/103/106/107, AU-101..111 restante (versionado, condiciones/ramas, historial UI), OP-101/102/104/105 (stage history, kanban DnD, ganar/perder), RE-101/102/103/107.
+
+### Fase 1 · FND-01..06
+
+| ID | Estado | Notas |
+| --- | --- | --- |
+| FND-01 `updatedAt`/índices | ✅ hecho | `Lead.updatedAt`, `Opportunity.updatedAt`, `Meeting.updatedAt` + índices `(orgId, status/stage, updatedAt)`. |
+| FND-02 `SalesActivity` | 🔶 modelo listo, sin wiring | Modelo creado (lead/opportunity/meeting/conversation/actor, `source+sourceId+type` único para idempotencia). **Falta**: escribir filas desde los puntos de mutación reales (llamada, nota, archivo, email, cambio de estado/etapa, reunión) y exponer endpoint de timeline. Siguiente paso concreto. |
+| FND-03 `Task` | 🔶 modelo listo, sin API/UI | Modelo creado (owner, prioridad, estado, vencimiento, recordatorio, relaciones a lead/opportunity/meeting/conversation). **Falta**: servicio CRUD, rutas `/api/leads/:id/tasks` (ver API objetivo en `05-arquitectura-objetivo.md`), UI de "próxima acción" real en vez de `customFields.nextAction`. |
+| FND-04 `NextBestAction` → Task | 🔶 campo listo, sin lógica | Añadido `NextBestAction.convertedTaskId`. **Falta**: endpoint aceptar/descartar/ejecutar que cree el `Task` y enlace. |
+| FND-05 Ingestión unificada | ✅ hecho | `createLead()` e `importLeads()` (leads.service.ts) ahora llaman `syncContact()` + `orchestrateNewLead()` igual que `ingestLead()`; `orchestrateNewLead` es idempotente (upsert de conversación, outbox `lead.created` solo si es nueva), así que alta manual, CSV, Meta y landing producen los mismos efectos de dominio. `leadIngestion.service.ts` simplificado para no duplicar la orquestación. Pendiente conocido: `importLeads` sigue siendo secuencial por fila (LE-06/P1, no agravado aquí, requiere `ImportJob` async). |
+| FND-06 Errores/correlationId | ⬜ pendiente | No abordado; requiere decidir un formato común de error y dónde vive `correlationId` (candidato: columna en `AutomationRun`/`OutboxEvent`, ya sugerida en `05-arquitectura-objetivo.md` pero no aplicada). |
+
+Verificado: `npx tsc --noEmit` y `npx vite build` limpios tras el schema push (`SalesActivity`, `Task`, `updatedAt`+índices, `NextBestAction.convertedTaskId`) y el refactor de ingestión.
+
+**Siguiente paso concreto para continuar la Fase 1:** escribir `SalesActivity` desde los servicios existentes (calls, leads notes/files, meetings, pipeline stage changes, mautic email) y construir el CRUD de `Task` + su API, ya que LE-101..109 y OP-101..109 asumen que estos dos modelos ya emiten datos reales.
 
 ## Fases siguientes (no iniciadas)
 
