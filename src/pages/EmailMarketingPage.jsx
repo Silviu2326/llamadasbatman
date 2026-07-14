@@ -124,6 +124,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   const [saving, setSaving] = useState(false)
   const [busyAction, setBusyAction] = useState('')
   const [error, setError] = useState('')
+  const [publishInfo, setPublishInfo] = useState('')
 
   function syncFormFromCampaign(data) {
     const audience = data.audienceDefinition || {}
@@ -243,9 +244,16 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   async function handlePublish() {
     setBusyAction('publish')
     setError('')
+    setPublishInfo('')
     try {
       const updated = await apiJson(`/api/marketing-campaigns/${campaignId}/publish`, { method: 'POST' })
       setCampaign(updated)
+      const queued = updated.queuedCount ?? 0
+      const skipped = updated.skippedCount ?? 0
+      setPublishInfo(
+        `Campaña publicada: ${queued} lead${queued === 1 ? '' : 's'} encolado${queued === 1 ? '' : 's'} para envío`
+        + (skipped ? `, ${skipped} omitido${skipped === 1 ? '' : 's'} por falta de email o consentimiento.` : '.')
+      )
       onChanged?.()
     } catch (err) {
       setError(err.message || 'No se pudo publicar la campaña.')
@@ -323,6 +331,8 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
           {validation.valid ? <RiCheckLine /> : <RiAlertLine />}
           <span>{validation.valid ? 'La campaña está completa y lista para publicarse.' : `Falta completar: ${validation.missing.map(field => MISSING_FIELD_LABEL[field] || field).join(', ')}.`}</span>
         </div>}
+
+        {publishInfo && <div className="email-tools-status"><RiSendPlaneLine /><span>{publishInfo}</span></div>}
 
         {error && <p className="email-modal-error">{error}</p>}
 

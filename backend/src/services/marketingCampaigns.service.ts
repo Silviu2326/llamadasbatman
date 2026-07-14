@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma'
 import type { LeadStatus, MarketingCampaign } from '@prisma/client'
 import { writeAuditLog } from '../lib/audit'
 import * as mauticSync from './mauticSync.service'
+import { assertEmailSendAllowed } from '../lib/emailCompliance'
 
 /**
  * EM-104/EM-105/EM-106/EM-107: proyección operativa en el CRM de una campaña
@@ -180,16 +181,23 @@ export async function validateCampaign(orgId: string, id: string): Promise<{ val
 /**
  * EM-106: traduce el objeto de filtros planos a un where de Prisma sobre
  * Lead. `email: { not: null }` siempre aplica — no tiene sentido una
- * audiencia de email sin dirección.
+ * audiencia de email sin dirección. Compartida entre previewAudience (solo
+ * cuenta/muestra) y publishCampaign (necesita la lista completa de leads
+ * para encolar los envíos) para no duplicar la lógica de filtro.
  */
-export async function previewAudience(
-  orgId: string,
-  audienceDefinition: AudienceDefinition
-): Promise<{ count: number; sample: Array<{ id: string; name: string; email: string | null; status: LeadStatus; source: string | null; tags: string[] }> }> {
+function buildAudienceWhere(orgId: string, audienceDefinition: AudienceDefinition): Record<string, unknown> {
   const where: Record<string, unknown> = { orgId, email: { not: null } }
   if (audienceDefinition.status?.length) where.status = { in: audienceDefinition.status }
   if (audienceDefinition.source?.length) where.source = { in: audienceDefinition.source }
   if (audienceDefinition.tags?.length) where.tags = { hasSome: audienceDefinition.tags }
+  return where
+}
+
+export async function previewAudience(
+  orgId: string,
+  audienceDefinition: AudienceDefinition
+): Promise<{ count: number; sample: Array<{ id: string; name: string; email: string | null; status: LeadStatus; source: string | null; tags: string[] }> }> {
+  const where = buildAudienceWhere(orgId, audienceDefinition)
 
   const [count, sample] = await Promise.all([
     prisma.lead.count({ where }),
@@ -204,14 +212,29 @@ export async function previewAudience(
   return { count, sample }
 }
 
+export interface PublishCampaignResult {
+  campaign: MarketingCampaign
+  /** Leads con EmailDelivery creado en status='queued', pendiente de envío por campaignSendRunner. */
+  queued: number
+  /** Leads de la audiencia que NO se encolaron (sin email, o `assertEmailSendAllowed` los bloqueó). */
+  skipped: number
+}
+
 /**
  * EM-105/EM-106: publica la campaña — exige que ya esté 'ready' (validada).
  * Crea el contenedor remoto en Mautic si no existe todavía, congela el
  * tamaño de audiencia en el momento de publicar (audienceSnapshotCount, para
  * que el histórico no cambie si la audiencia dinámica varía después) y
  * programa fechas si las hay.
+ *
+ * Publicar NO se limita a marcar la campaña como 'running': por cada lead de
+ * la audiencia que tenga email y pase la barrera de consentimiento
+ * (assertEmailSendAllowed, P0-05) se crea un EmailDelivery en status='queued'
+ * (mismo pipeline probado que usan los envíos manuales/automatizados). El
+ * envío real ocurre de forma asíncrona en campaignSendRunner.ts — hacerlo
+ * síncrono aquí bloquearía el request de publish para audiencias grandes.
  */
-export async function publishCampaign(orgId: string, actorUserId: string, id: string): Promise<MarketingCampaign> {
+export async function publishCampaign(orgId: string, actorUserId: string, id: string): Promise<PublishCampaignResult> {
   const campaign = await findOwned(orgId, id)
   if (campaign.status !== 'ready') {
     throw new CampaignStateError('La campaña debe estar validada (estado "ready") antes de publicarse')
@@ -224,7 +247,10 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
     externalCampaignId = String(remote.id)
   }
 
-  const audience = await previewAudience(orgId, (campaign.audienceDefinition as AudienceDefinition) ?? {})
+  // Lista completa de la audiencia (no la muestra de 5 de previewAudience) —
+  // mismo `where` compartido vía buildAudienceWhere.
+  const where = buildAudienceWhere(orgId, (campaign.audienceDefinition as AudienceDefinition) ?? {})
+  const audienceLeads = await prisma.lead.findMany({ where, select: { id: true, email: true } })
 
   if (campaign.scheduledStartAt) {
     await mauticSync.scheduleCampaign(
@@ -235,6 +261,20 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
     )
   }
 
+  let queued = 0
+  let skipped = 0
+  for (const lead of audienceLeads) {
+    if (!lead.email) { skipped++; continue }
+    const decision = await assertEmailSendAllowed(orgId, lead.id, 'marketing')
+    if (!decision.allowed) { skipped++; continue }
+    await mauticSync.createEmailDelivery(orgId, lead.id, {
+      campaignId: id,
+      templateExternalId: campaign.templateBindingId ?? undefined,
+      toAddress: lead.email,
+    })
+    queued++
+  }
+
   const now = new Date()
   const nextStatus = campaign.scheduledStartAt && campaign.scheduledStartAt.getTime() > now.getTime() ? 'scheduled' : 'running'
 
@@ -242,7 +282,7 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
     where: { id, orgId },
     data: {
       externalCampaignId,
-      audienceSnapshotCount: audience.count,
+      audienceSnapshotCount: audienceLeads.length,
       status: nextStatus,
       publishedAt: now,
       approvedById: actorUserId,
@@ -257,9 +297,9 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
     entityType: 'MarketingCampaign',
     entityId: id,
     before: campaign,
-    after: updated,
+    after: { ...updated, queued, skipped },
   })
-  return updated
+  return { campaign: updated, queued, skipped }
 }
 
 /** EM-107: pausa remota en Mautic y refleja el estado local. */
