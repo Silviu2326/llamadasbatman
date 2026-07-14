@@ -98,18 +98,28 @@ export async function sendTestEmail(
   // Solo se puede evaluar cuando el destinatario de prueba es un lead del
   // CRM (testLeadId); un contacto Mautic suelto (testContactId) no tiene
   // ContactConsent que consultar.
+  let leadEmail: string | null = null
   if (body.testLeadId) {
     const decision = await assertEmailSendAllowed(orgId, body.testLeadId, 'contact')
     if (!decision.allowed) {
       return reply.status(409).send({ error: 'Envío bloqueado por cumplimiento', reason: decision.reason })
     }
+    const lead = await prisma.lead.findFirst({ where: { id: body.testLeadId, orgId }, select: { email: true } })
+    leadEmail = lead?.email ?? null
   }
 
   const testContactId = body.testLeadId
     ? await mauticSync.getContactIdForLead(body.testLeadId, orgId)
     : await mauticSync.getOwnedTestContactId(orgId, body.testContactId!)
   if (!testContactId) return reply.status(404).send({ error: 'El lead de prueba todavía no está sincronizado en Mautic' })
-  const ok = await mauticSync.sendTestEmail(body.emailId, String(testContactId))
+
+  // EM-102: registro normalizado del intento de envío — solo cuando hay un
+  // Lead real del CRM al que asociarlo (EmailDelivery.leadId es obligatorio).
+  const delivery = body.testLeadId && leadEmail
+    ? await mauticSync.createEmailDelivery(orgId, body.testLeadId, { templateExternalId: body.emailId, toAddress: leadEmail })
+    : null
+
+  const ok = await mauticSync.sendTestEmail(body.emailId, String(testContactId), delivery?.id)
   if (!ok) return reply.status(503).send({ error: 'No se pudo enviar el email de prueba' })
   return reply.send({ ok: true })
 }

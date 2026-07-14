@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma'
 import { Prisma } from '@prisma/client'
-import { sendEmailToLead, sendLeadToSegment } from './mauticSync.service'
+import { sendEmailToLead, sendLeadToSegment, createEmailDelivery } from './mauticSync.service'
 import { assertEmailSendAllowed, type EmailSendBlockReason } from '../lib/emailCompliance'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
 import { sendWhatsApp } from './whatsapp.service'
@@ -168,12 +168,14 @@ async function executeAutomationAction(
         return { status: 'blocked', errorCode: EMAIL_BLOCK_ERROR_CODE[emailDecision.reason], errorDetail: `Envío bloqueado por cumplimiento: ${emailDecision.reason}` }
       }
       const emailId = String(action.params?.emailId)
-      const sent = await sendEmailToLead(leadId, emailId, orgId)
+      // EM-102: registro normalizado del intento de envío antes de invocar Mautic.
+      const delivery = await createEmailDelivery(orgId, leadId, { templateExternalId: emailId, toAddress: lead.email })
+      const sent = await sendEmailToLead(leadId, emailId, orgId, delivery.id)
       if (!sent) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'Mautic no confirmó el envío automático' }
       if (conversationId) {
         await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'email', provider: 'mautic', address: lead.email, direction: 'outbound', contentType: 'template', body: 'Email automático enviado', status: 'sent', sentAt: new Date(), metadata: { mauticEmailId: emailId, automationId: automation.id, automationRunId: run.id } } })
       }
-      return { status: 'succeeded', output: { leadId, emailId } }
+      return { status: 'succeeded', output: { leadId, emailId, deliveryId: delivery.id } }
     }
     case 'ai_reply_whatsapp': {
       if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }

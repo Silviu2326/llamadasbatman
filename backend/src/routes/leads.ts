@@ -24,6 +24,10 @@ export async function leadsRoutes(app: FastifyInstance) {
   app.get('/:id/audit-history', ctrl.auditHistory as any)
   app.get('/:id/notes', ctrl.listNotes as any)
   app.get('/:id/files', ctrl.listFiles as any)
+  // EM-109: historial de EmailDelivery/EmailEvent del lead.
+  app.get('/:id/email-history', ctrl.getEmailHistory as any)
+  // EM-110: centro de preferencias por categoría (ContactConsent, channel=email).
+  app.get('/:id/preferences', ctrl.getPreferences as any)
 
   // Mutación: viewer nunca escribe (P0-03/VE-04).
   app.post('/', canMutate, ctrl.create as any)
@@ -35,4 +39,5 @@ export async function leadsRoutes(app: FastifyInstance) {
   app.post('/:id/notes', canMutate, ctrl.createNote as any)
   app.post('/:id/files', canMutate, ctrl.uploadFile as any)
   app.post('/:id/send-email', canMutate, ctrl.sendEmail as any)
+  app.put('/:id/preferences', canMutate, ctrl.updatePreferences as any)
 }

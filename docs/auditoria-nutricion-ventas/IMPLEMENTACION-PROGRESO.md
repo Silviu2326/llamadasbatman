@@ -95,11 +95,29 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 
 **Con esto, el backlog P1 explícito de Fase 1 (`04-backlog-priorizado.md` sección "Orden recomendado de implementación → Fase 1") queda completo**: FND-01..06, LE-101/102/103/106/107, AU-101/102/103/104/107/108/109 (109 dead-letter sigue pendiente, ver abajo), OP-101/102/104/105, RE-101/102/103/107.
 
-**Siguiente paso concreto para continuar (empieza Fase 2 del plan — Nutrición medible):**
-1. Pendientes menores de Fase 1 no bloqueantes: AU-109 (dead-letter/máximo de reintentos con replay — el outbox reintenta con backoff pero sin límite ni estado `dead`), AU-105/106 (condiciones AND/OR, ramas if/else, esperas — el motor sigue siendo lineal), eventos AU-107 restantes (`task.due/overdue`, `consent.changed`, `email.*`, `lead.owner.changed` a outbox).
-2. Email marketing (EM-101..110) — Fase 2 completa, empezar por EM-101 (`MauticContactBinding`)/EM-102 (`EmailDelivery`+`EmailEvent`)/EM-103 (cliente Mautic tipado) antes del wizard EM-105.
-3. RE-104/105/106 (calendario externo — XL, requiere decidir proveedor OAuth primero; recordatorios T-24h/T-2h dependen de esto o de un mínimo sin calendario).
-4. Empresa/Contacto (`Account`/`Contact`, sección 3 de `05-arquitectura-objetivo.md`) — base de Fase 3, desbloquea OP-108/109.
+## Fase 2 · Nutrición medible (Email Marketing, EM-101..110)
+
+| ID | Estado | Notas |
+| --- | --- | --- |
+| EM-101 Binding real de contacto | ✅ hecho | `MauticContactBinding`; `getContactIdForLead` prioriza el binding local sobre la búsqueda remota. |
+| EM-102 EmailDelivery/EmailEvent | ✅ hecho | `createEmailDelivery` con `idempotencyKey`; webhook reescrito para crear `EmailEvent` deduplicado por `(provider, externalEventId)` en vez de `customFields.mauticActivity`. |
+| EM-103 Cliente Mautic tipado | ✅ hecho | Timeout 10s + un retry con backoff solo en GET; interfaces tipadas para contactos/plantillas. |
+| EM-104 Selector de plantillas | ✅ hecho | Reutiliza `MauticAssetBinding` (P0-04) ya filtrado por org; `EmailMarketingPage.jsx` lo usa en el editor de campaña. |
+| EM-105 Campaña operable (MVP) | ✅ hecho | `MarketingCampaign` con estados draft→validating→ready→scheduled→running→paused→completed/error; editor con objetivo/audiencia/plantilla/remitente/calendario. Sin A/B testing (deliberadamente fuera de alcance, es GR-01/P2). |
+| EM-106 Audiencia dinámica | ✅ hecho (básica) | Filtro plano (status/source/tags) con preview de conteo y muestra — no es un constructor de AST completo, decisión deliberada por ser suficiente para el volumen actual. |
+| EM-107 Publicar/pausar con reconciliación | ✅ hecho | `reconcileCampaignStatus` lee el estado remoto real (`getCampaignStats`) en vez de asumir el optimista. |
+| EM-108 Métricas correctas | ✅ hecho | `emailMetrics.service.ts`: entregados/aceptados/aperturas y clics únicos vs. totales/bajas/quejas con denominadores correctos (openRate=únicas/entregados, CTOR=clics únicos/aperturas únicas, CTR=clics únicos/entregados), nunca división por cero. |
+| EM-109 Historial de email en lead | ✅ hecho | `GET /api/leads/:id/email-history`; visible en `LeadDetailPage.jsx`. |
+| EM-110 Centro de preferencias | ✅ hecho (básico) | Reutiliza `ContactConsent` por categoría (`purpose`) en vez de un modelo nuevo; UI de toggles en la pestaña Consentimiento. |
+
+Verificado: `npx tsc --noEmit` y `npx vite build` limpios. Un conflicto de edición concurrente en `index.ts` (dos agentes registrando rutas nuevas a la vez) se resolvió correctamente sin pérdida de cambios (confirmado leyendo el archivo final).
+
+**Siguiente paso concreto para continuar:**
+1. Probar el flujo real de campaña contra una instancia Mautic (no verificado end-to-end en este entorno — sigue pendiente EM-03/P0-11, contrato Mautic fijado).
+2. Pendientes menores de Fase 1 no bloqueantes: AU-109 (dead-letter), AU-105/106 (condiciones/ramas/esperas), eventos AU-107 restantes.
+3. RE-104/105/106 (calendario externo — XL, bloqueado en decisión de proveedor OAuth).
+4. Fase 3: Empresa/Contacto (`Account`/`Contact`), OP-108/109 (contactos/roles de compra, productos/líneas), OP-103/106/107 (vista lista, etapas configurables, forecast completo).
+5. Fase 4 (P2/P3): A/B testing de email (GR-01), atribución (GR-03), segmentos guardados (GR-06), etc. — no empezar hasta que lo anterior esté estable.
 
 ## Fases siguientes (no iniciadas)
 

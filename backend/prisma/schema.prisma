@@ -135,6 +135,10 @@ model Organization {
   opportunityStageHistory OpportunityStageHistory[]
   automationVersions AutomationVersion[]
   importJobs         ImportJob[]
+  mauticContactBindings MauticContactBinding[]
+  marketingCampaigns MarketingCampaign[]
+  emailDeliveries    EmailDelivery[]
+  emailEvents        EmailEvent[]
 }
 
 model User {
@@ -278,6 +282,8 @@ model Lead {
   nextBestActions   NextBestAction[]
   salesActivities   SalesActivity[]
   tasks             Task[]
+  mauticContactBindings MauticContactBinding[]
+  emailDeliveries   EmailDelivery[]
 
   @@unique([orgId, externalLeadId])
   @@index([orgId, status, updatedAt])
@@ -1150,4 +1156,114 @@ model Task {
   @@index([orgId, leadId, status])
   @@index([orgId, opportunityId, status])
   @@index([orgId, status, dueAt])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 2 · Email Marketing (docs/auditoria-nutricion-ventas/01-email-marketing.md)
+// ---------------------------------------------------------------------------
+
+// EM-101: vínculo formal Lead↔contacto Mautic. Sustituye el uso informal de
+// `crmleadid` como único puente — con esto se puede saber estado de sync,
+// último error y reintentar sin adivinar a partir de campos custom remotos.
+model MauticContactBinding {
+  id                String    @id @default(cuid())
+  orgId             String
+  leadId            String
+  externalContactId String
+  syncStatus        String    @default("pending") // pending|synced|error
+  lastSyncedAt      DateTime?
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, leadId])
+  @@unique([orgId, externalContactId])
+  @@index([orgId, syncStatus])
+}
+
+// EM-105 (versión mínima viable, sin variantes/A-B): proyección operativa en
+// el CRM de una campaña — audiencia, plantilla, remitente y calendario viven
+// aquí con ownership real; Mautic sigue siendo el motor de envío remoto.
+model MarketingCampaign {
+  id                    String    @id @default(cuid())
+  orgId                 String
+  provider              String    @default("mautic")
+  externalCampaignId    String?
+  name                  String
+  objective             String?
+  status                String    @default("draft") // draft|validating|ready|scheduled|running|paused|completed|error
+  audienceDefinition    Json?
+  audienceSnapshotCount Int?
+  templateBindingId     String?
+  sender                String?
+  replyTo               String?
+  timezone              String    @default("Europe/Madrid")
+  scheduledStartAt      DateTime?
+  scheduledEndAt        DateTime?
+  attributionWindowDays Int       @default(7)
+  createdById           String?
+  approvedById          String?
+  publishedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  org        Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deliveries EmailDelivery[]
+
+  @@index([orgId, status])
+}
+
+// EM-102/EM-10: un registro por destinatario y envío, con idempotencyKey para
+// que un reintento (webhook duplicado, job reintentado) nunca reenvíe.
+model EmailDelivery {
+  id                 String    @id @default(cuid())
+  orgId              String
+  campaignId         String?
+  leadId             String
+  templateExternalId String?
+  toAddress          String
+  idempotencyKey     String    @unique
+  providerMessageId  String?
+  status             String    @default("queued") // queued|accepted|delivered|failed|bounced|unsubscribed
+  queuedAt           DateTime  @default(now())
+  acceptedAt         DateTime?
+  deliveredAt        DateTime?
+  failedAt           DateTime?
+  failureCode        String?
+  failureDetail      String?
+  createdAt          DateTime  @default(now())
+
+  org      Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign MarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  lead     Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  events   EmailEvent[]
+
+  @@index([orgId, leadId, createdAt])
+  @@index([orgId, campaignId, status])
+}
+
+// EM-102/EM-08: evento normalizado (open/click/bounce/unsubscribe/complaint),
+// reemplaza el read-modify-write de `Lead.customFields.mauticActivity` que
+// perdía eventos concurrentes y limitaba el histórico a 50 entradas.
+model EmailEvent {
+  id              String   @id @default(cuid())
+  orgId           String
+  deliveryId      String?
+  provider        String   @default("mautic")
+  externalEventId String?
+  type            String   // delivered|open|click|soft_bounce|hard_bounce|unsubscribe|complaint|reply
+  url             String?
+  occurredAt      DateTime @default(now())
+  receivedAt      DateTime @default(now())
+  metadata        Json?
+
+  org      Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  delivery EmailDelivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalEventId])
+  @@index([orgId, deliveryId, occurredAt])
+  @@index([orgId, type, occurredAt])
 }

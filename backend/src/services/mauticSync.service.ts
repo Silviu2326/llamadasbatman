@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma'
 import type { LeadStatus } from '@prisma/client'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
 /**
  * Sync de contactos CRM → Mautic. Calca la forma de metaConversions.service.ts
@@ -73,17 +73,109 @@ async function getAccessToken(): Promise<string | null> {
   }
 }
 
+const MAUTIC_TIMEOUT_MS = 10_000
+const MAUTIC_RETRY_DELAY_MS = 500
+
+/**
+ * EM-103: timeout con AbortController + un único retry con backoff corto.
+ * El retry solo aplica a lecturas (GET) — un POST/PUT de Mautic puede no ser
+ * idempotente (p.ej. "enviar email"), así que nunca se reintenta solo, se
+ * deja como fallo para que el caller decida (idempotency key propia si hace
+ * falta, ver EmailDelivery/EM-102).
+ */
 async function mauticFetch(path: string, init: RequestInit = {}): Promise<Response | null> {
   const token = await getAccessToken()
   if (!token) return null
+  const method = (init.method ?? 'GET').toUpperCase()
+  const isRead = method === 'GET'
+
+  const attempt = async (): Promise<Response | 'network-error'> => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), MAUTIC_TIMEOUT_MS)
+    try {
+      return await fetch(`${process.env.MAUTIC_BASE_URL}${path}`, {
+        ...init,
+        headers: { ...init.headers, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        signal: controller.signal,
+      })
+    } catch (err) {
+      console.warn(`[MauticSync] request to ${path} failed:`, (err as Error).message)
+      return 'network-error'
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  let result = await attempt()
+  const shouldRetry = isRead && (result === 'network-error' || (result instanceof Response && result.status >= 500))
+  if (shouldRetry) {
+    await new Promise(resolve => setTimeout(resolve, MAUTIC_RETRY_DELAY_MS))
+    result = await attempt()
+  }
+  return result === 'network-error' ? null : result
+}
+
+interface MauticContact {
+  id: number
+  tags?: unknown
+  [key: string]: unknown
+}
+interface MauticContactListResponse {
+  contacts?: Record<string, MauticContact>
+}
+interface MauticContactDetailResponse {
+  contact?: MauticContact
+}
+
+/**
+ * EM-101: preferir el binding local (MauticContactBinding) antes de pegarle
+ * a la API remota de Mautic — evita un round-trip por cada envío/segmento.
+ * Solo se usa un binding en estado `synced`; `pending`/`error` no son un ID
+ * de contacto real y deben caer al fallback remoto.
+ */
+async function getBindingContactId(orgId: string, leadId: string): Promise<number | null> {
+  const binding = await prisma.mauticContactBinding.findUnique({
+    where: { orgId_leadId: { orgId, leadId } },
+    select: { externalContactId: true, syncStatus: true },
+  })
+  if (!binding || binding.syncStatus !== 'synced') return null
+  const id = Number(binding.externalContactId)
+  return Number.isFinite(id) ? id : null
+}
+
+/**
+ * Upsert best-effort del binding tras un intento de `syncContact`. En error
+ * sin binding previo no hay un `externalContactId` real que guardar (la
+ * columna es NOT NULL + unique por org) — se usa un placeholder único por
+ * lead que `getBindingContactId` nunca devuelve como válido (solo lee
+ * bindings `synced`), así que no hay riesgo de que se use como ID real.
+ */
+async function upsertContactBinding(
+  orgId: string,
+  leadId: string,
+  params: { externalContactId?: string; syncStatus: 'synced' | 'error'; lastError?: string }
+): Promise<void> {
+  const externalContactId = params.externalContactId ?? `pending:${leadId}`
   try {
-    return await fetch(`${process.env.MAUTIC_BASE_URL}${path}`, {
-      ...init,
-      headers: { ...init.headers, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    await prisma.mauticContactBinding.upsert({
+      where: { orgId_leadId: { orgId, leadId } },
+      create: {
+        orgId,
+        leadId,
+        externalContactId,
+        syncStatus: params.syncStatus,
+        lastSyncedAt: params.syncStatus === 'synced' ? new Date() : null,
+        lastError: params.lastError ?? null,
+      },
+      update: {
+        ...(params.externalContactId ? { externalContactId: params.externalContactId } : {}),
+        syncStatus: params.syncStatus,
+        ...(params.syncStatus === 'synced' ? { lastSyncedAt: new Date() } : {}),
+        lastError: params.lastError ?? null,
+      },
     })
   } catch (err) {
-    console.warn(`[MauticSync] request to ${path} failed:`, (err as Error).message)
-    return null
+    console.warn('[MauticSync] binding upsert failed:', (err as Error).message)
   }
 }
 
@@ -91,10 +183,12 @@ export async function getContactIdForLead(leadId: string, orgId?: string): Promi
   if (orgId) {
     const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { id: true } })
     if (!lead) return null
+    const cached = await getBindingContactId(orgId, leadId)
+    if (cached) return cached
   }
   const res = await mauticFetch(`/api/contacts?search=${encodeURIComponent(`crmleadid:${leadId}`)}&limit=1`)
   if (!res?.ok) return null
-  const data = (await res.json()) as { contacts?: Record<string, Record<string, unknown>> }
+  const data = (await res.json()) as MauticContactListResponse
   const first = data.contacts ? Object.values(data.contacts)[0] : null
   if (!first || typeof first.id !== 'number') return null
   return orgId && !hasOrgTag(first, orgId) ? null : first.id
@@ -104,7 +198,7 @@ async function getOwnedContactId(contactId: string, orgId: string): Promise<numb
   if (!/^\d{1,20}$/.test(contactId)) return null
   const res = await mauticFetch(`/api/contacts/${contactId}`)
   if (!res?.ok) return null
-  const data = (await res.json()) as { contact?: Record<string, unknown> }
+  const data = (await res.json()) as MauticContactDetailResponse
   const contact = data.contact
   return contact && hasOrgTag(contact, orgId) && typeof contact.id === 'number' ? contact.id : null
 }
@@ -140,21 +234,26 @@ export async function syncContact(lead: SyncableLead): Promise<void> {
     crmleadid: lead.id,
   }
 
-  const existingId = await getContactIdForLead(lead.id)
+  const existingId = await getContactIdForLead(lead.id, lead.orgId)
   const res = existingId
     ? await mauticFetch(`/api/contacts/${existingId}/edit`, { method: 'PATCH', body: JSON.stringify(payload) })
     : await mauticFetch('/api/contacts/new', { method: 'POST', body: JSON.stringify(payload) })
 
   if (!res?.ok) {
-    if (res) console.warn('[MauticSync] upsert failed:', await res.text())
+    const errMsg = res ? await res.text().catch(() => 'error desconocido') : 'Sin respuesta de Mautic'
+    if (res) console.warn('[MauticSync] upsert failed:', errMsg)
+    await upsertContactBinding(lead.orgId, lead.id, { syncStatus: 'error', lastError: errMsg.slice(0, 500) })
     return
+  }
+
+  const data = (await res.json()) as MauticContactDetailResponse
+  const contactId = data.contact?.id ?? existingId
+  if (contactId) {
+    await upsertContactBinding(lead.orgId, lead.id, { externalContactId: String(contactId), syncStatus: 'synced' })
   }
 
   const segmentAlias = SEGMENT_BY_STATUS[lead.status]
   if (!segmentAlias) return
-
-  const data = (await res.json()) as { contact?: { id: number } }
-  const contactId = data.contact?.id ?? existingId
   if (contactId) await addToSegment(contactId, segmentAlias)
 }
 
@@ -177,14 +276,89 @@ export async function sendLeadToSegment(leadId: string, segmentAlias: string, or
   return true
 }
 
-/** Disparo manual de una plantilla puntual (sección 7.3 de la plataforma). */
-export async function sendEmailToLead(leadId: string, mauticEmailId: string, orgId?: string): Promise<boolean> {
+/**
+ * EM-102: registro normalizado e idempotente de cada intento real de envío,
+ * previo a invocar Mautic — `idempotencyKey` es único por intento (no por
+ * reintento de red: cada llamada a esta función es un intento nuevo).
+ * Exportada para que `leads.controller.ts#sendEmail` y
+ * `automations.service.ts` (`send_email_template`) la usen antes de disparar
+ * el envío real.
+ */
+export async function createEmailDelivery(
+  orgId: string,
+  leadId: string,
+  input: { campaignId?: string; templateExternalId?: string; toAddress: string }
+) {
+  return prisma.emailDelivery.create({
+    data: {
+      orgId,
+      leadId,
+      campaignId: input.campaignId,
+      templateExternalId: input.templateExternalId,
+      toAddress: input.toAddress,
+      idempotencyKey: randomUUID(),
+      status: 'queued',
+    },
+  })
+}
+
+async function markEmailDeliveryAccepted(deliveryId: string, providerMessageId?: string): Promise<void> {
+  await prisma.emailDelivery
+    .update({ where: { id: deliveryId }, data: { status: 'accepted', acceptedAt: new Date(), providerMessageId } })
+    .catch(err => console.warn('[MauticSync] markEmailDeliveryAccepted failed:', (err as Error).message))
+}
+
+async function markEmailDeliveryFailed(deliveryId: string, failureCode?: string, failureDetail?: string): Promise<void> {
+  await prisma.emailDelivery
+    .update({
+      where: { id: deliveryId },
+      data: { status: 'failed', failedAt: new Date(), failureCode, failureDetail: failureDetail?.slice(0, 1000) },
+    })
+    .catch(err => console.warn('[MauticSync] markEmailDeliveryFailed failed:', (err as Error).message))
+}
+
+async function extractProviderMessageId(res: Response): Promise<string | undefined> {
+  try {
+    const data = (await res.json()) as Record<string, unknown>
+    const id = data.id ?? (data.copy as Record<string, unknown> | undefined)?.id ?? data.emailId
+    return id === undefined ? undefined : String(id)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Disparo manual de una plantilla puntual (sección 7.3 de la plataforma).
+ * `deliveryId` es opcional y best-effort: cuando se pasa (viene de
+ * `createEmailDelivery`), esta función actualiza su estado según el
+ * resultado real del envío a Mautic.
+ */
+export async function sendEmailToLead(
+  leadId: string,
+  mauticEmailId: string,
+  orgId?: string,
+  deliveryId?: string
+): Promise<boolean> {
   const resolvedOrgId = orgId ?? (await prisma.lead.findUnique({ where: { id: leadId }, select: { orgId: true } }))?.orgId
-  if (!resolvedOrgId) return false
+  if (!resolvedOrgId) {
+    if (deliveryId) await markEmailDeliveryFailed(deliveryId, 'ORG_NOT_RESOLVED', 'No se pudo resolver la organización del lead')
+    return false
+  }
   const contactId = await getContactIdForLead(leadId, resolvedOrgId)
-  if (!contactId) return false
+  if (!contactId) {
+    if (deliveryId) await markEmailDeliveryFailed(deliveryId, 'CONTACT_NOT_SYNCED', 'El lead no está sincronizado en Mautic')
+    return false
+  }
   const res = await mauticFetch(`/api/emails/${mauticEmailId}/contact/${contactId}/send`, { method: 'POST' })
-  return Boolean(res?.ok)
+  if (!res?.ok) {
+    if (deliveryId) {
+      const detail = res ? await res.text().catch(() => undefined) : 'Sin respuesta de Mautic'
+      await markEmailDeliveryFailed(deliveryId, res ? String(res.status) : 'NETWORK_ERROR', detail)
+    }
+    return false
+  }
+  if (deliveryId) await markEmailDeliveryAccepted(deliveryId, await extractProviderMessageId(res))
+  return true
 }
 
 /**
@@ -225,6 +399,13 @@ export async function createCampaign(orgId: string, name: string, description?: 
   return data.campaign && ownedCampaign(data.campaign, orgId) ? data.campaign : null
 }
 
+interface MauticEmailTemplate {
+  id: number | string
+  name?: string
+  subject?: string
+  [key: string]: unknown
+}
+
 /**
  * GET /api/emails — en Mautic los "emails" son las plantillas/asset
  * reutilizable, pero la instancia es compartida entre organizaciones
@@ -235,10 +416,10 @@ export async function createCampaign(orgId: string, name: string, description?: 
  * momento en Mautic (migración progresiva, no bloqueante) — a partir de ahí
  * solo se listan las plantillas ya vinculadas.
  */
-export async function getEmailTemplates(orgId: string): Promise<Array<Record<string, unknown>> | null> {
+export async function getEmailTemplates(orgId: string): Promise<MauticEmailTemplate[] | null> {
   const res = await mauticFetch('/api/emails')
   if (!res?.ok) return null
-  const data = (await res.json()) as { emails?: Record<string, Record<string, unknown>> }
+  const data = (await res.json()) as { emails?: Record<string, MauticEmailTemplate> }
   const remote = data.emails ? Object.values(data.emails) : []
 
   const bindings = await prisma.mauticAssetBinding.findMany({
@@ -284,9 +465,17 @@ export async function isTemplateOwnedByOrg(orgId: string, emailId: string): Prom
  * despliegue real; confirmar contra la documentación de la versión
  * desplegada antes de depender de esto.
  */
-export async function sendTestEmail(emailId: string, testContactId: string): Promise<boolean> {
+export async function sendTestEmail(emailId: string, testContactId: string, deliveryId?: string): Promise<boolean> {
   const res = await mauticFetch(`/api/emails/${emailId}/send/${testContactId}`, { method: 'POST' })
-  return Boolean(res?.ok)
+  if (!res?.ok) {
+    if (deliveryId) {
+      const detail = res ? await res.text().catch(() => undefined) : 'Sin respuesta de Mautic'
+      await markEmailDeliveryFailed(deliveryId, res ? String(res.status) : 'NETWORK_ERROR', detail)
+    }
+    return false
+  }
+  if (deliveryId) await markEmailDeliveryAccepted(deliveryId, await extractProviderMessageId(res))
+  return true
 }
 
 export async function getOwnedTestContactId(orgId: string, contactId: string): Promise<number | null> {

@@ -37,6 +37,8 @@ import { campaignShareRoutes } from './routes/campaignShare'
 import { settingsRoutes } from './routes/settings'
 import { conversationsRoutes } from './routes/conversations'
 import { whatsappRoutes } from './routes/whatsapp'
+import { emailMetricsRoutes } from './routes/emailMetrics'
+import { marketingCampaignsRoutes } from './routes/marketingCampaigns'
 import { getOrCreateCorrelationId } from './lib/correlationId'
 
 declare module '@fastify/jwt' {
@@ -101,6 +103,8 @@ async function build() {
   await app.register(settingsRoutes,   { prefix: '/api/settings' })
   await app.register(conversationsRoutes, { prefix: '/api/conversations' })
   await app.register(whatsappRoutes,   { prefix: '/api/whatsapp' })
+  await app.register(emailMetricsRoutes, { prefix: '/api/email' })
+  await app.register(marketingCampaignsRoutes, { prefix: '/api/marketing-campaigns' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 

@@ -59,6 +59,14 @@ const CONSENT_STATUS_CONFIG = {
   unknown: { label: 'Desconocido', color: '#94a3b8' },
 }
 
+// EM-110: categorías del centro de preferencias de email (ContactConsent, channel=email).
+// Es una lista sugerida, no cerrada — cualquier purpose ya existente para el lead se muestra igual.
+const EMAIL_PREFERENCE_CATEGORIES = ['contact', 'newsletter', 'promotions']
+const EMAIL_PREFERENCE_LABELS = { contact: 'Contacto general', newsletter: 'Newsletter', promotions: 'Promociones' }
+
+// EM-109: historial de EmailDelivery/EmailEvent del lead.
+const EMAIL_DELIVERY_STATUS_LABEL = { queued: 'En cola', accepted: 'Aceptado', delivered: 'Entregado', failed: 'Fallido', bounced: 'Rebotado', unsubscribed: 'Baja' }
+
 function formatDate(date, fallback = 'Sin fecha') {
   if (!date) return fallback
   const parsed = new Date(date)
@@ -117,6 +125,9 @@ export default function LeadDetailPage() {
   const [files, setFiles] = useState([])
   const [activities, setActivities] = useState([])
   const [consent, setConsent] = useState([])
+  const [emailHistory, setEmailHistory] = useState([])
+  const [preferences, setPreferences] = useState([])
+  const [prefSaving, setPrefSaving] = useState('')
   const [owners, setOwners] = useState([])
   const [ownerSaving, setOwnerSaving] = useState(false)
   const [tab, setTab] = useState('Resumen')
@@ -143,7 +154,9 @@ export default function LeadDetailPage() {
       apiFetch(`/api/leads/${id}/activities`).then(response => response.ok ? response.json() : null),
       apiFetch(`/api/leads/${id}/consent`).then(response => response.ok ? response.json() : []),
       apiFetch('/api/leads/owners').then(response => response.ok ? response.json() : []),
-    ]).then(([timelineResult, auditResult, notesResult, filesResult, statsResult, activitiesResult, consentResult, ownersResult]) => {
+      apiFetch(`/api/leads/${id}/email-history`).then(response => response.ok ? response.json() : []),
+      apiFetch(`/api/leads/${id}/preferences`).then(response => response.ok ? response.json() : []),
+    ]).then(([timelineResult, auditResult, notesResult, filesResult, statsResult, activitiesResult, consentResult, ownersResult, emailHistoryResult, preferencesResult]) => {
       if (!active) return
       const timeline = timelineResult.status === 'fulfilled' ? timelineResult.value : null
       if (timeline?.lead) setLead({
@@ -171,6 +184,10 @@ export default function LeadDetailPage() {
       setConsent(Array.isArray(consentValue) ? consentValue : [])
       const ownersValue = ownersResult.status === 'fulfilled' ? ownersResult.value : []
       setOwners(Array.isArray(ownersValue) ? ownersValue : [])
+      const emailHistoryValue = emailHistoryResult.status === 'fulfilled' ? emailHistoryResult.value : []
+      setEmailHistory(Array.isArray(emailHistoryValue) ? emailHistoryValue : [])
+      const preferencesValue = preferencesResult.status === 'fulfilled' ? preferencesResult.value : []
+      setPreferences(Array.isArray(preferencesValue) ? preferencesValue : [])
       setLoading(false)
     }).catch(() => { if (active) setLoadError('No se pudo cargar el lead. Revisa la conexión.') })
     return () => { active = false }
@@ -222,6 +239,17 @@ export default function LeadDetailPage() {
     } catch { setLoadError('No se pudo ejecutar la auditoría.') }
   }
 
+  // EM-110: activa/desactiva una categoría del centro de preferencias de email.
+  async function togglePreference(purpose, nextStatus) {
+    setPrefSaving(purpose)
+    try {
+      const response = await apiFetch(`/api/leads/${id}/preferences`, { method: 'PUT', body: JSON.stringify({ purpose, status: nextStatus }) })
+      if (!response.ok) throw new Error()
+      const saved = await response.json()
+      setPreferences(previous => [...previous.filter(item => item.purpose !== purpose), saved])
+    } catch { setLoadError('No se pudo actualizar la preferencia de email.') } finally { setPrefSaving('') }
+  }
+
   async function sendTemplate() {
     if (!templateId.trim()) return
     setSendingEmail(true); setEmailStatus('')
@@ -265,7 +293,22 @@ export default function LeadDetailPage() {
 
       {tab === 'Actividad' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Historial del lead</h3><span>{activities.length} eventos</span></div>{activities.length ? <div className="lead-activity-timeline">{activities.map(item => { const cfg = activityConfig(item.type); const Icon = cfg.icon; return <div className="lead-activity-item" key={item.id}><span className="lead-activity-dot" style={{ color: cfg.color, borderColor: `${cfg.color}55`, background: `${cfg.color}15` }}><Icon /></span><div><strong>{cfg.label}</strong><p>{activityText(item)}</p></div><time>{formatDate(item.occurredAt)}</time></div> })}</div> : <div className="lead-audit-card"><strong>No hay actividad registrada</strong><p>Notas, llamadas, cambios de estado y reuniones aparecerán aquí en orden cronológico.</p></div>}</section>}
 
-      {tab === 'Consentimiento' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Consentimiento de contacto</h3><span>{consent.length} canales</span></div>{consent.length ? <div className="lead-contact-list">{consent.map(item => { const statusCfg = CONSENT_STATUS_CONFIG[item.status] || CONSENT_STATUS_CONFIG.unknown; return <div className="lead-contact-row" key={item.id}><RiShieldCheckLine /><span>{CONSENT_CHANNEL_LABEL[item.channel] || item.channel} · {item.purpose}</span><span className="lead-status" style={{ '--status-color': statusCfg.color, '--status-bg': `${statusCfg.color}18`, marginLeft: 'auto' }}><i />{statusCfg.label}</span></div> })}</div> : <div className="lead-audit-card"><strong>Sin registros de consentimiento</strong><p>Todavía no se ha capturado consentimiento para ningún canal de este lead.</p></div>}</section>}
+      {tab === 'Consentimiento' && <div className="lead-detail-grid">
+        <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Consentimiento de contacto</h3><span>{consent.length} canales</span></div>{consent.length ? <div className="lead-contact-list">{consent.map(item => { const statusCfg = CONSENT_STATUS_CONFIG[item.status] || CONSENT_STATUS_CONFIG.unknown; return <div className="lead-contact-row" key={item.id}><RiShieldCheckLine /><span>{CONSENT_CHANNEL_LABEL[item.channel] || item.channel} · {item.purpose}</span><span className="lead-status" style={{ '--status-color': statusCfg.color, '--status-bg': `${statusCfg.color}18`, marginLeft: 'auto' }}><i />{statusCfg.label}</span></div> })}</div> : <div className="lead-audit-card"><strong>Sin registros de consentimiento</strong><p>Todavía no se ha capturado consentimiento para ningún canal de este lead.</p></div>}</section>
+
+        {/* EM-110: centro de preferencias por categoría — reutiliza ContactConsent (channel=email). */}
+        <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Preferencias de email</h3><span>{preferences.length} categorías</span></div><div className="lead-contact-list">
+          {EMAIL_PREFERENCE_CATEGORIES.map(purpose => {
+            const pref = preferences.find(item => item.purpose === purpose)
+            const granted = pref?.status === 'granted'
+            return <div className="lead-contact-row" key={purpose}><RiMailLine /><span>{EMAIL_PREFERENCE_LABELS[purpose] || purpose}</span><button className="leads-text-button" style={{ marginLeft: 'auto' }} disabled={prefSaving === purpose} onClick={() => togglePreference(purpose, granted ? 'revoked' : 'granted')}>{prefSaving === purpose ? 'Guardando…' : granted ? 'Activado · Desactivar' : pref ? 'Desactivado · Activar' : 'Activar'}</button></div>
+          })}
+          {preferences.filter(item => !EMAIL_PREFERENCE_CATEGORIES.includes(item.purpose)).map(pref => { const statusCfg = CONSENT_STATUS_CONFIG[pref.status] || CONSENT_STATUS_CONFIG.unknown; return <div className="lead-contact-row" key={pref.id}><RiMailLine /><span>{pref.purpose}</span><span className="lead-status" style={{ '--status-color': statusCfg.color, '--status-bg': `${statusCfg.color}18`, marginLeft: 'auto' }}><i />{statusCfg.label}</span></div> })}
+        </div></section>
+
+        {/* EM-109: historial de EmailDelivery + eventos de interacción del lead. */}
+        <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Historial de email</h3><span>{emailHistory.length} envíos</span></div>{emailHistory.length ? <div className="lead-activity-timeline">{emailHistory.map(item => { const opens = item.events?.filter(event => event.type === 'open').length || 0; const clicks = item.events?.filter(event => event.type === 'click').length || 0; return <div className="lead-activity-item" key={item.id}><span className="lead-activity-dot"><RiMailLine /></span><div><strong>{item.templateExternalId ? `Plantilla ${item.templateExternalId}` : item.toAddress}</strong><p>Estado: {EMAIL_DELIVERY_STATUS_LABEL[item.status] || item.status}{opens ? ` · ${opens} apertura${opens === 1 ? '' : 's'}` : ''}{clicks ? ` · ${clicks} clic${clicks === 1 ? '' : 's'}` : ''}</p></div><time>{formatDate(item.queuedAt)}</time></div> })}</div> : <div className="lead-audit-card"><strong>Sin envíos de email</strong><p>Todavía no se ha enviado ningún email a este lead.</p></div>}</section>
+      </div>}
 
       {tab === 'Inteligencia' && <div className="lead-detail-grid"><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Auditoría digital / SEO</h3><button className="leads-text-button" onClick={runAudit}><RiSearchEyeLine /> {audit ? 'Re-auditar' : 'Auditar ahora'}</button></div>{audit ? <><div className="lead-audit-grid"><span>Presencia pública<b>{audit.publicScore ?? '—'}</b></span><span>Madurez operativa<b>{audit.opsScore ?? '—'}</b></span><span>Oportunidad global<b>{audit.leadOpportunityScore ?? '—'}</b></span></div><p>{audit.summary || audit.commercialPitch || 'La API no ha devuelto un resumen de auditoría.'}</p></> : <div className="lead-audit-card"><strong>Sin auditoría todavía</strong><p>Ejecuta la auditoría para obtener datos reales.</p></div>}</section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Oportunidades detectadas</h3><span>{lead.opportunities?.length || 0}</span></div>{lead.opportunities?.length ? lead.opportunities.map((item, index) => <div className="lead-activity-item" key={item.title || index}><span className="lead-activity-dot"><RiLightbulbLine /></span><div><strong>{item.title}</strong><p>{item.description || 'Sin descripción disponible'}</p></div><time>{item.impact || '—'}</time></div>) : <div className="lead-audit-card"><strong>No hay oportunidades registradas</strong><p>La API no ha devuelto oportunidades para este lead.</p></div>}</section></div>}
 

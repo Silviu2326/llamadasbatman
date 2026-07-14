@@ -3,8 +3,9 @@ import { z } from 'zod'
 import * as leadsService from '../services/leads.service'
 import { OwnershipError, LeadNotFoundError } from '../services/leads.service'
 import { enqueueLeadCall } from '../services/leadIngestion.service'
-import { sendEmailToLead, isTemplateOwnedByOrg } from '../services/mauticSync.service'
+import { sendEmailToLead, isTemplateOwnedByOrg, createEmailDelivery } from '../services/mauticSync.service'
 import { assertEmailSendAllowed } from '../lib/emailCompliance'
+import { writeAuditLog } from '../lib/audit'
 import { prisma } from '../lib/prisma'
 import { parseRequest } from '../lib/validation'
 import { parse } from 'csv-parse/sync'
@@ -91,6 +92,13 @@ const sendEmailSchema = z.object({ mauticEmailId: z.string().trim().min(1, 'maut
 
 // LE-106: ownerId nullable — null desasigna el lead.
 const updateOwnerSchema = z.object({ ownerId: z.string().trim().min(1).max(128).nullable() }).strict()
+
+// EM-110: purpose es la categoría del centro de preferencias (contact,
+// newsletter, promotions, ...) — genérico, no hardcodea una lista cerrada.
+const emailPreferenceSchema = z.object({
+  purpose: z.string().trim().min(1).max(60).regex(/^[a-z0-9_-]+$/, 'purpose inválido'),
+  status: z.enum(['granted', 'revoked']),
+}).strict()
 
 function ownershipStatus(err: unknown) {
   if (err instanceof OwnershipError) return { status: 404 as const, body: { error: `${err.field} no encontrado` } }
@@ -488,7 +496,7 @@ export async function sendEmail(
     return reply.status(403).send({ error: 'Email marketing no está incluido en tu plan' })
   }
 
-  const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true } })
+  const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true, email: true } })
   if (!lead) return reply.status(404).send({ error: 'Lead no encontrado' })
 
   // P0-04/EM-01: el mauticEmailId lo manda el navegador — nunca confiar en él
@@ -502,8 +510,11 @@ export async function sendEmail(
   if (!decision.allowed) {
     return reply.status(409).send({ error: 'Envío bloqueado por cumplimiento', reason: decision.reason })
   }
+  if (!lead.email) return reply.status(409).send({ error: 'El lead no tiene email' })
 
-  const sent = await sendEmailToLead(lead.id, body.mauticEmailId, orgId)
+  // EM-102: registro normalizado del intento de envío antes de invocar Mautic.
+  const delivery = await createEmailDelivery(orgId, lead.id, { templateExternalId: body.mauticEmailId, toAddress: lead.email })
+  const sent = await sendEmailToLead(lead.id, body.mauticEmailId, orgId, delivery.id)
   if (!sent) return reply.status(502).send({ error: 'No se pudo enviar el email (contacto no sincronizado o Mautic no disponible)' })
   return reply.send({ ok: true })
 }
@@ -518,4 +529,86 @@ export async function getAudit(
   const result = await leadsService.getLeadAudit(orgId, params.id)
   if (result === undefined) return reply.status(404).send({ error: 'Not found' })
   return reply.send({ audit: result })
+}
+
+/** EM-109: GET /api/leads/:id/email-history — historial de EmailDelivery + eventos del lead. */
+export async function getEmailHistory(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true } })
+  if (!lead) return reply.status(404).send({ error: 'Not found' })
+
+  const history = await prisma.emailDelivery.findMany({
+    where: { orgId, leadId: lead.id },
+    include: { events: { orderBy: { occurredAt: 'desc' } } },
+    orderBy: { queuedAt: 'desc' },
+  })
+  return reply.send(history)
+}
+
+/** EM-110: GET /api/leads/:id/preferences — categorías de consentimiento de email (ContactConsent). */
+export async function getPreferences(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true } })
+  if (!lead) return reply.status(404).send({ error: 'Not found' })
+
+  const preferences = await prisma.contactConsent.findMany({
+    where: { orgId, leadId: lead.id, channel: 'email' },
+    orderBy: { purpose: 'asc' },
+  })
+  return reply.send(preferences)
+}
+
+/** EM-110: PUT /api/leads/:id/preferences — activa/desactiva una categoría de email (upsert). */
+export async function updatePreferences(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, emailPreferenceSchema, request.body)
+  if (!params || !body) return
+
+  const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true } })
+  if (!lead) return reply.status(404).send({ error: 'Not found' })
+
+  const before = await prisma.contactConsent.findFirst({
+    where: { orgId, leadId: lead.id, channel: 'email', purpose: body.purpose },
+  })
+
+  const preference = await prisma.contactConsent.upsert({
+    where: {
+      orgId_leadId_channel_purpose: { orgId, leadId: lead.id, channel: 'email', purpose: body.purpose },
+    },
+    create: {
+      orgId,
+      leadId: lead.id,
+      channel: 'email',
+      purpose: body.purpose,
+      status: body.status,
+      source: 'preference_center',
+    },
+    update: { status: body.status, source: 'preference_center', occurredAt: new Date() },
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId: userId,
+    action: 'lead.email_preference.update',
+    entityType: 'ContactConsent',
+    entityId: preference.id,
+    before,
+    after: preference,
+  })
+
+  return reply.send(preference)
 }
