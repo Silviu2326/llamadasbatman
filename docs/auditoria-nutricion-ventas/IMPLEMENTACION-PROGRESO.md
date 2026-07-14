@@ -4,6 +4,28 @@ Este archivo se actualiza en cada sesión de trabajo para que la continuación (
 ejemplo, tras un reinicio de contexto) sepa exactamente qué fase/ítem está en
 curso y qué queda. Referencia: [04-backlog-priorizado.md](./04-backlog-priorizado.md).
 
+## Revisión externa (2026-07-14) y correcciones
+
+Una revisión de código encontró que este documento sobredeclaraba varios ítems
+como "hecho" cuando en realidad tenían bloqueos P0/P1 reales. Se verificó cada
+hallazgo contra el código (no se descartó ninguno sin comprobar) y se corrigieron
+los que resultaron reales:
+
+| Hallazgo | Veredicto | Corrección |
+| --- | --- | --- |
+| No había migración desplegable (`prisma migrate deploy` no crearía tablas) | **Confirmado, P0** | Se generó un baseline único (`20260714000000_baseline`) con las 50 tablas del schema actual, sustituyendo el historial incompleto. |
+| `backend/src/lib/validation.ts` y otros módulos sin versionar — checkout limpio no compila | **Confirmado, P0** | Se versionó todo el código fuente/assets que `index.ts`/`App.jsx` ya importaban (~100 archivos). Alcance más amplio del que parecía: no solo `validation.ts`, sino módulos enteros de funnels/settings/whatsapp/ads/conversaciones/landing pública nunca se habían commiteado, de antes de esta sesión. |
+| Campaña de email no conectaba audiencia/plantilla a un envío real | **Confirmado** | `publishCampaign` ahora encola `EmailDelivery` reales por lead (respetando consentimiento) y un job nuevo (`campaignSendRunner.ts`) los envía y cierra la campaña. Corrección adicional propia: el runner enviaba también campañas `scheduled` con fecha futura; ahora solo procesa `running` y activa `scheduled→running` al llegar `scheduledStartAt`. |
+| Backfill de plantillas exponía el catálogo completo cross-tenant | **Confirmado, P0** | Se quitó el auto-bind masivo; vincular una plantilla es ahora una acción explícita de admin, auditada (`POST /api/mautic/templates/:id/claim`). |
+| Eventos de Oportunidad no estaban en el catálogo canónico de automatizaciones | **Confirmado** | Añadidos `opportunity.created/stage.changed/won/lost/reopened` a `CANONICAL_AUTOMATION_EVENTS`. |
+| El versionado guardaba la versión pero ejecutaba `automation.actions` en vivo | **Confirmado** | El motor ahora resuelve las acciones desde el snapshot de `AutomationVersion` atado al run. |
+| Scheduler disparaba al detectar la ventana de 24h, no a T-24h exacto; propuestas por `createdAt` no `stageEnteredAt` | **Confirmado** | `dueAt` se calcula por regla; propuestas usan `stageEnteredAt` (ya existía desde OP-101 pero el scheduler nunca se actualizó). |
+| Atribución de eventos de email ambigua (última entrega "en curso", sin id de proveedor) | **Confirmado, parcial** | Se desambigua por `email.id` del payload de Mautic cuando está presente; sigue siendo best-effort sin verificación contra una instancia real. |
+| Sin suite de pruebas | **Confirmado** | Añadida (`backend/src/__tests__/`, `npm test`): 12 tests de integración cubriendo multi-tenant, idempotencia de automatizaciones (incluye el bug de versionado de arriba) y consentimiento de email. No cubre RBAC a nivel HTTP ni contrato Mautic. |
+| Bundle frontend ~1.56 MB | **Confirmado, no corregido** | Code-splitting por ruta queda pendiente; no bloquea funcionalidad. |
+
+**Lo que sigue sin poder verificarse en este entorno:** EM-03/P0-11 (contrato Mautic contra una instancia real) y cualquier flujo que dependa de Twilio/Mautic reales en producción — se han hecho las correcciones de código razonables pero no hay forma de confirmarlas sin credenciales y un entorno real.
+
 ## Fase 0 · Blindar y decir la verdad (P0-01 a P0-12)
 
 | ID | Estado | Notas |
@@ -11,7 +33,7 @@ curso y qué queda. Referencia: [04-backlog-priorizado.md](./04-backlog-prioriza
 | P0-01 Ownership en mutaciones | ✅ hecho | Leads/Pipeline/Meetings: `findFirst({id, orgId})` antes de crear/actualizar (leadId, assignedTo, callId, campaignId). Automatizaciones y Mautic quedan fuera de este ítem concreto (no crean relaciones por id ajeno del mismo tipo). |
 | P0-02 Zod estricto + 404/409 | ✅ hecho | Leads/Pipeline/Meetings/Automations con `.strict()` + `parseRequest`; `updateMany.count===0` → 404 real en vez de `{ok:true}`. |
 | P0-03 RBAC | ✅ hecho | `authorize(['admin','agent'])` en todas las mutaciones de Leads/Pipeline/Meetings/Automations/Mautic; lectura solo con `authenticate`. |
-| P0-04 Mautic binding por orgId | ✅ hecho | `MauticAssetBinding`; `getEmailTemplates(orgId)` solo devuelve lo vinculado; `sendTestEmail`/`sendEmail` de lead verifican `isTemplateOwnedByOrg` → 404 si no. Backfill automático de bindings en el primer listado por org (migración progresiva). |
+| P0-04 Mautic binding por orgId | ✅ hecho | `MauticAssetBinding`; `getEmailTemplates(orgId)` solo devuelve lo vinculado; `sendTestEmail`/`sendEmail` de lead verifican `isTemplateOwnedByOrg` → 404 si no. **Corregido en revisión**: el backfill automático original regalaba el catálogo completo a cualquier org que consultara primero (cross-tenant); ahora vincular es una acción explícita de admin auditada. |
 | P0-05 Consentimiento centralizado | ✅ hecho | `assertEmailSendAllowed` en `mautic.controller.ts` (send-test), `leads.controller.ts` (sendEmail) y `automations.service.ts` (acción `send_email_template`); 409 con `reason` si bloqueado. |
 | P0-06 unsubscribe/bounce/complaint como cumplimiento | ✅ hecho | `mauticWebhooks.ts` llama `recordEmailComplianceEvent` (`revoked`/`bounced`) sobre `ContactConsent` de forma transaccional. |
 | P0-07 Idempotencia por paso | ✅ hecho | `AutomationStepRun` (unique `runId+stepKey`); se reclama antes del efecto externo, se salta si ya `succeeded/skipped/blocked`. |
@@ -76,7 +98,7 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 | LE-106 Owner/SLA | ✅ hecho | `Lead.ownerId`/`firstRespondedAt`; SLA de 4h derivado (no almacenado); `PUT /api/leads/:id/owner`, filtro `ownerId` en listado. |
 | LE-107 Timeline/consentimiento | ✅ hecho | `LeadDetailPage.jsx` consume `/api/leads/:id/activities` real; nueva pestaña Consentimiento vía `GET /api/leads/:id/consent`. |
 | OP-105 Próximo paso obligatorio | ✅ hecho | `moveStage` crea automáticamente una `Task` de seguimiento si no hay ninguna abierta al entrar en qualified/proposal/negotiation (se decidió auto-crear en vez de bloquear, documentado en el código). |
-| AU-107 Eventos de dominio | 🔶 parcial | Emitidos: `opportunity.created/stage.changed/won/lost/reopened`, `meeting.created/rescheduled/completed/cancelled/no_show`. **Falta**: `lead.updated`, `lead.owner.changed` (se audita pero no se emite a outbox), `lead.score.changed` (no aplica aún, no hay scoring real), `task.due/overdue`, `consent.changed`, `email.*`. |
+| AU-107 Eventos de dominio | 🔶 parcial | Emitidos: `opportunity.created/stage.changed/won/lost/reopened`, `meeting.created/rescheduled/completed/cancelled/no_show`. **Corregido en revisión**: los eventos de Oportunidad se emitían al outbox pero no estaban en `CANONICAL_AUTOMATION_EVENTS` → se descartaban silenciosamente sin disparar ninguna automatización; ya están en el catálogo. **Sigue faltando**: `lead.updated`, `lead.owner.changed` (se audita pero no se emite a outbox), `lead.score.changed` (no aplica aún, no hay scoring real), `task.due/overdue`, `consent.changed`, `email.*`. |
 | RE-107 Outcome de reunión | ✅ hecho | `POST /:id/complete` y `/:id/no-show`; crea tarea de seguimiento automática; UI en `MeetingDetailPage.jsx`. |
 | AU-108 Acciones CRM | ✅ hecho | `create_task`, `set_owner`, `add_tag`, `update_field`, `create_opportunity`, `notify` añadidas a `AUTOMATION_ACTION_TYPES` con manejo `succeeded/skipped/blocked` igual que las acciones existentes. |
 
@@ -88,7 +110,7 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 | --- | --- | --- |
 | LE-103 Import asíncrono | ✅ hecho | `ImportJob` + `jobs/importJobRunner.ts` (patrón outbox: claim atómico, procesa por lotes, dedupe por email/teléfono dentro del archivo, reporte de errores por fila). `POST /api/leads/import` responde 202; `GET /api/leads/imports/:id` para polling. `ImportLeadsModal.jsx` muestra progreso real. |
 | LE-102 Export asíncrono | ✅ hecho (sin job) | `GET /api/leads/export` aplica los mismos filtros que LE-101 sin paginar (tope de seguridad 10.000 filas documentado), devuelve CSV directo — se decidió no crear un job aparte por ser sobre-ingeniería para el volumen actual. |
-| AU-102 Versionado inmutable | ✅ hecho (mínimo viable) | `AutomationVersion` + `publishAutomation()`; cada `AutomationRun` nuevo referencia la última versión publicada. Falta diff entre versiones y rollback (quedan como mejora futura, no bloquean uso). |
+| AU-102 Versionado inmutable | ✅ hecho (mínimo viable) | `AutomationVersion` + `publishAutomation()`; cada `AutomationRun` nuevo referencia la última versión publicada. **Corregido en revisión**: el run guardaba el id de versión pero seguía ejecutando `automation.actions` en vivo, no el snapshot — editar una automatización tras publicarla cambiaba silenciosamente qué corría; ahora ejecuta el snapshot de `AutomationVersion` atado al run (cubierto por test). Falta diff entre versiones y rollback (mejora futura, no bloquea uso). |
 | FND-06 correlationId/errores | ✅ hecho (alcance acotado) | Hook HTTP asigna/propaga `x-correlation-id`; `AutomationRun.correlationId` siempre poblado; `OutboxEvent.lastErrorCode` clasificado con heurísticas simples. **No** se propagó correlationId a través de leads/pipeline/meetings todavía (alcance explícitamente acotado a HTTP+automation run+outbox). |
 
 Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
@@ -103,7 +125,7 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 | EM-102 EmailDelivery/EmailEvent | ✅ hecho | `createEmailDelivery` con `idempotencyKey`; webhook reescrito para crear `EmailEvent` deduplicado por `(provider, externalEventId)` en vez de `customFields.mauticActivity`. |
 | EM-103 Cliente Mautic tipado | ✅ hecho | Timeout 10s + un retry con backoff solo en GET; interfaces tipadas para contactos/plantillas. |
 | EM-104 Selector de plantillas | ✅ hecho | Reutiliza `MauticAssetBinding` (P0-04) ya filtrado por org; `EmailMarketingPage.jsx` lo usa en el editor de campaña. |
-| EM-105 Campaña operable (MVP) | ✅ hecho | `MarketingCampaign` con estados draft→validating→ready→scheduled→running→paused→completed/error; editor con objetivo/audiencia/plantilla/remitente/calendario. Sin A/B testing (deliberadamente fuera de alcance, es GR-01/P2). |
+| EM-105 Campaña operable (MVP) | ✅ hecho | `MarketingCampaign` con estados draft→validating→ready→scheduled→running→paused→completed/error; editor con objetivo/audiencia/plantilla/remitente/calendario. **Corregido en revisión**: publicar creaba el contenedor remoto y marcaba la campaña "running" sin conectar audiencia/plantilla a ningún envío real; ahora `publishCampaign` encola `EmailDelivery` por lead (con consentimiento) y `campaignSendRunner.ts` los envía y cierra la campaña. Sin A/B testing (deliberadamente fuera de alcance, es GR-01/P2). |
 | EM-106 Audiencia dinámica | ✅ hecho (básica) | Filtro plano (status/source/tags) con preview de conteo y muestra — no es un constructor de AST completo, decisión deliberada por ser suficiente para el volumen actual. |
 | EM-107 Publicar/pausar con reconciliación | ✅ hecho | `reconcileCampaignStatus` lee el estado remoto real (`getCampaignStats`) en vez de asumir el optimista. |
 | EM-108 Métricas correctas | ✅ hecho | `emailMetrics.service.ts`: entregados/aceptados/aperturas y clics únicos vs. totales/bajas/quejas con denominadores correctos (openRate=únicas/entregados, CTOR=clics únicos/aperturas únicas, CTR=clics únicos/entregados), nunca división por cero. |
@@ -127,22 +149,20 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios. Un conflicto de edici
 
 Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 
+**Estado real tras la revisión externa de 2026-07-14** (ver sección al inicio del documento): Fases 0-3 tienen implementación funcional real y verificada (tsc + vite build + 12 tests de integración pasando), con los bugs P0/P1 encontrados corregidos. Ninguna fase está "lista para producción" sin antes: (a) verificar el flujo Mautic contra una instancia real (EM-03/P0-11, no alcanzable en este entorno), (b) decidir proveedor de calendario para RE-104/105, (c) ampliar la cobertura de tests (RBAC a nivel HTTP, contrato Mautic con fixtures).
+
 **Siguiente paso concreto para continuar:**
-1. Probar el flujo real de campaña de email contra una instancia Mautic (no verificado end-to-end en este entorno — sigue pendiente EM-03/P0-11, contrato Mautic fijado).
-2. Pendientes menores de Fase 1 no bloqueantes: AU-109 (dead-letter), AU-105/106 (condiciones/ramas/esperas), eventos AU-107 restantes.
-3. RE-104/105/106 — bloqueado hasta decisión de proveedor de calendario.
-4. OP-106 (etapas configurables) si se decide abordar la migración del enum.
-5. Fase 4 (P2/P3): A/B testing de email (GR-01), atribución (GR-03), segmentos guardados (GR-06), round-robin/páginas de reserva (GR-10), etc. — no empezar hasta que lo anterior esté estable y probado en producción.
-
-## Fases siguientes (no iniciadas)
-
-- Fase 1 · FND-01..06, LE-101/102/103/106/107, AU-101..111 (resto), OP-101/102/104/105, RE-101/102/103/107.
-- Fase 2 · Email marketing completo (EM-101..110), automatizaciones avanzadas, recordatorios.
-- Fase 3 · Calendario externo, forecast, Empresa/Contacto.
-- Fase 4 · P2/P3.
+1. Verificar el flujo real de campaña de email contra una instancia Mautic real/sandbox (EM-03/P0-11) — es el mayor riesgo no verificable sin ese entorno.
+2. Ampliar la suite de tests: RBAC a nivel HTTP (que `authorize()` bloquee de verdad a un viewer en cada ruta), pruebas de contrato Mautic con fixtures de respuestas reales.
+3. Pendientes menores de Fase 1 no bloqueantes: AU-109 (dead-letter), AU-105/106 (condiciones/ramas/esperas), eventos AU-107 restantes (`lead.owner.changed` a outbox, `task.due/overdue`, `consent.changed`, `email.*`).
+4. RE-104/105/106 — bloqueado hasta decisión de proveedor de calendario (Google Calendar vs. Microsoft 365).
+5. OP-106 (etapas configurables) si se decide abordar la migración del enum `OpportunityStage`.
+6. Code-splitting del bundle frontend (~1.56 MB, un único chunk) — no bloquea funcionalidad, pendiente de rendimiento.
+7. Fase 4 (P2/P3): A/B testing de email (GR-01), atribución (GR-03), segmentos guardados (GR-06), round-robin/páginas de reserva (GR-10), etc. — no empezar hasta que lo anterior esté verificado en un entorno real.
 
 ## Cómo continuar
 
-1. Leer este archivo y `04-backlog-priorizado.md`.
-2. Continuar con la fase marcada 🔄 hasta cerrarla (criterios de aceptación en cada doc `0X-*.md`).
-3. Actualizar esta tabla al terminar cada ítem.
+1. Leer este archivo completo (especialmente la sección "Revisión externa" al inicio) y `04-backlog-priorizado.md`.
+2. Ejecutar `cd backend && npm test` para confirmar que la suite de integración sigue en verde antes de construir sobre esta base.
+3. Continuar con los ítems de "Siguiente paso concreto" de arriba.
+4. Actualizar esta tabla al terminar cada ítem — con honestidad: "hecho" significa verificado (tsc/build/test), no solo "el código existe".
