@@ -112,12 +112,27 @@ Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
 
 Verificado: `npx tsc --noEmit` y `npx vite build` limpios. Un conflicto de edición concurrente en `index.ts` (dos agentes registrando rutas nuevas a la vez) se resolvió correctamente sin pérdida de cambios (confirmado leyendo el archivo final).
 
+## Fase 3 · Calendario y forecast (parcial — sin integración de calendario)
+
+| ID | Estado | Notas |
+| --- | --- | --- |
+| Account (Empresa) | ✅ hecho | CRUD + dedupe por dominio (devuelve la existente con `deduped:true` en vez de bloquear); `Lead.accountId`/`Opportunity.accountId` opcionales (migración aditiva, sin big-bang); selector en `LeadDetailPage.jsx`. |
+| OP-103 Vista lista | ✅ hecho | `GET /api/pipeline/list` con búsqueda/filtros/orden/paginación server-side (mismo patrón que LE-101/RE-103); toggle Kanban/Lista en `Pipeline.jsx`. |
+| OP-107 Forecast | ✅ hecho | `GET /api/pipeline/forecast` agrupado por moneda (sin conversión de divisas, deliberado); pipeline/weighted/commit/best_case reales; `forecastCategory` fijable por oportunidad. |
+| OP-108 Contactos/roles | ✅ hecho | `OpportunityContact` con rol y principal; pestaña "Contactos" en `OpportunityDetailPage.jsx`. |
+| OP-109 Productos/líneas | ✅ hecho | `Product`/`OpportunityLineItem`; pestaña "Productos" muestra el total de líneas sin recalcular `Opportunity.value` automáticamente (decisión deliberada, no rompe flujos existentes). |
+| RE-108 Preparación real | ✅ hecho | `GET /api/meetings/:id/prep` con notas/llamadas/oportunidad abierta/actividad reciente/reuniones anteriores reales, sin resumen generado por IA. |
+| RE-104/105/106 Calendario externo | ⬜ bloqueado | Requiere decidir proveedor OAuth (Google Calendar vs. Microsoft 365) y credenciales — es una decisión de producto/negocio, no técnica. No se puede avanzar sin esa decisión. |
+| OP-106 Etapas configurables | ⬜ no iniciado | `OpportunityStage` sigue siendo un enum fijo; convertirlo en un modelo configurable es una migración de mayor riesgo (toca cada lugar que usa el enum) — se dejó fuera de esta ronda deliberadamente. |
+
+Verificado: `npx tsc --noEmit` y `npx vite build` limpios.
+
 **Siguiente paso concreto para continuar:**
-1. Probar el flujo real de campaña contra una instancia Mautic (no verificado end-to-end en este entorno — sigue pendiente EM-03/P0-11, contrato Mautic fijado).
+1. Probar el flujo real de campaña de email contra una instancia Mautic (no verificado end-to-end en este entorno — sigue pendiente EM-03/P0-11, contrato Mautic fijado).
 2. Pendientes menores de Fase 1 no bloqueantes: AU-109 (dead-letter), AU-105/106 (condiciones/ramas/esperas), eventos AU-107 restantes.
-3. RE-104/105/106 (calendario externo — XL, bloqueado en decisión de proveedor OAuth).
-4. Fase 3: Empresa/Contacto (`Account`/`Contact`), OP-108/109 (contactos/roles de compra, productos/líneas), OP-103/106/107 (vista lista, etapas configurables, forecast completo).
-5. Fase 4 (P2/P3): A/B testing de email (GR-01), atribución (GR-03), segmentos guardados (GR-06), etc. — no empezar hasta que lo anterior esté estable.
+3. RE-104/105/106 — bloqueado hasta decisión de proveedor de calendario.
+4. OP-106 (etapas configurables) si se decide abordar la migración del enum.
+5. Fase 4 (P2/P3): A/B testing de email (GR-01), atribución (GR-03), segmentos guardados (GR-06), round-robin/páginas de reserva (GR-10), etc. — no empezar hasta que lo anterior esté estable y probado en producción.
 
 ## Fases siguientes (no iniciadas)
 

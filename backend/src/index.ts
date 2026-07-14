@@ -14,6 +14,7 @@ import { authRoutes } from './routes/auth'
 import { agentsRoutes } from './routes/agents'
 import { callsRoutes } from './routes/calls'
 import { leadsRoutes } from './routes/leads'
+import { accountsRoutes } from './routes/accounts'
 import { prospectsRoutes } from './routes/prospects'
 import { campaignsRoutes } from './routes/campaigns'
 import { meetingsRoutes } from './routes/meetings'
@@ -80,6 +81,7 @@ async function build() {
   await app.register(agentsRoutes,     { prefix: '/api/agents' })
   await app.register(callsRoutes,      { prefix: '/api/calls' })
   await app.register(leadsRoutes,      { prefix: '/api/leads' })
+  await app.register(accountsRoutes,   { prefix: '/api/accounts' })
   await app.register(prospectsRoutes,  { prefix: '/api/prospects' })
   await app.register(campaignsRoutes,  { prefix: '/api/campaigns' })
   await app.register(meetingsRoutes,   { prefix: '/api/meetings' })

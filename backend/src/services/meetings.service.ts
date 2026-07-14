@@ -31,6 +31,95 @@ export async function getMeeting(orgId: string, id: string) {
   })
 }
 
+/**
+ * RE-108: contexto real para preparar una reunión — sustituye la agenda y el
+ * checklist con constantes fijas que señala la auditoría (03-ventas.md) por
+ * datos reales del lead. Todo se consulta en paralelo y se devuelve tal cual
+ * (sin resumen generado por IA): la UI decide cómo presentarlo y cómo mostrar
+ * "sin datos" cuando alguna sección viene vacía.
+ */
+export async function getMeetingPrep(orgId: string, meetingId: string) {
+  const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, orgId } })
+  if (!meeting) throw new MeetingNotFoundError()
+
+  const { leadId } = meeting
+
+  const [lead, recentNotes, recentCalls, openOpportunity, recentActivity, previousMeetings] = await Promise.all([
+    prisma.lead.findFirst({
+      where: { id: leadId, orgId },
+      select: {
+        id: true,
+        name: true,
+        company: true,
+        status: true,
+        email: true,
+        phone: true,
+        source: true,
+      },
+    }),
+    prisma.leadNote.findMany({
+      where: { orgId, leadId },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      select: { id: true, text: true, authorName: true, createdAt: true },
+    }),
+    prisma.call.findMany({
+      where: { orgId, leadId },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      select: {
+        id: true,
+        status: true,
+        outcome: true,
+        summary: true,
+        sentiment: true,
+        durationSeconds: true,
+        startedAt: true,
+        endedAt: true,
+        createdAt: true,
+      },
+    }),
+    // Oportunidad abierta más reciente del lead (no cerrada ganada/perdida).
+    prisma.opportunity.findFirst({
+      where: { orgId, leadId, stage: { notIn: ['closed_won', 'closed_lost'] } },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        stage: true,
+        value: true,
+        currency: true,
+        probability: true,
+        expectedCloseDate: true,
+      },
+    }),
+    // FND-02: reutiliza el mismo timeline comercial (SalesActivity), sin
+    // duplicar la lógica de escritura de lib/salesActivity.ts.
+    prisma.salesActivity.findMany({
+      where: { orgId, leadId },
+      orderBy: { occurredAt: 'desc' },
+      take: 5,
+    }),
+    // RE-107: reuniones anteriores con el mismo lead, con su outcome/agreements
+    // si ya se completaron.
+    prisma.meeting.findMany({
+      where: { orgId, leadId, id: { not: meetingId } },
+      orderBy: { scheduledAt: 'desc' },
+      take: 3,
+      select: {
+        id: true,
+        title: true,
+        scheduledAt: true,
+        status: true,
+        outcome: true,
+        agreements: true,
+      },
+    }),
+  ])
+
+  return { lead, recentNotes, recentCalls, openOpportunity, recentActivity, previousMeetings }
+}
+
 export async function listMeetings(orgId: string, filters: MeetingFilters = {}) {
   const { assignedTo, status, dateFrom, dateTo, search, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit

@@ -65,6 +65,13 @@ async function assertOwnedCampaign(orgId: string, campaignId?: string | null) {
   if (!campaign) throw new OwnershipError('campaignId')
 }
 
+/** Valida que la Account referenciada (accountId) pertenezca a la organización, mismo patrón que assertOwnedCampaign. */
+async function assertOwnedAccount(orgId: string, accountId?: string | null) {
+  if (!accountId) return
+  const account = await prisma.account.findFirst({ where: { id: accountId, orgId }, select: { id: true } })
+  if (!account) throw new OwnershipError('accountId')
+}
+
 /**
  * LE-101/LE-102: construye el `where`/`orderBy` de Prisma compartido entre
  * `listLeads()` (paginado) y `exportLeadsCsv()` (sin paginar) para que ambos
@@ -222,8 +229,10 @@ export async function createLead(orgId: string, actorUserId: string | null | und
   tags?: string[]
   customFields?: Record<string, unknown>
   consent?: ChannelConsentInput
+  accountId?: string
 }) {
   await assertOwnedCampaign(orgId, data.campaignId)
+  await assertOwnedAccount(orgId, data.accountId)
 
   const { consent, ...leadData } = data
   const lead = await prisma.lead.create({
@@ -367,8 +376,10 @@ export async function updateLead(orgId: string, actorUserId: string | null | und
   tags?: string[]
   customFields?: Record<string, unknown>
   campaignId?: string | null
+  accountId?: string | null
 }) {
   await assertOwnedCampaign(orgId, data.campaignId)
+  await assertOwnedAccount(orgId, data.accountId)
 
   const before = await prisma.lead.findFirst({ where: { id, orgId } })
   if (!before) throw new LeadNotFoundError()

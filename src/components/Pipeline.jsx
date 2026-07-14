@@ -8,10 +8,13 @@ import {
 import {
   RiMoneyDollarBoxLine, RiBriefcaseLine, RiLineChartLine,
   RiPercentLine, RiCalendar2Line, RiPhoneLine, RiCalendarLine,
-  RiFilterLine, RiAddLine, RiMoreLine, RiArrowRightLine,
+  RiFilterLine, RiAddLine, RiArrowRightLine,
   RiInformationLine, RiAlertLine, RiGroupLine, RiRocketLine,
+  RiLayoutGridLine, RiListCheck2, RiSearchLine, RiCloseLine,
+  RiArrowLeftSLine, RiArrowRightSLine,
 } from 'react-icons/ri'
 import KPICard from './KPICard'
+import DataTable from './DataTable'
 import '../dashboard.css'
 import NewOportunidadModal from '../modals/NewOportunidadModal'
 
@@ -268,6 +271,53 @@ function PredictionPanel({ prediction }) {
   )
 }
 
+// OP-107: forecast real (commit / best case / pipeline ponderado), agrupado
+// por moneda tal y como lo devuelve GET /api/pipeline/forecast — sin
+// convertir divisas, cada bloque de moneda se muestra por separado.
+function ForecastPanel({ forecast }) {
+  const currencies = Object.keys(forecast)
+  const fmt = (cur, v) => `${cur} ${Math.round(v).toLocaleString('es-ES')}`
+
+  return (
+    <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
+      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: '#fff' }}>Forecast</h3>
+      {currencies.length === 0 ? (
+        <p style={{ fontSize: 10.5, color: '#4b5563', margin: 0 }}>No hay oportunidades abiertas para calcular el forecast.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {currencies.map(cur => {
+            const f = forecast[cur]
+            const rows = [
+              { label: 'Pipeline total',    value: f.pipeline,         color: '#7c3aed' },
+              { label: 'Pipeline ponderado', value: f.weightedPipeline, color: '#2563eb' },
+              { label: 'Best case',         value: f.bestCase,         color: '#f59e0b' },
+              { label: 'Commit',            value: f.commit,           color: '#10b981' },
+            ]
+            return (
+              <div key={cur}>
+                {currencies.length > 1 && (
+                  <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4 }}>{cur}</p>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {rows.map(r => (
+                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: '#94a3b8' }}>
+                        <i style={{ width: 6, height: 6, borderRadius: '50%', background: r.color, flexShrink: 0, boxShadow: `0 0 5px ${r.color}` }} />
+                        {r.label}
+                      </span>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: '#f1f5f9' }}>{fmt(cur, r.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function InsightsPanel({ insights }) {
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
@@ -320,10 +370,197 @@ function OppDetailPanel({ opp, onClose }) {
   )
 }
 
+// ─── OP-103: vista de lista ──────────────────────────────────────────────────
+const LIST_SORT_OPTIONS = [
+  { value: 'createdAt:desc', label: 'Más recientes' },
+  { value: 'createdAt:asc', label: 'Más antiguas' },
+  { value: 'expectedCloseDate:asc', label: 'Cierre más próximo' },
+  { value: 'value:desc', label: 'Valor (mayor a menor)' },
+  { value: 'name:asc', label: 'Nombre (A-Z)' },
+]
+
+const STAGE_LABEL = Object.fromEntries(STAGE_CONFIG.map(s => [s.id, s.label]))
+const STAGE_COLOR = Object.fromEntries(STAGE_CONFIG.map(s => [s.id, s.color]))
+
+const LIST_GRID = '1.7fr 1fr 0.9fr 0.9fr 1fr 1fr'
+const LIST_COLS = ['Oportunidad', 'Etapa', 'Valor', 'Probabilidad', 'Propietario', 'Cierre estimado']
+
+function PipelineListView({ onSelect }) {
+  const [rows, setRows] = useState([])
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 })
+  const [owners, setOwners] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [stageFilter, setStageFilter] = useState('')
+  const [ownerFilter, setOwnerFilter] = useState('')
+  const [closeFrom, setCloseFrom] = useState('')
+  const [closeTo, setCloseTo] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
+  const [sort, setSort] = useState('createdAt:desc')
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  useEffect(() => { setPage(1) }, [debouncedSearch, stageFilter, ownerFilter, closeFrom, closeTo, sourceFilter, sort, limit])
+
+  useEffect(() => {
+    apiFetch('/api/leads/owners').then(r => r.ok ? r.json() : []).then(setOwners).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    setLoading(true); setError('')
+    const params = new URLSearchParams({ page: String(page), limit: String(limit), sort })
+    if (debouncedSearch) params.set('search', debouncedSearch)
+    if (stageFilter) params.set('stage', stageFilter)
+    if (ownerFilter) params.set('ownerId', ownerFilter)
+    if (closeFrom) params.set('closeFrom', closeFrom)
+    if (closeTo) params.set('closeTo', closeTo)
+    if (sourceFilter) params.set('source', sourceFilter)
+    apiFetch(`/api/pipeline/list?${params.toString()}`)
+      .then(r => { if (!r.ok) throw new Error('list'); return r.json() })
+      .then(data => {
+        if (!active) return
+        setRows(Array.isArray(data?.data) ? data.data : [])
+        setMeta({ total: data.total ?? 0, totalPages: data.totalPages ?? 1 })
+      })
+      .catch(() => { if (active) setError('No se pudieron cargar las oportunidades.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [page, limit, debouncedSearch, stageFilter, ownerFilter, closeFrom, closeTo, sourceFilter, sort])
+
+  const filterCount = (stageFilter?1:0) + (ownerFilter?1:0) + (closeFrom?1:0) + (closeTo?1:0) + (sourceFilter?1:0)
+
+  function clearFilters() {
+    setStageFilter(''); setOwnerFilter(''); setCloseFrom(''); setCloseTo(''); setSourceFilter('')
+  }
+
+  const renderRow = (opp) => {
+    const stageColor = STAGE_COLOR[opp.stage] || '#6366f1'
+    return [
+      <div key="n" style={{ minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.name}</p>
+        <p style={{ margin: 0, fontSize: 10.5, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.lead?.name ?? '—'}{opp.account?.name ? ` · ${opp.account.name}` : ''}</p>
+      </div>,
+      <span key="s" style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, background: `${stageColor}15`, border: `1px solid ${stageColor}28`, color: stageColor, whiteSpace: 'nowrap' }}>
+        {STAGE_LABEL[opp.stage] ?? opp.stage}
+      </span>,
+      <span key="v" style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>
+        {opp.value != null ? `${opp.currency ?? 'EUR'} ${Number(opp.value).toLocaleString('es-ES')}` : '—'}
+      </span>,
+      <span key="p" style={{ fontSize: 11.5, color: '#94a3b8' }}>{opp.probability ?? 0}%</span>,
+      <span key="o" style={{ fontSize: 11.5, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.assignee?.name ?? '—'}</span>,
+      <span key="c" style={{ fontSize: 11.5, color: '#94a3b8' }}>
+        {opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toLocaleDateString('es-ES') : '—'}
+      </span>,
+    ]
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0, flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '6px 11px' }}>
+          <RiSearchLine style={{ width: 12, height: 12, color: '#6b7280' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar oportunidades…" style={{ background: 'none', border: 'none', outline: 'none', color: '#94a3b8', fontSize: 11.5, width: 160 }} />
+        </div>
+        <button onClick={() => setShowFilters(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: showFilters || filterCount ? '#8b5cf620' : '#0d1117', border: `1px solid ${showFilters || filterCount ? '#8b5cf6' : '#1e2433'}`, borderRadius: 9, padding: '7px 13px', color: showFilters || filterCount ? '#c4b5fd' : '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+          <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros{filterCount > 0 && ` (${filterCount})`}
+        </button>
+        <select value={sort} onChange={e => setSort(e.target.value)} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 10px', color: '#94a3b8', fontSize: 12, cursor: 'pointer', outline: 'none', marginLeft: 'auto' }}>
+          {LIST_SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      {showFilters && (
+        <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Etapa
+            <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }}>
+              <option value="">Cualquier etapa</option>
+              {STAGE_CONFIG.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Propietario
+            <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }}>
+              <option value="">Cualquier propietario</option>
+              {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Origen del lead
+            <input value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} placeholder="Ej. meta_ads" style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none', width: 120 }} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Cierre desde
+            <input type="date" value={closeFrom} onChange={e => setCloseFrom(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            Cierre hasta
+            <input type="date" value={closeTo} onChange={e => setCloseTo(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+          </label>
+          {filterCount > 0 && (
+            <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 0' }}>
+              <RiCloseLine style={{ width: 13, height: 13 }} /> Limpiar filtros
+            </button>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div style={{ background: '#ef444412', border: '1px solid #ef444430', borderRadius: 9, padding: '9px 13px', color: '#ef4444', fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span>{error}</span>
+        </div>
+      )}
+
+      <DataTable
+        columns={LIST_COLS}
+        gridTemplate={LIST_GRID}
+        rows={rows}
+        rowKey="id"
+        onSelect={opp => onSelect(opp.id)}
+        renderRow={renderRow}
+        emptyText={loading ? 'Cargando…' : 'No hay oportunidades que coincidan con los filtros.'}
+        style={{ flex: 1, minHeight: 0 }}
+      />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>{loading ? 'Cargando…' : `Mostrando ${rows.length ? (page - 1) * limit + 1 : 0} a ${Math.min((page - 1) * limit + rows.length, meta.total)} de ${meta.total} oportunidades`}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page <= 1 ? '#374151' : '#6b7280', cursor: page <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
+            <RiArrowLeftSLine style={{ width: 14, height: 14 }} />
+          </button>
+          <button style={{ background: '#4f46e5', border: '1px solid #4f46e5', borderRadius: 7, padding: '5px 9px', color: '#fff', cursor: 'default', fontSize: 12, fontWeight: 700 }}>{page}</button>
+          <span style={{ fontSize: 11, color: '#4b5563' }}>de {meta.totalPages}</span>
+          <button disabled={page >= meta.totalPages} onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page >= meta.totalPages ? '#374151' : '#6b7280', cursor: page >= meta.totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
+            <RiArrowRightSLine style={{ width: 14, height: 14 }} />
+          </button>
+          <select value={limit} onChange={e => setLimit(Number(e.target.value))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 9px', color: '#6b7280', fontSize: 12, cursor: 'pointer', outline: 'none' }}>
+            <option value={10}>10 por página</option>
+            <option value={25}>25 por página</option>
+            <option value={50}>50 por página</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Pipeline() {
   const navigate = useNavigate()
   const [showNewOpp, setShowNewOpp] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  // OP-103: toggle Kanban / Lista — la lista usa su propio fetch server-side
+  // (PipelineListView), el kanban sigue usando el agrupado por etapa de abajo.
+  const [view, setView] = useState('kanban')
 
   const [opps, setOpps]         = useState([])
   const [stages, setStages]     = useState(STAGE_CONFIG.map(s => ({ ...s, count: 0, value: '€0' })))
@@ -333,6 +570,7 @@ export default function Pipeline() {
   const [totalValue, setTotalValue]   = useState(0)
   const [insights, setInsights]       = useState([])
   const [prediction, setPrediction]   = useState({ total: 0, weeks: [] })
+  const [forecast, setForecast]       = useState({})
   const [acciones, setAcciones]       = useState([])
   const [draggingId, setDraggingId]   = useState(null)
   const [dragError, setDragError]     = useState('')
@@ -342,10 +580,13 @@ export default function Pipeline() {
       apiFetch('/api/pipeline/insights').then(r => r.json()),
       apiFetch('/api/pipeline/prediction').then(r => r.json()),
       apiFetch('/api/pipeline/actions').then(r => r.json()),
-    ]).then(([ins, pred, acts]) => {
+      // OP-107: forecast real (commit/best case/pipeline) — ver ForecastPanel.
+      apiFetch('/api/pipeline/forecast').then(r => r.json()),
+    ]).then(([ins, pred, acts, fc]) => {
       setInsights(ins)
       setPrediction(pred)
       setAcciones(acts)
+      setForecast(fc && typeof fc === 'object' ? fc : {})
     }).catch(() => {})
   }, [refreshKey])
 
@@ -472,12 +713,29 @@ export default function Pipeline() {
           <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Visualiza y gestiona tu pipeline de ventas impulsado por IA.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 13px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
-            <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros
-          </button>
-          <button style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 10px', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <RiMoreLine style={{ width: 14, height: 14 }} />
-          </button>
+          {/* OP-103: toggle Kanban / Lista */}
+          <div style={{ display: 'flex', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: 2, gap: 2 }}>
+            <button
+              onClick={() => setView('kanban')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 7, padding: '6px 11px',
+                background: view === 'kanban' ? '#4f46e5' : 'transparent', color: view === 'kanban' ? '#fff' : '#94a3b8',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
+              }}
+            >
+              <RiLayoutGridLine style={{ width: 13, height: 13 }} /> Kanban
+            </button>
+            <button
+              onClick={() => setView('list')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 7, padding: '6px 11px',
+                background: view === 'list' ? '#4f46e5' : 'transparent', color: view === 'list' ? '#fff' : '#94a3b8',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
+              }}
+            >
+              <RiListCheck2 style={{ width: 13, height: 13 }} /> Lista
+            </button>
+          </div>
           <button onClick={() => setShowNewOpp(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
             <RiAddLine style={{ width: 14, height: 14 }} /> Nueva oportunidad
           </button>
@@ -508,23 +766,27 @@ export default function Pipeline() {
             {kpis.map((k, i) => <KPICard key={k.label} {...k} delay={`${i * 55}ms`} />)}
           </div>
 
-          {/* Kanban board */}
-          <div className="dark-scroll" style={{ overflowX: 'auto', paddingBottom: 6 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {stages.map(stage => (
-                <KanbanColumn
-                  key={stage.id}
-                  stage={stage}
-                  opps={opps}
-                  onSelect={opp => navigate('/pipeline/' + opp.id)}
-                  draggingId={draggingId}
-                  onDragStartCard={handleDragStartCard}
-                  onDragEndCard={handleDragEndCard}
-                  onDropCard={handleDropCard}
-                />
-              ))}
+          {/* Kanban board / Lista (OP-103) */}
+          {view === 'kanban' ? (
+            <div className="dark-scroll" style={{ overflowX: 'auto', paddingBottom: 6 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {stages.map(stage => (
+                  <KanbanColumn
+                    key={stage.id}
+                    stage={stage}
+                    opps={opps}
+                    onSelect={opp => navigate('/pipeline/' + opp.id)}
+                    draggingId={draggingId}
+                    onDragStartCard={handleDragStartCard}
+                    onDragEndCard={handleDragEndCard}
+                    onDropCard={handleDropCard}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <PipelineListView onSelect={id => navigate('/pipeline/' + id)} />
+          )}
 
           {/* Acciones recomendadas */}
           {acciones.length > 0 && (
@@ -557,6 +819,7 @@ export default function Pipeline() {
         <div className="dark-scroll" style={{ width: 255, flexShrink: 0, overflowY: 'auto', borderLeft: '1px solid #1e2433', padding: '0 14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <ConversionFunnel funnelData={funnelData} />
           <DonutPanel donutData={donutData} totalValue={totalValue} />
+          <ForecastPanel forecast={forecast} />
           <PredictionPanel prediction={prediction} />
           <InsightsPanel insights={insights} />
         </div>

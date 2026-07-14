@@ -92,6 +92,24 @@ export async function get(
   return reply.send(meeting)
 }
 
+/** GET /:id/prep — RE-108: contexto real (lead, notas, llamadas, oportunidad
+ * abierta, actividad y reuniones previas) para preparar la reunión. */
+export async function prep(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  try {
+    const result = await meetingsService.getMeetingPrep(orgId, request.params.id)
+    return reply.send(result)
+  } catch (err) {
+    if (err instanceof MeetingNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
 export async function list(
   request: FastifyRequest<{
     Querystring: {

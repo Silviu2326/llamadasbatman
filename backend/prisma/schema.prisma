@@ -139,6 +139,10 @@ model Organization {
   marketingCampaigns MarketingCampaign[]
   emailDeliveries    EmailDelivery[]
   emailEvents        EmailEvent[]
+  accounts           Account[]
+  opportunityContacts OpportunityContact[]
+  products           Product[]
+  opportunityLineItems OpportunityLineItem[]
 }
 
 model User {
@@ -165,6 +169,7 @@ model User {
   ownedTasks            Task[]              @relation("TaskOwner")
   createdTasks          Task[]              @relation("TaskCreatedBy")
   ownedLeads            Lead[]              @relation("LeadOwner")
+  ownedAccounts         Account[]           @relation("AccountOwner")
 }
 
 // Preferencias por usuario para /configuracion. Separado de User porque son
@@ -262,12 +267,15 @@ model Lead {
   lastAttemptAt  DateTime?
   ownerId        String?
   firstRespondedAt DateTime?
+  accountId      String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
   org               Organization       @relation(fields: [orgId], references: [id])
   campaign          Campaign?          @relation(fields: [campaignId], references: [id])
   owner             User?              @relation("LeadOwner", fields: [ownerId], references: [id])
+  account           Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  opportunityContacts OpportunityContact[]
   calls             Call[]
   meetings          Meeting[]
   opportunities     Opportunity[]
@@ -412,15 +420,20 @@ model Opportunity {
   stageEnteredAt    DateTime         @default(now())
   lossReason        String?
   actualCloseDate   DateTime?
+  accountId         String?
+  forecastCategory  String?          // pipeline|best_case|commit|omitted — null hasta que el usuario lo fije (OP-107)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  org             Organization           @relation(fields: [orgId], references: [id])
-  lead            Lead                   @relation(fields: [leadId], references: [id])
-  assignee        User?                  @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
+  org             Organization              @relation(fields: [orgId], references: [id])
+  lead            Lead                      @relation(fields: [leadId], references: [id])
+  assignee        User?                     @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
+  account         Account?                  @relation(fields: [accountId], references: [id], onDelete: SetNull)
   salesActivities SalesActivity[]
   tasks           Task[]
   stageHistory    OpportunityStageHistory[]
+  contacts        OpportunityContact[]
+  lineItems       OpportunityLineItem[]
 
   @@index([orgId, stage, updatedAt])
   @@index([orgId, stage, stageEnteredAt])
@@ -1266,4 +1279,97 @@ model EmailEvent {
   @@unique([provider, externalEventId])
   @@index([orgId, deliveryId, occurredAt])
   @@index([orgId, type, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 3 · Empresa/Contacto, forecast y línea de producto
+// (docs/auditoria-nutricion-ventas/05-arquitectura-objetivo.md, sección 3.1)
+// ---------------------------------------------------------------------------
+
+// Evolución aditiva, no big-bang: Lead sigue siendo el contacto/persona;
+// Account es la empresa a la que puede pertenecer. `Lead.accountId` y
+// `Opportunity.accountId` son opcionales para no romper datos existentes.
+model Account {
+  id              String    @id @default(cuid())
+  orgId           String
+  name            String
+  normalizedName  String?
+  domain          String?
+  industry        String?
+  sizeBand        String?
+  website         String?
+  phone           String?
+  address         String?
+  ownerId         String?
+  lifecycleStatus String    @default("prospect")
+  source          String?
+  customFields    Json?
+  lastActivityAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  org           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner         User?         @relation("AccountOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  leads         Lead[]
+  opportunities Opportunity[]
+
+  @@index([orgId, domain])
+  @@index([orgId, ownerId, lifecycleStatus])
+  @@index([orgId, updatedAt])
+}
+
+// OP-108: participantes de la compra con rol, sin duplicar la ficha del
+// lead — una oportunidad puede tener varios leads como contactos con roles
+// distintos (champion, decision maker, etc.).
+model OpportunityContact {
+  id            String   @id @default(cuid())
+  orgId         String
+  opportunityId String
+  leadId        String
+  role          String // champion|decision_maker|economic_buyer|influencer|blocker
+  isPrimary     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  opportunity Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  lead        Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, leadId])
+  @@index([orgId, leadId])
+}
+
+// OP-109: catálogo simple de productos/servicios y líneas por oportunidad,
+// para que el valor se componga de líneas en vez de un número libre.
+model Product {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  sku       String?
+  unitPrice Decimal?
+  currency  String   @default("EUR")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  org       Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lineItems OpportunityLineItem[]
+
+  @@index([orgId, isActive])
+}
+
+model OpportunityLineItem {
+  id            String   @id @default(cuid())
+  orgId         String
+  opportunityId String
+  productId     String?
+  name          String
+  quantity      Int      @default(1)
+  unitPrice     Decimal
+  currency      String   @default("EUR")
+  createdAt     DateTime @default(now())
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  opportunity Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, opportunityId])
 }

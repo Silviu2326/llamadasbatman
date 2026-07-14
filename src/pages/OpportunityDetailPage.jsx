@@ -35,7 +35,25 @@ const STAGE_OPTIONS = [
 
 const CURRENCY_OPTIONS = ['EUR', 'USD', 'GBP', 'MXN']
 
-const TABS = ['Resumen', 'Actividad', 'Notas']
+const TABS = ['Resumen', 'Contactos', 'Productos', 'Actividad', 'Notas']
+
+// OP-108: roles de compra de OpportunityContact.role.
+const CONTACT_ROLE_OPTIONS = [
+  { value: 'champion',        label: 'Champion' },
+  { value: 'decision_maker',  label: 'Decisor' },
+  { value: 'economic_buyer',  label: 'Comprador económico' },
+  { value: 'influencer',      label: 'Influenciador' },
+  { value: 'blocker',         label: 'Bloqueador' },
+]
+const CONTACT_ROLE_LABEL = Object.fromEntries(CONTACT_ROLE_OPTIONS.map(o => [o.value, o.label]))
+
+// OP-107: categorías de forecast de Opportunity.forecastCategory.
+const FORECAST_CATEGORY_OPTIONS = [
+  { value: 'pipeline',  label: 'Pipeline' },
+  { value: 'best_case', label: 'Best case' },
+  { value: 'commit',    label: 'Commit' },
+  { value: 'omitted',   label: 'Omitida del forecast' },
+]
 
 function fmtDateInput(d) {
   if (!d) return ''
@@ -90,6 +108,27 @@ export default function OpportunityDetailPage() {
   const [lostReason, setLostReason] = useState('')
   const [lostNotes, setLostNotes] = useState('')
 
+  // OP-107: categoría de forecast (pipeline/best_case/commit/omitted).
+  const [savingForecastCategory, setSavingForecastCategory] = useState(false)
+
+  // OP-108: contactos / roles de compra.
+  const [contacts, setContacts] = useState([])
+  const [contactsLoading, setContactsLoading] = useState(false)
+  const [contactSearch, setContactSearch] = useState('')
+  const [contactResults, setContactResults] = useState([])
+  const [contactRole, setContactRole] = useState('champion')
+  const [contactPrimary, setContactPrimary] = useState(false)
+  const [selectedContactLead, setSelectedContactLead] = useState(null)
+  const [savingContact, setSavingContact] = useState(false)
+  const [contactError, setContactError] = useState(null)
+
+  // OP-109: líneas de producto.
+  const [lineItems, setLineItems] = useState([])
+  const [lineItemsLoading, setLineItemsLoading] = useState(false)
+  const [lineForm, setLineForm] = useState({ name: '', quantity: '1', unitPrice: '', currency: 'EUR' })
+  const [savingLineItem, setSavingLineItem] = useState(false)
+  const [lineItemError, setLineItemError] = useState(null)
+
   const load = useCallback(() => {
     return Promise.all([
       apiFetch(`/api/pipeline/${id}`).then(r => r.ok ? r.json() : null),
@@ -118,6 +157,132 @@ export default function OpportunityDetailPage() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // OP-108: contactos de la oportunidad.
+  const loadContacts = useCallback(() => {
+    setContactsLoading(true)
+    return apiFetch(`/api/pipeline/${id}/contacts`)
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => setContacts(Array.isArray(rows) ? rows : []))
+      .catch(() => {})
+      .finally(() => setContactsLoading(false))
+  }, [id])
+
+  useEffect(() => { loadContacts() }, [loadContacts])
+
+  // OP-108: búsqueda de leads existentes para añadir como contacto (mismo
+  // patrón que NewOportunidadModal / NewReunionModal: debounce + /api/leads?search=).
+  useEffect(() => {
+    const term = contactSearch.trim()
+    if (!term || selectedContactLead) { setContactResults([]); return }
+    const t = setTimeout(() => {
+      apiFetch(`/api/leads?search=${encodeURIComponent(term)}&limit=10`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => setContactResults(data?.data ?? []))
+        .catch(() => {})
+    }, 300)
+    return () => clearTimeout(t)
+  }, [contactSearch, selectedContactLead])
+
+  function pickContactLead(lead) {
+    setSelectedContactLead(lead)
+    setContactSearch(lead.name || lead.email || lead.phone || '')
+    setContactResults([])
+  }
+
+  async function handleAddContact() {
+    if (!selectedContactLead) {
+      setContactError('Busca y selecciona un lead de la lista.')
+      return
+    }
+    setSavingContact(true)
+    setContactError(null)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}/contacts`, {
+        method: 'POST',
+        body: JSON.stringify({ leadId: selectedContactLead.id, role: contactRole, isPrimary: contactPrimary }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'No se pudo añadir el contacto.')
+      }
+      setSelectedContactLead(null)
+      setContactSearch('')
+      setContactRole('champion')
+      setContactPrimary(false)
+      await loadContacts()
+    } catch (e) {
+      setContactError(e.message || 'No se pudo añadir el contacto.')
+    } finally {
+      setSavingContact(false)
+    }
+  }
+
+  async function handleRemoveContact(leadId) {
+    try {
+      await apiFetch(`/api/pipeline/${id}/contacts/${leadId}`, { method: 'DELETE' })
+      setContacts(prev => prev.filter(c => c.leadId !== leadId))
+    } catch { /* el usuario puede reintentar */ }
+  }
+
+  // OP-109: líneas de producto de la oportunidad.
+  const loadLineItems = useCallback(() => {
+    setLineItemsLoading(true)
+    return apiFetch(`/api/pipeline/${id}/line-items`)
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => setLineItems(Array.isArray(rows) ? rows : []))
+      .catch(() => {})
+      .finally(() => setLineItemsLoading(false))
+  }, [id])
+
+  useEffect(() => { loadLineItems() }, [loadLineItems])
+
+  async function handleAddLineItem() {
+    const quantity = parseInt(lineForm.quantity, 10)
+    const unitPrice = parseFloat(lineForm.unitPrice)
+    if (!lineForm.name.trim()) { setLineItemError('El nombre es obligatorio.'); return }
+    if (!Number.isFinite(quantity) || quantity < 1) { setLineItemError('La cantidad debe ser un entero mayor o igual a 1.'); return }
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) { setLineItemError('El precio unitario no es válido.'); return }
+
+    setSavingLineItem(true)
+    setLineItemError(null)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}/line-items`, {
+        method: 'POST',
+        body: JSON.stringify({ name: lineForm.name.trim(), quantity, unitPrice, currency: lineForm.currency }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'No se pudo añadir la línea.')
+      }
+      setLineForm({ name: '', quantity: '1', unitPrice: '', currency: lineForm.currency })
+      await loadLineItems()
+    } catch (e) {
+      setLineItemError(e.message || 'No se pudo añadir la línea.')
+    } finally {
+      setSavingLineItem(false)
+    }
+  }
+
+  async function handleRemoveLineItem(lineItemId) {
+    try {
+      await apiFetch(`/api/pipeline/${id}/line-items/${lineItemId}`, { method: 'DELETE' })
+      setLineItems(prev => prev.filter(li => li.id !== lineItemId))
+    } catch { /* el usuario puede reintentar */ }
+  }
+
+  // OP-107: fija manualmente la categoría de forecast desde el detalle.
+  async function handleForecastCategoryChange(value) {
+    setSavingForecastCategory(true)
+    try {
+      const res = await apiFetch(`/api/pipeline/${id}/forecast-category`, {
+        method: 'PUT',
+        body: JSON.stringify({ forecastCategory: value }),
+      })
+      if (res.ok) setRaw(r => r ? { ...r, forecastCategory: value } : r)
+    } catch { /* el usuario puede reintentar */ }
+    finally { setSavingForecastCategory(false) }
+  }
 
   function openEdit() {
     if (!raw) return
@@ -257,6 +422,14 @@ export default function OpportunityDetailPage() {
   const stageIdx = ALL_STAGES.findIndex(s => s.id === opp.stage)
   const stageColor = STAGE_COLOR[opp.stage] || '#6366f1'
   const isClosed = raw?.stage === 'closed_won' || raw?.stage === 'closed_lost'
+
+  // OP-109: total de líneas agrupado por moneda (sin convertir divisas, igual
+  // que el forecast) — es solo informativo, no reemplaza Opportunity.value.
+  const lineItemTotals = lineItems.reduce((acc, li) => {
+    const cur = li.currency || 'EUR'
+    acc[cur] = (acc[cur] || 0) + Number(li.quantity) * Number(li.unitPrice)
+    return acc
+  }, {})
 
   return (
     <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'#080c14', display:'flex', flexDirection:'column' }}>
@@ -429,6 +602,186 @@ export default function OpportunityDetailPage() {
             </div>
           )}
 
+          {tab === 'Contactos' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Contactos y roles de compra</p>
+
+                {contactsLoading && contacts.length === 0 ? (
+                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Cargando…</p>
+                ) : contacts.length === 0 ? (
+                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Todavía no hay contactos asociados a esta oportunidad.</p>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {contacts.map(c => (
+                      <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom:'1px solid #111827' }}>
+                        <Avatar text={c.lead?.name || '?'} bg="#4f46e5" size={30} />
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#e2e8f0', display:'flex', alignItems:'center', gap:6 }}>
+                            {c.lead?.name || 'Sin nombre'}
+                            {c.isPrimary && <span style={{ fontSize:9.5, fontWeight:700, color:'#f59e0b', background:'#f59e0b18', border:'1px solid #f59e0b40', borderRadius:99, padding:'1px 7px' }}>Principal</span>}
+                          </p>
+                          <p style={{ margin:0, fontSize:11, color:'#6b7280' }}>{[c.lead?.phone, c.lead?.email].filter(Boolean).join(' · ') || '—'}</p>
+                        </div>
+                        <span style={{ fontSize:10.5, fontWeight:700, color:'#818cf8', background:'#6366f118', border:'1px solid #6366f140', borderRadius:99, padding:'2px 9px', whiteSpace:'nowrap' }}>
+                          {CONTACT_ROLE_LABEL[c.role] || c.role}
+                        </span>
+                        <button onClick={() => handleRemoveContact(c.leadId)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4, display:'flex' }} title="Quitar contacto">
+                          <RiCloseLine style={{ width:14, height:14 }} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Añadir contacto</p>
+                <div style={{ position:'relative', marginBottom:10 }}>
+                  <input
+                    value={contactSearch}
+                    onChange={e => { setContactSearch(e.target.value); setSelectedContactLead(null) }}
+                    placeholder="Buscar lead por nombre, teléfono o email…"
+                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                  />
+                  {!selectedContactLead && contactResults.length > 0 && (
+                    <div style={{ marginTop:6, border:'1px solid #1e2433', borderRadius:8, overflow:'hidden', maxHeight:160, overflowY:'auto' }}>
+                      {contactResults.map(lead => (
+                        <button
+                          type="button"
+                          key={lead.id}
+                          onClick={() => pickContactLead(lead)}
+                          style={{ display:'block', width:'100%', textAlign:'left', background:'#0d1117', border:'none', borderBottom:'1px solid #1e2433', padding:'8px 10px', cursor:'pointer', color:'#e2e8f0', fontSize:12.5 }}
+                        >
+                          <div style={{ fontWeight:600 }}>{lead.name || 'Sin nombre'}</div>
+                          <div style={{ color:'#6b7280', fontSize:11 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ') || '—'}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedContactLead && (
+                    <p style={{ margin:'6px 0 0', fontSize:11.5, color:'#10b981' }}>Lead seleccionado: {selectedContactLead.name || selectedContactLead.id}</p>
+                  )}
+                </div>
+
+                <div style={{ display:'flex', gap:10, alignItems:'flex-end', flexWrap:'wrap' }}>
+                  <div style={{ flex:1, minWidth:160 }}>
+                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Rol</label>
+                    <select
+                      value={contactRole}
+                      onChange={e => setContactRole(e.target.value)}
+                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                    >
+                      {CONTACT_ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'#94a3b8', paddingBottom:9 }}>
+                    <input type="checkbox" checked={contactPrimary} onChange={e => setContactPrimary(e.target.checked)} />
+                    Contacto principal
+                  </label>
+                  <button
+                    onClick={handleAddContact}
+                    disabled={savingContact}
+                    style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:12.5, fontWeight:700, cursor: savingContact ? 'not-allowed' : 'pointer', opacity: savingContact ? 0.6 : 1 }}
+                  >
+                    {savingContact ? 'Añadiendo…' : 'Añadir'}
+                  </button>
+                </div>
+                {contactError && <p style={{ margin:'10px 0 0', fontSize:12, color:'#f87171' }}>{contactError}</p>}
+              </div>
+            </div>
+          )}
+
+          {tab === 'Productos' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Líneas de producto</p>
+
+                {lineItemsLoading && lineItems.length === 0 ? (
+                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Cargando…</p>
+                ) : lineItems.length === 0 ? (
+                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Todavía no hay líneas de producto en esta oportunidad.</p>
+                ) : (
+                  <>
+                    <div style={{ display:'grid', gridTemplateColumns:'1.6fr 0.7fr 0.9fr 0.9fr 32px', gap:8, padding:'0 0 8px', borderBottom:'1px solid #1e2433', marginBottom:4 }}>
+                      {['Producto','Cantidad','Precio unitario','Subtotal',''].map(h => (
+                        <span key={h} style={{ fontSize:10, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:0.3 }}>{h}</span>
+                      ))}
+                    </div>
+                    {lineItems.map(li => (
+                      <div key={li.id} style={{ display:'grid', gridTemplateColumns:'1.6fr 0.7fr 0.9fr 0.9fr 32px', gap:8, alignItems:'center', padding:'8px 0', borderBottom:'1px solid #111827' }}>
+                        <span style={{ fontSize:12.5, color:'#e2e8f0', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{li.name}</span>
+                        <span style={{ fontSize:12, color:'#94a3b8' }}>{li.quantity}</span>
+                        <span style={{ fontSize:12, color:'#94a3b8' }}>{li.currency} {Number(li.unitPrice).toLocaleString('es-ES')}</span>
+                        <span style={{ fontSize:12.5, color:'#f1f5f9', fontWeight:700 }}>{li.currency} {(Number(li.quantity) * Number(li.unitPrice)).toLocaleString('es-ES')}</span>
+                        <button onClick={() => handleRemoveLineItem(li.id)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4, display:'flex' }} title="Quitar línea">
+                          <RiCloseLine style={{ width:14, height:14 }} />
+                        </button>
+                      </div>
+                    ))}
+                    <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #1e2433' }}>
+                      {Object.entries(lineItemTotals).map(([cur, total]) => (
+                        <p key={cur} style={{ margin:'0 0 2px', fontSize:12.5, fontWeight:700, color:'#f1f5f9' }}>Suma de líneas ({cur}): {cur} {total.toLocaleString('es-ES')}</p>
+                      ))}
+                      <p style={{ margin:0, fontSize:11, color:'#6b7280' }}>Puede diferir del valor de la oportunidad ({opp.value}) — no se recalcula automáticamente.</p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Añadir línea</p>
+                <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
+                  <div style={{ flex:'2 1 160px' }}>
+                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Nombre</label>
+                    <input
+                      value={lineForm.name}
+                      onChange={e => setLineForm(f => ({ ...f, name:e.target.value }))}
+                      placeholder="Ej. Licencia anual"
+                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    />
+                  </div>
+                  <div style={{ flex:'0 1 80px' }}>
+                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Cantidad</label>
+                    <input
+                      type="number" min="1"
+                      value={lineForm.quantity}
+                      onChange={e => setLineForm(f => ({ ...f, quantity:e.target.value }))}
+                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    />
+                  </div>
+                  <div style={{ flex:'0 1 120px' }}>
+                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Precio unitario</label>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={lineForm.unitPrice}
+                      onChange={e => setLineForm(f => ({ ...f, unitPrice:e.target.value }))}
+                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    />
+                  </div>
+                  <div style={{ flex:'0 1 90px' }}>
+                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Moneda</label>
+                    <select
+                      value={lineForm.currency}
+                      onChange={e => setLineForm(f => ({ ...f, currency:e.target.value }))}
+                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                    >
+                      {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleAddLineItem}
+                    disabled={savingLineItem}
+                    style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:12.5, fontWeight:700, cursor: savingLineItem ? 'not-allowed' : 'pointer', opacity: savingLineItem ? 0.6 : 1 }}
+                  >
+                    {savingLineItem ? 'Añadiendo…' : 'Añadir'}
+                  </button>
+                </div>
+                {lineItemError && <p style={{ margin:'10px 0 0', fontSize:12, color:'#f87171' }}>{lineItemError}</p>}
+              </div>
+            </div>
+          )}
+
           {tab === 'Actividad' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
               <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Historial de actividad</p>
@@ -486,6 +839,19 @@ export default function OpportunityDetailPage() {
 
         {/* Right */}
         <div style={{ width:220, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
+          {!isClosed && (
+            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
+              <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Categoría de forecast</p>
+              <select
+                value={raw?.forecastCategory ?? 'pipeline'}
+                onChange={e => handleForecastCategoryChange(e.target.value)}
+                disabled={savingForecastCategory}
+                style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'8px 10px', color:'#e2e8f0', fontSize:12.5, outline:'none', cursor: savingForecastCategory ? 'not-allowed' : 'pointer' }}
+              >
+                {FORECAST_CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          )}
           {nextTask && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
               <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Siguiente paso</p>

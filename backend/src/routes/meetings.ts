@@ -9,6 +9,7 @@ export async function meetingsRoutes(app: FastifyInstance) {
   app.get('/', ctrl.list)
   app.post('/', { preHandler: authorize(['admin', 'agent']) }, ctrl.create as any)
   app.get('/:id', ctrl.get)
+  app.get('/:id/prep', ctrl.prep)
   app.put('/:id', { preHandler: authorize(['admin', 'agent']) }, ctrl.update as any)
   app.post('/:id/reschedule', { preHandler: authorize(['admin', 'agent']) }, ctrl.reschedule as any)
   app.post('/:id/complete', { preHandler: authorize(['admin', 'agent']) }, ctrl.complete as any)

@@ -8,6 +8,7 @@ import {
   RiMapPin2Line, RiMoreLine, RiGroupLine, RiPhoneLine, RiPulseLine, RiRefreshLine,
   RiRobot2Line, RiSearchLine, RiSearchEyeLine, RiSendPlaneLine,
   RiShieldCheckLine, RiSparkling2Line, RiStarLine, RiTimeLine, RiUploadCloud2Line,
+  RiBriefcase4Line, RiCloseCircleLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { mapLead } from '../lib/leadMapping'
@@ -143,6 +144,15 @@ export default function LeadDetailPage() {
   const [fileInputKey, setFileInputKey] = useState(0)
   const fileInputRef = useRef(null)
 
+  // Modelo Empresa/Account: empresa vinculada al lead (búsqueda + asignación).
+  const [account, setAccount] = useState(null)
+  const [accountSearch, setAccountSearch] = useState('')
+  const [accountResults, setAccountResults] = useState([])
+  const [searchingAccounts, setSearchingAccounts] = useState(false)
+  const [accountPickerOpen, setAccountPickerOpen] = useState(false)
+  const [assigningAccount, setAssigningAccount] = useState(false)
+  const accountSearchTimer = useRef(null)
+
   useEffect(() => {
     let active = true
     Promise.allSettled([
@@ -193,6 +203,46 @@ export default function LeadDetailPage() {
     return () => { active = false }
   }, [id])
 
+  // Modelo Empresa/Account: carga la empresa vinculada cuando el lead trae accountId.
+  useEffect(() => {
+    let active = true
+    if (!lead?.accountId) { setAccount(null); return }
+    apiFetch(`/api/accounts/${lead.accountId}`).then(response => response.ok ? response.json() : null).then(data => {
+      if (active) setAccount(data)
+    }).catch(() => { if (active) setAccount(null) })
+    return () => { active = false }
+  }, [lead?.accountId])
+
+  // Búsqueda de empresas con debounce, mismo patrón que "Usar lead existente" en NewOportunidadModal.
+  useEffect(() => {
+    if (!accountPickerOpen) return
+    if (accountSearchTimer.current) clearTimeout(accountSearchTimer.current)
+    const term = accountSearch.trim()
+    if (!term) { setAccountResults([]); return }
+    accountSearchTimer.current = setTimeout(async () => {
+      setSearchingAccounts(true)
+      try {
+        const response = await apiFetch(`/api/accounts?search=${encodeURIComponent(term)}&limit=10`)
+        if (response.ok) {
+          const data = await response.json()
+          setAccountResults(data.data ?? [])
+        }
+      } catch { /* ignora errores de búsqueda, el usuario puede reintentar */ }
+      finally { setSearchingAccounts(false) }
+    }, 300)
+    return () => { if (accountSearchTimer.current) clearTimeout(accountSearchTimer.current) }
+  }, [accountSearch, accountPickerOpen])
+
+  async function linkAccount(accountId) {
+    setAssigningAccount(true)
+    try {
+      const response = await apiFetch(`/api/accounts/leads/${id}/assign`, { method: 'POST', body: JSON.stringify({ accountId }) })
+      if (!response.ok) throw new Error()
+      const updated = await response.json()
+      setLead(previous => ({ ...previous, accountId: updated.accountId || null }))
+      setAccountPickerOpen(false); setAccountSearch(''); setAccountResults([])
+    } catch { setLoadError('No se pudo vincular la empresa.') } finally { setAssigningAccount(false) }
+  }
 
   const timeline = useMemo(() => lead ? buildTimeline(lead) : [], [lead])
   const currentStage = lead?.status || 'Nuevo'
@@ -319,7 +369,58 @@ export default function LeadDetailPage() {
       {tab === 'Email' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Enviar plantilla de email</h3><span>Mautic conectado</span></div><div className="lead-email-form"><input value={templateId} onChange={event => setTemplateId(event.target.value)} placeholder="ID de plantilla Mautic" /><button onClick={sendTemplate} disabled={sendingEmail}>{sendingEmail ? 'Enviando…' : 'Enviar email'}</button></div>{emailStatus && <p className="lead-email-status">{emailStatus}</p>}</section>}
     </div>
 
-    <aside className="lead-detail-side"><section className="lead-detail-side-card"><h3><RiLightbulbLine /> Siguiente acción</h3><div className="lead-next-action-card"><div><RiStarLine /><div><strong>{nextAction || 'Sin próxima acción'}</strong><p>{nextAction ? 'Acción proporcionada por los datos del lead.' : 'La API no ha registrado una próxima acción.'}</p></div></div>{nextAction?.toLowerCase().includes('demo') && <button onClick={() => setShowSchedule(true)}><RiCalendar2Line /> Agendar ahora</button>}</div></section><section className="lead-detail-side-card"><h3><RiShieldCheckLine /> Auditoría</h3><p>{audit ? 'Hay resultados de auditoría disponibles.' : 'No hay resultados de auditoría.'}</p><button className="leads-text-button" onClick={() => setTab('Inteligencia')}>Ver análisis <RiArrowRightSLine /></button></section></aside></main>
+    <aside className="lead-detail-side">
+      {/* Modelo Empresa/Account: empresa vinculada al lead, con buscador para vincular/cambiar (mismo patrón que "Usar lead existente"). */}
+      <section className="lead-detail-side-card">
+        <h3><RiBriefcase4Line /> Empresa</h3>
+        {account ? (
+          <div className="lead-contact-row">
+            <RiBriefcase4Line />
+            <span>{account.name}{account.domain ? ` · ${account.domain}` : ''}</span>
+            <button className="leads-text-button" style={{ marginLeft: 'auto' }} disabled={assigningAccount} onClick={() => linkAccount(null)} title="Quitar empresa vinculada">
+              <RiCloseCircleLine />
+            </button>
+          </div>
+        ) : (
+          <p style={{ margin: '0 0 8px', fontSize: 12.5, color: '#6b7280' }}>Este lead no tiene una empresa vinculada.</p>
+        )}
+        {!accountPickerOpen && (
+          <button className="leads-text-button" onClick={() => setAccountPickerOpen(true)}>
+            {account ? 'Cambiar empresa' : 'Vincular empresa'} <RiArrowRightSLine />
+          </button>
+        )}
+        {accountPickerOpen && (
+          <div style={{ marginTop: 6 }}>
+            <input
+              autoFocus
+              value={accountSearch}
+              onChange={event => setAccountSearch(event.target.value)}
+              placeholder="Buscar empresa por nombre o dominio…"
+              style={{ width: '100%', boxSizing: 'border-box', background: '#080c14', border: '1px solid #1e2433', borderRadius: 8, padding: '8px 10px', color: '#e2e8f0', fontSize: 12.5, outline: 'none', fontFamily: 'inherit' }}
+            />
+            {searchingAccounts && <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280' }}>Buscando…</p>}
+            {!searchingAccounts && accountSearch.trim() && accountResults.length === 0 && <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280' }}>Sin resultados.</p>}
+            {accountResults.length > 0 && (
+              <div style={{ marginTop: 6, border: '1px solid #1e2433', borderRadius: 8, overflow: 'hidden', maxHeight: 160, overflowY: 'auto' }}>
+                {accountResults.map(item => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    disabled={assigningAccount}
+                    onClick={() => linkAccount(item.id)}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', background: '#0d1117', border: 'none', borderBottom: '1px solid #1e2433', padding: '8px 10px', cursor: 'pointer', color: '#e2e8f0', fontSize: 12.5 }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{item.name}</div>
+                    <div style={{ color: '#6b7280', fontSize: 11 }}>{item.domain || '—'}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button className="leads-text-button" style={{ marginTop: 6 }} onClick={() => { setAccountPickerOpen(false); setAccountSearch(''); setAccountResults([]) }}>Cancelar</button>
+          </div>
+        )}
+      </section>
+      <section className="lead-detail-side-card"><h3><RiLightbulbLine /> Siguiente acción</h3><div className="lead-next-action-card"><div><RiStarLine /><div><strong>{nextAction || 'Sin próxima acción'}</strong><p>{nextAction ? 'Acción proporcionada por los datos del lead.' : 'La API no ha registrado una próxima acción.'}</p></div></div>{nextAction?.toLowerCase().includes('demo') && <button onClick={() => setShowSchedule(true)}><RiCalendar2Line /> Agendar ahora</button>}</div></section><section className="lead-detail-side-card"><h3><RiShieldCheckLine /> Auditoría</h3><p>{audit ? 'Hay resultados de auditoría disponibles.' : 'No hay resultados de auditoría.'}</p><button className="leads-text-button" onClick={() => setTab('Inteligencia')}>Ver análisis <RiArrowRightSLine /></button></section></aside></main>
 
     {showSchedule && <ScheduleModal lead={lead} onClose={() => setShowSchedule(false)} onSaved={scheduleSaved} />}
   </div>

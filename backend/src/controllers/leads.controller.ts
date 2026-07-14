@@ -55,6 +55,8 @@ const createLeadSchema = z.object({
   status: z.enum(LEAD_STATUSES).optional(),
   tags: tagsSchema.optional(),
   customFields: customFieldsSchema.optional(),
+  // Empresa (Account) vinculada al alta, opcional.
+  accountId: z.string().trim().min(1).max(128).optional(),
 }).strict()
 
 const updateLeadSchema = z.object({
@@ -67,6 +69,8 @@ const updateLeadSchema = z.object({
   tags: tagsSchema.optional(),
   customFields: customFieldsSchema.optional(),
   campaignId: z.string().trim().min(1).max(128).optional().nullable(),
+  // Empresa (Account) vinculada; también disponible vía POST /api/accounts/leads/:leadId/assign.
+  accountId: z.string().trim().min(1).max(128).optional().nullable(),
 }).strict().refine((value) => Object.values(value).some((item) => item !== undefined), 'Incluye al menos un campo para actualizar')
 
 const importQuerySchema = z.object({

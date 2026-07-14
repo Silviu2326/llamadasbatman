@@ -36,6 +36,30 @@ export class PipelineStateError extends Error {
   }
 }
 
+/** 404 (OP-108): el contacto (OpportunityContact) no existe para esa oportunidad/lead. */
+export class OpportunityContactNotFoundError extends Error {
+  constructor() {
+    super('Opportunity contact not found')
+    this.name = 'OpportunityContactNotFoundError'
+  }
+}
+
+/** 404 (OP-109): la línea de producto no existe para esa oportunidad. */
+export class LineItemNotFoundError extends Error {
+  constructor() {
+    super('Line item not found')
+    this.name = 'LineItemNotFoundError'
+  }
+}
+
+/** 404 (OP-109): el producto no existe o no pertenece a la organización. */
+export class ProductNotFoundError extends Error {
+  constructor() {
+    super('Product not found')
+    this.name = 'ProductNotFoundError'
+  }
+}
+
 const CLOSED_STAGES: OpportunityStage[] = ['closed_won', 'closed_lost']
 
 /**
@@ -141,6 +165,84 @@ export async function listByStage(orgId: string) {
   }
 
   return grouped
+}
+
+/** OP-103: campos permitidos para ordenar server-side; 'campo:direccion'. */
+const SORTABLE_OPPORTUNITY_FIELDS = new Set(['createdAt', 'updatedAt', 'expectedCloseDate', 'value', 'name'])
+
+interface OpportunityListFilters {
+  search?: string
+  stage?: OpportunityStage
+  /** Propietario de la oportunidad (Opportunity.assignedTo). */
+  ownerId?: string
+  /** Rango sobre expectedCloseDate. */
+  closeFrom?: string
+  closeTo?: string
+  /** Origen del lead asociado (Lead.source). */
+  source?: string
+  sort?: string
+  page?: number
+  limit?: number
+}
+
+/**
+ * OP-103: construye el `where`/`orderBy` de Prisma para la vista de lista,
+ * siguiendo el mismo patrón que buildLeadQuery (LE-101) / listMeetings
+ * (RE-103): filtros server-side + paginado.
+ */
+function buildOpportunityQuery(orgId: string, filters: Omit<OpportunityListFilters, 'page' | 'limit'>) {
+  const { search, stage, ownerId, closeFrom, closeTo, source, sort } = filters
+
+  const where: Record<string, unknown> = { orgId }
+  if (stage) where.stage = stage
+  if (ownerId) where.assignedTo = ownerId
+  if (source) where.lead = { source }
+  if (closeFrom || closeTo) {
+    where.expectedCloseDate = {
+      ...(closeFrom ? { gte: new Date(closeFrom) } : {}),
+      ...(closeTo ? { lte: new Date(closeTo) } : {}),
+    }
+  }
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { lead: { name: { contains: search, mode: 'insensitive' } } },
+    ]
+  }
+
+  let orderBy: Record<string, 'asc' | 'desc'> = { createdAt: 'desc' }
+  if (sort) {
+    const [field, direction] = sort.split(':')
+    if (SORTABLE_OPPORTUNITY_FIELDS.has(field) && (direction === 'asc' || direction === 'desc')) {
+      orderBy = { [field]: direction }
+    }
+  }
+
+  return { where, orderBy }
+}
+
+/** OP-103: vista de lista (alternativa al kanban de listByStage) con búsqueda/filtros/paginado. */
+export async function listOpportunities(orgId: string, filters: OpportunityListFilters = {}) {
+  const { page = 1, limit = 20 } = filters
+  const skip = (page - 1) * limit
+  const { where, orderBy } = buildOpportunityQuery(orgId, filters)
+
+  const [rows, total] = await Promise.all([
+    prisma.opportunity.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      include: {
+        lead: { select: { id: true, name: true, company: true } },
+        assignee: { select: { id: true, name: true } },
+        account: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.opportunity.count({ where }),
+  ])
+
+  return { data: rows, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
 export async function createOpportunity(orgId: string, actorUserId: string | null | undefined, data: {
@@ -641,4 +743,278 @@ export async function updateOpportunity(orgId: string, actorUserId: string | nul
   })
 
   return after
+}
+
+// ─── OP-107: forecast ───────────────────────────────────────────────────────
+
+/** Categorías de forecast válidas para Opportunity.forecastCategory. */
+export const FORECAST_CATEGORIES = ['pipeline', 'best_case', 'commit', 'omitted'] as const
+export type ForecastCategory = (typeof FORECAST_CATEGORIES)[number]
+
+interface ForecastFilters {
+  ownerId?: string
+  /** Filtra la base de cálculo a una única categoría (por defecto usa todas). */
+  category?: string
+  /** Si se pasa, solo se calcula para esa moneda (si no, se agrupa por moneda). */
+  currency?: string
+  closeFrom?: string
+  closeTo?: string
+}
+
+/**
+ * OP-107: forecast de oportunidades abiertas agrupado por moneda (no se
+ * convierten divisas — ver nota de diseño en el ticket: sin proveedor de
+ * tipo de cambio, mezclar monedas en una sola suma sería incorrecto).
+ * forecastCategory=null se trata como 'pipeline' (aún no clasificada).
+ * 'omitted' se excluye de todos los totales: es la categoría que el usuario
+ * usa para sacar una oportunidad del forecast oficial sin cerrarla.
+ */
+export async function getForecast(orgId: string, filters: ForecastFilters = {}) {
+  const { ownerId, category, currency, closeFrom, closeTo } = filters
+
+  const where: Record<string, unknown> = {
+    orgId,
+    stage: { notIn: CLOSED_STAGES },
+  }
+  if (ownerId) where.assignedTo = ownerId
+  if (currency) where.currency = currency
+  if (closeFrom || closeTo) {
+    where.expectedCloseDate = {
+      ...(closeFrom ? { gte: new Date(closeFrom) } : {}),
+      ...(closeTo ? { lte: new Date(closeTo) } : {}),
+    }
+  }
+  if (category) {
+    where.forecastCategory = category === 'pipeline' ? { in: [null, 'pipeline'] } : category
+  }
+
+  const opportunities = await prisma.opportunity.findMany({
+    where,
+    select: { value: true, probability: true, currency: true, forecastCategory: true },
+  })
+
+  const byCurrency: Record<string, {
+    pipeline: number
+    weightedPipeline: number
+    commit: number
+    bestCase: number
+    count: number
+  }> = {}
+
+  for (const opp of opportunities) {
+    const cat = opp.forecastCategory ?? 'pipeline'
+    if (cat === 'omitted') continue
+
+    const bucket = byCurrency[opp.currency] ?? (byCurrency[opp.currency] = {
+      pipeline: 0, weightedPipeline: 0, commit: 0, bestCase: 0, count: 0,
+    })
+
+    const value = Number(opp.value ?? 0)
+    bucket.pipeline += value
+    bucket.weightedPipeline += value * (opp.probability / 100)
+    bucket.count += 1
+
+    if (cat === 'commit') {
+      bucket.commit += value
+      bucket.bestCase += value
+    } else if (cat === 'best_case') {
+      bucket.bestCase += value
+    }
+  }
+
+  return byCurrency
+}
+
+/** OP-107: fija manualmente la categoría de forecast de una oportunidad. */
+export async function updateForecastCategory(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  id: string,
+  forecastCategory: ForecastCategory
+) {
+  const before = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  if (!before) throw new OpportunityNotFoundError()
+
+  const after = await prisma.opportunity.update({
+    where: { id },
+    data: { forecastCategory },
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.forecast_category.update',
+    entityType: 'Opportunity',
+    entityId: id,
+    before,
+    after,
+  })
+
+  return after
+}
+
+// ─── OP-108: contactos / roles de compra ────────────────────────────────────
+
+export const OPPORTUNITY_CONTACT_ROLES = ['champion', 'decision_maker', 'economic_buyer', 'influencer', 'blocker'] as const
+export type OpportunityContactRole = (typeof OPPORTUNITY_CONTACT_ROLES)[number]
+
+export async function listOpportunityContacts(orgId: string, opportunityId: string) {
+  const opp = await prisma.opportunity.findFirst({ where: { id: opportunityId, orgId }, select: { id: true } })
+  if (!opp) throw new OpportunityNotFoundError()
+
+  return prisma.opportunityContact.findMany({
+    where: { orgId, opportunityId },
+    include: { lead: { select: { id: true, name: true, email: true, phone: true, company: true } } },
+    orderBy: { createdAt: 'asc' },
+  })
+}
+
+/**
+ * OP-108: añade (o actualiza, si ya existía) un lead como contacto de la
+ * oportunidad con un rol de compra. Solo puede haber un contacto primario
+ * por oportunidad: marcar uno como primario desmarca cualquier otro.
+ */
+export async function addOpportunityContact(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  opportunityId: string,
+  data: { leadId: string; role: OpportunityContactRole; isPrimary?: boolean }
+) {
+  const [opp, lead] = await Promise.all([
+    prisma.opportunity.findFirst({ where: { id: opportunityId, orgId }, select: { id: true } }),
+    prisma.lead.findFirst({ where: { id: data.leadId, orgId }, select: { id: true } }),
+  ])
+  if (!opp) throw new OpportunityNotFoundError()
+  if (!lead) throw new OwnershipError('leadId')
+
+  const contact = await prisma.$transaction(async (tx) => {
+    if (data.isPrimary) {
+      await tx.opportunityContact.updateMany({
+        where: { orgId, opportunityId, isPrimary: true },
+        data: { isPrimary: false },
+      })
+    }
+    return tx.opportunityContact.upsert({
+      where: { opportunityId_leadId: { opportunityId, leadId: data.leadId } },
+      create: { orgId, opportunityId, leadId: data.leadId, role: data.role, isPrimary: data.isPrimary ?? false },
+      update: { role: data.role, isPrimary: data.isPrimary ?? false },
+    })
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.contact.add',
+    entityType: 'OpportunityContact',
+    entityId: contact.id,
+    after: contact,
+  })
+
+  return contact
+}
+
+export async function removeOpportunityContact(orgId: string, opportunityId: string, leadId: string) {
+  const opp = await prisma.opportunity.findFirst({ where: { id: opportunityId, orgId }, select: { id: true } })
+  if (!opp) throw new OpportunityNotFoundError()
+
+  const result = await prisma.opportunityContact.deleteMany({ where: { orgId, opportunityId, leadId } })
+  if (result.count === 0) throw new OpportunityContactNotFoundError()
+  return result
+}
+
+// ─── OP-109: productos / líneas de producto ─────────────────────────────────
+
+export async function listProducts(orgId: string) {
+  return prisma.product.findMany({ where: { orgId, isActive: true }, orderBy: { name: 'asc' } })
+}
+
+export async function createProduct(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  data: { name: string; sku?: string; unitPrice?: number; currency?: string }
+) {
+  const product = await prisma.product.create({
+    data: {
+      orgId,
+      name: data.name,
+      sku: data.sku,
+      unitPrice: data.unitPrice,
+      currency: data.currency ?? 'EUR',
+    },
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'product.create',
+    entityType: 'Product',
+    entityId: product.id,
+    after: product,
+  })
+
+  return product
+}
+
+export async function listLineItems(orgId: string, opportunityId: string) {
+  const opp = await prisma.opportunity.findFirst({ where: { id: opportunityId, orgId }, select: { id: true } })
+  if (!opp) throw new OpportunityNotFoundError()
+
+  return prisma.opportunityLineItem.findMany({
+    where: { orgId, opportunityId },
+    include: { product: { select: { id: true, name: true, sku: true } } },
+    orderBy: { createdAt: 'asc' },
+  })
+}
+
+/**
+ * OP-109: añade una línea de producto a la oportunidad. No recalcula
+ * Opportunity.value (decisión de diseño explícita, ver ticket): el total de
+ * líneas se muestra aparte, como referencia, sin pisar flujos existentes que
+ * ya setean value manualmente.
+ */
+export async function addLineItem(
+  orgId: string,
+  actorUserId: string | null | undefined,
+  opportunityId: string,
+  data: { productId?: string; name: string; quantity: number; unitPrice: number; currency?: string }
+) {
+  const opp = await prisma.opportunity.findFirst({ where: { id: opportunityId, orgId }, select: { id: true, currency: true } })
+  if (!opp) throw new OpportunityNotFoundError()
+
+  if (data.productId) {
+    const product = await prisma.product.findFirst({ where: { id: data.productId, orgId }, select: { id: true } })
+    if (!product) throw new ProductNotFoundError()
+  }
+
+  const lineItem = await prisma.opportunityLineItem.create({
+    data: {
+      orgId,
+      opportunityId,
+      productId: data.productId,
+      name: data.name,
+      quantity: data.quantity,
+      unitPrice: data.unitPrice,
+      currency: data.currency ?? opp.currency,
+    },
+  })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: 'opportunity.line_item.add',
+    entityType: 'OpportunityLineItem',
+    entityId: lineItem.id,
+    after: lineItem,
+  })
+
+  return lineItem
+}
+
+export async function removeLineItem(orgId: string, opportunityId: string, lineItemId: string) {
+  const opp = await prisma.opportunity.findFirst({ where: { id: opportunityId, orgId }, select: { id: true } })
+  if (!opp) throw new OpportunityNotFoundError()
+
+  const result = await prisma.opportunityLineItem.deleteMany({ where: { id: lineItemId, orgId, opportunityId } })
+  if (result.count === 0) throw new LineItemNotFoundError()
+  return result
 }

@@ -1,7 +1,11 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import * as pipelineService from '../services/pipeline.service'
-import { OwnershipError, OpportunityNotFoundError, PipelineValidationError, PipelineStateError } from '../services/pipeline.service'
+import {
+  OwnershipError, OpportunityNotFoundError, PipelineValidationError, PipelineStateError,
+  OpportunityContactNotFoundError, LineItemNotFoundError, ProductNotFoundError,
+  FORECAST_CATEGORIES, OPPORTUNITY_CONTACT_ROLES,
+} from '../services/pipeline.service'
 import { parseRequest } from '../lib/validation'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
@@ -13,6 +17,60 @@ const OPPORTUNITY_STAGES = ['lead', 'qualified', 'proposal', 'negotiation', 'clo
 const REOPEN_STAGES = ['lead', 'qualified', 'proposal', 'negotiation'] as const
 // Monedas soportadas por el formulario de oportunidad (ver OpportunityDetailPage.jsx).
 const SUPPORTED_CURRENCIES = ['EUR', 'USD', 'GBP', 'MXN'] as const
+
+// OP-103: campos/direcciones de orden permitidos vía querystring (?sort=campo:direccion).
+const OPPORTUNITY_SORT_OPTIONS = [
+  'createdAt:asc', 'createdAt:desc',
+  'updatedAt:asc', 'updatedAt:desc',
+  'expectedCloseDate:asc', 'expectedCloseDate:desc',
+  'value:asc', 'value:desc',
+  'name:asc', 'name:desc',
+] as const
+
+const listQuerySchema = z.object({
+  search: z.string().trim().min(1).max(200).optional(),
+  stage: z.enum(OPPORTUNITY_STAGES).optional(),
+  ownerId: z.string().trim().min(1).max(128).optional(),
+  closeFrom: z.string().trim().min(1).optional(),
+  closeTo: z.string().trim().min(1).optional(),
+  source: z.string().trim().min(1).max(100).optional(),
+  sort: z.enum(OPPORTUNITY_SORT_OPTIONS).optional(),
+  page: z.coerce.number().int().min(1).max(100_000).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+}).strict()
+
+const forecastQuerySchema = z.object({
+  ownerId: z.string().trim().min(1).max(128).optional(),
+  category: z.enum(FORECAST_CATEGORIES).optional(),
+  currency: z.enum(SUPPORTED_CURRENCIES).optional(),
+  closeFrom: z.string().trim().min(1).optional(),
+  closeTo: z.string().trim().min(1).optional(),
+}).strict()
+
+const forecastCategorySchema = z.object({
+  forecastCategory: z.enum(FORECAST_CATEGORIES),
+}).strict()
+
+const addContactSchema = z.object({
+  leadId: z.string().trim().min(1, 'leadId es requerido'),
+  role: z.enum(OPPORTUNITY_CONTACT_ROLES),
+  isPrimary: z.boolean().optional(),
+}).strict()
+
+const addLineItemSchema = z.object({
+  productId: z.string().trim().min(1).optional(),
+  name: z.string().trim().min(1, 'name es requerido').max(200),
+  quantity: z.coerce.number().int().min(1),
+  unitPrice: z.coerce.number().min(0),
+  currency: z.enum(SUPPORTED_CURRENCIES).optional(),
+}).strict()
+
+const createProductSchema = z.object({
+  name: z.string().trim().min(1, 'name es requerido').max(200),
+  sku: z.string().trim().min(1).max(100).optional(),
+  unitPrice: z.coerce.number().min(0).optional(),
+  currency: z.enum(SUPPORTED_CURRENCIES).optional(),
+}).strict()
 
 const expectedCloseDateSchema = z
   .string()
@@ -254,6 +312,196 @@ export async function history(
     return reply.send(rows)
   } catch (err) {
     if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
+// ─── OP-103: vista de lista ─────────────────────────────────────────────────
+
+export async function list(
+  request: FastifyRequest<{
+    Querystring: {
+      search?: string
+      stage?: string
+      ownerId?: string
+      closeFrom?: string
+      closeTo?: string
+      source?: string
+      sort?: string
+      page?: string
+      limit?: string
+    }
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const query = parseRequest(reply, listQuerySchema, request.query)
+  if (!query) return
+  const result = await pipelineService.listOpportunities(orgId, query)
+  return reply.send(result)
+}
+
+// ─── OP-107: forecast ───────────────────────────────────────────────────────
+
+export async function forecast(
+  request: FastifyRequest<{
+    Querystring: {
+      ownerId?: string
+      category?: string
+      currency?: string
+      closeFrom?: string
+      closeTo?: string
+    }
+  }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const query = parseRequest(reply, forecastQuerySchema, request.query)
+  if (!query) return
+  const result = await pipelineService.getForecast(orgId, query)
+  return reply.send(result)
+}
+
+export async function updateForecastCategory(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, forecastCategorySchema, request.body)
+  if (!data) return
+
+  try {
+    const opp = await pipelineService.updateForecastCategory(orgId, userId, request.params.id, data.forecastCategory)
+    return reply.send(opp)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
+// ─── OP-108: contactos / roles de compra ────────────────────────────────────
+
+export async function listContacts(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  try {
+    const rows = await pipelineService.listOpportunityContacts(orgId, request.params.id)
+    return reply.send(rows)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
+export async function addContact(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, addContactSchema, request.body)
+  if (!data) return
+
+  try {
+    const contact = await pipelineService.addOpportunityContact(orgId, userId, request.params.id, data)
+    return reply.status(201).send(contact)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    if (err instanceof OwnershipError) {
+      return reply.status(404).send({ error: `${err.field} no encontrado` })
+    }
+    throw err
+  }
+}
+
+export async function removeContact(
+  request: FastifyRequest<{ Params: { id: string; leadId: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  try {
+    await pipelineService.removeOpportunityContact(orgId, request.params.id, request.params.leadId)
+    return reply.status(204).send()
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError || err instanceof OpportunityContactNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
+// ─── OP-109: productos / líneas de producto ─────────────────────────────────
+
+export async function listProducts(request: FastifyRequest, reply: FastifyReply) {
+  const { orgId } = request.user as JWTUser
+  return reply.send(await pipelineService.listProducts(orgId))
+}
+
+export async function createProduct(
+  request: FastifyRequest<{ Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, createProductSchema, request.body)
+  if (!data) return
+  const product = await pipelineService.createProduct(orgId, userId, data)
+  return reply.status(201).send(product)
+}
+
+export async function listLineItems(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  try {
+    const rows = await pipelineService.listLineItems(orgId, request.params.id)
+    return reply.send(rows)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
+export async function addLineItem(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, addLineItemSchema, request.body)
+  if (!data) return
+
+  try {
+    const lineItem = await pipelineService.addLineItem(orgId, userId, request.params.id, data)
+    return reply.status(201).send(lineItem)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError || err instanceof ProductNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
+export async function removeLineItem(
+  request: FastifyRequest<{ Params: { id: string; lineItemId: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  try {
+    await pipelineService.removeLineItem(orgId, request.params.id, request.params.lineItemId)
+    return reply.status(204).send()
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError || err instanceof LineItemNotFoundError) {
       return reply.status(404).send({ error: 'Not found' })
     }
     throw err

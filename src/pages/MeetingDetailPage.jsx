@@ -15,6 +15,29 @@ const STATUS_COLOR = { scheduled:'#10b981', completed:'#6b7280', cancelled:'#ef4
 const PLATFORM_COLORS = { google:'#34a853', zoom:'#2D8CFF', teams:'#5b5ea6' }
 const TABS = ['PreparaciÃ³n', 'Notas', 'Historial']
 
+// RE-108: mapeos de labels para los datos reales de preparaciÃ³n (nada de
+// constantes decorativas â€” solo texto para presentar valores del backend).
+const LEAD_STATUS_LABEL = { new:'Nuevo', contacted:'Contactado', qualified:'Interesado', unqualified:'Perdido', converted:'Ganado' }
+const OPP_STAGE_LABEL = { lead:'Lead', qualified:'Calificada', proposal:'Propuesta', negotiation:'NegociaciÃ³n', closed_won:'Ganada', closed_lost:'Perdida' }
+const MEETING_STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistiÃ³' }
+const CALL_STATUS_LABEL = { completed:'Completada', failed:'Fallida', no_answer:'Sin respuesta', busy:'OcupÃ³' }
+const SALES_ACTIVITY_TYPE_LABEL = {
+  call:'Llamada', message:'Mensaje', email:'Email', note:'Nota', file:'Archivo',
+  meeting:'ReuniÃ³n', status_change:'Cambio de estado', stage_change:'Cambio de etapa', task:'Tarea',
+}
+
+function fmtDate(iso) {
+  if (!iso) return 'â€”'
+  return new Date(iso).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })
+}
+
+function fmtMoney(value, currency) {
+  if (value === null || value === undefined) return 'â€”'
+  const n = typeof value === 'string' ? parseFloat(value) : value
+  if (Number.isNaN(n)) return 'â€”'
+  return new Intl.NumberFormat('es-ES', { style:'currency', currency: currency || 'EUR', maximumFractionDigits:0 }).format(n)
+}
+
 function Avatar({ name, bg, size = 40 }) {
   const initials = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('')
   return (
@@ -90,6 +113,21 @@ export default function MeetingDetailPage() {
   const [completing, setCompleting] = useState(false)
   const [markingNoShow, setMarkingNoShow] = useState(false)
   const [resultError, setResultError] = useState('')
+  // RE-108: contexto real de preparaciÃ³n (lead, notas, llamadas, oportunidad
+  // abierta, actividad y reuniones previas) â€” nunca datos inventados.
+  const [prep, setPrep] = useState(null)
+  const [prepLoading, setPrepLoading] = useState(true)
+  const [prepError, setPrepError] = useState(false)
+
+  function loadPrep() {
+    setPrepLoading(true)
+    setPrepError(false)
+    return apiFetch(`/api/meetings/${id}/prep`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => setPrep(data))
+      .catch(() => setPrepError(true))
+      .finally(() => setPrepLoading(false))
+  }
 
   function reload() {
     return apiFetch(`/api/meetings/${id}`)
@@ -105,7 +143,7 @@ export default function MeetingDetailPage() {
       .catch(() => setLoading(false))
   }
 
-  useEffect(() => { reload() }, [id])
+  useEffect(() => { reload(); loadPrep() }, [id])
 
   async function saveNotes() {
     if (!mtg) return
@@ -146,6 +184,7 @@ export default function MeetingDetailPage() {
         return
       }
       await reload()
+      await loadPrep()
     } catch {
       setResultError('No se pudo completar la reunión')
     } finally {
@@ -169,6 +208,7 @@ export default function MeetingDetailPage() {
         return
       }
       await reload()
+      await loadPrep()
     } catch {
       setResultError('No se pudo marcar como no-show')
     } finally {
@@ -317,15 +357,139 @@ export default function MeetingDetailPage() {
 
           {tab === 'PreparaciÃ³n' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Agenda sugerida</p>
-                {['PresentaciÃ³n e introducciÃ³n (3 min)', 'Entender situaciÃ³n actual (8 min)', 'DemostraciÃ³n de la plataforma (12 min)', 'Preguntas y objeciones (10 min)', 'PrÃ³ximos pasos y cierre (7 min)'].map((item, i) => (
-                  <div key={i} style={{ display:'flex', gap:10, marginBottom:10 }}>
-                    <div style={{ width:20, height:20, borderRadius:6, background:'#6366f115', border:'1px solid #6366f130', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:10.5, fontWeight:700, color:'#818cf8' }}>{i+1}</div>
-                    <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5, paddingTop:2 }}>{item}</p>
+              {prepLoading && (
+                <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563', textAlign:'center' }}>Cargando contexto del leadâ€¦</p>
+                </div>
+              )}
+
+              {!prepLoading && prepError && (
+                <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                  <p style={{ margin:0, fontSize:12.5, color:'#ef4444', textAlign:'center' }}>No se pudo cargar el contexto de preparaciÃ³n</p>
+                </div>
+              )}
+
+              {!prepLoading && !prepError && prep && (
+                <>
+                  {/* Estado del lead */}
+                  <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Lead</p>
+                    {prep.lead ? (
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:16 }}>
+                        <div>
+                          <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Estado</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{LEAD_STATUS_LABEL[prep.lead.status] ?? prep.lead.status}</p>
+                        </div>
+                        <div>
+                          <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Empresa</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.lead.company || 'â€”'}</p>
+                        </div>
+                        <div>
+                          <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Contacto</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.lead.email || prep.lead.phone || 'â€”'}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Lead no disponible</p>
+                    )}
                   </div>
-                ))}
-              </div>
+
+                  {/* Notas recientes */}
+                  <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Notas recientes del lead</p>
+                    {prep.recentNotes?.length ? prep.recentNotes.map(n => (
+                      <div key={n.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
+                        <p style={{ margin:'0 0 3px', fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>{n.text}</p>
+                        <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>{n.authorName} Â· {fmtDate(n.createdAt)}</p>
+                      </div>
+                    )) : (
+                      <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin notas previas</p>
+                    )}
+                  </div>
+
+                  {/* Ãšltimas llamadas */}
+                  <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Ãšltimas llamadas</p>
+                    {prep.recentCalls?.length ? prep.recentCalls.map(c => (
+                      <div key={c.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:'#e2e8f0' }}>{CALL_STATUS_LABEL[c.status] ?? c.status}</span>
+                          {c.sentiment && <span style={{ fontSize:10.5, color:'#4b5563' }}>Â· {c.sentiment}</span>}
+                          <span style={{ fontSize:10.5, color:'#4b5563', marginLeft:'auto' }}>{fmtDate(c.startedAt || c.createdAt)}</span>
+                        </div>
+                        <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>{c.summary || 'Sin resumen disponible'}</p>
+                      </div>
+                    )) : (
+                      <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin llamadas previas</p>
+                    )}
+                  </div>
+
+                  {/* Oportunidad abierta */}
+                  <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Oportunidad abierta</p>
+                    {prep.openOpportunity ? (
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:16 }}>
+                        <div>
+                          <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Nombre</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.openOpportunity.name}</p>
+                        </div>
+                        <div>
+                          <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Etapa</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{OPP_STAGE_LABEL[prep.openOpportunity.stage] ?? prep.openOpportunity.stage}</p>
+                        </div>
+                        <div>
+                          <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Valor</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{fmtMoney(prep.openOpportunity.value, prep.openOpportunity.currency)}</p>
+                        </div>
+                        <div>
+                          <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Probabilidad</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.openOpportunity.probability}%</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin oportunidad abierta</p>
+                    )}
+                  </div>
+
+                  {/* Actividad reciente */}
+                  <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Actividad reciente</p>
+                    {prep.recentActivity?.length ? prep.recentActivity.map(a => (
+                      <div key={a.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:'#818cf8' }}>{SALES_ACTIVITY_TYPE_LABEL[a.type] ?? a.type}</span>
+                          <span style={{ fontSize:10.5, color:'#4b5563', marginLeft:'auto' }}>{fmtDate(a.occurredAt)}</span>
+                        </div>
+                        <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>{a.subject || a.body || 'â€”'}</p>
+                      </div>
+                    )) : (
+                      <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin actividad reciente</p>
+                    )}
+                  </div>
+
+                  {/* Reuniones anteriores */}
+                  <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Reuniones anteriores con este lead</p>
+                    {prep.previousMeetings?.length ? prep.previousMeetings.map(m => (
+                      <div key={m.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:'#e2e8f0' }}>{m.title}</span>
+                          <span style={{ fontSize:10.5, color:'#4b5563', marginLeft:'auto' }}>{fmtDate(m.scheduledAt)} Â· {MEETING_STATUS_LABEL[m.status] ?? m.status}</span>
+                        </div>
+                        {m.status === 'completed' ? (
+                          <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>
+                            {m.outcome}{m.agreements ? ` â€” Acuerdos: ${m.agreements}` : ''}
+                          </p>
+                        ) : (
+                          <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin resultado registrado</p>
+                        )}
+                      </div>
+                    )) : (
+                      <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin reuniones previas con este lead</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -359,45 +523,6 @@ export default function MeetingDetailPage() {
 
         {/* Right */}
         <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
-          {/* Checklist */}
-          <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Checklist</p>
-            {/*
-              No inventar estados "hecho" sin datos que los respalden (P0-09).
-              El sistema de recordatorios reales aun no existe (ver RE-03), asi
-              que ese item y "Agenda preparada" se muestran como "No disponible"
-              en lugar de marcarse como completados por defecto.
-            */}
-            {[
-              { status:'unavailable', label:'Recordatorio' },
-              { status:'unavailable', label:'Agenda preparada' },
-              { status:'pending',     label:'Materiales enviados' },
-              { status:'pending',     label:'CRM actualizado' },
-            ].map((c, i) => {
-              const isDone = c.status === 'done'
-              const isUnavailable = c.status === 'unavailable'
-              return (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                  <div style={{
-                    width:16, height:16, borderRadius:5, flexShrink:0,
-                    border:`1px solid ${isDone ? '#10b981' : '#1e2433'}`,
-                    background: isDone ? '#10b98120' : 'transparent',
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                  }}>
-                    {isDone && <RiCheckLine style={{ width:10, height:10, color:'#10b981' }} />}
-                    {isUnavailable && <span style={{ fontSize:10, color:'#4b5563', lineHeight:1 }}>–</span>}
-                  </div>
-                  <p style={{
-                    margin:0, fontSize:11.5,
-                    color: isDone ? '#6b7280' : isUnavailable ? '#4b5563' : '#94a3b8',
-                    textDecoration: isDone ? 'line-through' : 'none',
-                    fontStyle: isUnavailable ? 'italic' : 'normal',
-                  }}>{c.label}{isUnavailable ? ' · No disponible' : ''}</p>
-                </div>
-              )
-            })}
-          </div>
-
           {/* Resultado de la reunión (RE-107): solo mientras no esté cerrada
               (completada) ni cancelada — no-show sigue admitiendo cerrarla
               con outcome después. */}
