@@ -1,0 +1,9 @@
+.campaign-page .campaign-page-header { max-width: 1440px; margin-right: auto; margin-left: auto; }
+.campaign-page .campaign-page-header h1 { font-size: clamp(30px, 3.2vw, 43px); line-height: 1; letter-spacing: -1.65px; }
+.campaign-page .campaign-page-header p { max-width: 670px; margin-top: 10px; color: #8392aa; font-size: 13px; }
+.campaign-page .campaign-metrics-row,.campaign-page .campaigns-layout { max-width: 1440px; margin-right: auto; margin-left: auto; }
+.campaign-page .campaign-metrics-row { margin-top: 0; }
+
+@media (max-width: 680px) {
+  .campaign-page .campaign-page-header h1 { font-size: 30px; }
+}
