@@ -14,6 +14,13 @@ export const CANONICAL_AUTOMATION_EVENTS = [
   // AU-107: eventos de dominio de Reunión/Tarea.
   'meeting.created', 'meeting.rescheduled', 'meeting.completed', 'meeting.cancelled', 'meeting.no_show',
   'task.due', 'task.overdue',
+  // AU-107: eventos de dominio de Oportunidad. pipeline.service.ts ya los
+  // publicaba al outbox (createOpportunity/moveStage/reopen) desde la Fase 1,
+  // pero al faltar aquí, normalizeAutomationEvent() los descartaba y
+  // runAutomationsForEvent() no llegaba a evaluar ninguna automatización —
+  // el evento se procesaba (marcaba processed en el outbox) sin disparar
+  // nada. Corregido: hallazgo de revisión posterior a la Fase 1.
+  'opportunity.created', 'opportunity.stage.changed', 'opportunity.won', 'opportunity.lost', 'opportunity.reopened',
 ] as const
 export type CanonicalAutomationEvent = typeof CANONICAL_AUTOMATION_EVENTS[number]
 const EVENT_ALIASES: Record<string, CanonicalAutomationEvent> = {
@@ -31,6 +38,11 @@ const EVENT_ALIASES: Record<string, CanonicalAutomationEvent> = {
   'meeting.no_show': 'meeting.no_show', reunion_no_show: 'meeting.no_show', 'no show': 'meeting.no_show',
   'task.due': 'task.due', tarea_por_vencer: 'task.due',
   'task.overdue': 'task.overdue', tarea_vencida: 'task.overdue',
+  'opportunity.created': 'opportunity.created', oportunidad_creada: 'opportunity.created',
+  'opportunity.stage.changed': 'opportunity.stage.changed', oportunidad_cambio_etapa: 'opportunity.stage.changed', 'cambio de etapa': 'opportunity.stage.changed',
+  'opportunity.won': 'opportunity.won', oportunidad_ganada: 'opportunity.won',
+  'opportunity.lost': 'opportunity.lost', oportunidad_perdida: 'opportunity.lost',
+  'opportunity.reopened': 'opportunity.reopened', oportunidad_reabierta: 'opportunity.reopened',
 }
 export function normalizeAutomationEvent(value: unknown): CanonicalAutomationEvent | null {
   return EVENT_ALIASES[String(value ?? '').trim().toLowerCase()] ?? null
@@ -507,10 +519,15 @@ export async function runAutomationsForEvent(
     // AU-102: si ya hay al menos una versión publicada, el run queda atado a
     // la más reciente. Automatizaciones sin ninguna versión publicada aún
     // (creadas antes de AU-102) simplemente corren con automationVersionId null.
+    // Corrección: además de guardar el id para trazabilidad, hay que EJECUTAR
+    // el snapshot de esa versión (trigger.actions congelados al publicar), no
+    // `automation.actions` en vivo — si no, editar una automatización después
+    // de publicar cambia silenciosamente qué corre un run ya iniciado o uno
+    // nuevo que debería seguir atado a la versión que dice usar.
     const latestVersion = await prisma.automationVersion.findFirst({
       where: { orgId, automationId: automation.id },
       orderBy: { version: 'desc' },
-      select: { id: true },
+      select: { id: true, actions: true },
     })
     const run = await prisma.automationRun.upsert({
       where: { orgId_automationId_triggerEventId: { orgId, automationId: automation.id, triggerEventId } },
@@ -533,7 +550,24 @@ export async function runAutomationsForEvent(
       data: { status: 'running', attempt: { increment: 1 }, startedAt: new Date(), finishedAt: null, error: null },
     })
     if (!claimed.count) continue
-    const actions = automation.actions as Array<{ type: string; params?: Record<string, unknown> }>
+
+    // Ejecuta el snapshot inmutable de la versión atada a ESTE run
+    // (`run.automationVersionId`, ya fijado en el upsert de arriba), no la
+    // versión "más reciente" en abstracto — un run existente que se reintenta
+    // después de publicarse una versión nueva debe seguir corriendo con la
+    // definición que tenía cuando se creó, nunca cambiar de versión a mitad
+    // de ejecución (invariante de automatización, 05-arquitectura-objetivo §8.3).
+    let versionActions: unknown = null
+    if (run.automationVersionId === latestVersion?.id) {
+      versionActions = latestVersion?.actions ?? null
+    } else if (run.automationVersionId) {
+      const runVersion = await prisma.automationVersion.findUnique({
+        where: { id: run.automationVersionId },
+        select: { actions: true },
+      })
+      versionActions = runVersion?.actions ?? null
+    }
+    const actions = (versionActions ?? automation.actions) as Array<{ type: string; params?: Record<string, unknown> }>
 
     try {
       for (let index = run.currentStep; index < actions.length; index += 1) {

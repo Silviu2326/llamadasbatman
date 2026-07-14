@@ -18,6 +18,7 @@ async function upsertScheduledTrigger(input: {
   entityType: string
   entityId: string
   dedupeKey: string
+  dueAt: Date
   payload: Record<string, unknown>
 }) {
   const existing = await prisma.scheduledTrigger.findUnique({ where: { dedupeKey: input.dedupeKey } })
@@ -32,7 +33,12 @@ async function upsertScheduledTrigger(input: {
       entityType: input.entityType,
       entityId: input.entityId,
       dedupeKey: input.dedupeKey,
-      dueAt: new Date(),
+      // CORRECCIÓN (revisión posterior): antes se guardaba siempre `now()`
+      // sin importar la regla, así que un trigger se disparaba en el mismo
+      // ciclo en que se detectaba (p.ej. "T-24h" en realidad disparaba en
+      // cuanto la reunión entraba en la ventana de 24h, no exactamente a
+      // T-24h). Ahora cada scan calcula el dueAt real de su regla.
+      dueAt: input.dueAt,
       status: 'pending',
       payload: input.payload as any,
     },
@@ -53,6 +59,7 @@ async function scanLeadInactivity(days: 7 | 30) {
     select: { id: true, orgId: true },
     take: BATCH_SIZE,
   })
+  const now = new Date()
   for (const lead of leads) {
     const dedupeKey = `${ruleKey}:${lead.id}`
     await upsertScheduledTrigger({
@@ -61,6 +68,10 @@ async function scanLeadInactivity(days: 7 | 30) {
       entityType: 'Lead',
       entityId: lead.id,
       dedupeKey,
+      // El umbral ya pasó (es la condición de la query), así que el dueAt
+      // real cae en el pasado — se dispara en el próximo publishDueTriggers,
+      // que es el comportamiento correcto para "ya lleva N días inactivo".
+      dueAt: now,
       payload: { leadId: lead.id, eventId: dedupeKey },
     })
   }
@@ -69,10 +80,15 @@ async function scanLeadInactivity(days: 7 | 30) {
 async function scanMeetingsSoon() {
   const ruleKey = 'meeting.scheduled.24h'
   const now = new Date()
-  const windowEnd = new Date(now.getTime() + DAY_MS)
+  // Ventana ampliada por POLL_MS: detecta reuniones ANTES de que crucen el
+  // umbral T-24h para poder guardar un dueAt futuro y dejar que
+  // publishDueTriggers() lo dispare justo cuando llegue, en vez de disparar
+  // en cuanto la reunión "ya está" dentro de las 24h (que podía ser mucho
+  // antes o, para reuniones creadas con poca antelación, casi al instante).
+  const windowEnd = new Date(now.getTime() + DAY_MS + POLL_MS)
   const meetings = await prisma.meeting.findMany({
     where: { status: 'scheduled', scheduledAt: { gte: now, lte: windowEnd } },
-    select: { id: true, orgId: true, leadId: true },
+    select: { id: true, orgId: true, leadId: true, scheduledAt: true },
     take: BATCH_SIZE,
   })
   for (const meeting of meetings) {
@@ -83,6 +99,7 @@ async function scanMeetingsSoon() {
       entityType: 'Meeting',
       entityId: meeting.id,
       dedupeKey,
+      dueAt: new Date(meeting.scheduledAt.getTime() - DAY_MS),
       payload: { meetingId: meeting.id, leadId: meeting.leadId, eventId: dedupeKey },
     })
   }
@@ -91,9 +108,12 @@ async function scanMeetingsSoon() {
 async function scanStaleProposals() {
   const ruleKey = 'opportunity.proposal.3d'
   const threshold = new Date(Date.now() - 3 * DAY_MS)
+  // CORRECCIÓN (revisión posterior): usaba createdAt, así que una oportunidad
+  // antigua movida HOY a "proposal" se marcaba estancada de inmediato.
+  // stageEnteredAt existe desde OP-101 (historial de etapa) — se usa aquí.
   const opportunities = await prisma.opportunity.findMany({
-    where: { stage: 'proposal', createdAt: { lte: threshold } },
-    select: { id: true, orgId: true, leadId: true },
+    where: { stage: 'proposal', stageEnteredAt: { lte: threshold } },
+    select: { id: true, orgId: true, leadId: true, stageEnteredAt: true },
     take: BATCH_SIZE,
   })
   for (const opportunity of opportunities) {
@@ -104,6 +124,7 @@ async function scanStaleProposals() {
       entityType: 'Opportunity',
       entityId: opportunity.id,
       dedupeKey,
+      dueAt: new Date(opportunity.stageEnteredAt.getTime() + 3 * DAY_MS),
       payload: { opportunityId: opportunity.id, leadId: opportunity.leadId, eventId: dedupeKey },
     })
   }

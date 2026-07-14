@@ -11,6 +11,10 @@ export async function mauticRoutes(app: FastifyInstance) {
     '/campaigns', { preHandler: authorize(['admin', 'agent']) }, ctrl.createCampaign
   )
   app.get('/templates', ctrl.listTemplates)
+  app.get('/templates/unclaimed', { preHandler: authorize(['admin']) }, ctrl.listUnclaimedTemplates)
+  app.post<{ Params: { id: string }; Body: { name: string } }>(
+    '/templates/:id/claim', { preHandler: authorize(['admin']) }, ctrl.claimTemplate
+  )
   app.post<{ Params: { id: string }; Body: { emailId: string; testContactId: string } }>(
     '/campaigns/:id/send-test', { preHandler: authorize(['admin', 'agent']) }, ctrl.sendTestEmail
   )

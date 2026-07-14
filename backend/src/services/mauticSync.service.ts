@@ -411,10 +411,17 @@ interface MauticEmailTemplate {
  * reutilizable, pero la instancia es compartida entre organizaciones
  * (P0-04/EM-01): tras traer la lista remota se cruza con
  * `MauticAssetBinding(orgId, assetType='template')` y solo se devuelven las
- * plantillas vinculadas a esa organización. Si la organización todavía no
- * tiene ningún binding, se crean automáticamente para lo que exista en ese
- * momento en Mautic (migración progresiva, no bloqueante) — a partir de ahí
- * solo se listan las plantillas ya vinculadas.
+ * plantillas vinculadas a esa organización.
+ *
+ * CORRECCIÓN (revisión posterior): la versión anterior de esta función
+ * auto-vinculaba TODAS las plantillas remotas a la primera organización que
+ * las consultara — como cada organización tiene su propia consulta de
+ * bindings (vacía la primera vez), esto en la práctica regalaba el catálogo
+ * completo a cualquier organización que llamara primero, reintroduciendo la
+ * exposición cross-tenant que P0-04 debía cerrar. Ahora solo se devuelven
+ * plantillas YA vinculadas explícitamente (ver claimTemplate). Si una
+ * organización no tiene ninguna vinculada, la lista queda vacía — la UI debe
+ * ofrecer vincular una desde /api/mautic/templates/unclaimed (admin).
  */
 export async function getEmailTemplates(orgId: string): Promise<MauticEmailTemplate[] | null> {
   const res = await mauticFetch('/api/emails')
@@ -423,25 +430,57 @@ export async function getEmailTemplates(orgId: string): Promise<MauticEmailTempl
   const remote = data.emails ? Object.values(data.emails) : []
 
   const bindings = await prisma.mauticAssetBinding.findMany({
-    where: { orgId, assetType: 'template' },
+    where: { orgId, assetType: 'template', isActive: true },
     select: { externalId: true },
   })
-  let boundIds = new Set(bindings.map(b => b.externalId))
-
-  if (boundIds.size === 0 && remote.length > 0) {
-    await prisma.mauticAssetBinding.createMany({
-      data: remote.map(email => ({
-        orgId,
-        assetType: 'template' as const,
-        externalId: String(email.id),
-        name: String(email.name ?? email.subject ?? email.id ?? ''),
-      })),
-      skipDuplicates: true,
-    })
-    boundIds = new Set(remote.map(email => String(email.id)))
-  }
+  const boundIds = new Set(bindings.map(b => b.externalId))
 
   return remote.filter(email => boundIds.has(String(email.id)))
+}
+
+/**
+ * Plantillas remotas que NINGUNA organización ha vinculado todavía —
+ * superficie deliberadamente admin-only (P0-03) para que vincular sea una
+ * acción explícita y auditada, no un grant automático. Sigue existiendo
+ * exposición de metadatos (nombre/asunto) entre organizaciones en este
+ * listado de candidatas: sin una convención real del lado de Mautic
+ * (categoría o etiqueta por organización, no verificado contra una
+ * instancia real — EM-03/P0-11) no hay forma de saber de antemano a qué
+ * organización pertenece cada plantilla sin que un admin la reconozca por
+ * nombre.
+ */
+export async function getUnclaimedEmailTemplates(): Promise<MauticEmailTemplate[] | null> {
+  const res = await mauticFetch('/api/emails')
+  if (!res?.ok) return null
+  const data = (await res.json()) as { emails?: Record<string, MauticEmailTemplate> }
+  const remote = data.emails ? Object.values(data.emails) : []
+
+  const allBindings = await prisma.mauticAssetBinding.findMany({
+    where: { assetType: 'template' },
+    select: { externalId: true },
+  })
+  const claimedIds = new Set(allBindings.map(b => b.externalId))
+  return remote.filter(email => !claimedIds.has(String(email.id)))
+}
+
+/**
+ * Vincula explícitamente una plantilla remota a una organización (acción de
+ * admin, auditada por el controller). Falla si ya está vinculada a OTRA
+ * organización, para que dos organizaciones nunca compartan la misma
+ * plantilla sin decisión humana explícita.
+ */
+export async function claimEmailTemplate(orgId: string, externalId: string, name: string): Promise<boolean> {
+  const existing = await prisma.mauticAssetBinding.findFirst({
+    where: { assetType: 'template', externalId },
+    select: { orgId: true },
+  })
+  if (existing && existing.orgId !== orgId) return false
+  await prisma.mauticAssetBinding.upsert({
+    where: { orgId_assetType_externalId: { orgId, assetType: 'template', externalId } },
+    create: { orgId, assetType: 'template', externalId, name },
+    update: { name, isActive: true },
+  })
+  return true
 }
 
 /**

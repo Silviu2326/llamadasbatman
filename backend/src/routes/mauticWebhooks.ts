@@ -10,7 +10,7 @@ interface MauticContactEvent {
   uuid?: string
   event_id?: string | number
   contact?: { fields?: { all?: Record<string, unknown> }; tags?: unknown }
-  email?: { subject?: string }
+  email?: { id?: string | number; subject?: string }
   content?: { title?: string }
   url?: string
   [key: string]: unknown
@@ -68,8 +68,26 @@ function hasOrgTag(event: MauticContactEvent, orgId: string): boolean | null {
   return false
 }
 
-/** Best-effort: el EmailDelivery en curso más reciente de ese lead, si hay uno. */
-async function resolveDeliveryId(orgId: string, leadId: string): Promise<string | null> {
+/**
+ * Resuelve a qué EmailDelivery pertenece un evento entrante. Mautic incluye
+ * el id de la plantilla/email en `event.email.id` en los webhooks de
+ * apertura/clic — se usa para desambiguar entre varios envíos en curso al
+ * mismo lead (dos campañas o un envío manual + una campaña solapados). Si no
+ * hay `emailId` en el payload (bounce/unsubscribe no siempre lo incluyen) o
+ * ningún EmailDelivery coincide, cae al heurístico anterior (el más
+ * reciente en curso) — sigue siendo best-effort, documentado como tal; una
+ * atribución 100% exacta requeriría que Mautic devolviera el id de mensaje
+ * exacto en el webhook, no verificado contra una instancia real (EM-03/P0-11).
+ */
+async function resolveDeliveryId(orgId: string, leadId: string, emailId?: string): Promise<string | null> {
+  if (emailId) {
+    const matched = await prisma.emailDelivery.findFirst({
+      where: { orgId, leadId, templateExternalId: emailId, status: { in: ['queued', 'accepted', 'delivered'] } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+    if (matched) return matched.id
+  }
   const delivery = await prisma.emailDelivery.findFirst({
     where: { orgId, leadId, status: { in: ['queued', 'accepted'] } },
     orderBy: { createdAt: 'desc' },
@@ -88,10 +106,11 @@ async function recordEmailEvent(
   type: EmailEventType,
   externalEventId: string,
   detail?: string,
-  url?: string
+  url?: string,
+  emailId?: string
 ): Promise<void> {
   try {
-    const deliveryId = await resolveDeliveryId(orgId, leadId)
+    const deliveryId = await resolveDeliveryId(orgId, leadId, emailId)
     await prisma.emailEvent.upsert({
       where: { provider_externalEventId: { provider: 'mautic', externalEventId } },
       create: {
@@ -154,7 +173,8 @@ export async function mauticWebhooksRoutes(app: FastifyInstance) {
             toEmailEventType(type, event),
             fingerprint,
             detail,
-            typeof event.url === 'string' ? event.url : undefined
+            typeof event.url === 'string' ? event.url : undefined,
+            event.email?.id !== undefined ? String(event.email.id) : undefined
           )
 
           // P0-06: unsubscribe/bounce son cumplimiento, no engagement — deben

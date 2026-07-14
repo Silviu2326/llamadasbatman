@@ -4,6 +4,7 @@ import * as mauticSync from '../services/mauticSync.service'
 import { z } from 'zod'
 import { parseRequest } from '../lib/validation'
 import { assertEmailSendAllowed } from '../lib/emailCompliance'
+import { writeAuditLog } from '../lib/audit'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -73,6 +74,42 @@ export async function listTemplates(request: FastifyRequest, reply: FastifyReply
   if (!orgId) return
   const templates = await mauticSync.getEmailTemplates(orgId)
   return reply.send(templates ?? [])
+}
+
+/** GET /templates/unclaimed — plantillas remotas sin vincular a ninguna org (admin). */
+export async function listUnclaimedTemplates(request: FastifyRequest, reply: FastifyReply) {
+  const orgId = await assertEmailMarketingEnabled(request, reply)
+  if (!orgId) return
+  const templates = await mauticSync.getUnclaimedEmailTemplates()
+  return reply.send(templates ?? [])
+}
+
+const claimTemplateSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+}).strict()
+
+/** POST /templates/:id/claim — vincula explícitamente una plantilla a la org (admin, auditado). */
+export async function claimTemplate(
+  request: FastifyRequest<{ Params: { id: string }; Body: { name: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const orgEnabled = await assertEmailMarketingEnabled(request, reply)
+  if (!orgEnabled) return
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, claimTemplateSchema, request.body)
+  if (!params || !body) return
+  const claimed = await mauticSync.claimEmailTemplate(orgId, params.id, body.name)
+  if (!claimed) return reply.status(409).send({ error: 'La plantilla ya está vinculada a otra organización' })
+  await writeAuditLog({
+    orgId,
+    actorUserId: userId,
+    action: 'mautic.template.claim',
+    entityType: 'MauticAssetBinding',
+    entityId: params.id,
+    after: { externalId: params.id, name: body.name },
+  })
+  return reply.status(201).send({ ok: true })
 }
 
 /** POST /campaigns/:id/send-test — envía una plantilla puntual a un contacto de prueba. */
