@@ -19,7 +19,7 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
 
   useEffect(() => {
     apiFetch('/api/campaigns').then(r => r.ok ? r.json() : []).then(data => {
-      const list = Array.isArray(data) ? data : []
+      const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []
       setCampaigns(list)
       if (list.length) setCampaignId(list[0].id)
     }).catch(() => {})
