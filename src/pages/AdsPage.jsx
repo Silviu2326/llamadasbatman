@@ -128,11 +128,11 @@ export default function AdsPage() {
     try {
       const response = await apiFetch(`/api/ads/campaigns/${selectedCampaign.id}/${action}`, { method: 'POST' })
       if (!response.ok) throw new Error('meta-action-failed')
-      const labels = { publish: 'borrador enviado a Meta', activate: 'campaÃ±a activada', pause: 'campaÃ±a pausada' }
+      const labels = { publish: 'borrador enviado a Meta', activate: 'campaña activada', pause: 'campaña pausada' }
       showNotice(`La ${labels[action]}.`)
       await loadOverview()
     } catch {
-      showNotice('Meta no pudo completar la operaciÃ³n. Revisa la cuenta y vuelve a intentarlo.')
+      showNotice('Meta no pudo completar la operación. Revisa la cuenta y vuelve a intentarlo.')
     } finally {
       setManagingCampaign(false)
     }
