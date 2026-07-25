@@ -167,6 +167,41 @@ export default function Configuracion() {
   const [deleteError, setDeleteError] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [showPlanModal, setShowPlanModal] = useState(false)
+  const [billingConfig, setBillingConfig] = useState(null)
+  const [billingBusy, setBillingBusy] = useState(false)
+  const [billingError, setBillingError] = useState('')
+
+  useEffect(() => {
+    apiFetch('/api/billing/config').then(r => r.ok ? r.json() : null).then(setBillingConfig).catch(() => {})
+  }, [])
+
+  async function startCheckout(plan) {
+    setBillingBusy(true)
+    setBillingError('')
+    try {
+      const response = await apiFetch('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ plan }) })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok || !body.url) throw new Error(body.error || 'No se pudo iniciar el pago')
+      window.location.href = body.url
+    } catch (error) {
+      setBillingError(error.message)
+      setBillingBusy(false)
+    }
+  }
+
+  async function openBillingPortal() {
+    setBillingBusy(true)
+    setBillingError('')
+    try {
+      const response = await apiFetch('/api/billing/portal', { method: 'POST' })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok || !body.url) throw new Error(body.error || 'No se pudo abrir el portal')
+      window.location.href = body.url
+    } catch (error) {
+      setBillingError(error.message)
+      setBillingBusy(false)
+    }
+  }
 
   async function confirmDeleteAccount() {
     setDeleting(true)
@@ -726,13 +761,35 @@ export default function Configuracion() {
             <p style={{ margin: '0 0 16px', fontSize: 13, color: '#94a3b8' }}>
               Plan actual: <b style={{ color: '#f1f5f9', textTransform: 'capitalize' }}>{stats?.orgPlan ?? integrations?.plan ?? 'free'}</b>
             </p>
-            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>
-              El pago autogestionado todavía no está habilitado. Para cambiar de plan, ampliar límites o resolver dudas de facturación, escribe al equipo y te responderá el mismo día.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
-              <button onClick={() => { window.location.href = 'mailto:soporte@vozia.app?subject=Cambio%20de%20plan' }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Contactar para cambiar de plan</button>
-            </div>
+            {billingConfig?.enabled ? (
+              <>
+                <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>
+                  El pago se gestiona con Stripe. Puedes cambiar de plan o administrar tu suscripción, método de pago y facturas.
+                </p>
+                {billingError && <p style={{ margin: '0 0 12px', color: '#f87171', fontSize: 12 }} role="alert">{billingError}</p>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                  {(billingConfig.plans || []).map(plan => (
+                    <button key={plan} onClick={() => startCheckout(plan)} disabled={billingBusy || (stats?.orgPlan ?? 'free') === plan} style={{ padding: '10px 14px', borderRadius: 9, border: '1px solid #4f46e550', background: '#4f46e520', color: '#a78bfa', fontSize: 13, fontWeight: 700, cursor: billingBusy || (stats?.orgPlan ?? 'free') === plan ? 'not-allowed' : 'pointer', textTransform: 'capitalize', opacity: billingBusy ? 0.6 : 1 }}>
+                      {(stats?.orgPlan ?? 'free') === plan ? `Plan ${plan} (actual)` : `Cambiar a ${plan}`}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
+                  <button onClick={openBillingPortal} disabled={billingBusy} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: billingBusy ? 'not-allowed' : 'pointer', opacity: billingBusy ? 0.6 : 1 }}>{billingBusy ? 'Abriendo…' : 'Gestionar suscripción'}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>
+                  El pago autogestionado se activa al configurar Stripe en el servidor. Mientras tanto, escribe al equipo para cambiar de plan o ampliar límites.
+                </p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
+                  <button onClick={() => { window.location.href = 'mailto:soporte@vozia.app?subject=Cambio%20de%20plan' }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Contactar para cambiar de plan</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

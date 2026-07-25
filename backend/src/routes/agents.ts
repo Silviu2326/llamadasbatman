@@ -15,4 +15,5 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.put('/:id', canMutate, ctrl.update as any)
   app.delete('/:id', canMutate, ctrl.deactivate as any)
   app.get('/:id/stats', canRead, ctrl.stats as any)
+  app.get('/:id/timeseries', canRead, ctrl.timeseries as any)
 }

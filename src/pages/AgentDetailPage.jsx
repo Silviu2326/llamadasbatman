@@ -15,8 +15,7 @@ const STATUS = {
   Archivado: { color: '#6b7280', bg: '#6b728012', border: '#6b728030' },
 }
 
-// ponytail: solo pestañas con datos reales — Resumen/Rendimiento vuelven cuando existan endpoints de series
-const TABS = ['Conversaciones', 'Configuración', 'Playbooks']
+const TABS = ['Conversaciones', 'Rendimiento', 'Configuración', 'Playbooks']
 
 const OUTCOME_LABEL = { meeting_scheduled: 'Reunión agendada', interested: 'Interesado', rejected: 'No interesado', callback: 'Seguimiento' }
 
@@ -75,6 +74,7 @@ export default function AgentDetailPage() {
   const [agentSettings, setAgentSettings] = useState({})
   const [playbooks, setPlaybooks] = useState([])
   const [recentCalls, setRecentCalls] = useState([])
+  const [timeseries, setTimeseries] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -82,8 +82,10 @@ export default function AgentDetailPage() {
       apiFetch(`/api/agents/${id}/stats`).then(r => r.ok ? r.json() : null),
       apiFetch('/api/playbooks').then(r => r.ok ? r.json() : []),
       apiFetch(`/api/calls?agentId=${id}&limit=20`).then(r => r.ok ? r.json() : null),
-    ]).then(([data, stats, pbList, callsData]) => {
+      apiFetch(`/api/agents/${id}/timeseries?days=30`).then(r => r.ok ? r.json() : null),
+    ]).then(([data, stats, pbList, callsData, series]) => {
       setRecentCalls(Array.isArray(callsData?.data) ? callsData.data : [])
+      setTimeseries(series)
       if (data) {
         const a = toAgent(data, stats)
         setAgent(a)
@@ -351,6 +353,40 @@ export default function AgentDetailPage() {
                     })}
                   </div>
                 }
+              </div>
+            )}
+
+            {tab === 'Rendimiento' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                {!timeseries ? <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '30px 0' }}>No se pudieron cargar las métricas históricas.</p> : <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12 }}>
+                    {[
+                      { label: `Llamadas (${timeseries.days} días)`, value: timeseries.totals.calls },
+                      { label: 'Tasa de éxito', value: `${timeseries.totals.successRate}%` },
+                      { label: 'Duración media', value: timeseries.totals.avgDurationSeconds != null ? `${Math.floor(timeseries.totals.avgDurationSeconds / 60)}:${String(timeseries.totals.avgDurationSeconds % 60).padStart(2, '0')} min` : '—' },
+                      { label: 'Sentimiento medio', value: timeseries.totals.avgSentiment != null ? (timeseries.totals.avgSentiment > 0 ? `+${timeseries.totals.avgSentiment}` : String(timeseries.totals.avgSentiment)) : '—' },
+                    ].map(m => (
+                      <div key={m.label} style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '16px' }}>
+                        <p style={{ margin: '0 0 6px', fontSize: 11, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{m.label}</p>
+                        <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>{m.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Llamadas por día · últimos {timeseries.days} días</p>
+                      <span style={{ fontSize: 11, color: '#4b5563' }}>Total: {timeseries.totals.calls}</span>
+                    </div>
+                    {timeseries.totals.calls === 0
+                      ? <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '20px 0', background: '#111827', borderRadius: 10 }}>Sin llamadas en este periodo.</p>
+                      : <div style={{ height: 110, background: '#111827', borderRadius: 10, display: 'flex', alignItems: 'flex-end', gap: 2, padding: '10px 14px' }}>
+                        {(() => { const max = Math.max(...timeseries.series.map(d => d.calls), 1); return timeseries.series.map(d => (
+                          <div key={d.date} title={`${d.date}: ${d.calls} llamadas, ${d.meetings} reuniones`} style={{ flex: 1, borderRadius: '2px 2px 0 0', background: `linear-gradient(180deg, ${agent.color}cc, ${agent.bg})`, height: `${(d.calls / max) * 100}%`, minHeight: d.calls ? 3 : 1, opacity: d.calls ? 1 : 0.25 }} />
+                        )) })()}
+                      </div>
+                    }
+                  </div>
+                </>}
               </div>
             )}
 

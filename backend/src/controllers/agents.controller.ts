@@ -103,3 +103,14 @@ export async function stats(
   const result = await agentsService.getAgentStats(orgId, request.params.id)
   return reply.send(result)
 }
+
+export async function timeseries(
+  request: FastifyRequest<{ Params: { id: string }; Querystring: { days?: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const parsed = Number.parseInt(request.query.days ?? '30', 10)
+  const days = Number.isFinite(parsed) ? Math.min(90, Math.max(7, parsed)) : 30
+  const result = await agentsService.getAgentTimeseries(orgId, request.params.id, days)
+  return reply.send(result)
+}

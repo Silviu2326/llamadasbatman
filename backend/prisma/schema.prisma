@@ -114,6 +114,7 @@ model Organization {
   id                 String   @id @default(cuid())
   name               String
   plan               String   @default("free")
+  stripeCustomerId   String?  @unique
   voiceServiceApiKey String?
   createdAt          DateTime @default(now())
 

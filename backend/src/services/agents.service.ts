@@ -83,3 +83,44 @@ export async function getAgentStats(orgId: string, id: string) {
     avgSentimentScore: sentimentAgg._avg.sentimentScore ?? 0,
   }
 }
+
+export async function getAgentTimeseries(orgId: string, id: string, days = 30) {
+  const dayMs = 24 * 60 * 60 * 1000
+  const since = new Date(Date.now() - (days - 1) * dayMs)
+  since.setHours(0, 0, 0, 0)
+  const calls = await prisma.call.findMany({
+    where: { orgId, agentId: id, createdAt: { gte: since } },
+    select: { createdAt: true, outcome: true, durationSeconds: true, sentimentScore: true },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  const byDay = new Map<string, { calls: number; meetings: number }>()
+  for (let i = days - 1; i >= 0; i--) {
+    byDay.set(new Date(Date.now() - i * dayMs).toISOString().slice(0, 10), { calls: 0, meetings: 0 })
+  }
+  let durationSum = 0
+  let durationCount = 0
+  let sentimentSum = 0
+  let sentimentCount = 0
+  let success = 0
+  for (const call of calls) {
+    const bucket = byDay.get(call.createdAt.toISOString().slice(0, 10))
+    if (bucket) {
+      bucket.calls++
+      if (call.outcome === 'meeting_scheduled') bucket.meetings++
+    }
+    if (call.durationSeconds) { durationSum += call.durationSeconds; durationCount++ }
+    if (call.sentimentScore != null) { sentimentSum += call.sentimentScore; sentimentCount++ }
+    if (call.outcome === 'meeting_scheduled' || call.outcome === 'interested') success++
+  }
+  return {
+    days,
+    series: [...byDay.entries()].map(([date, value]) => ({ date, ...value })),
+    totals: {
+      calls: calls.length,
+      successRate: calls.length ? Math.round((success / calls.length) * 100) : 0,
+      avgDurationSeconds: durationCount ? Math.round(durationSum / durationCount) : null,
+      avgSentiment: sentimentCount ? Math.round((sentimentSum / sentimentCount) * 100) / 100 : null,
+    },
+  }
+}

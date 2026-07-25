@@ -38,6 +38,7 @@ import { voiceRoutes } from './routes/voice'
 import { landingRoutes } from './routes/landing'
 import { campaignShareRoutes } from './routes/campaignShare'
 import { settingsRoutes } from './routes/settings'
+import { billingRoutes, billingWebhookRoutes } from './routes/billing'
 import { conversationsRoutes } from './routes/conversations'
 import { whatsappRoutes } from './routes/whatsapp'
 import { emailMetricsRoutes } from './routes/emailMetrics'
@@ -188,6 +189,8 @@ async function build() {
   await app.register(landingRoutes,    { prefix: '/api/public/landing' })
   await app.register(campaignShareRoutes, { prefix: '/api/public/campaigns' })
   await app.register(settingsRoutes,   { prefix: '/api/settings' })
+  await app.register(billingRoutes,    { prefix: '/api/billing' })
+  await app.register(billingWebhookRoutes, { prefix: '/api/billing/webhook' })
   await app.register(conversationsRoutes, { prefix: '/api/conversations' })
   await app.register(whatsappRoutes,   { prefix: '/api/whatsapp' })
   await app.register(emailMetricsRoutes, { prefix: '/api/email' })
