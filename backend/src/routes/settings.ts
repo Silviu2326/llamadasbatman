@@ -9,6 +9,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.get('/me', ctrl.getMe)
   app.put('/me', ctrl.updateMe)
   app.put('/password', ctrl.changePassword)
+  app.delete('/me', ctrl.deleteAccount as any)
   app.get('/organization', {
     preHandler: requirePermission('organization.read', { scope: 'org' }),
   }, ctrl.getOrganization)

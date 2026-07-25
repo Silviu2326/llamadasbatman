@@ -21,6 +21,7 @@ const createAgentSchema = z.object({
 
 const updateAgentSchema = createAgentSchema.partial().extend({
   isActive: z.boolean().optional(),
+  settings: z.record(z.any()).optional(),
 }).strict()
 
 export async function list(request: FastifyRequest, reply: FastifyReply) {

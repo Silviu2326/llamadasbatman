@@ -161,7 +161,29 @@ function UsageBar({ label, value, max, pct, color }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Configuracion() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [showPlanModal, setShowPlanModal] = useState(false)
+
+  async function confirmDeleteAccount() {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      const response = await apiFetch('/api/settings/me', { method: 'DELETE', body: JSON.stringify({ password: deletePassword }) })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.error || 'No se pudo eliminar la cuenta')
+      }
+      await logout()
+      window.location.href = '/login'
+    } catch (error) {
+      setDeleteError(error.message)
+      setDeleting(false)
+    }
+  }
   const { locale, setLocale, t } = useI18n()
   const isViewer = user?.role === 'viewer'
   const [activeNav, setActiveNav] = useState('perfil')
@@ -561,7 +583,7 @@ export default function Configuracion() {
                     <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563' }}>Permanente e irreversible. Todos los datos serán eliminados.</p>
                   </div>
                 </div>
-                <button disabled title="Disponible próximamente — mientras tanto, solicita la eliminación a soporte@vozia.app" style={{ background: '#ef444420', border: '1px solid #ef444445', borderRadius: 9, padding: '8px 16px', color: '#f87171', fontSize: 13, fontWeight: 600, cursor: 'not-allowed', opacity: 0.5, flexShrink: 0 }}>
+                <button onClick={() => { setShowDeleteModal(true); setDeletePassword(''); setDeleteError('') }} style={{ background: '#ef444420', border: '1px solid #ef444445', borderRadius: 9, padding: '8px 16px', color: '#f87171', fontSize: 13, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
                   Eliminar cuenta
                 </button>
               </div>
@@ -589,8 +611,8 @@ export default function Configuracion() {
                 </div>
               </div>
             </div>
-            <button disabled title="La gestión de planes estará disponible próximamente" style={{ width: '100%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>
-              Gestionar plan — próximamente
+            <button onClick={() => setShowPlanModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px #6366f145' }}>
+              Gestionar plan
             </button>
           </div>
 
@@ -678,6 +700,42 @@ export default function Configuracion() {
 
         </div>
       </div>
+
+      {showDeleteModal && (
+        <div onClick={() => !deleting && setShowDeleteModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #ef444440', borderRadius: 14, padding: '24px', width: 400, boxShadow: '0 40px 80px #0009' }}>
+            <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#f87171' }}>Eliminar cuenta</p>
+            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#94a3b8', lineHeight: 1.5 }}>
+              Esta acción es permanente: tu usuario quedará anonimizado y perderás el acceso inmediatamente.
+              Confirma con tu contraseña.
+            </p>
+            <input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Tu contraseña" autoFocus style={{ width: '100%', boxSizing: 'border-box', background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', marginBottom: 12 }} />
+            {deleteError && <p style={{ margin: '0 0 12px', color: '#f87171', fontSize: 12 }} role="alert">{deleteError}</p>}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowDeleteModal(false)} disabled={deleting} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={confirmDeleteAccount} disabled={!deletePassword || deleting} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #ef444445', background: '#ef444420', color: '#f87171', fontSize: 13, fontWeight: 700, cursor: !deletePassword || deleting ? 'not-allowed' : 'pointer', opacity: !deletePassword || deleting ? 0.6 : 1 }}>{deleting ? 'Eliminando…' : 'Eliminar definitivamente'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPlanModal && (
+        <div onClick={() => setShowPlanModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', width: 400, boxShadow: '0 40px 80px #0009' }}>
+            <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Tu plan</p>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#94a3b8' }}>
+              Plan actual: <b style={{ color: '#f1f5f9', textTransform: 'capitalize' }}>{stats?.orgPlan ?? integrations?.plan ?? 'free'}</b>
+            </p>
+            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>
+              El pago autogestionado todavía no está habilitado. Para cambiar de plan, ampliar límites o resolver dudas de facturación, escribe al equipo y te responderá el mismo día.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
+              <button onClick={() => { window.location.href = 'mailto:soporte@vozia.app?subject=Cambio%20de%20plan' }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Contactar para cambiar de plan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

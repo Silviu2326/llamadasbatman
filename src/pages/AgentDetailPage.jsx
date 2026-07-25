@@ -140,6 +140,29 @@ export default function AgentDetailPage() {
     })
   }
 
+  const [cloning, setCloning] = useState(false)
+  const cloneAgent = async () => {
+    if (!agent) return
+    setCloning(true)
+    try {
+      const response = await apiFetch('/api/agents', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: `${agent.name} (copia)`,
+          role: agent.role,
+          personality: agent.personality || undefined,
+          voiceId: cfgVals['Modelo de voz'] || undefined,
+          systemPrompt: agent.objetivo || undefined,
+        }),
+      })
+      if (!response.ok) throw new Error()
+      const created = await response.json()
+      navigate(`/agentes/${created.id}`)
+    } catch {
+      setCloning(false)
+    }
+  }
+
   const activatePlaybook = pb => {
     const settings = { ...agentSettings, activePlaybookId: pb.id, activePlaybookVersion: 1 }
     apiFetch(`/api/agents/${id}`, { method: 'PUT', body: JSON.stringify({ settings }) })
@@ -280,7 +303,7 @@ export default function AgentDetailPage() {
           <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
               <button onClick={() => navigate('/playbooks')} style={{ padding: '9px', background: '#111827', border: '1px solid #1a2235', borderRadius: 9, color: '#94a3b8', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ver playbook</button>
-              <span title="La clonación de agentes aún no está disponible" style={{ padding: '9px', background: '#0b101a', border: '1px solid #1a2235', borderRadius: 9, color: '#64748b', fontSize: 11.5, cursor: 'not-allowed', fontFamily: 'inherit', textAlign: 'center' }}>Clonar agente — próximamente</span>
+              <button disabled={cloning} onClick={cloneAgent} style={{ padding: '9px', background: '#111827', border: '1px solid #1a2235', borderRadius: 9, color: '#94a3b8', fontSize: 11.5, cursor: cloning ? 'wait' : 'pointer', fontFamily: 'inherit' }}>{cloning ? 'Clonando…' : 'Clonar agente'}</button>
             </div>
           </div>
         </div>

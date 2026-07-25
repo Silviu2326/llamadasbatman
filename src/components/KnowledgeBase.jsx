@@ -270,6 +270,34 @@ export default function KnowledgeBase() {
   const [activePage, setActivePage] = useState(1)
   const [showNewArticle, setShowNewArticle] = useState(false)
   const [showRequestModal, setShowRequestModal] = useState(false)
+  const [requestTitle, setRequestTitle] = useState('')
+  const [requestDesc, setRequestDesc] = useState('')
+  const [requestSending, setRequestSending] = useState(false)
+  const [requestError, setRequestError] = useState('')
+
+  async function submitArticleRequest() {
+    setRequestSending(true)
+    setRequestError('')
+    try {
+      const response = await apiFetch('/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'knowledge_request',
+          title: `Crear artículo: ${requestTitle.trim()}`,
+          description: requestDesc.trim() || undefined,
+          source: 'knowledge_base',
+        }),
+      })
+      if (!response.ok) throw new Error()
+      setShowRequestModal(false)
+      setRequestTitle('')
+      setRequestDesc('')
+    } catch {
+      setRequestError('No se pudo enviar la solicitud. Inténtalo de nuevo.')
+    } finally {
+      setRequestSending(false)
+    }
+  }
   const [raw, setRaw] = useState([])
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -501,13 +529,13 @@ export default function KnowledgeBase() {
             <p style={{ margin: '0 0 12px', fontSize: 11.5, color: '#64748b', lineHeight: 1.5 }}>
               Una base de conocimiento actualizada mejora las respuestas y aumenta la conversión.
             </p>
-            <button type="button" disabled title="Esta acción todavía no está conectada" style={{
+            <button type="button" onClick={() => { setActiveCategory(CAT_DEFS.findIndex(cat => cat.label === 'Recursos de ventas')); setSearchTerm(''); setActivePage(1) }} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 12px', borderRadius: 8,
               border: '1px solid #4f46e550', background: '#4f46e520',
-              color: '#a78bfa', fontSize: 12, fontWeight: 600, cursor: 'not-allowed', opacity: 0.7,
+              color: '#a78bfa', fontSize: 12, fontWeight: 600, cursor: 'pointer',
             }}>
-              Ver mejores prácticas
+              Ver recursos de ventas
               <RiArrowRightLine style={{ width: 13, height: 13 }} />
             </button>
           </div>
@@ -662,14 +690,15 @@ export default function KnowledgeBase() {
               <div onClick={() => setShowRequestModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', width: 380, boxShadow: '0 40px 80px #0009' }}>
                   <p style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Solicitar artículo</p>
-                  <input placeholder="Título del artículo..." style={{ width: '100%', boxSizing: 'border-box', background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, outline: 'none', marginBottom: 10 }} />
-                  <textarea placeholder="Descripción breve de lo que necesitas..." style={{ width: '100%', boxSizing: 'border-box', minHeight: 68, background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
-                  <p style={{ margin: '0 0 14px', color: '#fbbf24', fontSize: 12, lineHeight: 1.45 }} role="note">
-                    Esta solicitud todavía no está conectada a una API. No se enviará ningún mensaje desde este formulario.
+                  <input value={requestTitle} onChange={e => setRequestTitle(e.target.value)} placeholder="Título del artículo..." style={{ width: '100%', boxSizing: 'border-box', background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, outline: 'none', marginBottom: 10 }} />
+                  <textarea value={requestDesc} onChange={e => setRequestDesc(e.target.value)} placeholder="Descripción breve de lo que necesitas..." style={{ width: '100%', boxSizing: 'border-box', minHeight: 68, background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+                  <p style={{ margin: '0 0 14px', color: '#64748b', fontSize: 12, lineHeight: 1.45 }} role="note">
+                    Se crea una tarea en el CRM para que el equipo redacte el artículo.
                   </p>
+                  {requestError && <p style={{ margin: '0 0 12px', color: '#f87171', fontSize: 12 }} role="alert">{requestError}</p>}
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                     <button onClick={() => setShowRequestModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-                    <button type="button" disabled title="Esta acción aún no está disponible" style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #475569', background: '#1e293b', color: '#94a3b8', fontSize: 13, fontWeight: 700, cursor: 'not-allowed', opacity: 0.75 }}>Enviar solicitud · No disponible</button>
+                    <button type="button" disabled={!requestTitle.trim() || requestSending} onClick={submitArticleRequest} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: !requestTitle.trim() || requestSending ? 'not-allowed' : 'pointer', opacity: !requestTitle.trim() || requestSending ? 0.6 : 1 }}>{requestSending ? 'Enviando…' : 'Enviar solicitud'}</button>
                   </div>
                 </div>
               </div>

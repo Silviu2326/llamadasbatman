@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { prisma } from '../lib/prisma'
 import * as metricool from './metricoolSync.service'
 import * as postiz from './postizSync.service'
@@ -120,4 +121,37 @@ export async function getIntegrations(orgId: string) {
     metricool: { enabled: metricoolConfigured, connected: metricoolConfigured },
     postiz: { enabled: org.postizEnabled, connected: org.postizEnabled && postizConfigured, configured: postizConfigured },
   }
+}
+
+export async function deleteAccount(userId: string, password: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) return { ok: false, status: 404, error: 'User not found' } as const
+
+  const valid = await authService.verifyPassword(password, user.passwordHash)
+  if (!valid) return { ok: false, status: 401, error: 'La contraseña no es correcta' } as const
+
+  if (user.role === 'owner') {
+    const otherOwners = await prisma.user.count({
+      where: { orgId: user.orgId, role: 'owner', NOT: { id: userId } },
+    })
+    if (otherOwners === 0) {
+      return { ok: false, status: 400, error: 'Eres el único owner de la organización. Transfiere la propiedad antes de eliminar tu cuenta.' } as const
+    }
+  }
+
+  // ponytail: baja lógica — se anonimiza el usuario y se revoca todo acceso;
+  // borrado físico requeriría cascadas sobre leads/tareas/llamadas asociadas.
+  const randomSecret = randomUUID() + randomUUID()
+  await prisma.$transaction([
+    prisma.authSession.updateMany({ where: { userId }, data: { revokedAt: new Date() } }),
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: `deleted+${userId}@deleted.invalid`,
+        name: 'Cuenta eliminada',
+        passwordHash: await authService.hashPassword(randomSecret),
+      },
+    }),
+  ])
+  return { ok: true } as const
 }

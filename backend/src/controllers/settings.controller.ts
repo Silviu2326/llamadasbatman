@@ -77,6 +77,22 @@ export async function changePassword(
   return reply.send({ ok: true })
 }
 
+const deleteAccountSchema = z.object({
+  password: z.string().min(1).max(256),
+}).strict()
+
+export async function deleteAccount(
+  request: FastifyRequest<{ Body: { password: string } }>,
+  reply: FastifyReply
+) {
+  const { userId } = request.user as JWTUser
+  const body = parseRequest(reply, deleteAccountSchema, request.body)
+  if (!body) return
+  const result = await settingsService.deleteAccount(userId, body.password)
+  if (!result.ok) return reply.status(result.status).send({ error: result.error })
+  return reply.send({ ok: true })
+}
+
 export async function getOrganization(request: FastifyRequest, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
   const org = await settingsService.getOrganization(orgId)

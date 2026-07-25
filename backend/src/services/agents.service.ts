@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 
 export async function listAgents(orgId: string) {
@@ -46,6 +47,7 @@ export async function updateAgent(orgId: string, id: string, data: {
   systemPrompt?: string
   language?: string
   isActive?: boolean
+  settings?: Prisma.InputJsonValue
 }) {
   return prisma.agent.updateMany({
     where: { id, orgId },

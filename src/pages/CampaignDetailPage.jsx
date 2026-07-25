@@ -143,8 +143,55 @@ function CampaignAdsPanel({ campaign }) {
   </section>
 }
 
-function UnavailableCampaignSection({ title, description }) {
-  return <section className="campaign-detail-card"><div className="campaign-detail-card-header"><div><h2>{title}</h2><p>Funcionalidad no disponible todavía.</p></div></div><div className="campaign-composer-empty"><span>{description}</span></div></section>
+function useCampaignList(url) {
+  const [items, setItems] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    apiFetch(url).then(r => r.ok ? r.json() : null).then(body => {
+      if (!cancelled) setItems(Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [])
+    }).catch(() => { if (!cancelled) setItems([]) })
+    return () => { cancelled = true }
+  }, [url])
+  return items
+}
+
+function AudienceTab({ campaignId, onNavigate }) {
+  const leads = useCampaignList(`/api/leads?campaignId=${campaignId}&limit=50`)
+  return <section className="campaign-detail-card"><div className="campaign-detail-card-header"><div><h2>Audiencia de la campaña</h2><p>Leads reales asociados a esta campaña.</p></div></div>
+    {leads === null ? <div className="campaign-composer-empty"><span>Cargando leads…</span></div>
+      : leads.length === 0 ? <div className="campaign-composer-empty"><span>Esta campaña todavía no tiene leads asociados.</span></div>
+      : <div className="campaign-tasks">{leads.map(lead => <div className="campaign-task" key={lead.id} role="button" tabIndex="0" style={{ cursor: 'pointer' }} onClick={() => onNavigate(`/leads/${lead.id}`)} onKeyDown={e => e.key === 'Enter' && onNavigate(`/leads/${lead.id}`)}><div><span>{lead.name || 'Sin nombre'}</span><small>{[lead.company, lead.status].filter(Boolean).join(' · ') || 'Sin datos'}</small></div><time>{lead.score != null ? `Score ${lead.score}` : ''}</time></div>)}</div>}
+  </section>
+}
+
+function ConversationsTab({ campaignId, onNavigate }) {
+  const calls = useCampaignList(`/api/calls?campaignId=${campaignId}&limit=50`)
+  const outcomeLabel = { meeting_scheduled: 'Reunión agendada', interested: 'Interesado', rejected: 'No interesado', callback: 'Seguimiento' }
+  return <section className="campaign-detail-card"><div className="campaign-detail-card-header"><div><h2>Conversaciones de la campaña</h2><p>Llamadas reales registradas para esta campaña.</p></div></div>
+    {calls === null ? <div className="campaign-composer-empty"><span>Cargando llamadas…</span></div>
+      : calls.length === 0 ? <div className="campaign-composer-empty"><span>Esta campaña todavía no tiene llamadas registradas.</span></div>
+      : <div className="campaign-tasks">{calls.map(call => <div className="campaign-task" key={call.id} role="button" tabIndex="0" style={{ cursor: 'pointer' }} onClick={() => onNavigate(`/llamadas/${call.id}`)} onKeyDown={e => e.key === 'Enter' && onNavigate(`/llamadas/${call.id}`)}><div><span>{call.lead?.name || 'Sin contacto'}</span><small>{[call.agent?.name, outcomeLabel[call.outcome] || 'Sin resultado'].filter(Boolean).join(' · ')}</small></div><time>{call.startedAt ? new Date(call.startedAt).toLocaleString(localeCode(getLocale()), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</time></div>)}</div>}
+  </section>
+}
+
+function ContentTab({ campaign }) {
+  const rows = [
+    ['Objetivo', campaign.objective || 'Sin definir'],
+    ['Meta principal', campaign.goal || 'Sin definir'],
+    ['Landing pública', campaign.landingSlug ? `${window.location.origin}/l/${campaign.landingSlug}` : 'Sin landing publicada'],
+    ['Enlace compartible', campaign.shareToken ? `${window.location.origin}/campanas/compartir/${campaign.shareToken}` : 'Sin enlace generado'],
+    ['Creatividades de anuncio', campaign.adAssets ? 'Configuradas (ver pestaña Anuncio)' : 'Sin creatividades'],
+  ]
+  return <section className="campaign-detail-card"><div className="campaign-detail-card-header"><div><h2>Contenido de la campaña</h2><p>Piezas y destinos registrados en la campaña.</p></div></div><div className="campaign-tasks">{rows.map(([label, value]) => <div className="campaign-task" key={label}><div><span>{label}</span><small style={{ wordBreak: 'break-all' }}>{value}</small></div>{typeof value === 'string' && value.startsWith('http') && <button className="campaign-button ghost compact" onClick={() => window.open(value, '_blank', 'noopener')}><RiExternalLinkLine /> Abrir</button>}</div>)}</div></section>
+}
+
+function AutomationTab({ onNavigate }) {
+  const automations = useCampaignList('/api/automations')
+  return <section className="campaign-detail-card"><div className="campaign-detail-card-header"><div><h2>Automatizaciones</h2><p>Automatizaciones de tu organización (aplican a todas las campañas).</p></div><button className="campaign-button ghost compact" onClick={() => onNavigate('/automatizaciones')}><RiExternalLinkLine /> Gestionar</button></div>
+    {automations === null ? <div className="campaign-composer-empty"><span>Cargando automatizaciones…</span></div>
+      : automations.length === 0 ? <div className="campaign-composer-empty"><span>Todavía no hay automatizaciones configuradas.</span></div>
+      : <div className="campaign-tasks">{automations.map(auto => <div className="campaign-task" key={auto.id} role="button" tabIndex="0" style={{ cursor: 'pointer' }} onClick={() => onNavigate(`/automatizaciones/${auto.id}`)} onKeyDown={e => e.key === 'Enter' && onNavigate(`/automatizaciones/${auto.id}`)}><div><span>{auto.name}</span><small>{auto.isActive ? 'Activa' : 'Pausada'} · {auto.runsCount ?? 0} ejecuciones</small></div></div>)}</div>}
+  </section>
 }
 
 function SettingsTab({ settings, onToggle, onSave, saving }) {
@@ -386,10 +433,10 @@ export default function CampaignDetailPage() {
       <div className="campaign-detail-main">
         {tab === 'Resumen' && <Overview campaign={campaign} />}
         {tab === 'Anuncio' && <CampaignAdsPanel campaign={campaign} />}
-        {tab === 'Audiencia' && <UnavailableCampaignSection title="Audiencia de la campaña" description="La API de segmentos y contactos asociados a la campaña aún no está conectada. No se muestran segmentos de ejemplo." />}
-        {tab === 'Conversaciones' && <UnavailableCampaignSection title="Conversaciones de la campaña" description="La relación entre conversaciones y campañas aún no está disponible. No se muestran conversaciones de ejemplo." />}
-        {tab === 'Contenido' && <UnavailableCampaignSection title="Contenido de la campaña" description="La relación entre contenido y campaña aún no está disponible. No se muestran piezas ni estados de publicación ficticios." />}
-        {tab === 'Automatización' && <UnavailableCampaignSection title="Automatización de campaña" description="El flujo específico de esta campaña aún no tiene una fuente de datos. No se muestran pasos de automatización de ejemplo." />}
+        {tab === 'Audiencia' && <AudienceTab campaignId={campaign.id} onNavigate={navigate} />}
+        {tab === 'Conversaciones' && <ConversationsTab campaignId={campaign.id} onNavigate={navigate} />}
+        {tab === 'Contenido' && <ContentTab campaign={campaign} />}
+        {tab === 'Automatización' && <AutomationTab onNavigate={navigate} />}
         {tab === 'Configuración' && <SettingsTab settings={settings} onToggle={toggleSetting} onSave={saveSettings} saving={savingSettings} />}
       </div>
       <aside className="campaign-detail-side">

@@ -138,17 +138,25 @@ function TypePanel({ agent, onEdit }) {
 }
 
 function StrategyPanel({ agent, onEdit }) {
-  return <div className="agent-studio-grid agent-strategy-grid"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campo persistente</span><h3>Instrucciones del agente</h3></div><RiFlashlightLine /></div><p className="agent-panel-intro">Estas instrucciones se guardan como el prompt del sistema del agente.</p><Field label="Instrucciones" type="textarea" value={agent.systemPrompt || ''} onChange={value => onEdit({ systemPrompt: value })} /></section><UnavailableNotice title="Reglas de escalado">Las reglas individuales de escalado aún no tienen una API de configuración. No se muestran reglas de ejemplo como si estuvieran activas.</UnavailableNotice></div>
+  const settings = agent.settings || {}
+  return <div className="agent-studio-grid agent-strategy-grid"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campo persistente</span><h3>Instrucciones del agente</h3></div><RiFlashlightLine /></div><p className="agent-panel-intro">Estas instrucciones se guardan como el prompt del sistema del agente.</p><Field label="Instrucciones" type="textarea" value={agent.systemPrompt || ''} onChange={value => onEdit({ systemPrompt: value })} /></section><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campo persistente</span><h3>Reglas de escalado</h3></div><RiSettings3Line /></div><p className="agent-panel-intro">Describe cuándo el agente debe derivar la conversación a una persona. Se guarda en la configuración del agente al confirmar.</p><Field label="Cuándo escalar a un humano" type="textarea" value={settings.escalationRules || ''} onChange={value => onEdit({ settings: { ...settings, escalationRules: value } })} /></section></div>
 }
 
 function ConfigPanel({ agent, onEdit, locale = (document.documentElement.lang === 'en' ? 'en' : 'es') }) {
   const typeOptions = Object.entries(AGENT_TYPE_META).map(([value, labels]) => ({ value, label: labels[locale === 'en' ? 'en' : 'es'] }))
   const directionOptions = Object.entries(CALL_DIRECTION_META).map(([value, labels]) => ({ value, label: labels[locale === 'en' ? 'en' : 'es'] }))
-  return <div className="agent-studio-grid agent-config-grid"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campos persistentes</span><h3>Identidad del agente</h3></div><RiSettings3Line /></div><div className="agent-form-grid"><Field label="Nombre del agente" value={agent.name} onChange={value => onEdit({ name: value })} /><Field label="Personalidad" value={agent.personality || ''} onChange={value => onEdit({ personality: value })} /><Field label="Idioma" value={agent.language} onChange={value => onEdit({ language: value })} /><SelectField label={locale === 'en' ? 'Agent type' : 'Tipo de agente'} value={agent.agentType} onChange={value => onEdit({ agentType: value })} options={typeOptions} /><SelectField label={locale === 'en' ? 'Call direction' : 'Dirección de llamadas'} value={agent.callDirection} onChange={value => onEdit({ callDirection: value })} options={directionOptions} /></div><div className="agent-setting-row"><div><strong>Agente habilitado</strong><small>Este cambio se guarda al confirmar.</small></div><Toggle enabled={agent.isActive} onClick={() => onEdit({ isActive: !agent.isActive })} label="Activar agente" /></div></section><UnavailableNotice title="Configuración de voz">El canal, la velocidad y otros controles de voz no se almacenan desde esta pantalla todavía. No se aplicarán cambios locales aparentes.</UnavailableNotice></div>
+  return <div className="agent-studio-grid agent-config-grid"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campos persistentes</span><h3>Identidad del agente</h3></div><RiSettings3Line /></div><div className="agent-form-grid"><Field label="Nombre del agente" value={agent.name} onChange={value => onEdit({ name: value })} /><Field label="Personalidad" value={agent.personality || ''} onChange={value => onEdit({ personality: value })} /><Field label="Idioma" value={agent.language} onChange={value => onEdit({ language: value })} /><SelectField label={locale === 'en' ? 'Agent type' : 'Tipo de agente'} value={agent.agentType} onChange={value => onEdit({ agentType: value })} options={typeOptions} /><SelectField label={locale === 'en' ? 'Call direction' : 'Dirección de llamadas'} value={agent.callDirection} onChange={value => onEdit({ callDirection: value })} options={directionOptions} /></div><div className="agent-setting-row"><div><strong>Agente habilitado</strong><small>Este cambio se guarda al confirmar.</small></div><Toggle enabled={agent.isActive} onClick={() => onEdit({ isActive: !agent.isActive })} label="Activar agente" /></div></section><VoicePanel agent={agent} onEdit={onEdit} /></div>
 }
 
-function MessagesPanel() {
-  return <div className="agent-messages-layout"><UnavailableNotice title="Mensajes clave">La edición de mensajes por situación no está disponible en la API actual. No se muestran respuestas ficticias ni controles sin persistencia.</UnavailableNotice></div>
+function VoicePanel({ agent, onEdit }) {
+  const settings = agent.settings || {}
+  const speedOptions = ['0.8', '0.9', '1.0', '1.1', '1.2'].map(value => ({ value, label: `${value}x${value === '1.0' ? ' (Normal)' : ''}` }))
+  return <section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campos persistentes</span><h3>Configuración de voz</h3></div><RiSettings3Line /></div><p className="agent-panel-intro">La voz y la velocidad se guardan en el agente al confirmar los cambios.</p><div className="agent-form-grid"><Field label="ID de voz (proveedor TTS)" value={agent.voiceId || ''} onChange={value => onEdit({ voiceId: value })} /><SelectField label="Velocidad de habla" value={settings.speechSpeed || '1.0'} onChange={value => onEdit({ settings: { ...settings, speechSpeed: value } })} options={speedOptions} /></div></section>
+}
+
+function MessagesPanel({ agent, onEdit }) {
+  const settings = agent.settings || {}
+  return <div className="agent-messages-layout"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campo persistente</span><h3>Mensajes clave</h3></div><RiMessage3Line /></div><p className="agent-panel-intro">Uno por línea. Se guardan en la configuración del agente y quedan disponibles para el motor de conversación.</p><Field label="Mensajes que el agente debe priorizar" type="textarea" value={settings.keyMessages || ''} onChange={value => onEdit({ settings: { ...settings, keyMessages: value } })} /></section></div>
 }
 
 function KnowledgePanel({ onNavigate }) {
@@ -160,7 +168,7 @@ function Studio({ agent, tab, setTab, onEdit, onNavigate, onSave, saving, locale
     tipo: <TypePanel agent={agent} onEdit={onEdit} />,
     estrategia: <StrategyPanel agent={agent} onEdit={onEdit} />,
     configuracion: <ConfigPanel agent={agent} onEdit={onEdit} locale={locale} />,
-    mensajes: <MessagesPanel />,
+    mensajes: <MessagesPanel agent={agent} onEdit={onEdit} />,
     conocimiento: <KnowledgePanel onNavigate={onNavigate} />,
   }
   return <section className="agent-studio"><div className="agent-studio-head"><div className="agent-studio-title"><AgentAvatar agent={agent} size="lg" /><div><div className="agent-studio-name"><h2>{agent.name}</h2><StatusBadge status={agent.status} /></div><p>{agent.role} <b>·</b> {agent.language}</p></div></div><div className="agent-studio-actions"><button type="button" className="agent-button secondary" onClick={() => onNavigate(`/agentes/${agent.id}`)}><RiExternalLinkLine /> Ver detalle</button></div></div><div className="agent-stepper">{TABS.map((step, index) => <button type="button" key={step.id} className={tab === step.id ? 'is-active' : ''} onClick={() => setTab(step.id)}><span>{index + 1}</span><b>{step.label}</b>{index < TABS.length - 1 && <i />}</button>)}</div><div className="agent-studio-body">{panels[tab]}</div><div className="agent-studio-footer"><span>Los cambios no se guardan hasta confirmarlos.</span><button type="button" className="agent-button primary" onClick={onSave} disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'} <RiArrowRightLine /></button></div></section>
@@ -246,6 +254,8 @@ export default function Agentes() {
         systemPrompt: selectedAgent.systemPrompt || undefined,
         language: selectedAgent.language,
         isActive: selectedAgent.isActive,
+        voiceId: selectedAgent.voiceId || undefined,
+        settings: selectedAgent.settings || undefined,
       }
       if (!payload.name) throw new Error('missing_name')
       const response = await apiFetch(`/api/agents/${selectedAgent.id}`, { method: 'PUT', body: JSON.stringify(payload) })
