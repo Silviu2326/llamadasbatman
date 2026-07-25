@@ -42,8 +42,11 @@ export default function PlaybookDetailPage() {
           ...data,
           type: 'Personalizado', badge: 'Personalizado',
           color: '#6366f1', bg: '#6366f120',
+          IconEl: RiFlowChart, iconBg: '#6366f120', iconColor: '#818cf8', badgeColor: '#6366f1',
+          tags: [], tasa: '—', reuniones: 0, campanas: 0,
           successRate: '—', uses: 0, avgDuration: '—',
           description: data.description ?? '',
+          desc: data.description ?? '',
         })
       }
       setLoading(false)

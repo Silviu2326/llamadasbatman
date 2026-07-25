@@ -6,7 +6,7 @@ import { DEMO_MODE, getApiErrorMessage, isNonEmptyPayload } from '../lib/dataMod
 import insightsHeroImage from '../assets/insights-hero.png'
 import '../dashboard.css'
 import './insights.css'
-import { localeCode, useI18n } from '../i18n'
+import { getLocale, localeCode, useI18n } from '../i18n'
 
 const COLORS = ['#818cf8', '#22d3ee', '#34d399', '#fbbf24', '#fb7185', '#a78bfa']
 const tooltipProps = { contentStyle: { background: '#0d1117', border: '1px solid #273249', borderRadius: 9, fontSize: 11 }, labelStyle: { color: '#94a3b8' }, itemStyle: { color: '#e2e8f0' } }
