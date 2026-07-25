@@ -352,26 +352,6 @@ export default function Sidebar({ isOpen }) {
         <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => setLocale('en')}>EN</button>
       </div>
 
-      {/* Status */}
-      <div style={{ ...styles.divider, margin: '4px 0' }} />
-      <div style={{ padding: '12px 20px 10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ ...styles.greenDot, background: '#64748b', boxShadow: 'none' }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>{t('sidebar.systemStatus')}</span>
-        </div>
-        <p style={{ fontSize: 11.5, color: '#4b5563', marginTop: 2, paddingLeft: 16 }}>
-          {t('sidebar.statusUnavailable')}
-        </p>
-      </div>
-
-      {/* Progress */}
-      <div style={styles.divider} />
-      <div style={{ padding: '12px 20px' }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: '#cbd5e1' }}>{t('sidebar.aiCallUsage')}</span>
-        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 11.5, lineHeight: 1.45 }}>
-          {t('sidebar.usageUnavailable')}
-        </p>
-      </div>
 
       {/* User */}
       <div style={styles.divider} />
@@ -402,6 +382,11 @@ export default function Sidebar({ isOpen }) {
           >
             <RiLogoutBoxLine style={{ width: 16, height: 16 }} />
           </button>
+        </div>
+        <div style={{ display: 'flex', gap: 10, padding: '0 20px 12px' }}>
+          <button type="button" onClick={() => navigate('/privacidad')} style={styles.legalLink}>{t('legal.privacyTitle')}</button>
+          <span style={{ color: '#1e2433', fontSize: 11 }}>·</span>
+          <button type="button" onClick={() => navigate('/terminos')} style={styles.legalLink}>{t('legal.termsTitle')}</button>
         </div>
       </div>
       </aside>
@@ -576,6 +561,10 @@ const styles = {
     color: 'white',
     flexShrink: 0,
     boxShadow: '0 0 12px #06b6d455',
+  },
+  legalLink: {
+    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+    color: '#4b5563', fontSize: 11, fontFamily: 'inherit',
   },
   logoutBtn: {
     width: 32, height: 32,

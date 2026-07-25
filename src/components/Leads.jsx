@@ -107,8 +107,8 @@ function LeadRow({ lead, selected, onToggle, onOpen, onAction, onAudit }) {
   const ActivityIcon = ACTIVITY_ICON[lead.act?.type] || RiPulseLine
   return <div className="leads-table-row" onClick={() => onOpen(lead.id)}>
     <div className="lead-row-check" onClick={event => event.stopPropagation()}><input type="checkbox" checked={selected} onChange={() => onToggle(lead.id)} aria-label={`Seleccionar ${lead.name}`} /></div>
-    <div className="lead-person-cell"><Avatar lead={lead} /><div><strong>{lead.name}</strong><span>{lead.role || 'Contacto principal'}</span><small>{lead.tags?.slice(0, 2).join(' · ')}</small></div></div>
-    <div className="lead-company-cell"><span className="company-mark" style={{ '--company-color': lead.cb || lead.bg }}>{lead.ci}</span><div><strong>{lead.company}</strong><span>{lead.city || 'España'}</span></div></div>
+    <div className="lead-person-cell" data-i18n-skip><Avatar lead={lead} /><div><strong>{lead.name}</strong><span>{lead.role || 'Contacto principal'}</span><small>{lead.tags?.slice(0, 2).join(' · ')}</small></div></div>
+    <div className="lead-company-cell" data-i18n-skip><span className="company-mark" style={{ '--company-color': lead.cb || lead.bg }}>{lead.ci}</span><div><strong>{lead.company}</strong><span>{lead.city || 'España'}</span></div></div>
     <div><StatusBadge status={lead.status} /><small className="lead-source">{lead.source}</small></div>
     <ScoreMeter score={lead.score} />
     <div className="lead-activity-cell"><span className="activity-icon"><ActivityIcon /></span><div><strong>{lead.act?.date || 'Sin actividad'}</strong><span>{lead.act?.action || 'Sin actividad registrada'}</span></div></div>

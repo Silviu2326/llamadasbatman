@@ -160,7 +160,18 @@ function MessagesPanel({ agent, onEdit }) {
 }
 
 function KnowledgePanel({ onNavigate }) {
-  return <div className="agent-knowledge-layout"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Fuente de datos pendiente</span><h3>Knowledge Base del agente</h3></div><RiBookOpenLine /></div><p className="agent-panel-intro">Esta vista no recibe todavía las fuentes asociadas a cada agente. Gestiona los artículos desde Knowledge Base.</p><button type="button" className="agent-button secondary" onClick={() => onNavigate('/knowledge-base')}><RiBookOpenLine /> Gestionar Knowledge Base <RiExternalLinkLine /></button></section></div>
+  const [articles, setArticles] = useState(null)
+  useEffect(() => {
+    apiFetch('/api/knowledge')
+      .then(response => response.ok ? response.json() : [])
+      .then(data => setArticles(Array.isArray(data) ? data : data?.data ?? []))
+      .catch(() => setArticles([]))
+  }, [])
+  return <div className="agent-knowledge-layout"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Conocimiento disponible</span><h3>Knowledge Base del agente</h3></div><RiBookOpenLine /></div><p className="agent-panel-intro">Tus agentes pueden consultar estos artículos durante las llamadas.</p>
+    {articles === null ? <p className="agent-panel-intro">Cargando artículos…</p>
+      : articles.length === 0 ? <p className="agent-panel-intro">Todavía no hay artículos. Crea el primero para que el agente pueda apoyarse en él.</p>
+      : <ul className="agent-knowledge-list">{articles.slice(0, 6).map(article => <li key={article.id}><strong>{article.name}</strong><small>{article.type || 'documento'}</small></li>)}</ul>}
+    <button type="button" className="agent-button secondary" onClick={() => onNavigate('/knowledge-base')}><RiBookOpenLine /> Gestionar Knowledge Base <RiExternalLinkLine /></button></section></div>
 }
 
 function Studio({ agent, tab, setTab, onEdit, onNavigate, onSave, saving, locale }) {
@@ -190,6 +201,7 @@ export default function Agentes() {
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [agentActivity, setAgentActivity] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -222,6 +234,22 @@ export default function Agentes() {
     loadAgents()
     return () => { active = false }
   }, [reloadKey])
+
+  useEffect(() => {
+    if (!agents.length) { setAgentActivity(agents.length === 0 && !loading ? [] : null); return }
+    let active = true
+    Promise.all(agents.slice(0, 8).map(agent =>
+      apiFetch(`/api/agents/${agent.id}/stats`)
+        .then(response => response.ok ? response.json() : null)
+        .then(stats => ({ id: agent.id, name: agent.name, calls: stats?.calls ?? 0 }))
+        .catch(() => ({ id: agent.id, name: agent.name, calls: 0 }))
+    )).then(rows => {
+      if (!active) return
+      const max = Math.max(...rows.map(row => row.calls), 1)
+      setAgentActivity(rows.sort((a, b) => b.calls - a.calls).map(row => ({ ...row, pct: Math.round((row.calls / max) * 100) })))
+    })
+    return () => { active = false }
+  }, [agents, loading])
 
   const selectedAgent = agents.find(agent => agent.id === selectedId) ?? null
   const filtered = useMemo(() => agents.filter(agent => {
@@ -298,7 +326,7 @@ export default function Agentes() {
       <div className="agents-main-grid"><aside className="agents-list-panel"><div className="agents-list-head"><strong>Agentes registrados</strong><span>{filtered.length} visibles</span></div><div className="agent-list">{loading ? <div className="agent-list-loading">Cargando agentes…</div> : loadError ? <div className="agent-list-loading"><p>{loadError}</p><button type="button" className="agent-button secondary" onClick={() => setReloadKey(key => key + 1)}>Reintentar</button></div> : filtered.length ? filtered.map(agent => <AgentListItem key={agent.id} agent={agent} selected={selectedAgent?.id === agent.id} onClick={() => { setSelectedId(agent.id); setStudioTab('tipo') }} />) : <div className="agent-list-loading">{agents.length ? 'No hay agentes que coincidan con los filtros.' : 'Todavía no hay agentes registrados.'}</div>}</div><button type="button" className="agent-create-row" onClick={() => setShowNewAgent(true)}><span><RiAddLine /></span><strong>Crear nuevo agente</strong><RiArrowRightLine /></button></aside>{selectedAgent ? <Studio agent={selectedAgent} tab={studioTab} setTab={setStudioTab} onEdit={updateSelected} onNavigate={navigate} onSave={saveSelected} saving={saving} /> : !loading && !loadError && <section className="agent-studio"><div className="agent-studio-body"><UnavailableNotice title="Selecciona o crea un agente">Cuando haya un agente registrado podrás revisar y guardar su configuración desde aquí.</UnavailableNotice></div></section>}</div>
     </section>
 
-    <section className="agents-bottom-grid"><div className="agent-insight-panel"><div><span className="agent-panel-kicker">Knowledge Base</span><h2>Conecta el conocimiento de tu negocio.</h2><p>Gestiona artículos y fuentes desde el espacio de Knowledge Base.</p><button type="button" className="agent-text-action" onClick={() => navigate('/knowledge-base')}>Explorar Knowledge Base <RiArrowRightLine /></button></div><div className="agent-insight-orbit"><RiBookOpenLine /><i /><i /><i /></div></div><div className="agent-activity-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Actividad</span><h3>Actividad por agente</h3></div><RiBarChartLine /></div><p className="agent-panel-intro">La actividad reciente consolidada todavía no está disponible en esta vista.</p></div></section>
+    <section className="agents-bottom-grid"><div className="agent-insight-panel"><div><span className="agent-panel-kicker">Knowledge Base</span><h2>Conecta el conocimiento de tu negocio.</h2><p>Gestiona artículos y fuentes desde el espacio de Knowledge Base.</p><button type="button" className="agent-text-action" onClick={() => navigate('/knowledge-base')}>Explorar Knowledge Base <RiArrowRightLine /></button></div><div className="agent-insight-orbit"><RiBookOpenLine /><i /><i /><i /></div></div><div className="agent-activity-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Actividad</span><h3>Actividad por agente</h3></div><RiBarChartLine /></div>{agentActivity === null ? <p className="agent-panel-intro">Cargando actividad…</p> : agentActivity.length === 0 ? <p className="agent-panel-intro">Todavía no hay llamadas registradas por ningún agente.</p> : <ul className="agent-activity-list">{agentActivity.map(row => <li key={row.id}><span>{row.name}</span><b>{row.calls}</b><i><span style={{ width: `${row.pct}%` }} /></i></li>)}</ul>}</div></section>
     {toast && <div className="agents-toast" role="status"><RiCheckLine /> {toast}<button type="button" onClick={() => setToast('')} aria-label="Cerrar aviso"><RiCloseLine /></button></div>}
     {showNewAgent && <NewAgenteModal onClose={() => setShowNewAgent(false)} onSuccess={item => { const agent = normalizeAgent(item); setAgents(current => [agent, ...current]); setSelectedId(agent.id); setStudioTab('tipo'); setShowNewAgent(false); notify('Nuevo agente creado') }} />}
   </div>

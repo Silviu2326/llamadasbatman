@@ -7,11 +7,13 @@ import {
 } from 'react-icons/ri'
 import '../dashboard.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 export default function MetaAccountPage() {
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
   const [account, setAccount] = useState(null)
+  const [showDisconnect, setShowDisconnect] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [budget, setBudget] = useState('')
@@ -91,7 +93,8 @@ export default function MetaAccountPage() {
   }
 
   async function handleDisconnect() {
-    if (!account || !window.confirm(t('meta.disconnectConfirm'))) return
+    if (!account) return
+    setShowDisconnect(false)
     try {
       const res = await apiFetch(`/api/meta/accounts/${account.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
@@ -226,7 +229,7 @@ export default function MetaAccountPage() {
           </div>
 
           <button
-            onClick={handleDisconnect}
+            onClick={() => setShowDisconnect(true)}
             style={{
               alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '9px 16px', borderRadius: 8, border: '1px solid #ef444440',
@@ -237,6 +240,13 @@ export default function MetaAccountPage() {
           </button>
         </div>
       )}
+      {showDisconnect && <ConfirmDialog
+        title="Desconectar cuenta de Meta"
+        message={t('meta.disconnectConfirm')}
+        confirmText="Desconectar"
+        onConfirm={handleDisconnect}
+        onClose={() => setShowDisconnect(false)}
+      />}
     </div>
   )
 }

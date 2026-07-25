@@ -141,6 +141,7 @@ export default function LeadDetailPage() {
   const [showSchedule, setShowSchedule] = useState(false)
   const [emailEnabled, setEmailEnabled] = useState(false)
   const [templateId, setTemplateId] = useState('')
+  const [emailTemplates, setEmailTemplates] = useState(null)
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailStatus, setEmailStatus] = useState('')
   const [fileInputKey, setFileInputKey] = useState(0)
@@ -154,6 +155,13 @@ export default function LeadDetailPage() {
   const [accountPickerOpen, setAccountPickerOpen] = useState(false)
   const [assigningAccount, setAssigningAccount] = useState(false)
   const accountSearchTimer = useRef(null)
+
+  useEffect(() => {
+    apiFetch('/api/mautic/templates')
+      .then(response => response.ok ? response.json() : [])
+      .then(data => setEmailTemplates(Array.isArray(data) ? data : []))
+      .catch(() => setEmailTemplates([]))
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -368,7 +376,7 @@ export default function LeadDetailPage() {
 
       {tab === 'Archivos' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Archivos y recursos</h3><span>{files.length} archivos</span></div><div className="lead-file-upload"><span>Sube una propuesta, brief o caso de éxito para mantener todo junto.</span><button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}><RiUploadCloud2Line /> {uploading ? 'Subiendo…' : 'Subir archivo'}</button><input key={fileInputKey} ref={fileInputRef} type="file" hidden onChange={event => uploadFile(event.target.files?.[0])} /></div><div className="lead-files-list">{files.length ? files.map(file => <div className="lead-file-row" key={file.id || file.name}><RiFileTextLine /><div><strong>{file.name}</strong><span>{file.size ? `${Math.round(file.size / 1024)} KB` : 'Archivo del lead'} · {formatDate(file.createdAt)}</span></div>{file.url && <button className="leads-text-button" onClick={() => window.open(file.url, '_blank')}><RiExternalLinkLine /></button>}</div>) : <div className="lead-audit-card"><strong>Espacio listo para tus archivos</strong><p>La propuesta y los recursos de contexto aparecerán aquí para cualquier persona del equipo.</p></div>}</div></section>}
 
-      {tab === 'Email' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Enviar plantilla de email</h3><span>Mautic conectado</span></div><div className="lead-email-form"><input value={templateId} onChange={event => setTemplateId(event.target.value)} placeholder="ID de plantilla Mautic" /><button onClick={sendTemplate} disabled={sendingEmail}>{sendingEmail ? 'Enviando…' : 'Enviar email'}</button></div>{emailStatus && <p className="lead-email-status">{emailStatus}</p>}</section>}
+      {tab === 'Email' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Enviar plantilla de email</h3><span>{emailTemplates?.length ? 'Mautic conectado' : 'Mautic sin plantillas'}</span></div><div className="lead-email-form">{emailTemplates === null ? <span style={{ fontSize: 12.5, color: '#6b7280' }}>Cargando plantillas…</span> : emailTemplates.length === 0 ? <span style={{ fontSize: 12.5, color: '#94a3b8' }}>No hay plantillas disponibles. Créalas desde Email marketing.</span> : <select value={templateId} onChange={event => setTemplateId(event.target.value)}><option value="">Selecciona una plantilla…</option>{emailTemplates.map(template => <option key={template.id} value={String(template.id)}>{template.name || template.subject || template.title || `Plantilla #${template.id}`}</option>)}</select>}<button onClick={sendTemplate} disabled={sendingEmail}>{sendingEmail ? 'Enviando…' : 'Enviar email'}</button></div>{emailStatus && <p className="lead-email-status">{emailStatus}</p>}</section>}
     </div>
 
     <aside className="lead-detail-side">

@@ -30,14 +30,6 @@ const NAV = [
   ]},
 ]
 
-// "Créditos de voz" no tiene modelo de billing detrás (no hay tabla de
-// créditos ni de plan con límites) — se sacó en vez de inventar un número.
-const USAGE = [
-  { label: 'Llamadas realizadas', value: '0',  max: '2.000', pct: 0, color: 'linear-gradient(90deg,#06b6d4,#0ea5e9)' },
-  { label: 'Agentes IA',          value: '0',  max: '20',    pct: 0, color: 'linear-gradient(90deg,#10b981,#34d399)' },
-  { label: 'Usuarios',            value: '0',  max: '25',    pct: 0, color: 'linear-gradient(90deg,#f59e0b,#fbbf24)' },
-]
-
 const TIMEZONE_OPTIONS = [
   'Europe/Madrid', 'UTC', 'Europe/Paris', 'America/New_York', 'America/Mexico_City',
 ]
@@ -122,19 +114,13 @@ function Toggle({ active, onToggle }) {
   )
 }
 
-function UsageBar({ label, value, max, pct, color }) {
+// ponytail: sin cuotas — no hay modelo de límites por plan, así que se muestra
+// el consumo real en vez de un denominador inventado.
+function UsageBar({ label, value }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>{label}</span>
-        <span style={{ fontSize: 11.5, color: '#e2e8f0', fontWeight: 600 }}>{value} / {max}</span>
-      </div>
-      <div style={{ height: 5, background: '#1e2433', borderRadius: 99, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 99, transition: 'width 1s ease' }} />
-      </div>
-      <div style={{ textAlign: 'right', marginTop: 3 }}>
-        <span style={{ fontSize: 10, color: '#4b5563' }}>{pct}%</span>
-      </div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <span style={{ fontSize: 12, color: '#94a3b8' }}>{label}</span>
+      <span style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 700 }}>{value}</span>
     </div>
   )
 }
@@ -203,7 +189,6 @@ export default function Configuracion() {
   const { locale, setLocale, t } = useI18n()
   const isViewer = user?.role === 'viewer'
   const [activeNav, setActiveNav] = useState('perfil')
-  const [showDecimals, setShowDecimals] = useState(true)
   const [stats, setStats] = useState(null)
   const [agentCount, setAgentCount] = useState(null)
 
@@ -396,7 +381,7 @@ export default function Configuracion() {
               >
                 {saving ? t('common.saving') : t('common.save')}
               </button>
-              {saveMessage && <span style={{ fontSize: 11, color: '#94a3b8' }}>{saveMessage}</span>}
+              {saveMessage && <span role="status" style={{ fontSize: 12.5, fontWeight: 600, color: '#34d399', background: '#10b98115', border: '1px solid #10b98135', borderRadius: 8, padding: '5px 10px' }}>{saveMessage}</span>}
             </div>
           </div>
 
@@ -411,14 +396,13 @@ export default function Configuracion() {
                     <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: '#fff', boxShadow: '0 0 24px #6366f145', marginBottom: 6 }}>
                       {profile.name ? profile.name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase() : '?'}
                     </div>
-                    <p style={{ margin: 0, fontSize: 9.5, color: '#374151' }}>Cambiar foto</p>
+                    <p style={{ margin: 0, fontSize: 9.5, color: '#374151' }}>Iniciales de tu nombre</p>
                   </div>
                   {/* Fields */}
                   <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
                     <Input label="Nombre completo" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
                     <Input label="Email" value={profile.email} disabled />
                     <Input label="Rol" value={profile.role} disabled />
-                    <Input label="ID de organización" value={user?.orgId ?? ''} disabled />
                     <Select
                       label={t('common.language')}
                       value={locale}
@@ -458,7 +442,7 @@ export default function Configuracion() {
                       <RiLockLine style={{ width: 13, height: 13 }} />
                       {pwdSaving ? 'Actualizando…' : 'Actualizar contraseña'}
                     </button>
-                    {pwdMessage && <span style={{ fontSize: 11.5, color: '#94a3b8' }}>{pwdMessage}</span>}
+                    {pwdMessage && <span role="status" style={{ fontSize: 12.5, fontWeight: 600, color: '#34d399', background: '#10b98115', border: '1px solid #10b98135', borderRadius: 8, padding: '5px 10px' }}>{pwdMessage}</span>}
                   </div>
                 </div>
               </div>
@@ -494,11 +478,8 @@ export default function Configuracion() {
                   <svg width="54" height="36" viewBox="0 0 54 36" fill="none">
                     <polyline points="0,18 7,4 14,32 21,8 28,26 35,12 42,22 49,18" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                   </svg>
-                  <div style={{ position: 'absolute', bottom: -6, right: -6, width: 22, height: 22, borderRadius: 6, background: '#1e2433', border: '1px solid #2a3245', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                    <RiEditLine style={{ width: 11, height: 11, color: '#9ca3af' }} />
-                  </div>
                 </div>
-                <p style={{ margin: 0, fontSize: 9.5, color: '#374151', maxWidth: 82, lineHeight: 1.4 }}>JPG, PNG o SVG. Máx. 2MB</p>
+                <p style={{ margin: 0, fontSize: 9.5, color: '#374151', maxWidth: 82, lineHeight: 1.4 }}>Logo de VozIA</p>
               </div>
               {/* Fields */}
               <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
@@ -544,16 +525,6 @@ export default function Configuracion() {
                   label="Moneda" value={org.currency} options={CURRENCY_OPTIONS} disabled={isViewer}
                   onChange={e => setOrg(o => ({ ...o, currency: e.target.value }))}
                 />
-                {/* Mostrar decimales toggle */}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>Mostrar decimales</p>
-                      <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563' }}>Mostrar decimales en reportes y métricas</p>
-                    </div>
-                    <Toggle active={showDecimals} onToggle={() => setShowDecimals(!showDecimals)} />
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -630,22 +601,10 @@ export default function Configuracion() {
             </div>
             <p style={{ margin: '0 0 12px', fontSize: 10.5, color: '#4b5563' }}>Acumulado total</p>
             {[
-              {
-                ...USAGE[0],
-                value: stats ? String(stats.totalCalls ?? 0) : USAGE[0].value,
-                pct: stats ? Math.min(100, Math.round((stats.totalCalls ?? 0) / 2000 * 100)) : USAGE[0].pct,
-              },
-              {
-                ...USAGE[1],
-                value: agentCount !== null ? String(agentCount) : USAGE[1].value,
-                pct: agentCount !== null ? Math.min(100, Math.round(agentCount / 20 * 100)) : USAGE[1].pct,
-              },
-              {
-                ...USAGE[2],
-                value: stats?.userCount != null ? String(stats.userCount) : USAGE[2].value,
-                pct: stats?.userCount != null ? Math.min(100, Math.round(stats.userCount / 25 * 100)) : USAGE[2].pct,
-              },
-            ].map((u, i) => <UsageBar key={i} {...u} />)}
+              { label: 'Llamadas realizadas', value: stats ? String(stats.totalCalls ?? 0) : '—' },
+              { label: 'Agentes IA', value: agentCount !== null ? String(agentCount) : '—' },
+              { label: 'Usuarios', value: stats?.userCount != null ? String(stats.userCount) : '—' },
+            ].map(u => <UsageBar key={u.label} {...u} />)}
           </div>
 
           {/* Integraciones activas — GET /api/settings/integrations */}

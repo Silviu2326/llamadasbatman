@@ -645,12 +645,21 @@ const WORDS = [
   ['formularios', 'forms'], ['captados', 'captured'], ['captadas', 'captured'], ['seguimiento', 'follow-up'], ['suficiente', 'enough'], ['suficientes', 'enough'],
 ]
 
+const WORD_MAP = new Map(WORDS.map(([from, to]) => [from.toLowerCase(), to]))
+
+// Una palabra suelta solo se traduce cuando ES el texto completo del nodo (una
+// etiqueta o un badge). Nunca se sustituye dentro de una frase: así el nombre
+// de un cliente ("Ventas Directas", "Rosa Alta") jamás se reescribe.
 function translate(value) {
   if (!value || !value.trim()) return value
   let next = value
   for (const [from, to] of PHRASES) next = next.split(from).join(to)
-  for (const [from, to] of WORDS) next = next.replace(new RegExp(`\\b${from}\\b`, 'gi'), match => match[0] === match[0].toUpperCase() ? to[0].toUpperCase() + to.slice(1) : to)
-  return next
+  if (next !== value) return next
+  const trimmed = next.trim()
+  const direct = WORD_MAP.get(trimmed.toLowerCase())
+  if (!direct) return next
+  const cased = trimmed[0] === trimmed[0].toUpperCase() ? direct[0].toUpperCase() + direct.slice(1) : direct
+  return next.replace(trimmed, cased)
 }
 
 const textState = new WeakMap()
@@ -658,7 +667,7 @@ const attrState = new WeakMap()
 
 function translateNode(node, locale) {
   if (node.nodeType === Node.TEXT_NODE) {
-    if (node.parentElement?.closest('.login-locale-switcher, .sidebar-locale-switcher')) return
+    if (node.parentElement?.closest('.login-locale-switcher, .sidebar-locale-switcher, [data-i18n-skip]')) return
     const current = node.nodeValue || ''
     const state = textState.get(node) || { original: current, lastOutput: current }
     if (current !== state.lastOutput) state.original = current
@@ -670,7 +679,10 @@ function translateNode(node, locale) {
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return
   const element = node
+  // data-i18n-skip marca contenido del usuario (nombres, empresas,
+  // transcripciones, notas): no se traduce nunca.
   if (['SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA'].includes(element.tagName)) return
+  if (element.hasAttribute('data-i18n-skip')) return
   for (const name of ['placeholder', 'aria-label', 'title']) {
     if (!element.hasAttribute(name)) continue
     const current = element.getAttribute(name) || ''

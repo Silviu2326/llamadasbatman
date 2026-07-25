@@ -322,7 +322,7 @@ export default function Playbooks() {
                     pb={pb}
                     selected={false}
                     onClick={() => navigate('/playbooks/' + pb.id)}
-                    onUse={() => setShowNewPlaybook(true)}
+                    onUse={() => navigate('/playbooks/' + pb.id)}
                   />
                 ))}
               </div>

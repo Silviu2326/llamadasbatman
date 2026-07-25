@@ -9,6 +9,7 @@ import {
 import { HiChevronDown } from 'react-icons/hi'
 import { apiFetch } from '../lib/api'
 import DataStatusBanner from './ui/DataStatusBanner'
+import ConfirmDialog from './ui/ConfirmDialog'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import { mapAutomation } from '../lib/automationMapping'
 import NewAutomatizacionModal from '../modals/NewAutomatizacionModal'
@@ -42,6 +43,8 @@ export default function Automatizaciones() {
   const [sortBy, setSortBy] = useState('recientes')
   const [openSort, setOpenSort] = useState(false)
   const [openMenuId, setOpenMenuId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [toast, setToast] = useState('')
   const [page, setPage] = useState(1)
   const [showNewAutomation, setShowNewAutomation] = useState(false)
   const [automations, setAutomations] = useState([])
@@ -96,12 +99,16 @@ export default function Automatizaciones() {
   function setFilterAndReset(value) { setFilter(value); setPage(1) }
   async function toggleStatus(id) {
     const response = await apiFetch(`/api/automations/${id}/toggle`, { method: 'PUT' }).catch(() => null)
-    if (!response?.ok) { window.alert('No se pudo cambiar el estado (¿es un borrador sin acciones?)'); return }
+    if (!response?.ok) { setToast('No se pudo cambiar el estado. Si es un borrador, añade al menos una acción antes de activarlo.'); window.setTimeout(() => setToast(''), 3600); return }
     const updated = await response.json().catch(() => null)
     const isActive = updated ? Boolean(updated.isActive) : (automations.find(item => item.id === id)?.status !== 'activa')
     setAutomations(previous => previous.map(item => item.id === id ? { ...item, status: isActive ? 'activa' : 'pausada', rawStatus: updated?.status ?? item.rawStatus } : item))
   }
-  async function deleteAutomation(id) { setOpenMenuId(null); if (!window.confirm('¿Eliminar esta automatización? No se puede deshacer.')) return; const response = await apiFetch(`/api/automations/${id}`, { method: 'DELETE' }).catch(() => null); if (response?.ok) setAutomations(previous => previous.filter(item => item.id !== id)) }
+  async function deleteAutomation(id) {
+    const response = await apiFetch(`/api/automations/${id}`, { method: 'DELETE' }).catch(() => null)
+    if (response?.ok) setAutomations(previous => previous.filter(item => item.id !== id))
+    else { setToast('No se pudo eliminar la automatización.'); window.setTimeout(() => setToast(''), 3600) }
+  }
 
   const mutationsBlocked = loading || ['error', 'disconnected'].includes(dataStatus)
   const metricValue = value => loading || ['error', 'disconnected'].includes(dataStatus) ? '—' : value
@@ -130,8 +137,16 @@ export default function Automatizaciones() {
 
       <div className="automation-table-head"><span>Automatización</span><span>Estado</span><span>Disparador</span><span>Ejecuciones</span><span>Última ejecución</span><span /></div>
       {!paginated.length && <div className="automation-empty"><div><RiFlowChart /></div><strong>{search || filter !== 'Todas' ? 'No hay flujos con estos filtros' : 'Todavía no tienes automatizaciones'}</strong><p>{search || filter !== 'Todas' ? 'Prueba con otra búsqueda o cambia el filtro para ver más resultados.' : 'Crea tu primer flujo y deja que el seguimiento ocurra automáticamente.'}</p><button className="automation-button primary" onClick={() => setShowNewAutomation(true)}><RiAddLine /> Crear automatización</button></div>}
-      <div className="automation-list">{paginated.map((automation, index) => { const active = automation.status === 'activa'; const isDraft = automation.rawStatus === 'draft'; const Icon = automation.Icon; const TriggerIcon = automation.TriggerIcon; return <article className="automation-row" key={automation.id ?? index} onClick={() => navigate(`/automatizaciones/${automation.id}`)}><div className="automation-name"><div className="automation-row-icon" style={{ color: automation.iconColor, background: `${automation.iconBg}22`, borderColor: `${automation.iconBg}55` }}><Icon /></div><div><strong>{automation.name}</strong><p>{automation.desc}</p><div className="automation-tags">{isDraft && <span className="status-draft-badge">Borrador</span>}{automation.tags.map(tag => <span key={tag}>{tag}</span>)}</div></div></div><button className="automation-status" onClick={event => { event.stopPropagation(); toggleStatus(automation.id) }}><span className={active ? 'status-active' : 'status-paused'}>{active ? 'Activa' : 'Pausada'}</span><Toggle active={active} /></button><div className="automation-trigger"><span><TriggerIcon /></span>{automation.trigger}</div><strong className="automation-runs">{automation.execs}</strong><span className="automation-last">{automation.last}</span><div className="automation-row-menu"><button aria-label={`Más acciones para ${automation.name}`} onClick={event => { event.stopPropagation(); setOpenMenuId(value => value === automation.id ? null : automation.id) }}><RiMoreLine /></button>{openMenuId === automation.id && <div className="automation-menu" onClick={event => event.stopPropagation()}><button onClick={() => deleteAutomation(automation.id)}><RiDeleteBinLine /> Eliminar</button></div>}</div></article> })}</div>
+      <div className="automation-list">{paginated.map((automation, index) => { const active = automation.status === 'activa'; const isDraft = automation.rawStatus === 'draft'; const Icon = automation.Icon; const TriggerIcon = automation.TriggerIcon; return <article className="automation-row" key={automation.id ?? index} onClick={() => navigate(`/automatizaciones/${automation.id}`)}><div className="automation-name"><div className="automation-row-icon" style={{ color: automation.iconColor, background: `${automation.iconBg}22`, borderColor: `${automation.iconBg}55` }}><Icon /></div><div><strong>{automation.name}</strong><p>{automation.desc}</p><div className="automation-tags">{isDraft && <span className="status-draft-badge">Borrador</span>}{automation.tags.map(tag => <span key={tag}>{tag}</span>)}</div></div></div><button className="automation-status" onClick={event => { event.stopPropagation(); toggleStatus(automation.id) }}><span className={active ? 'status-active' : 'status-paused'}>{active ? 'Activa' : 'Pausada'}</span><Toggle active={active} /></button><div className="automation-trigger"><span><TriggerIcon /></span>{automation.trigger}</div><strong className="automation-runs">{automation.execs}</strong><span className="automation-last">{automation.last}</span><div className="automation-row-menu"><button aria-label={`Más acciones para ${automation.name}`} onClick={event => { event.stopPropagation(); setOpenMenuId(value => value === automation.id ? null : automation.id) }}><RiMoreLine /></button>{openMenuId === automation.id && <div className="automation-menu" onClick={event => event.stopPropagation()}><button onClick={() => { setOpenMenuId(null); setConfirmDeleteId(automation.id) }}><RiDeleteBinLine /> Eliminar</button></div>}</div></article> })}</div>
       <footer className="automation-pagination"><span>Mostrando {filtered.length ? Math.min((page - 1) * perPage + 1, filtered.length) : 0}–{Math.min(page * perPage, filtered.length)} de {filtered.length} automatizaciones</span><div><button disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))}><HiChevronDown /></button>{Array.from({ length: totalPages }, (_, index) => index + 1).slice(0, 3).map(number => <button key={number} className={number === page ? 'active' : ''} onClick={() => setPage(number)}>{number}</button>)}<button disabled={page === totalPages} onClick={() => setPage(value => Math.min(totalPages, value + 1))}><HiChevronDown className="next" /></button></div><span>{perPage} por página</span></footer>
     </section>
+    {toast && <div className="automation-toast" role="status">{toast}</div>}
+    {confirmDeleteId && <ConfirmDialog
+      title="Eliminar automatización"
+      message="Se eliminará esta automatización y dejará de ejecutarse. No se puede deshacer."
+      confirmText="Eliminar"
+      onConfirm={() => deleteAutomation(confirmDeleteId)}
+      onClose={() => setConfirmDeleteId(null)}
+    />}
   </div>
 }

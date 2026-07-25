@@ -133,10 +133,12 @@ function CreateCampaignModal({ onClose, onCreate, creating }) {
   const [name, setName] = useState('')
   const [objective, setObjective] = useState('')
   const [budget, setBudget] = useState('')
+  const [formError, setFormError] = useState('')
 
   function submit(event) {
     event.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim()) { setFormError('Ponle un nombre a la campaña para continuar.'); return }
+    setFormError('')
     onCreate({
       name: name.trim(),
       objective: objective.trim() || undefined,
@@ -147,6 +149,7 @@ function CreateCampaignModal({ onClose, onCreate, creating }) {
   return <div className="campaign-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <form className="campaign-create-modal" onSubmit={submit}>
       <div className="campaign-modal-head"><div><span>Nuevo workspace</span><h2>Crear campaña</h2><p>Define los datos básicos, podrás completar el resto luego.</p></div><button type="button" className="campaign-icon-button" onClick={onClose}><RiCloseLine /></button></div>
+      {formError && <p role="alert" style={{ margin: '0 0 4px', color: '#f87171', fontSize: 12.5 }}>{formError}</p>}
       <div className="campaign-form-grid">
         <label>Nombre de campaña<input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Ej. Reactivación clientes Q2" /></label>
         <label>Objetivo<textarea value={objective} onChange={event => setObjective(event.target.value)} placeholder="¿Qué quieres conseguir?" rows="3" /></label>
@@ -289,7 +292,7 @@ export default function Campaigns() {
           {loading ? <div className="campaign-empty"><strong>Cargando campañas…</strong></div>
             : error ? <div className="campaign-empty"><strong>{error}</strong><button className="campaign-button ghost" onClick={loadCampaigns}>Reintentar</button></div>
             : items.length ? items.map(campaign => <CampaignRow key={campaign.id} campaign={campaign} onOpen={id => navigate(`/campanas/${id}`)} onToggleStatus={toggleStatus} />)
-            : <div className="campaign-empty"><RiSearchLine /><strong>No hemos encontrado campañas</strong><span>Prueba con otro término o crea la primera.</span></div>}
+            : <div className="campaign-empty"><RiSearchLine /><strong>{search.trim() || status !== 'all' ? 'No hemos encontrado campañas' : 'Todavía no tienes campañas'}</strong><span>{search.trim() || status !== 'all' ? 'Prueba con otro término o quita los filtros.' : 'Crea la primera para agrupar tus leads y lanzar llamadas.'}</span><button className="campaign-button primary" onClick={() => setShowCreate(true)}>Crear campaña</button></div>}
         </div>
         <div className="campaigns-list-footer">
           <span>Mostrando {items.length ? (page - 1) * LIMIT + 1 : 0} a {(page - 1) * LIMIT + items.length} de {total} campañas</span>

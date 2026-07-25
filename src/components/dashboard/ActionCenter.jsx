@@ -67,86 +67,6 @@ const ACTION_ICONS = {
   automation: RiSettings3Line,
 }
 
-const DEMO_ACTIONS = [
-  {
-    id: 'demo-new-leads',
-    category: 'leads',
-    title: 'Contactar leads nuevos',
-    evidence: '12 leads nuevos llevan más de 2 horas sin primer contacto.',
-    priority: 'high',
-    impact: 'Alta · evita que se enfríen oportunidades con intención.',
-    owner: 'Equipo comercial',
-    cta: { label: 'Abrir leads', route: '/leads' },
-    status: 'new',
-  },
-  {
-    id: 'demo-stalled-opportunities',
-    category: 'pipeline',
-    title: 'Reactivar oportunidades estancadas',
-    evidence: '4 oportunidades llevan más de 7 días sin actividad en Pipeline.',
-    priority: 'high',
-    impact: 'Alta · recupera conversaciones antes de perder el momento.',
-    owner: 'Responsable de ventas',
-    cta: { label: 'Revisar pipeline', route: '/pipeline' },
-    status: 'new',
-  },
-  {
-    id: 'demo-ad-meeting',
-    category: 'ads',
-    title: 'Revisar campaña con reunión',
-    evidence: 'La campaña ha gastado 180 € y ya ha generado una reunión.',
-    priority: 'medium',
-    impact: 'Alta · identifica qué anuncio merece más presupuesto.',
-    owner: 'Marketing',
-    cta: { label: 'Ver campañas', route: '/campanas' },
-    status: 'accepted',
-  },
-  {
-    id: 'demo-organic-opportunity',
-    category: 'organic',
-    title: 'Capturar oportunidad orgánica',
-    evidence: 'Organic Leads detecta una búsqueda comercial sin landing específica.',
-    priority: 'medium',
-    impact: 'Media · convierte demanda existente en una nueva entrada comercial.',
-    owner: 'Marketing de contenidos',
-    cta: { label: 'Abrir Organic Leads', route: '/organic' },
-    status: 'new',
-  },
-  {
-    id: 'demo-prospects-match',
-    category: 'prospects',
-    title: 'Priorizar prospectos coincidentes',
-    evidence: '6 prospectos coinciden con el cliente ideal y tienen datos de contacto.',
-    priority: 'medium',
-    impact: 'Media · acelera la prospección con una lista ya cualificada.',
-    owner: 'Prospección',
-    cta: { label: 'Ver Prospect Finder', route: '/prospectos' },
-    status: 'new',
-  },
-  {
-    id: 'demo-missed-calls',
-    category: 'calls',
-    title: 'Resolver llamadas perdidas',
-    evidence: 'El agente perdió 3 llamadas por falta de disponibilidad.',
-    priority: 'high',
-    impact: 'Alta · evita que una intención inmediata termine en silencio.',
-    owner: 'Operaciones',
-    cta: { label: 'Revisar llamadas', route: '/llamadas' },
-    status: 'blocked',
-  },
-  {
-    id: 'demo-automation-errors',
-    category: 'automation',
-    title: 'Corregir automatizaciones con errores',
-    evidence: 'Hay 2 automatizaciones detenidas por errores en el último ciclo.',
-    priority: 'high',
-    impact: 'Alta · recupera seguimientos que ahora requieren trabajo manual.',
-    owner: 'Administrador',
-    cta: { label: 'Abrir automatizaciones', route: '/automatizaciones' },
-    status: 'in_progress',
-  },
-]
-
 function normalizeChoice(value, allowed, fallback) {
   const normalized = String(value ?? '').toLowerCase().replace(/\s+/g, '_')
   return allowed.includes(normalized) ? normalized : fallback
@@ -376,7 +296,7 @@ function LoadingState() {
   )
 }
 
-function EmptyState({ hasFilters, onClearFilters, onRetry, onUseDemo }) {
+function EmptyState({ hasFilters, onClearFilters, onRetry }) {
   return (
     <div className="action-center-empty" role="status" aria-live="polite">
       <RiTimeLine aria-hidden="true" />
@@ -389,25 +309,22 @@ function EmptyState({ hasFilters, onClearFilters, onRetry, onUseDemo }) {
       ) : (
         <div className="action-center-empty-actions">
           <button type="button" onClick={onRetry}>Actualizar</button>
-          <button type="button" className="action-center-empty-button-muted" onClick={onUseDemo}>Ver ejemplo</button>
         </div>
       )}
     </div>
   )
 }
 
-function ErrorState({ message, onRetry, onUseDemo }) {
+function ErrorState({ message, onRetry }) {
   return (
     <div className="action-center-error-state" role="alert">
       <RiErrorWarningLine aria-hidden="true" />
       <div>
         <strong>No se pudo sincronizar el Centro de acción</strong>
         <p>{message}</p>
-        <small>Los ejemplos locales no representan datos reales.</small>
       </div>
       <div className="action-center-empty-actions">
         <button type="button" onClick={onRetry}>Reintentar</button>
-        <button type="button" className="action-center-empty-button-muted" onClick={onUseDemo}>Ver ejemplo</button>
       </div>
     </div>
   )
@@ -505,16 +422,6 @@ export default function ActionCenter() {
     setStatusFilter('all')
     setCategoryFilter('all')
     setSearchQuery('')
-  }
-
-  const useDemoData = () => {
-    setActions(DEMO_ACTIONS)
-    setDataSource('demo')
-    setRequestState('success')
-    hasLoadedRef.current = true
-    setError(null)
-    setLastUpdated(null)
-    setFeedback('Mostrando ejemplos locales; no son datos reales.')
   }
 
   const handleStatusChange = async (action, operation) => {
@@ -663,8 +570,8 @@ export default function ActionCenter() {
       </div>
 
       {isLoading && actions.length === 0 ? <LoadingState /> : null}
-      {!isLoading && error && actions.length === 0 ? <ErrorState message={getErrorMessage(error)} onRetry={loadActions} onUseDemo={useDemoData} /> : null}
-      {!isLoading && !error && actions.length === 0 ? <EmptyState hasFilters={hasFilters} onClearFilters={clearFilters} onRetry={loadActions} onUseDemo={useDemoData} /> : null}
+      {!isLoading && error && actions.length === 0 ? <ErrorState message={getErrorMessage(error)} onRetry={loadActions} /> : null}
+      {!isLoading && !error && actions.length === 0 ? <EmptyState hasFilters={hasFilters} onClearFilters={clearFilters} onRetry={loadActions} /> : null}
       {!isLoading && actions.length > 0 && filteredActions.length > 0 ? (
         <div className={`action-center-grid${isRefreshing ? ' action-center-grid-refreshing' : ''}`} aria-live="polite">
           {filteredActions.map(action => (
@@ -672,7 +579,7 @@ export default function ActionCenter() {
           ))}
         </div>
       ) : null}
-      {!isLoading && !error && actions.length > 0 && filteredActions.length === 0 ? <EmptyState hasFilters onClearFilters={clearFilters} onRetry={loadActions} onUseDemo={useDemoData} /> : null}
+      {!isLoading && !error && actions.length > 0 && filteredActions.length === 0 ? <EmptyState hasFilters onClearFilters={clearFilters} onRetry={loadActions} /> : null}
     </section>
   )
 }

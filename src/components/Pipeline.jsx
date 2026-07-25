@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api'
 import { DEMO_MODE } from '../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import DataStatusBanner from './ui/DataStatusBanner'
+import ConfirmDialog from './ui/ConfirmDialog'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   PieChart, Pie, Cell, Tooltip, CartesianGrid,
@@ -579,6 +580,7 @@ export default function Pipeline() {
   const [acciones, setAcciones]       = useState([])
   const [draggingId, setDraggingId]   = useState(null)
   const [dragError, setDragError]     = useState('')
+  const [lostPrompt, setLostPrompt]   = useState(null)
   const [dataStatus, setDataStatus]   = useState('loading')
   const [dataError, setDataError]     = useState('')
 
@@ -694,14 +696,14 @@ export default function Pipeline() {
     const opp = opps.find(o => o.id === oppId)
     if (!opp || opp.stage === targetStageId) return
 
-    let reason
     if (targetStageId === 'closed_lost') {
-      reason = window.prompt('Motivo de la pérdida (obligatorio):')
-      if (!reason || !reason.trim()) return
-      reason = reason.trim()
+      setLostPrompt({ oppId, targetStageId, previousStage: opp.stage })
+      return
     }
+    await applyStageMove(oppId, targetStageId, opp.stage)
+  }
 
-    const previousStage = opp.stage
+  async function applyStageMove(oppId, targetStageId, previousStage, reason) {
     setDragError('')
     setOpps(prev => prev.map(o => (o.id === oppId ? { ...o, stage: targetStageId } : o)))
 
@@ -867,6 +869,15 @@ export default function Pipeline() {
       </div>
       </>
       )}
+      {lostPrompt && <ConfirmDialog
+        title="Marcar como perdida"
+        message="Indica por qué se perdió esta oportunidad. Queda registrado en su historial."
+        confirmText="Marcar como perdida"
+        promptLabel="Motivo de la pérdida"
+        promptPlaceholder="Ej. precio, competencia, sin presupuesto…"
+        onConfirm={reason => applyStageMove(lostPrompt.oppId, lostPrompt.targetStageId, lostPrompt.previousStage, reason)}
+        onClose={() => setLostPrompt(null)}
+      />}
     </div>
   )
 }
