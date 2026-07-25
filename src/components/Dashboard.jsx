@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { GridLayout } from 'react-grid-layout'
 import {
   RiPhoneLine, RiGroupLine, RiCalendarLine, RiPercentLine,
@@ -11,6 +12,7 @@ import { DEMO_MODE, getApiErrorMessage, isNonEmptyPayload } from '../lib/dataMod
 import ExportDropdown from './ui/ExportDropdown'
 import DataStatusBanner from './ui/DataStatusBanner'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
+import { useAuth } from '../contexts/AuthContext'
 import { ALL_WIDGET_IDS, DEFAULT_COLS, GRID_WIDGET_IDS, KPI_WIDGET_IDS, KPI_INDEX_MAP } from '../dashboardConfig'
 import KPICard from './KPICard'
 import EditModeButton from './dashboard/EditModeButton'
@@ -83,6 +85,15 @@ const MOCK_KPI = [
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { t, locale } = useI18n()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const [agentCount, setAgentCount] = useState(null)
+
+  useEffect(() => {
+    apiFetch('/api/agents').then(r => r.ok ? r.json() : null).then(data => {
+      setAgentCount(Array.isArray(data) ? data.length : null)
+    }).catch(() => {})
+  }, [])
   const [kpi, setKpi] = useState(
     DEMO_MODE
       ? KPI_BASE.map((k, i) => ({ ...k, ...MOCK_KPI[i], image: KPI_IMAGES[i] }))
@@ -200,7 +211,7 @@ export default function Dashboard() {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
         <div className="dashboard-welcome-copy">
           <span className="dashboard-overline">{t('dashboard.operationsCenter')}</span>
-          <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:'#f1f5f9' }}>{locale === 'en' ? 'Hello, Sales Team 👋' : 'Hola, Equipo Comercial 👋'}</h1>
+          <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:'#f1f5f9' }}>{locale === 'en' ? `Hello, ${user?.name || 'Sales Team'} 👋` : `Hola, ${user?.name || 'Equipo Comercial'} 👋`}</h1>
           <p style={{ margin:'3px 0 0', fontSize:12.5, color:'#4b5563' }}>{t('dashboard.todaySummary')}</p>
         </div>
         <div className="dashboard-welcome-art"><img src={dashboardOrbit} alt="" /><span className={`dashboard-data-status dashboard-data-status-${dataSource}`}><i /> {dataStatusLabel}</span></div><div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
@@ -229,6 +240,30 @@ export default function Dashboard() {
             : dataError}
         onRetry={dataSource === 'disconnected' || dataSource === 'error' ? () => setReloadKey(key => key + 1) : undefined}
       />
+
+      {(() => {
+        if (agentCount === null || (dataSource !== 'live' && dataSource !== 'empty')) return null
+        const steps = [
+          { label: 'Crea tu primer agente', hint: 'Configura la voz que llamará por ti', to: '/agentes', done: agentCount > 0 },
+          { label: 'Importa tus leads', hint: 'Sube tu CSV o añade contactos a mano', to: '/leads', done: (stats.totalLeads ?? 0) > 0 },
+          { label: 'Lanza tu primera campaña', hint: 'Agrupa tus leads y actívala', to: '/campanas', done: (stats.activeCampaigns ?? 0) > 0 },
+        ]
+        if (steps.every(step => step.done)) return null
+        return (
+          <section aria-label="Primeros pasos" style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:14, padding:'18px 20px' }}>
+            <p style={{ margin:'0 0 3px', fontSize:14.5, fontWeight:800, color:'#f1f5f9' }}>Empieza aquí</p>
+            <p style={{ margin:'0 0 14px', fontSize:12, color:'#6b7280' }}>Tres pasos y tu agente de IA hará la primera llamada.</p>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10 }}>
+              {steps.map((step, index) => (
+                <button key={step.label} onClick={() => navigate(step.to)} style={{ display:'flex', alignItems:'center', gap:12, textAlign:'left', padding:'13px 14px', borderRadius:11, cursor:'pointer', background: step.done ? '#0b1512' : '#111827', border: `1px solid ${step.done ? '#10b98135' : '#1e2433'}`, fontFamily:'inherit' }}>
+                  <span style={{ width:28, height:28, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, background: step.done ? '#10b98120' : '#4f46e520', color: step.done ? '#10b981' : '#a78bfa', border: `1px solid ${step.done ? '#10b98140' : '#4f46e540'}` }}>{step.done ? '✓' : index + 1}</span>
+                  <span><strong style={{ display:'block', fontSize:13, color: step.done ? '#6b7280' : '#e2e8f0', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</strong><small style={{ fontSize:11.5, color:'#4b5563' }}>{step.done ? 'Completado' : step.hint}</small></span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )
+      })()}
 
       {/* Action center: turns cross-module signals into the next commercial action. */}
       <ActionCenter />

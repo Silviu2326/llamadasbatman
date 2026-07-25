@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   RiSettings4Line, RiUserLine, RiGroupLine, RiShieldLine,
   RiRobot2Line, RiPhoneLine, RiFlowChart, RiFileTextLine,
@@ -16,37 +17,16 @@ import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n'
 
 // ── Nav structure ─────────────────────────────────────────────────────────────
+// ponytail: solo apartados con pantalla real; el resto navega a su página o no existe aún
 const NAV = [
   { section: 'GENERAL', items: [
     { id: 'perfil',     Icon: RiBuilding2Line,  label: 'Perfil de la empresa' },
     { id: 'miperfil',   Icon: RiUserLine,       label: 'Mi perfil' },
-    { id: 'usuarios',   Icon: RiGroupLine,      label: 'Usuarios y equipos' },
-    { id: 'roles',      Icon: RiShieldLine,     label: 'Roles y permisos' },
   ]},
   { section: 'PLATAFORMA', items: [
-    { id: 'agentes',    Icon: RiRobot2Line,     label: 'Agentes IA' },
-    { id: 'telefonos',  Icon: RiPhoneLine,      label: 'Números de teléfono' },
-    { id: 'integ',      Icon: RiDatabase2Line,  label: 'Integraciones' },
-    { id: 'api',        Icon: RiCodeBoxLine,    label: 'API y webhooks' },
-    { id: 'autos',      Icon: RiFlowChart,      label: 'Automatizaciones' },
-    { id: 'vars',       Icon: RiFileTextLine,   label: 'Variables y campos' },
-    { id: 'objetivos',  Icon: RiBarChartLine,   label: 'Objetivos' },
-  ]},
-  { section: 'COMUNICACIÓN', items: [
-    { id: 'plantillas', Icon: RiFileTextLine,   label: 'Plantillas de mensaje' },
-    { id: 'email',      Icon: RiMailLine,       label: 'Email y notificaciones' },
-    { id: 'recordat',   Icon: RiBellLine,       label: 'Recordatorios' },
-    { id: 'calendarios',Icon: RiCalendarLine,   label: 'Calendarios' },
-  ]},
-  { section: 'SEGURIDAD', items: [
-    { id: 'seguridad',  Icon: RiShieldLine,     label: 'Seguridad y acceso' },
-    { id: 'sso',        Icon: RiKeyLine,        label: 'SSO y autenticación' },
-    { id: 'auditoria',  Icon: RiClipboardLine,  label: 'Auditoría' },
-  ]},
-  { section: 'FACTURACIÓN', items: [
-    { id: 'plan',       Icon: RiBankCardLine, label: 'Plan y uso' },
-    { id: 'factura',    Icon: RiReceiptLine,    label: 'Facturación' },
-    { id: 'pagos',      Icon: RiBankCardLine, label: 'Métodos de pago' },
+    { id: 'agentes',    Icon: RiRobot2Line,     label: 'Agentes IA', to: '/agentes' },
+    { id: 'autos',      Icon: RiFlowChart,      label: 'Automatizaciones', to: '/automatizaciones' },
+    { id: 'email',      Icon: RiMailLine,       label: 'Email marketing', to: '/email-marketing' },
   ]},
 ]
 
@@ -162,6 +142,7 @@ function UsageBar({ label, value, max, pct, color }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Configuracion() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState('')
@@ -355,15 +336,6 @@ export default function Configuracion() {
           </h1>
           <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#6b7280' }}>{locale === 'en' ? 'Manage your account, personalize the platform and configure team preferences.' : 'Administra tu cuenta, personaliza la plataforma y configura las preferencias de tu equipo.'}</p>
         </div>
-        {/* Search */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <RiSearchLine style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#4b5563', width: 14, height: 14 }} />
-          <input
-            placeholder={locale === 'en' ? 'Search settings…' : 'Buscar en configuración...'}
-            style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10, padding: '9px 48px 9px 34px', color: '#9ca3af', fontSize: 13, outline: 'none', width: 250 }}
-          />
-          <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10.5, color: '#4b5563', background: '#1e2433', borderRadius: 4, padding: '2px 5px', fontFamily: 'monospace' }}>⌘K</span>
-        </div>
       </div>
 
       {/* ── 3-column layout ── */}
@@ -380,7 +352,7 @@ export default function Configuracion() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setActiveNav(item.id)}
+                    onClick={() => item.to ? navigate(item.to) : setActiveNav(item.id)}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                       padding: '7px 14px', border: 'none', cursor: 'pointer',

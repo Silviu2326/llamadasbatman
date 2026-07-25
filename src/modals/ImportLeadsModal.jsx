@@ -15,6 +15,8 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [job, setJob] = useState(null)
+  const [newCampaignName, setNewCampaignName] = useState('')
+  const [creatingCampaign, setCreatingCampaign] = useState(false)
   const pollRef = useRef(null)
 
   useEffect(() => {
@@ -37,6 +39,23 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
     }, POLL_MS)
     return () => clearTimeout(pollRef.current)
   }, [job])
+
+  async function createCampaignInline() {
+    setCreatingCampaign(true)
+    setError(null)
+    try {
+      const res = await apiFetch('/api/campaigns', { method: 'POST', body: JSON.stringify({ name: newCampaignName.trim() }) })
+      if (!res.ok) throw new Error()
+      const created = await res.json()
+      setCampaigns([created])
+      setCampaignId(created.id)
+      setNewCampaignName('')
+    } catch {
+      setError('No se pudo crear la campaña. Inténtalo de nuevo.')
+    } finally {
+      setCreatingCampaign(false)
+    }
+  }
 
   async function handleSubmit() {
     if (job) { onSuccess ? onSuccess(job) : onClose(); return }
@@ -77,12 +96,29 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
 
       {!job && <>
         <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>{t('modal.expectedColumns')}</p>
-        <FormSelect
+        {campaigns.length > 0 && <FormSelect
           label={t('modal.campaign')}
           value={campaignId}
           onChange={e => setCampaignId(e.target.value)}
           options={campaigns.map(c => ({ value: c.id, label: c.name }))}
-        />
+        />}
+        {campaigns.length === 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <p style={{ margin: 0, fontSize: 12.5, color: '#94a3b8' }}>Todavía no tienes campañas. Crea una aquí mismo para agrupar estos leads:</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={newCampaignName}
+              onChange={e => setNewCampaignName(e.target.value)}
+              placeholder="Nombre de la campaña (ej. Leads web julio)"
+              style={{ flex: 1, background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '8px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none' }}
+            />
+            <button
+              type="button"
+              disabled={!newCampaignName.trim() || creatingCampaign}
+              onClick={createCampaignInline}
+              style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: !newCampaignName.trim() || creatingCampaign ? 'not-allowed' : 'pointer', opacity: !newCampaignName.trim() || creatingCampaign ? 0.6 : 1 }}
+            >{creatingCampaign ? 'Creando…' : 'Crear'}</button>
+          </div>
+        </div>}
         <input
           type="file"
           accept=".csv,text/csv"

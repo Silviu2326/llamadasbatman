@@ -27,7 +27,7 @@ function Transcript({ call, query, onlyAgent }) {
   const { t } = useI18n()
   const messages = call.transcript.filter(item => (!onlyAgent || item.agent) && (!query || item.text.toLowerCase().includes(query.toLowerCase())))
   if (!messages.length) return <div className="detail-empty-state"><RiSearchLine /><strong>{call.transcript.length ? t('common.noResults') : t('details.noRecordingText')}</strong><span>{call.transcript.length ? t('common.retry') : t('details.noRecordingText')}</span></div>
-  if (!messages.length) return <div className="detail-empty-state"><RiSearchLine /><strong>{call.transcript.length ? 'No hay coincidencias' : 'No hay transcripción disponible'}</strong><span>{call.transcript.length ? 'Prueba otro término.' : 'La API todavía no ha proporcionado una transcripción para esta llamada.'}</span></div>
+  if (!messages.length) return <div className="detail-empty-state"><RiSearchLine /><strong>{call.transcript.length ? 'No hay coincidencias' : 'No hay transcripción disponible'}</strong><span>{call.transcript.length ? 'Prueba otro término.' : 'La transcripción estará disponible cuando termine de procesarse la llamada.'}</span></div>
   return <div className="detail-transcript">{messages.map((message, index) => <article className={`detail-message ${message.agent ? 'agent' : 'contact'}`} key={`${message.time}-${index}`}>{message.agent && <div className="detail-message-avatar">IA</div>}<div className="detail-message-body"><div className="detail-message-bubble"><p>{message.text}</p></div><span>{message.time} · {message.agent ? call.agent : call.name}</span></div>{!message.agent && <Avatar call={call} size={28} />}</article>)}</div>
 }
 

@@ -15,6 +15,7 @@ import {
   RiWifiLine,
 } from 'react-icons/ri'
 import voiceOrbImage from '../assets/voice/voice-orb.png'
+import { apiFetch } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import './voice-test.css'
 import { useI18n } from '../i18n'
@@ -150,7 +151,14 @@ export default function VoiceTestPage() {
   const navigate = useNavigate()
   const { token } = useAuth()
   const [agentId, setAgentId] = useState('')
+  const [agentOptions, setAgentOptions] = useState([])
   const [phase, setPhase] = useState('idle')
+
+  useEffect(() => {
+    apiFetch('/api/agents').then(r => r.ok ? r.json() : []).then(data => {
+      if (Array.isArray(data)) setAgentOptions(data.map(agent => ({ id: agent.id, name: agent.name })))
+    }).catch(() => {})
+  }, [])
   const [transcript, setTranscript] = useState([])
   const [partial, setPartial] = useState('')
   const [volume, setVolume] = useState(0)
@@ -277,7 +285,7 @@ export default function VoiceTestPage() {
           }
         } catch {}
       }
-      socket.onerror = () => addLine('sistema', 'Error de conexión · comprueba el backend en :3000')
+      socket.onerror = () => addLine('sistema', 'No se pudo conectar con el servicio de voz. Inténtalo de nuevo en unos segundos.')
       socket.onclose = () => { addLine('sistema', 'Sesión cerrada'); setPhase('idle') }
 
       worklet.port.onmessage = event => {
@@ -342,7 +350,7 @@ export default function VoiceTestPage() {
         <section className="voice-panel voice-config-panel">
           <div className="voice-panel-heading"><div><span className="voice-panel-kicker"><RiPulseLine /> {t('voiceTest.configuration')}</span><h2>{t('voiceTest.session')}</h2></div><RiInformationLine className="voice-panel-heading-icon" /></div>
           <p className="voice-panel-intro">{t('voiceTest.intro')}</p>
-          <label className="voice-field"><span>Agent ID <em>{t('voiceTest.optional')}</em></span><input value={agentId} onChange={event => setAgentId(event.target.value)} disabled={isLive} placeholder={t('voiceTest.agentPlaceholder')} /></label>
+          <label className="voice-field"><span>Agente <em>{t('voiceTest.optional')}</em></span><select value={agentId} onChange={event => setAgentId(event.target.value)} disabled={isLive} style={{ width: '100%' }}><option value="">Agente por defecto</option>{agentOptions.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>
           <div className="voice-config-note"><RiShieldCheckLine /><span>{t('voiceTest.privateSession')}</span></div>
         </section>
 
@@ -368,7 +376,7 @@ export default function VoiceTestPage() {
             {partial && <article className="voice-turn voice-turn--partial"><div className="voice-turn-head"><span className="voice-turn-time">{fmtTs(Date.now() - startRef.current)}</span><span className="voice-turn-role">Tú</span><span className="voice-turn-number">en curso…</span></div><p className="voice-turn-copy">{partial}<i className="voice-cursor" /></p></article>}
             <div ref={transcriptEndRef} />
           </div>
-          <footer className="voice-conversation-footer"><span><b>STT</b> Deepgram Flux</span><span><b>LLM</b> Cerebras</span><span><b>TTS</b> ElevenLabs</span><span className="voice-footer-note"><RiShieldCheckLine /> {t('voiceTest.private')}</span></footer>
+          <footer className="voice-conversation-footer"><span className="voice-footer-note"><RiShieldCheckLine /> {t('voiceTest.private')}</span></footer>
         </section>
 
         <section className="voice-diagnostics-grid" aria-label={t('voiceTest.diagnostics')}>
@@ -379,7 +387,7 @@ export default function VoiceTestPage() {
         </section>
 
         <section className="voice-telemetry-grid">
-          <div className="voice-panel voice-latency-panel"><div className="voice-panel-heading"><div><span className="voice-panel-kicker"><RiTimeLine /> {t('voiceTest.performance')}</span><h2>{t('voiceTest.lastTurnLatency')}</h2></div><span className="voice-panel-inline-status"><i /> {latency ? t('voiceTest.updated') : t('voiceTest.waiting')}</span></div>{latency ? <><LatencyBar label="LLM · EOT → response" ms={latency.llm} /><LatencyBar label="TTS · response → first audio" ms={latency.tts} /><LatencyBar label="Total RTT" ms={latency.total} maxMs={3000} /></> : <div className="voice-no-data"><RiTimeLine /><span>{t('voiceTest.realtimeMetrics')}</span></div>}</div>
+          <div className="voice-panel voice-latency-panel"><div className="voice-panel-heading"><div><span className="voice-panel-kicker"><RiTimeLine /> {t('voiceTest.performance')}</span><h2>{t('voiceTest.lastTurnLatency')}</h2></div><span className="voice-panel-inline-status"><i /> {latency ? t('voiceTest.updated') : t('voiceTest.waiting')}</span></div>{latency ? <><LatencyBar label="El agente piensa la respuesta" ms={latency.llm} /><LatencyBar label="Empieza a hablar" ms={latency.tts} /><LatencyBar label="Respuesta completa" ms={latency.total} maxMs={3000} /></> : <div className="voice-no-data"><RiTimeLine /><span>{t('voiceTest.realtimeMetrics')}</span></div>}</div>
           <div className="voice-panel voice-session-panel"><div className="voice-panel-heading"><div><span className="voice-panel-kicker"><RiSignalWifi3Line /> {t('voiceTest.signals')}</span><h2>{t('voiceTest.sessionStatus')}</h2></div><button className="voice-icon-button" aria-label={t('voiceTest.reset')} onClick={stop}><RiRefreshLine /></button></div><div className="voice-session-list"><div><span>{t('voiceTest.activeTime')}</span><strong>{elapsed}s</strong></div><div><span>{t('voiceTest.turns')}</span><strong>{turns}</strong></div><div><span>{t('voiceTest.interruptions')}</span><strong className={interrupts > 0 ? 'is-warning' : ''}>{interrupts}</strong></div><div><span>{t('voiceTest.microphone')}</span><strong>{volume}%</strong></div></div><div className="voice-meter"><span><i style={{ width: `${volume}%` }} /></span><small>{t('voiceTest.inputLevel')}</small></div></div>
         </section>
 
@@ -387,6 +395,6 @@ export default function VoiceTestPage() {
       </main>
     </section>
 
-    {transcript.some(line => line.role === 'sistema' && line.text.toLowerCase().includes('error')) && <div className="voice-inline-alert" role="status"><RiCloseLine /> Comprueba que el backend esté disponible en el puerto 3000.</div>}
+    {transcript.some(line => line.role === 'sistema' && line.text.toLowerCase().includes('error')) && <div className="voice-inline-alert" role="status"><RiCloseLine /> El servicio de voz no responde. Espera unos segundos y vuelve a intentarlo; si persiste, contacta con soporte.</div>}
   </div>
 }

@@ -71,7 +71,7 @@ export default function AlertasIA() {
         message={status === 'demo'
           ? 'Ejemplos locales; no representan actividad de tu cuenta.'
           : status === 'empty'
-            ? 'La API está conectada, pero todavía no hay actividad registrada.'
+            ? 'Todo listo — la actividad aparecerá aquí cuando empiecen las llamadas.'
             : error}
         onRetry={loadActivity}
         compact
