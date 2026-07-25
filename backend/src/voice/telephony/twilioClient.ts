@@ -1,44 +1,72 @@
-import twilio from 'twilio'
+import { normalizeE164 } from '../compliance'
+import { createMediaStreamToken } from './streamAuth'
+import {
+  createTwilioClient,
+  getTwilioIntegrationConfig,
+  twilioWebhookUrl,
+} from '../../services/twilioIntegration.service'
 
-let _client: twilio.Twilio | null = null
-
-function getClient(): twilio.Twilio | null {
-  if (_client) return _client
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  if (!sid || !token) return null
-  _client = twilio(sid, token)
-  return _client
+/**
+ * Compatibility helper for callers without tenant context. Org-bound paths
+ * must pass the resolved per-organization base URL instead of relying on this
+ * environment fallback.
+ */
+export function publicWebhookUrl(path: string, query = '', baseUrl?: string): string {
+  const configured = baseUrl?.trim() || process.env.TWILIO_WEBHOOK_BASE_URL?.trim() || process.env.PUBLIC_HOST?.trim()
+  if (!configured) throw new Error('TWILIO_WEBHOOK_BASE_URL o PUBLIC_HOST debe configurarse en producción')
+  const value = /^https?:\/\//i.test(configured)
+    ? configured
+    : `${configured.startsWith('localhost') ? 'http' : 'https'}://${configured}`
+  return twilioWebhookUrl(value, path, query)
 }
+export async function buildStreamTwiml(params: Record<string, string> = {}): Promise<string> {
+  const config = await getTwilioIntegrationConfig(params.orgId)
+  if (!config) throw new Error('TWILIO_ORG_CREDENTIAL_MISSING')
+  const streamUrl = config.webhookBaseUrl.replace(/^http/i, 'ws')
 
-export function buildStreamTwiml(params: Record<string, string> = {}): string {
-  const host = process.env.PUBLIC_HOST ?? 'localhost:3000'
+  // Media Stream upgrades do not carry Twilio's regular webhook signature.
+  // Bind the stream to the validated call context with a short-lived signed
+  // capability. The signing secret follows the same tenant credential as the
+  // Twilio webhook, with an optional independent per-org secret.
+  const streamToken = createMediaStreamToken({
+    callSid: params.callSid ?? '',
+    orgId: params.orgId ?? '',
+    agentId: params.agentId ?? '',
+    campaignId: params.campaignId ?? '',
+    leadId: params.leadId ?? '',
+    phone: params.phone ?? '',
+    businessType: params.businessType ?? '',
+    businessName: params.businessName ?? '',
+  }, config.voiceStreamSecret ?? config.authToken)
+
   const paramTags = Object.entries(params)
-    .filter(([, v]) => v)
-    .map(([k, v]) => `\n      <Parameter name="${k}" value="${v}" />`)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `\n      <Parameter name="${escapeXml(key)}" value="${escapeXml(value)}" />`)
     .join('')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <Stream url="wss://${host}/media">${paramTags}
+    <Stream url="${streamUrl}/media?token=${encodeURIComponent(streamToken)}">${paramTags}
     </Stream>
   </Connect>
 </Response>`
 }
 
-function selectCallerId(toNumber: string): string {
+function escapeXml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[character] ?? character))
+}
+
+function selectCallerId(toNumber: string, config: { fromNumber?: string; mxNumbers: Record<string, string> }): string {
   const strategy = process.env.CALLER_ID_STRATEGY ?? 'static'
-  const from = process.env.TWILIO_FROM_NUMBER ?? ''
+  const from = config.fromNumber ?? ''
   if (strategy !== 'dynamic') return from
 
-  try {
-    const mx = JSON.parse(process.env.TWILIO_MX_NUMBERS ?? '{}')
-    if (toNumber.startsWith('+52') && toNumber.length >= 5) {
-      const lada2 = toNumber.slice(3, 5)
-      const lada3 = toNumber.slice(3, 6)
-      return mx[lada2] ?? mx[lada3] ?? from
-    }
-  } catch {}
+  const mx = config.mxNumbers
+  if (toNumber.startsWith('+52') && toNumber.length >= 5) {
+    const lada2 = toNumber.slice(3, 5)
+    const lada3 = toNumber.slice(3, 6)
+    return mx[lada2] ?? mx[lada3] ?? from
+  }
   return from
 }
 
@@ -51,13 +79,17 @@ export async function startOutboundCall(params: {
   agentId: string
   leadId: string
 }): Promise<{ status: string; sid?: string; to: string }> {
-  const client = getClient()
-  if (!client) return { status: 'offline', to: params.toNumber }
+  const toNumber = normalizeE164(params.toNumber)
+  if (!toNumber) return { status: 'invalid_phone', to: params.toNumber }
 
-  const from = selectCallerId(params.toNumber)
-  const host = process.env.PUBLIC_HOST ?? 'localhost:3000'
+  const config = await getTwilioIntegrationConfig(params.orgId)
+  if (!config) return { status: 'offline', to: params.toNumber }
+  const client = createTwilioClient(config)
+  const from = selectCallerId(toNumber, config)
+  if (!from) return { status: 'offline', to: params.toNumber }
+
   const qs = new URLSearchParams({
-    phone: params.toNumber,
+    phone: toNumber,
     orgId: params.orgId,
     campaignId: params.campaignId,
     agentId: params.agentId,
@@ -67,23 +99,28 @@ export async function startOutboundCall(params: {
   }).toString()
 
   const call = await client.calls.create({
-    to: params.toNumber,
+    to: toNumber,
     from,
-    url: `https://${host}/voice?${qs}`,
+    url: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/voice', qs),
     machineDetection: 'DetectMessageEnd',
     asyncAmd: 'true',
+    asyncAmdStatusCallback: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/amd', qs),
+    asyncAmdStatusCallbackMethod: 'POST',
     record: true,
-    recordingStatusCallback: `https://${host}/api/voice/webhook/recording?${qs}`,
+    recordingStatusCallback: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/recording', qs),
     recordingStatusCallbackEvent: ['completed'],
-    statusCallback: `https://${host}/api/voice/webhook/status?${qs}`,
-    statusCallbackEvent: ['completed'],
+    statusCallback: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/status', qs),
+    statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
   })
-  return { status: 'iniciada', sid: call.sid, to: params.toNumber }
+  return { status: 'iniciada', sid: call.sid, to: toNumber }
 }
 
-export async function transferCall(callSid: string, toNumber: string): Promise<void> {
-  const client = getClient()
-  if (!client) return
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial>${toNumber}</Dial></Response>`
+export async function transferCall(callSid: string, toNumber: string, orgId: string): Promise<void> {
+  const config = await getTwilioIntegrationConfig(orgId)
+  if (!config) return
+  const client = createTwilioClient(config)
+  const normalized = normalizeE164(toNumber)
+  if (!normalized) return
+  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial>${escapeXml(normalized)}</Dial></Response>`
   await client.calls(callSid).update({ twiml })
 }

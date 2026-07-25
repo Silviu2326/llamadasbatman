@@ -11,8 +11,15 @@ async function graphPost(path: string, token: string, body: Record<string, unkno
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`Graph API ${path} failed: ${res.status} ${await res.text()}`)
+  if (!res.ok) throw new Error(`Graph API ${path} failed: ${res.status}: ${await res.text()}`)
   return res.json() as Promise<{ id: string }>
+}
+
+async function graphGet(path: string, token: string, fields: string) {
+  const params = new URLSearchParams({ fields, access_token: token })
+  const res = await fetch(`${GRAPH_URL}${path}?${params.toString()}`)
+  if (!res.ok) throw new Error(`Graph API ${path} failed: ${res.status}: ${await res.text()}`)
+  return res.json() as Promise<Record<string, unknown>>
 }
 
 interface CampaignAdAssets {
@@ -34,11 +41,21 @@ interface CampaignAdAssets {
  * una cuenta de Meta de prueba disponible.
  */
 export async function publishCampaign(orgId: string, campaignId: string) {
+  const publicBaseUrl = process.env.APP_URL
+  if (!publicBaseUrl) throw new Error('APP_URL pública no configurada')
+  const parsedPublicUrl = new URL(publicBaseUrl)
+  if (['localhost', '127.0.0.1', '::1'].includes(parsedPublicUrl.hostname)) {
+    throw new Error('APP_URL debe ser una URL pública antes de publicar en Meta')
+  }
   const campaign = await prisma.campaign.findFirst({ where: { id: campaignId, orgId } })
   if (!campaign) throw new Error('Campaign not found')
 
   const metaAccount = await prisma.metaAdAccount.findFirst({ where: { orgId, status: 'connected' } })
   if (!metaAccount) throw new Error('No hay cuenta de Meta conectada para esta organización')
+
+  if (!metaAccount.metaPageId) {
+    throw new Error('La cuenta de Meta no tiene una página conectada para crear el anuncio')
+  }
 
   const token = await getDecryptedToken(orgId)
   if (!token) throw new Error('Token de Meta no disponible')
@@ -47,6 +64,16 @@ export async function publishCampaign(orgId: string, campaignId: string) {
   if (!assets) throw new Error('Campaign sin assets resueltos — corré el wizard primero')
 
   const adAccountId = metaAccount.metaAdAccountId
+
+  // Hacer la operación idempotente evita duplicar campañas si el navegador
+  // reintenta la petición después de un timeout.
+  if (campaign.metaCampaignId && campaign.metaAdSetId && campaign.metaAdId) {
+    return {
+      metaCampaignId: campaign.metaCampaignId,
+      metaAdSetId: campaign.metaAdSetId,
+      metaAdId: campaign.metaAdId,
+    }
+  }
 
   const metaCampaign = await graphPost(`/${adAccountId}/campaigns`, token, {
     name: campaign.name,
@@ -67,7 +94,7 @@ export async function publishCampaign(orgId: string, campaignId: string) {
     status: 'PAUSED',
   })
 
-  const landingUrl = `${process.env.APP_URL ?? 'http://localhost:5173'}/l/${campaign.landingSlug}`
+  const landingUrl = new URL(`/l/${campaign.landingSlug}`, parsedPublicUrl).toString()
   const linkData: Record<string, unknown> = {
     message: assets.adCopy,
     link: landingUrl,
@@ -121,4 +148,61 @@ export async function activateCampaign(orgId: string, campaignId: string) {
   })
 
   await enqueueAdReviewPoll(orgId, campaignId)
+}
+
+export async function pauseCampaign(orgId: string, campaignId: string) {
+  const campaign = await prisma.campaign.findFirst({ where: { id: campaignId, orgId } })
+  if (!campaign) throw new Error('Campaign not found')
+  if (!campaign.metaCampaignId && !campaign.metaAdSetId && !campaign.metaAdId) {
+    await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'paused', adStatus: 'paused' } })
+    return { ok: true, remote: false }
+  }
+
+  const token = await getDecryptedToken(orgId)
+  if (!token) throw new Error('Token de Meta no disponible')
+
+  // Pausar los tres niveles deja la intención explícita y permite reactivar
+  // desde el mismo panel aunque Meta conserve el estado de los hijos.
+  for (const id of [campaign.metaAdId, campaign.metaAdSetId, campaign.metaCampaignId]) {
+    if (id) await graphPost(`/${id}`, token, { status: 'PAUSED' })
+  }
+
+  await prisma.campaign.update({
+    where: { id: campaignId },
+    data: { status: 'paused', adStatus: 'paused' },
+  })
+  return { ok: true, remote: true }
+}
+
+export async function getRemoteStatus(orgId: string, campaignId: string) {
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, orgId },
+    select: { id: true, metaCampaignId: true, metaAdSetId: true, metaAdId: true },
+  })
+  if (!campaign) throw new Error('Campaign not found')
+  const token = await getDecryptedToken(orgId)
+  if (!token) throw new Error('Token de Meta no disponible')
+
+  const [remoteCampaign, remoteAdSet, remoteAd] = await Promise.all([
+    campaign.metaCampaignId ? graphGet(`/${campaign.metaCampaignId}`, token, 'status,effective_status') : null,
+    campaign.metaAdSetId ? graphGet(`/${campaign.metaAdSetId}`, token, 'status,effective_status') : null,
+    campaign.metaAdId ? graphGet(`/${campaign.metaAdId}`, token, 'status,effective_status') : null,
+  ])
+
+  const effectiveStatus = String(remoteAd?.effective_status ?? remoteCampaign?.effective_status ?? 'UNKNOWN').toLowerCase()
+  const adStatus = effectiveStatus === 'active'
+    ? 'active'
+    : effectiveStatus === 'paused'
+      ? 'paused'
+      : effectiveStatus === 'disapproved'
+        ? 'disapproved'
+        : 'pending_review'
+
+  await prisma.campaign.update({ where: { id: campaignId }, data: { adStatus } })
+  return {
+    campaign: remoteCampaign,
+    adSet: remoteAdSet,
+    ad: remoteAd,
+    adStatus,
+  }
 }

@@ -2,8 +2,10 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RiArrowRightLine } from 'react-icons/ri'
 import { card, AGENT_BG } from './dashboardData'
+import { useI18n } from '../../i18n'
 
 export default function AgentesTable({ agents: agentsProp }) {
+  const { locale } = useI18n()
   const navigate = useNavigate()
   const displayAgents = agentsProp
     ? agentsProp.map((a, i) => ({
@@ -18,15 +20,15 @@ export default function AgentesTable({ agents: agentsProp }) {
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', height:'100%' }}>
       <h3 style={{ margin:'0 0 14px', fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
-        Top agentes por rendimiento
+        {locale === 'en' ? 'Top agents by performance' : 'Top agentes por rendimiento'}
       </h3>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 64px 100px', gap:8, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
-        {['Agente','Llamadas','Conversión'].map(h => (
+        {[locale === 'en' ? 'Agent' : 'Agente', locale === 'en' ? 'Calls' : 'Llamadas', locale === 'en' ? 'Conversion' : 'Conversión'].map(h => (
           <span key={h} style={{ fontSize:10.5, color:'#6b7280', fontWeight:600, textTransform:'uppercase', letterSpacing:0.5 }}>{h}</span>
         ))}
       </div>
       {!displayAgents || displayAgents.length === 0
-        ? <p style={{ margin:'12px 0', fontSize:12, color:'#4b5563', textAlign:'center' }}>Sin datos de llamadas por agente</p>
+        ? <p style={{ margin:'12px 0', fontSize:12, color:'#4b5563', textAlign:'center' }}>{locale === 'en' ? 'No call data by agent' : 'Sin datos de llamadas por agente'}</p>
         : displayAgents.map((a, i) => (
           <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 64px 100px', gap:8, alignItems:'center', padding:'10px 0', borderBottom: i<displayAgents.length-1 ? '1px solid #111827' : 'none' }}>
             <div style={{ display:'flex', alignItems:'center', gap:9 }}>
@@ -49,7 +51,7 @@ export default function AgentesTable({ agents: agentsProp }) {
       }
       <div style={{ borderTop:'1px solid #1a2235', marginTop:'auto', paddingTop:10 }}>
         <button onClick={() => navigate('/agentes')} style={{ display:'flex', width:'100%', justifyContent:'space-between', alignItems:'center', background:'none', border:'none', color:'#818cf8', cursor:'pointer', fontSize:12.5, fontWeight:600, padding:0, textShadow:'0 0 8px #818cf880' }}>
-          <span>Ver todos los agentes</span>
+          <span>{locale === 'en' ? 'View all agents' : 'Ver todos los agentes'}</span>
           <RiArrowRightLine style={{ width:15, height:15 }} />
         </button>
       </div>

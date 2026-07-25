@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { RiCloseLine } from 'react-icons/ri'
+import { useI18n } from '../../i18n'
 
 const SIZES = {
   sm: 380,
@@ -8,14 +9,73 @@ const SIZES = {
   xl: 800,
 }
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
 export default function FormModal({ title, children, onClose, onSubmit, submitText = 'Crear', submitDisabled = false, size = 'md' }) {
+  const { t } = useI18n()
+  const modalRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  const id = useId().replaceAll(':', '')
+  const formId = `modal-form-${id}`
+  const titleId = `modal-title-${id}`
+
   useEffect(() => {
-    function handleKey(e) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
+    onCloseRef.current = onClose
   }, [onClose])
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const getFocusableElements = () => Array.from(modalRef.current?.querySelectorAll(FOCUSABLE_SELECTOR) ?? [])
+      .filter(element => element instanceof HTMLElement && !element.hasAttribute('hidden'))
+
+    const focusInitialControl = () => {
+      const modal = modalRef.current
+      if (!modal) return
+      const preferredControl = modal.querySelector('[data-autofocus], [autofocus]')
+      const firstControl = preferredControl instanceof HTMLElement ? preferredControl : getFocusableElements()[0]
+      ;(firstControl ?? modal).focus()
+    }
+
+    const frame = requestAnimationFrame(focusInitialControl)
+    const handleKey = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseRef.current?.()
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const controls = getFocusableElements()
+      if (!controls.length) {
+        event.preventDefault()
+        modalRef.current?.focus()
+        return
+      }
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', handleKey)
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+    }
+  }, [])
 
   return (
     <div
@@ -29,10 +89,16 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
         background: 'rgba(8,12,20,0.88)',
         backdropFilter: 'blur(10px)',
       }}
-      onClick={onClose}
+      onMouseDown={event => {
+        if (event.target === event.currentTarget) onClose()
+      }}
     >
       <div
-        onClick={e => e.stopPropagation()}
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className="fade-up"
         style={{
           width: SIZES[size] ?? SIZES.md,
@@ -47,7 +113,6 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
           overflow: 'hidden',
         }}
       >
-        {/* Header */}
         <div
           style={{
             display: 'flex',
@@ -58,9 +123,11 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
             flexShrink: 0,
           }}
         >
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{title}</h3>
+          <h3 id={titleId} style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{title}</h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t('common.close')}
             style={{
               background: 'transparent',
               border: 'none',
@@ -72,15 +139,14 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
               justifyContent: 'center',
             }}
           >
-            <RiCloseLine style={{ width: 18, height: 18 }} />
+            <RiCloseLine aria-hidden="true" style={{ width: 18, height: 18 }} />
           </button>
         </div>
 
-        {/* Body */}
         <form
-          id="modal-form"
-          onSubmit={e => {
-            e.preventDefault()
+          id={formId}
+          onSubmit={event => {
+            event.preventDefault()
             if (onSubmit) onSubmit()
             else onClose()
           }}
@@ -92,7 +158,6 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
           </div>
         </form>
 
-        {/* Footer */}
         <div
           style={{
             display: 'flex',
@@ -117,11 +182,11 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
               cursor: 'pointer',
             }}
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
-            form="modal-form"
+            form={formId}
             disabled={submitDisabled}
             style={{
               background: 'linear-gradient(90deg,#4f46e5,#7c3aed)',
@@ -136,7 +201,7 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
               boxShadow: '0 0 20px #6366f140',
             }}
           >
-            {submitText}
+            {submitText === 'Crear' ? t('common.create') : submitText}
           </button>
         </div>
       </div>

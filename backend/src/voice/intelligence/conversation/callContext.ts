@@ -1,8 +1,11 @@
 import type { Redis } from 'ioredis'
+import { createProspectState, ProspectState } from '../salesBrain'
 
 export interface AgentConfig {
   softwareId: string
   activo: boolean
+  agentType: string
+  callDirection: string
   identity: { agentName: string; agentGender: string; agentAccent: string }
   product: { companyName: string; productName: string; targetVertical: string; priceMonthly: number; currency: string; currencySymbol: string; marketCountry: string }
   playbook: { strategy: string; scripts: Record<string, string | string[]> }
@@ -22,6 +25,7 @@ export interface CallContext {
   leadId: string
   agentConfig: AgentConfig | null
   prospect: Record<string, unknown>
+  prospectState: ProspectState
   turns: number
   transcript: Array<{ role: string; text: string }>
   transferRequested: boolean
@@ -48,6 +52,7 @@ export function createCallContext(params: Partial<CallContext> & { callSid: stri
     leadId: params.leadId ?? '',
     agentConfig: params.agentConfig ?? null,
     prospect: params.prospect ?? {},
+    prospectState: params.prospectState ?? createProspectState(),
     turns: 0,
     transcript: [],
     transferRequested: false,

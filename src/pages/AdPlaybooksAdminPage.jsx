@@ -5,6 +5,7 @@ import {
   RiDeleteBinLine, RiCheckLine, RiSearchLine, RiBarChartLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
+import { useI18n } from '../i18n'
 
 const EMPTY = {
   vertical: '',
@@ -16,6 +17,7 @@ const EMPTY = {
 }
 
 export default function AdPlaybooksAdminPage() {
+  const { t } = useI18n()
   const [playbooks, setPlaybooks] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
@@ -47,7 +49,7 @@ export default function AdPlaybooksAdminPage() {
       const data = await res.json()
       setPlaybooks(Array.isArray(data) ? data : [])
     } catch {
-      setMessage('No se pudieron cargar las recetas.')
+      setMessage(t('adPlaybooks.loadError'))
     } finally {
       setLoading(false)
     }
@@ -83,10 +85,10 @@ export default function AdPlaybooksAdminPage() {
       if (!res.ok) throw new Error()
       setEditing(null)
       setForm(EMPTY)
-      setMessage('Receta guardada.')
+      setMessage(t('adPlaybooks.saved'))
       await loadPlaybooks()
     } catch {
-      setMessage('No se pudo guardar la receta.')
+      setMessage(t('adPlaybooks.saveError'))
     } finally {
       setSaving(false)
     }
@@ -101,14 +103,14 @@ export default function AdPlaybooksAdminPage() {
       if (!res.ok) throw new Error()
       await loadPlaybooks()
     } catch {
-      setMessage('No se pudo cambiar el estado.')
+      setMessage(t('adPlaybooks.statusError'))
     }
   }
 
   if (loading) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14, background: '#080c14' }}>
-        Cargando…
+        {t('common.loading')}
       </div>
     )
   }
@@ -121,8 +123,8 @@ export default function AdPlaybooksAdminPage() {
             <RiBook2Line style={{ width: 22, height: 22, color: '#fff' }} />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Recetas de anuncios</h1>
-            <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>Playbooks por vertical para el wizard de Meta Ads.</p>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>{t('adPlaybooks.title')}</h1>
+            <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>{t('adPlaybooks.subtitle')}</p>
           </div>
         </div>
         <button
@@ -135,7 +137,7 @@ export default function AdPlaybooksAdminPage() {
             fontSize: 13, fontWeight: 700, cursor: 'pointer',
           }}
         >
-          <RiAddLine style={{ width: 15, height: 15 }} /> Nueva receta
+          <RiAddLine style={{ width: 15, height: 15 }} /> {t('adPlaybooks.new')}
         </button>
       </div>
 
@@ -153,9 +155,9 @@ export default function AdPlaybooksAdminPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 18 }}>
         {[
-          { label: 'Recetas totales', value: kpis.total, color: '#818cf8' },
-          { label: 'Activas', value: kpis.active, color: '#10b981' },
-          { label: 'Inactivas', value: kpis.inactive, color: '#ef4444' },
+          { label: t('adPlaybooks.total'), value: kpis.total, color: '#818cf8' },
+          { label: t('adPlaybooks.active'), value: kpis.active, color: '#10b981' },
+          { label: t('adPlaybooks.inactive'), value: kpis.inactive, color: '#ef4444' },
         ].map(k => (
           <div key={k.label} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px' }}>
             <p style={{ margin: '0 0 6px', fontSize: 11, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase' }}>{k.label}</p>
@@ -169,7 +171,7 @@ export default function AdPlaybooksAdminPage() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar por vertical..."
+          placeholder={t('adPlaybooks.search')}
           style={{ width: '100%', boxSizing: 'border-box', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10, padding: '9px 12px 9px 32px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
         />
       </div>
@@ -180,9 +182,9 @@ export default function AdPlaybooksAdminPage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {playbooks.length === 0 && !editing ? (
-          <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '40px 0' }}>No hay recetas todavía. Creá la primera.</p>
+          <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '40px 0' }}>{t('adPlaybooks.noItems')}</p>
         ) : filteredPlaybooks.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '40px 0' }}>Ninguna receta coincide con "{search}".</p>
+          <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '40px 0' }}>{t('adPlaybooks.noMatches', { query: search })}</p>
         ) : (
           filteredPlaybooks.map(pb => (
             <div key={pb.id} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, overflow: 'hidden' }}>
@@ -198,10 +200,10 @@ export default function AdPlaybooksAdminPage() {
                     color: pb.isActive ? '#10b981' : '#ef4444',
                     border: `1px solid ${pb.isActive ? '#10b98140' : '#ef444440'}`,
                   }}>
-                    {pb.isActive ? 'Activa' : 'Inactiva'}
+                    {pb.isActive ? t('adPlaybooks.active') : t('adPlaybooks.inactive')}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#6b7280' }}>
-                    <RiBarChartLine style={{ width: 12, height: 12 }} /> Usada en {pb._count?.campaigns ?? 0} campaña{(pb._count?.campaigns ?? 0) === 1 ? '' : 's'}
+                    <RiBarChartLine style={{ width: 12, height: 12 }} /> {t('adPlaybooks.usedIn', { count: pb._count?.campaigns ?? 0 })}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -209,13 +211,13 @@ export default function AdPlaybooksAdminPage() {
                     onClick={e => { e.stopPropagation(); startEdit(pb) }}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 7, border: '1px solid #1e2433', background: '#111827', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}
                   >
-                    <RiEditLine style={{ width: 13, height: 13 }} /> Editar
+                    <RiEditLine style={{ width: 13, height: 13 }} /> {t('adPlaybooks.edit')}
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); toggleActive(pb) }}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 7, border: '1px solid #1e2433', background: '#111827', color: pb.isActive ? '#ef4444' : '#10b981', fontSize: 12, cursor: 'pointer' }}
                   >
-                    {pb.isActive ? (<><RiCloseLine style={{ width: 13, height: 13 }} /> Desactivar</>) : (<><RiCheckLine style={{ width: 13, height: 13 }} /> Activar</>)}
+                    {pb.isActive ? (<><RiCloseLine style={{ width: 13, height: 13 }} /> {t('adPlaybooks.disable')}</>) : (<><RiCheckLine style={{ width: 13, height: 13 }} /> {t('adPlaybooks.enable')}</>)}
                   </button>
                 </div>
               </div>
@@ -234,11 +236,12 @@ export default function AdPlaybooksAdminPage() {
 }
 
 function FormCard({ form, setForm, onSave, onCancel, saving }) {
+  const { t } = useI18n()
   return (
     <div style={{ background: '#111827', border: '1px solid #1e2433', borderRadius: 12, padding: '18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-        <Field label="Vertical" value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v }))} placeholder="ej. dentistas" />
-        <Field label="Landing template" value={form.landingTemplateId} onChange={v => setForm(f => ({ ...f, landingTemplateId: v }))} placeholder="generic-v1" />
+        <Field label={t('adPlaybooks.vertical')} value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v }))} placeholder="e.g. dentists" />
+        <Field label={t('adPlaybooks.landingTemplate')} value={form.landingTemplateId} onChange={v => setForm(f => ({ ...f, landingTemplateId: v }))} placeholder="generic-v1" />
       </div>
       <Field label="Oferta" value={form.offer} onChange={v => setForm(f => ({ ...f, offer: v }))} placeholder="Consulta inicial gratuita" />
       <Field label="Lead magnet" value={form.leadMagnet} onChange={v => setForm(f => ({ ...f, leadMagnet: v }))} placeholder="Guía gratis..." />
@@ -255,7 +258,7 @@ function FormCard({ form, setForm, onSave, onCancel, saving }) {
             fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer',
           }}
         >
-          <RiSaveLine style={{ width: 14, height: 14 }} /> {saving ? 'Guardando…' : 'Guardar'}
+          <RiSaveLine style={{ width: 14, height: 14 }} /> {saving ? t('adPlaybooks.saving') : t('adPlaybooks.save')}
         </button>
         <button
           onClick={onCancel}
@@ -265,7 +268,7 @@ function FormCard({ form, setForm, onSave, onCancel, saving }) {
             background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer',
           }}
         >
-          <RiCloseLine style={{ width: 14, height: 14 }} /> Cancelar
+          <RiCloseLine style={{ width: 14, height: 14 }} /> {t('adPlaybooks.cancel')}
         </button>
       </div>
     </div>
@@ -273,6 +276,11 @@ function FormCard({ form, setForm, onSave, onCancel, saving }) {
 }
 
 function Field({ label, value, onChange, placeholder, textarea }) {
+  const { locale } = useI18n()
+  const labels = locale === 'en' ? { Vertical: 'Vertical', Oferta: 'Offer', 'Lead magnet': 'Lead magnet', 'Copy del anuncio': 'Ad copy', 'Prompt de imagen': 'Image prompt' } : {}
+  const placeholders = locale === 'en' ? { 'Consulta inicial gratuita': 'Free initial consultation', 'Texto del anuncio': 'Ad text' } : {}
+  const displayLabel = labels[label] || label
+  const displayPlaceholder = placeholders[placeholder] || placeholder
   const style = {
     background: '#0d1117', border: '1px solid #1e2433', borderRadius: 8,
     padding: '10px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit',
@@ -280,11 +288,11 @@ function Field({ label, value, onChange, placeholder, textarea }) {
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <label style={{ fontSize: 11, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>
+      <label style={{ fontSize: 11, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>{displayLabel}</label>
       {textarea ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} style={style} />
+        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={displayPlaceholder} rows={3} style={style} />
       ) : (
-        <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={style} />
+        <input value={value} onChange={e => onChange(e.target.value)} placeholder={displayPlaceholder} style={style} />
       )}
     </div>
   )

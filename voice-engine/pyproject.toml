@@ -1,0 +1,25 @@
+[project]
+name = "vozia-voice-engine"
+version = "0.1.0"
+description = "Self-hosted realtime voice engine for VozIA"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "faster-whisper>=1.1",
+  "numpy>=1.26",
+  "onnxruntime>=1.18",
+  "openai>=1.60",
+  "piper-tts>=1.4.0",
+  "transformers>=4.40",
+  "uvicorn[standard]>=0.34",
+]
+
+[project.optional-dependencies]
+duplex = [
+  "huggingface-hub>=0.26",
+  "moshi>=0.2.5",
+  "torch>=2.4",
+]
+
+[tool.ruff]
+line-length = 100

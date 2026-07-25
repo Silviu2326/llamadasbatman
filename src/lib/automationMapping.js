@@ -1,6 +1,7 @@
 import {
   RiPhoneLine, RiMailLine, RiCalendarLine, RiShoppingCart2Line, RiRobot2Line, RiBarChartLine, RiFlowChart,
 } from 'react-icons/ri'
+import { getLocale, localeCode } from '../i18n'
 
 // Convierte una Automation real (Prisma) al shape que usan Automatizaciones.jsx
 // y AutomacionDetailPage.jsx — único lugar que asigna icono/color (no hay esos
@@ -63,9 +64,9 @@ export function mapAutomation(a, i) {
     trigger: triggerLabel,
     actions,
     runsCount: a.runsCount ?? 0,
-    execs: (a.runsCount ?? 0).toLocaleString('es-ES'),
+    execs: (a.runsCount ?? 0).toLocaleString(localeCode(getLocale())),
     last: a.lastRunAt
-      ? new Date(a.lastRunAt).toLocaleString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      ? new Date(a.lastRunAt).toLocaleString(localeCode(getLocale()), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
       : '—',
     lastRunAt: a.lastRunAt ?? null,
   }

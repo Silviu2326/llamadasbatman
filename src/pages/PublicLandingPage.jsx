@@ -1,132 +1,493 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import '../dashboard.css'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import {
+  RiArrowDownSLine,
+  RiArrowRightLine,
+  RiCheckLine,
+  RiCloseLine,
+  RiCustomerService2Line,
+  RiFlashlightLine,
+  RiGlobalLine,
+  RiInformationLine,
+  RiLockLine,
+  RiMapPinTimeLine,
+  RiMessage2Line,
+  RiPhoneLine,
+  RiQuestionLine,
+  RiRocketLine,
+  RiSparkling2Line,
+  RiTimeLine,
+  RiUserAddLine,
+} from 'react-icons/ri'
+import './landing.css'
+import { useI18n } from '../i18n'
 
-export default function PublicLandingPage() {
-  const { slug } = useParams()
-  const [landing, setLanding] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [submitted, setSubmitted] = useState(false)
+const PREVIEW_LANDING = {
+  campaignId: 'preview-campaign',
+  name: 'Más clientes, sin perseguirlos',
+  offer: 'Primera conversación de orientación sin coste',
+  leadMagnet: 'Te llevamos una propuesta clara para tu siguiente paso.',
+  adCopy: 'Cuéntanos qué quieres conseguir y descubre una forma más sencilla de convertir el interés en conversaciones reales.',
+  landingTemplateId: 'generic-v1',
+  imageUrl: '',
+}
+
+const TEMPLATE_COPY = {
+  'gym-trial-v1': {
+    title: 'Vuelve a disfrutar de entrenar con un plan hecho para ti.',
+    description: 'Da el primer paso con una experiencia cercana, flexible y pensada para que mantengas el ritmo.',
+    benefits: ['Plan adaptado a tu objetivo', 'Acompañamiento desde el primer día', 'Un espacio donde te apetece volver'],
+    location: 'Experiencia local y cercana',
+  },
+  'pet-grooming-v1': {
+    title: 'Tu mascota se merece sentirse así de bien.',
+    description: 'Reserva una primera visita cuidada al detalle y deja que tu compañero salga limpio, tranquilo y feliz.',
+    benefits: ['Cuidado adaptado a cada mascota', 'Profesionales que tratan con cariño', 'Reserva sencilla y sin esperas'],
+    location: 'Cuidado pensado para tu mascota',
+  },
+  'legal-consult-v1': {
+    title: 'Entiende tus opciones antes de tomar una decisión.',
+    description: 'Habla con un profesional, ordena tu caso y recibe una orientación clara para avanzar con confianza.',
+    benefits: ['Primera orientación clara', 'Profesionales especializados', 'Siguiente paso definido contigo'],
+    location: 'Atención profesional y confidencial',
+  },
+  'generic-v1': {
+    title: 'Convierte tu próximo interés en una conversación real.',
+    description: 'Cuéntanos qué necesitas y recibe una orientación personalizada, sin rodeos y con un siguiente paso claro.',
+    benefits: ['Respuesta personalizada', 'Acompañamiento de principio a fin', 'Una propuesta adaptada a tu negocio'],
+    location: 'Atención humana y cercana',
+  },
+}
+
+const TEMPLATE_COPY_EN = {
+  'gym-trial-v1': {
+    title: 'Enjoy training again with a plan made for you.',
+    description: 'Take the first step with a friendly, flexible experience designed to help you keep your rhythm.',
+    benefits: ['A plan adapted to your goal', 'Support from day one', 'A space you will want to come back to'],
+    location: 'A local and welcoming experience',
+  },
+  'pet-grooming-v1': {
+    title: 'Your pet deserves to feel this good.',
+    description: 'Book a carefully planned first visit and let your companion leave clean, calm and happy.',
+    benefits: ['Care adapted to every pet', 'Professionals who treat them with care', 'Easy booking with no waiting'],
+    location: 'Care designed for your pet',
+  },
+  'legal-consult-v1': {
+    title: 'Understand your options before making a decision.',
+    description: 'Talk to a professional, organize your case and receive clear guidance to move forward with confidence.',
+    benefits: ['Clear first guidance', 'Specialized professionals', 'A next step defined with you'],
+    location: 'Professional and confidential support',
+  },
+  'generic-v1': {
+    title: 'Turn your next expression of interest into a real conversation.',
+    description: 'Tell us what you need and receive personalized guidance, without detours and with a clear next step.',
+    benefits: ['Personalized response', 'Support from start to finish', 'A proposal adapted to your business'],
+    location: 'Human and welcoming support',
+  },
+}
+
+const FAQS = [
+  {
+    question: '¿Qué ocurre después de enviar mis datos?',
+    answer: 'Revisamos tu solicitud y nos ponemos en contacto contigo para entender mejor lo que necesitas y recomendarte el siguiente paso.',
+  },
+  {
+    question: '¿Tengo que contratar nada en la primera conversación?',
+    answer: 'No. La primera conversación sirve para conocernos, resolver tus dudas y comprobar si podemos ayudarte de verdad.',
+  },
+  {
+    question: '¿Puedo elegir cuándo me contactáis?',
+    answer: 'Sí. Puedes indicarnos tu franja preferida y haremos lo posible por respetarla.',
+  },
+  {
+    question: '¿Cómo utilizáis mis datos?',
+    answer: 'Solo los utilizamos para responder a esta solicitud y coordinar el contacto que nos has pedido.',
+  },
+]
+
+const FAQS_EN = [
+  { question: 'What happens after I submit my details?', answer: 'We review your request and contact you to better understand what you need and recommend the next step.' },
+  { question: 'Do I have to buy anything in the first conversation?', answer: 'No. The first conversation is a chance to get to know each other, answer your questions and see whether we can genuinely help.' },
+  { question: 'Can I choose when you contact me?', answer: 'Yes. You can share your preferred time window and we will do our best to respect it.' },
+  { question: 'How do you use my data?', answer: 'We only use it to respond to this request and coordinate the contact you asked for.' },
+]
+
+function isPreviewSlug(slug, searchParams) {
+  return searchParams.get('preview') === '1' || slug === 'preview'
+}
+
+function getCopy(landing, slug, locale = 'es') {
+  const templateId = landing?.landingTemplateId || (slug?.includes('gym') ? 'gym-trial-v1' : slug?.includes('pet') ? 'pet-grooming-v1' : slug?.includes('legal') ? 'legal-consult-v1' : 'generic-v1')
+  const templateSet = locale === 'en' ? TEMPLATE_COPY_EN : TEMPLATE_COPY
+  const template = templateSet[templateId] || templateSet['generic-v1']
+  const previewData = landing?.campaignId === 'preview-campaign'
+  const baseName = previewData && locale === 'en' ? 'More customers, without chasing them' : landing?.name || (locale === 'en' ? 'More customers, without chasing them' : PREVIEW_LANDING.name)
+
+  return {
+    ...template,
+    templateId,
+    name: baseName,
+    offer: previewData && locale === 'en' ? 'A first guidance conversation at no cost' : landing?.offer || (locale === 'en' ? 'A first guidance conversation at no cost' : PREVIEW_LANDING.offer),
+    leadMagnet: previewData && locale === 'en' ? 'We will bring you a clear proposal for your next step.' : landing?.leadMagnet || (locale === 'en' ? 'We will bring you a clear proposal for your next step.' : PREVIEW_LANDING.leadMagnet),
+    adCopy: previewData && locale === 'en' ? 'Tell us what you want to achieve and discover a simpler way to turn interest into real conversations.' : landing?.adCopy || template.description,
+    imageUrl: landing?.imageUrl || '/assets/landings/landing-hero.png',
+  }
+}
+
+function scrollToForm() {
+  document.querySelector('#landing-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+function landingSessionId(slug) {
+  const key = `vozia_landing_session_${slug}`
+  try {
+    const existing = window.sessionStorage.getItem(key)
+    if (existing) return existing
+    const value = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+    window.sessionStorage.setItem(key, value)
+    return value
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+  }
+}
+
+function buildLandingTracking(slug, searchKey) {
+  const params = new URLSearchParams(searchKey)
+  return {
+    sessionId: landingSessionId(slug),
+    utm_source: params.get('utm_source') || undefined,
+    utm_medium: params.get('utm_medium') || undefined,
+    utm_campaign: params.get('utm_campaign') || undefined,
+    utm_content: params.get('utm_content') || undefined,
+    utm_term: params.get('utm_term') || undefined,
+    gclid: params.get('gclid') || undefined,
+    fbclid: params.get('fbclid') || undefined,
+    referrer: document.referrer || undefined,
+    path: `${window.location.pathname}${window.location.search}`,
+  }
+}
+
+function LandingForm({ slug, preview, tracking, onSubmitted }) {
+  const { t } = useI18n()
+  const [form, setForm] = useState({ name: '', phone: '', email: '', contactTime: 'Cuando antes', consent: false, website: '' })
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ name: '', phone: '', email: '' })
+  const [formError, setFormError] = useState('')
 
-  useEffect(() => {
-    fetch(`/api/public/landing/${slug}`)
-      .then(r => {
-        if (r.status === 404) throw new Error('Landing no encontrada')
-        if (!r.ok) throw new Error('No se pudo cargar la landing')
-        return r.json()
-      })
-      .then(setLanding)
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [slug])
+  function updateField(field, value) {
+    setForm(current => ({ ...current, [field]: value }))
+    if (formError) setFormError('')
+  }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!form.name.trim() || !form.phone.trim()) return
+  async function handleSubmit(event) {
+    event.preventDefault()
+    if (!form.name.trim() || !form.phone.trim()) {
+      setFormError(t('landing.namePhoneRequired'))
+      return
+    }
+    if (!form.consent) {
+      setFormError(t('landing.consentRequired'))
+      return
+    }
+
     setSubmitting(true)
+    setFormError('')
     try {
-      const res = await fetch(`/api/public/landing/${slug}/lead`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (!res.ok) throw new Error()
-      setSubmitted(true)
-    } catch {
-      setError('No se pudo enviar. Intentá de nuevo.')
+      if (!preview) {
+        const response = await fetch(`/api/public/landing/${slug}/lead`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            phone: form.phone.trim(),
+            email: form.email.trim(),
+            contactTime: form.contactTime,
+            consent: form.consent,
+            consentVersion: 'contact-request-v1',
+            website: form.website,
+            ...tracking,
+          }),
+        })
+        if (!response.ok) throw new Error('No se pudo enviar la solicitud.')
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 550))
+      }
+      onSubmitted(form)
+    } catch (error) {
+      setFormError(error.message || t('landing.sendError'))
     } finally {
       setSubmitting(false)
     }
   }
 
+  return (
+    <div className="landing-form-shell" id="landing-form">
+      <div className="landing-form-heading">
+        <div className="landing-form-step"><span>01</span><i /><span>02</span></div>
+        <div>
+          <span className="landing-form-kicker">{t('landing.formStep')}</span>
+          <h2>{t('landing.formTitle')}</h2>
+          <p>{t('landing.formDescription')}</p>
+        </div>
+      </div>
+
+      <form className="landing-form" onSubmit={handleSubmit} noValidate>
+        <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, overflow: 'hidden' }}>
+          <label>
+            <span>Website</span>
+            <input name="website" value={form.website} onChange={event => updateField('website', event.target.value)} tabIndex={-1} autoComplete="off" />
+          </label>
+        </div>
+        <label>
+          <span>{t('landing.fullName')} <b>*</b></span>
+          <input value={form.name} onChange={event => updateField('name', event.target.value)} placeholder="Tu nombre" autoComplete="name" />
+        </label>
+        <label>
+          <span>{t('landing.phone')} <b>*</b></span>
+          <input value={form.phone} onChange={event => updateField('phone', event.target.value)} placeholder="+34 600 000 000" type="tel" autoComplete="tel" />
+        </label>
+        <label>
+          <span>Email <em>{t('landing.optional')}</em></span>
+          <input value={form.email} onChange={event => updateField('email', event.target.value)} placeholder="tu@email.com" type="email" autoComplete="email" />
+        </label>
+        <label>
+          <span>{t('landing.bestTime')}</span>
+          <select value={form.contactTime} onChange={event => updateField('contactTime', event.target.value)}>
+            <option>{t('landing.asSoonAsPossible')}</option>
+            <option>{t('landing.morning')}</option>
+            <option>{t('landing.afternoon')}</option>
+            <option>{t('landing.afterSix')}</option>
+          </select>
+        </label>
+
+        <label className="landing-consent">
+          <input type="checkbox" checked={form.consent} onChange={event => updateField('consent', event.target.checked)} />
+          <span>{t('landing.consent')}</span>
+        </label>
+
+        {formError && <p className="landing-form-error" role="alert"><RiInformationLine /> {formError}</p>}
+
+        <button className="landing-primary-button landing-submit" type="submit" disabled={submitting}>
+          {submitting ? t('landing.sendingRequest') : <>{t('landing.contactMe')} <RiArrowRightLine /></>}
+        </button>
+        <p className="landing-form-privacy"><RiLockLine /> {t('landing.usedOnly')}</p>
+      </form>
+    </div>
+  )
+}
+
+function SuccessCard({ name, onReset }) {
+  const { t } = useI18n()
+  return (
+    <div className="landing-success-card" role="status" aria-live="polite">
+      <div className="landing-success-icon"><RiCheckLine /></div>
+      <span className="landing-form-kicker">{t('landing.requestReceived')}</span>
+      <h2>{t('landing.thanks', { name: name.trim().split(' ')[0] })}</h2>
+      <p>{t('landing.receivedDescription')}</p>
+      <div className="landing-success-steps">
+        <span><RiCheckLine /> {t('landing.reviewRequest')}</span>
+        <span><RiTimeLine /> {t('landing.respectTime')}</span>
+        <span><RiMessage2Line /> {t('landing.clearResponse')}</span>
+      </div>
+      <button className="landing-text-button" type="button" onClick={onReset}><RiCloseLine /> {t('landing.closeConfirmation')}</button>
+    </div>
+  )
+}
+
+function AppIcon({ type }) {
+  const icons = {
+    response: RiMessage2Line,
+    support: RiCustomerService2Line,
+    result: RiRocketLine,
+  }
+  const Icon = icons[type] || RiSparkling2Line
+  return <Icon aria-hidden="true" />
+}
+
+export default function PublicLandingPage() {
+  const { slug } = useParams()
+  const { t, locale } = useI18n()
+  const [searchParams] = useSearchParams()
+  const searchKey = searchParams.toString()
+  const preview = isPreviewSlug(slug, searchParams)
+  const [landing, setLanding] = useState(null)
+  const [loading, setLoading] = useState(!preview)
+  const [error, setError] = useState('')
+  const [submitted, setSubmitted] = useState(null)
+  const [openFaq, setOpenFaq] = useState(0)
+
+  useEffect(() => {
+    if (preview) {
+      setLanding(PREVIEW_LANDING)
+      setLoading(false)
+      return undefined
+    }
+
+    const controller = new AbortController()
+    setLoading(true)
+    setError('')
+    fetch(`/api/public/landing/${slug}`, { signal: controller.signal })
+      .then(response => {
+        if (response.status === 404) throw new Error('Landing no encontrada')
+        if (!response.ok) throw new Error('No se pudo cargar la landing')
+        return response.json()
+      })
+      .then(setLanding)
+      .catch(requestError => {
+        if (requestError.name !== 'AbortError') setError(requestError.message)
+      })
+      .finally(() => setLoading(false))
+
+    return () => controller.abort()
+  }, [preview, slug])
+
+  const tracking = useMemo(() => preview ? null : buildLandingTracking(slug, searchKey), [preview, searchKey, slug])
+
+  useEffect(() => {
+    if (preview || !landing?.campaignId || !tracking) return
+    const controller = new AbortController()
+    fetch(`/api/public/landing/${slug}/view`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tracking),
+      signal: controller.signal,
+    }).then(response => {
+      if (!response.ok) console.warn(`[LandingTracking] No se pudo registrar la visita (${response.status})`)
+    }).catch(error => {
+      if (error.name !== 'AbortError') console.warn('[LandingTracking] No se pudo registrar la visita', error)
+    })
+    return () => controller.abort()
+  }, [landing?.campaignId, preview, slug, tracking])
+
+  const copy = useMemo(() => getCopy(landing, slug, locale), [landing, locale, slug])
+  const faqs = locale === 'en' ? FAQS_EN : FAQS
+
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#080c14', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14 }}>
-        Cargando…
-      </div>
+      <main className="landing-loading">
+        <div className="landing-loading-mark"><RiSparkling2Line /></div>
+        <span>{t('landing.loading')}</span>
+      </main>
     )
   }
 
-  if (error && !landing) {
+  if (error || !landing) {
     return (
-      <div style={{ minHeight: '100vh', background: '#080c14', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', fontSize: 14, padding: 24, textAlign: 'center' }}>
-        {error}
-      </div>
+      <main className="landing-error-page">
+        <div className="landing-error-card">
+          <div className="landing-error-icon"><RiQuestionLine /></div>
+          <h1>{t('landing.openError')}</h1>
+          <p>{error || t('landing.retryLink')}</p>
+          <button className="landing-primary-button" type="button" onClick={() => window.location.reload()}>{t('landing.retry')} <RiArrowRightLine /></button>
+        </div>
+      </main>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#080c14', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ width: '100%', maxWidth: 420 }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/logo.png" alt="VozIA" style={{ width: 64, height: 64, borderRadius: 14, marginBottom: 16 }} />
-          <h1 style={{ margin: '0 0 10px', fontSize: 24, fontWeight: 800, color: '#f1f5f9' }}>{landing?.name}</h1>
-          {landing?.adCopy && <p style={{ margin: 0, fontSize: 15, color: '#94a3b8', lineHeight: 1.5 }}>{landing.adCopy}</p>}
-        </div>
+    <div className={`landing-page landing-template-${copy.templateId}`}>
+      <div className="landing-noise" aria-hidden="true" />
+      <header className="landing-nav">
+        <a className="landing-brand" href="#top" aria-label={t('landing.backHome')}>
+          <img src="/logo.png" alt="VozIA" />
+          <span>VozIA</span>
+        </a>
+        <nav className="landing-nav-links" aria-label={t('landing.landingNav')}>
+          <a href="#beneficios">{t('landing.includes')}</a>
+          <a href="#proceso">{t('landing.process')}</a>
+          <a href="#faq">{t('landing.faq')}</a>
+        </nav>
+        <button className="landing-nav-cta" type="button" onClick={scrollToForm}>{t('landing.information')} <RiArrowRightLine /></button>
+      </header>
 
-        {submitted ? (
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 16, padding: '28px', textAlign: 'center' }}>
-            <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#10b98120', border: '1px solid #10b98140', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <span style={{ color: '#10b981', fontSize: 24 }}>✓</span>
+      <main id="top">
+        <section className="landing-hero">
+          <div className="landing-hero-copy">
+            <h1>{copy.title}</h1>
+            <p className="landing-hero-description">{copy.adCopy || copy.description}</p>
+            <div className="landing-hero-actions">
+              <button className="landing-primary-button" type="button" onClick={scrollToForm}>{t('landing.nextStep')} <RiArrowRightLine /></button>
+              <a className="landing-secondary-button" href="#proceso"><RiFlashlightLine /> {t('landing.seeProcess')}</a>
             </div>
-            <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>¡Gracias, {form.name.trim()}!</h2>
-            <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Te llamamos en menos de 30 segundos.</p>
+            <div className="landing-hero-trust">
+              <span><RiCheckLine /> {t('landing.noCommitment')}</span>
+              <span><RiLockLine /> {t('landing.protectedData')}</span>
+              <span><RiTimeLine /> {t('landing.humanResponse')}</span>
+            </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 16, padding: '28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {landing?.offer && (
-              <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 10, padding: '14px' }}>
-                <p style={{ margin: '0 0 4px', fontSize: 12, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Oferta</p>
-                <p style={{ margin: 0, fontSize: 15, color: '#f1f5f9', fontWeight: 600 }}>{landing.offer}</p>
-              </div>
-            )}
-            {landing?.leadMagnet && (
-              <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>{landing.leadMagnet}</p>
-            )}
 
-            <input
-              value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Nombre completo"
-              required
-              style={{ background: '#111827', border: '1px solid #1e2433', borderRadius: 10, padding: '12px 14px', color: '#e2e8f0', fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
-            />
-            <input
-              value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-              placeholder="Teléfono"
-              type="tel"
-              required
-              style={{ background: '#111827', border: '1px solid #1e2433', borderRadius: 10, padding: '12px 14px', color: '#e2e8f0', fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
-            />
-            <input
-              value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              placeholder="Email (opcional)"
-              type="email"
-              style={{ background: '#111827', border: '1px solid #1e2433', borderRadius: 10, padding: '12px 14px', color: '#e2e8f0', fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
-            />
+          <div className="landing-hero-stage">
+            <img className="landing-hero-image" src={copy.imageUrl} alt={t('landing.personalizedExperience')} />
+            <div className="landing-hero-image-shade" aria-hidden="true" />
+            <div className="landing-signal-card"><RiPhoneLine /><span>{t('landing.nextMove')}</span><strong>{t('landing.startsHere')}</strong></div>
+            <div className="landing-offer-card"><span>{t('landing.offerAvailable')}</span><strong>{copy.offer}</strong><small><RiCheckLine /> {t('landing.noFinePrint')}</small></div>
+            <div className="landing-form-slot" id="landing-form">
+              {submitted ? <SuccessCard name={submitted.name} onReset={() => setSubmitted(null)} /> : <LandingForm slug={slug} preview={preview} tracking={tracking} onSubmitted={setSubmitted} />}
+            </div>
+          </div>
+        </section>
 
-            {error && <p style={{ margin: 0, fontSize: 12, color: '#ef4444' }}>{error}</p>}
+        <section className="landing-offer-band" aria-label={t('landing.receive')}>
+          <div className="landing-offer-band-icon"><RiSparkling2Line /></div>
+          <div><span>{t('landing.nextMove')}</span><strong>{copy.leadMagnet}</strong></div>
+          <button className="landing-text-button" type="button" onClick={scrollToForm}>{t('landing.requestGuidance')} <RiArrowRightLine /></button>
+        </section>
 
-            <button
-              type="submit"
-              disabled={submitting || !form.name.trim() || !form.phone.trim()}
-              style={{
-                padding: '13px', borderRadius: 10, border: 'none',
-                background: submitting || !form.name.trim() || !form.phone.trim() ? '#374151' : 'linear-gradient(90deg, #4f46e5, #7c3aed)',
-                color: '#fff', fontSize: 14, fontWeight: 700, cursor: submitting ? 'default' : 'pointer',
-              }}
-            >
-              {submitting ? 'Enviando…' : 'Quiero que me llamen'}
-            </button>
+        <section className="landing-section landing-benefits" id="beneficios">
+          <div className="landing-section-heading"><span className="landing-section-kicker">{t('landing.includes')}</span><h2>{t('landing.benefitsTitle')}</h2><p>{t('landing.benefitsDescription')}</p></div>
+          <div className="landing-benefit-grid">
+            {[ 
+              { icon: 'response', title: copy.benefits[0], text: locale === 'en' ? 'We start from your real situation to give you an answer that makes sense.' : 'Partimos de tu situación real para darte una respuesta que tenga sentido.' },
+              { icon: 'support', title: copy.benefits[1], text: locale === 'en' ? 'We support you throughout the process and answer your questions directly.' : 'Te acompañamos durante el proceso y resolvemos tus dudas sin rodeos.' },
+              { icon: 'result', title: copy.benefits[2], text: locale === 'en' ? 'You finish with a clear recommendation and a concrete action to get started.' : 'Terminas con una recomendación clara y una acción concreta para empezar.' },
+            ].map(item => (
+              <article className="landing-benefit" key={item.title}>
+                <div className="landing-benefit-icon"><AppIcon type={item.icon} /></div>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+                <span><RiCheckLine /> {t('landing.designedForCase')}</span>
+              </article>
+            ))}
+          </div>
+        </section>
 
-            <p style={{ margin: 0, fontSize: 11, color: '#4b5563', textAlign: 'center' }}>
-              Al enviar, aceptás que un asesor de VozIA te contacte por teléfono.
-            </p>
-          </form>
-        )}
-      </div>
+        <section className="landing-process-panel landing-section" id="proceso">
+          <div className="landing-section-heading centered"><span className="landing-section-kicker">{t('landing.process')}</span><h2>{t('landing.processTitle')}</h2><p>{t('landing.processDescription')}</p></div>
+          <div className="landing-process-grid">
+            {[
+              { number: '01', icon: RiMessage2Line, title: t('landing.tellUs'), text: t('landing.tellUsText') },
+              { number: '02', icon: RiUserAddLine, title: t('landing.guideYou'), text: t('landing.guideYouText') },
+              { number: '03', icon: RiRocketLine, title: t('landing.start'), text: t('landing.startText') },
+            ].map((item, index) => {
+              const Icon = item.icon
+              return <article className="landing-process-step" key={item.number}><div className="landing-process-number">{item.number}</div><div className="landing-process-icon"><Icon /></div><h3>{item.title}</h3><p>{item.text}</p>{index < 2 && <span className="landing-process-connector" aria-hidden="true"><RiArrowRightLine /></span>}</article>
+            })}
+          </div>
+        </section>
+
+        <section className="landing-next-step landing-section">
+          <div className="landing-next-step-icon"><RiMapPinTimeLine /></div>
+          <div><span>{copy.location}</span><h2>{t('landing.conversationBeforeCall')}</h2><p>{t('landing.contextText')}</p></div>
+          <button className="landing-secondary-button" type="button" onClick={scrollToForm}>{t('landing.talkToSomeone')} <RiArrowRightLine /></button>
+        </section>
+
+        <section className="landing-section landing-faq" id="faq">
+          <div className="landing-section-heading centered"><span className="landing-section-kicker">{t('landing.faq')}</span><h2>{t('landing.resolveQuestions')}</h2><p>{t('landing.faqDescription')}</p></div>
+          <div className="landing-faq-list">
+            {faqs.map((item, index) => {
+              const isOpen = openFaq === index
+              return <div className={`landing-faq-item${isOpen ? ' is-open' : ''}`} key={item.question}><button type="button" aria-expanded={isOpen} onClick={() => setOpenFaq(isOpen ? -1 : index)}><span>{item.question}</span><RiArrowDownSLine /></button>{isOpen && <p>{item.answer}</p>}</div>
+            })}
+          </div>
+        </section>
+
+        <section className="landing-final-cta">
+          <div><span>{t('landing.ready')}</span><h2>{t('landing.finalTitle')}</h2><p>{t('landing.finalText')}</p></div>
+          <button className="landing-primary-button" type="button" onClick={scrollToForm}>{t('landing.nextStep')} <RiArrowRightLine /></button>
+        </section>
+      </main>
+
+      <footer className="landing-footer"><span><RiGlobalLine /> {t('landing.landingFooter')}</span><span><RiLockLine /> {t('landing.responsibleData')}</span></footer>
+      <button className="landing-mobile-cta" type="button" onClick={scrollToForm}>{t('landing.contactMe')} <RiArrowRightLine /></button>
     </div>
   )
 }

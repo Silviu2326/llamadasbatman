@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
@@ -7,26 +7,28 @@ import {
   RiCheckLine,
 } from 'react-icons/ri'
 import { HiArrowUp } from 'react-icons/hi'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import '../dashboard.css'
 
 const STATS = [
-  { label:'Tasa de Ã©xito', value:'28,4%', delta:'+3,2pp', up:true },
-  { label:'DuraciÃ³n prom.', value:'6m 42s', delta:'-12s', up:false },
+  { label:'Tasa de éxito', value:'28,4%', delta:'+3,2pp', up:true },
+  { label:'Duración prom.', value:'6m 42s', delta:'-12s', up:false },
   { label:'Reuniones', value:'624', delta:'+18,1%', up:true },
 ]
 
 const INCLUDES = [
   { Icon:RiFlowChart, label:'Flujo conversacional', value:'15 pasos' },
   { Icon:RiAlarmLine, label:'Manejo de objeciones', value:'8 objeciones' },
-  { Icon:RiSearchLine, label:'Preguntas de calificaciÃ³n', value:'12 preguntas' },
+  { Icon:RiSearchLine, label:'Preguntas de calificación', value:'12 preguntas' },
   { Icon:RiChatVoiceLine, label:'Mensajes y momentos clave', value:'9 mensajes' },
 ]
 
-const IDEAL = ['Leads inbound interesados', 'Empresas SaaS / TecnologÃ­a', 'Ciclos de venta de 7-30 dÃ­as']
+const IDEAL = ['Leads inbound interesados', 'Empresas SaaS / Tecnología', 'Ciclos de venta de 7-30 días']
 
 const TABS = ['Resumen', 'Incluye', 'Rendimiento']
 
 export default function PlaybookDetailPage() {
+  const { locale } = useI18n()
   const { id } = useParams()
   const navigate = useNavigate()
   const [pb, setPb] = useState(null)
@@ -40,7 +42,7 @@ export default function PlaybookDetailPage() {
           ...data,
           type: 'Personalizado', badge: 'Personalizado',
           color: '#6366f1', bg: '#6366f120',
-          successRate: 'â€”', uses: 0, avgDuration: 'â€”',
+          successRate: '—', uses: 0, avgDuration: '—',
           description: data.description ?? '',
         })
       }
@@ -50,7 +52,7 @@ export default function PlaybookDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargandoâ€¦
+      {locale === 'en' ? 'Loading…' : 'Cargando…'}
     </div>
   )
 
@@ -110,10 +112,10 @@ export default function PlaybookDetailPage() {
               borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer',
               boxShadow:'0 0 18px #7c3aed40',
             }}>
-              <RiAddLine style={{ width:14, height:14 }} /> Usar en campaÃ±a
+              <RiAddLine style={{ width:14, height:14 }} /> Usar en campaña
             </button>
             <button onClick={() => {
-              const blob = new Blob([`PLAYBOOK: ${pb.name}\n\n${pb.desc}\n\nEtiquetas: ${pb.tags.map(t=>t.label).join(', ')}\nTasa de Ã©xito: ${pb.tasa}\nReuniones generadas: ${pb.reuniones}\nCampaÃ±as activas: ${pb.campanas}`], { type:'text/plain' })
+              const blob = new Blob([`PLAYBOOK: ${pb.name}\n\n${pb.desc}\n\nEtiquetas: ${pb.tags.map(t=>t.label).join(', ')}\nTasa de éxito: ${pb.tasa}\nReuniones generadas: ${pb.reuniones}\nCampañas activas: ${pb.campanas}`], { type:'text/plain' })
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${pb.name.replace(/ /g,'_')}.txt`; a.click()
             }} style={{
               display:'flex', alignItems:'center', gap:6, background:'#111827',
@@ -129,9 +131,9 @@ export default function PlaybookDetailPage() {
       {/* KPI row */}
       <div style={{ padding:'0 24px 20px', flexShrink:0, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
         {[
-          { label:'Tasa de Ã©xito', value:pb.tasa },
-          { label:'Reuniones generadas', value:pb.reuniones.toLocaleString('es-ES') },
-          { label:'CampaÃ±as que lo usan', value:String(pb.campanas) },
+          { label:'Tasa de éxito', value:pb.tasa },
+          { label:'Reuniones generadas', value:pb.reuniones.toLocaleString(localeCode(getLocale())) },
+          { label:'Campañas que lo usan', value:String(pb.campanas) },
         ].concat(STATS.map(s => ({ label:s.label, value:s.value, delta:s.delta, up:s.up }))).slice(0, 4).map((k, i) => (
           <div key={i} style={{ flex:1, background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px 16px' }}>
             <p style={{ margin:'0 0 6px', fontSize:11, color:'#4b5563', fontWeight:600 }}>{k.label}</p>
@@ -197,7 +199,7 @@ export default function PlaybookDetailPage() {
           {tab === 'Incluye' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
               <p style={{ margin:'0 0 14px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Estructura completa del playbook</p>
-              {['Apertura y presentaciÃ³n', 'DetecciÃ³n de necesidades (5 preguntas)', 'Manejo de 8 objeciones comunes', 'Propuesta de valor personalizada', 'Cierre y agenda de siguiente paso'].map((item, i) => (
+              {['Apertura y presentación', 'Detección de necesidades (5 preguntas)', 'Manejo de 8 objeciones comunes', 'Propuesta de valor personalizada', 'Cierre y agenda de siguiente paso'].map((item, i) => (
                 <div key={i} style={{ display:'flex', gap:10, marginBottom:12 }}>
                   <div style={{ width:22, height:22, borderRadius:7, background:`${pb.badgeColor}20`, border:`1px solid ${pb.badgeColor}40`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:11, fontWeight:700, color:pb.badgeColor }}>{i+1}</div>
                   <p style={{ margin:0, fontSize:13, color:'#94a3b8', paddingTop:3 }}>{item}</p>
@@ -208,7 +210,7 @@ export default function PlaybookDetailPage() {
 
           {tab === 'Rendimiento' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-              <p style={{ margin:'0 0 14px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>EstadÃ­sticas de rendimiento</p>
+            <p style={{ margin:'0 0 14px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Estadísticas de rendimiento</p>
               {STATS.map((s, i) => (
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderBottom:'1px solid #111827' }}>
                   <p style={{ margin:0, fontSize:13, color:'#94a3b8' }}>{s.label}</p>
@@ -225,12 +227,12 @@ export default function PlaybookDetailPage() {
         {/* Right sidebar */}
         <div style={{ width:220, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Resumen rÃ¡pido</p>
+            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Resumen rápido</p>
             {[
               { label:'Tipo', value:pb.badge },
-              { label:'Tasa de Ã©xito', value:pb.tasa },
-              { label:'Reuniones', value:pb.reuniones.toLocaleString('es-ES') },
-              { label:'CampaÃ±as activas', value:String(pb.campanas) },
+              { label:'Tasa de éxito', value:pb.tasa },
+              { label:'Reuniones', value:pb.reuniones.toLocaleString(localeCode(getLocale())) },
+              { label:'Campañas activas', value:String(pb.campanas) },
             ].map(m => (
               <div key={m.label} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid #111827' }}>
                 <span style={{ fontSize:11.5, color:'#4b5563' }}>{m.label}</span>
@@ -253,4 +255,3 @@ export default function PlaybookDetailPage() {
     </div>
   )
 }
-

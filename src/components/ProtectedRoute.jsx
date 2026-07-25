@@ -1,33 +1,57 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from './Sidebar'
 import { RiMenuLine } from 'react-icons/ri'
+import { useI18n } from '../i18n'
 
 export default function ProtectedRoute() {
-  const { token } = useAuth()
+  const { locale } = useI18n()
+  const { token, isRestoring } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const menuButtonRef = useRef(null)
   const location = useLocation()
 
-  // Close sidebar on page navigation (mobile)
+  // Close sidebar on page navigation (mobile).
   useEffect(() => { setSidebarOpen(false) }, [location.pathname])
 
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const frame = requestAnimationFrame(() => {
+      document.querySelector('.sidebar-aside a, .sidebar-aside button')?.focus()
+    })
+    const closeOnEscape = event => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setSidebarOpen(false)
+      requestAnimationFrame(() => menuButtonRef.current?.focus())
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [sidebarOpen])
+
+  const closeSidebar = () => {
+    setSidebarOpen(false)
+    requestAnimationFrame(() => menuButtonRef.current?.focus())
+  }
+
+  if (isRestoring) return <main aria-busy="true" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#080c14', color: '#cbd5e1' }}>{locale === 'en' ? 'Restoring session…' : 'Restaurando sesión…'}</main>
   if (!token) return <Navigate to="/login" replace />
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#080c14', overflow: 'hidden' }}>
       <Sidebar isOpen={sidebarOpen} />
 
-      {/* Backdrop — CSS shows it only on mobile when open */}
       <div
         className={`mobile-backdrop${sidebarOpen ? ' open' : ''}`}
-        onClick={() => setSidebarOpen(false)}
+        onClick={closeSidebar}
+        aria-hidden="true"
       />
 
-      {/* Content column */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-
-        {/* Mobile-only header — CSS hides it on desktop */}
         <header
           className="mobile-header"
           style={{
@@ -38,7 +62,11 @@ export default function ProtectedRoute() {
           }}
         >
           <button
-            onClick={() => setSidebarOpen(o => !o)}
+            ref={menuButtonRef}
+            type="button"
+            onClick={() => sidebarOpen ? closeSidebar() : setSidebarOpen(true)}
+            aria-label={sidebarOpen ? (locale === 'en' ? 'Close navigation menu' : 'Cerrar menú de navegación') : (locale === 'en' ? 'Open navigation menu' : 'Abrir menú de navegación')}
+            aria-expanded={sidebarOpen}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 36, height: 36, flexShrink: 0,
@@ -48,7 +76,7 @@ export default function ProtectedRoute() {
               transition: 'background .15s',
             }}
           >
-            <RiMenuLine style={{ width: 18, height: 18 }} />
+            <RiMenuLine aria-hidden="true" style={{ width: 18, height: 18 }} />
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -57,10 +85,9 @@ export default function ProtectedRoute() {
           </div>
         </header>
 
-        {/* Page content */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0 }}>
+        <main id="main-content" style={{ flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0 }}>
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   )

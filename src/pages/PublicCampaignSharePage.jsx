@@ -5,6 +5,7 @@ import {
   RiLoader4Line, RiLock2Line, RiRocketLine,
 } from 'react-icons/ri'
 import './campaign-share.css'
+import { getLocale, localeCode, useI18n } from '../i18n'
 
 const STATUS = {
   draft: { label: 'En preparación', tone: 'is-draft' },
@@ -21,6 +22,7 @@ function Metric({ Icon, label, value, caption }) {
 }
 
 export default function PublicCampaignSharePage() {
+  const { t } = useI18n()
   const { token } = useParams()
   const [campaign, setCampaign] = useState(null)
   const [state, setState] = useState('loading')
@@ -55,44 +57,44 @@ export default function PublicCampaignSharePage() {
     }
   }, [campaign])
 
-  if (state === 'loading') return <main className="campaign-share-page campaign-share-center"><RiLoader4Line className="campaign-share-spin" /><span>Cargando resumen de campaña…</span></main>
+  if (state === 'loading') return <main className="campaign-share-page campaign-share-center"><RiLoader4Line className="campaign-share-spin" /><span>{t('campaignShare.loading')}</span></main>
 
-  if (state !== 'ready') return <main className="campaign-share-page campaign-share-center"><section className="campaign-share-empty"><RiLock2Line /><h1>{state === 'not-found' ? 'Este enlace ya no está disponible' : 'No pudimos cargar la campaña'}</h1><p>{state === 'not-found' ? 'Pide a la persona que te lo compartió un enlace actualizado.' : 'Vuelve a intentarlo en unos minutos.'}</p></section></main>
+  if (state !== 'ready') return <main className="campaign-share-page campaign-share-center"><section className="campaign-share-empty"><RiLock2Line /><h1>{state === 'not-found' ? t('campaignShare.unavailable') : t('campaignShare.loadError')}</h1><p>{state === 'not-found' ? t('campaignShare.askUpdatedLink') : t('campaignShare.retry')}</p></section></main>
 
   const status = STATUS[campaign.status] ?? STATUS.draft
 
   return <main className="campaign-share-page">
     <header className="campaign-share-header">
       <div className="campaign-share-brand"><span><RiRocketLine /></span><strong>Robin</strong><small>Campaign brief</small></div>
-      <div className="campaign-share-secure"><RiLock2Line /> Vista compartida de solo lectura</div>
+      <div className="campaign-share-secure"><RiLock2Line /> {t('campaignShare.readOnly')}</div>
     </header>
 
     <section className="campaign-share-hero">
       <div className="campaign-share-grid" aria-hidden="true" />
       <div className="campaign-share-hero-copy">
         <div className={`campaign-share-status ${status.tone}`}><i /> {status.label}</div>
-        <p className="campaign-share-eyebrow">Resumen de campaña</p>
+        <p className="campaign-share-eyebrow">{t('campaignShare.campaignSummary')}</p>
         <h1>{campaign.name}</h1>
-        <p className="campaign-share-objective">{campaign.objective || 'Un resumen claro del progreso comercial y las señales que está generando esta campaña.'}</p>
+        <p className="campaign-share-objective">{campaign.objective || t('campaignShare.objectiveFallback')}</p>
       </div>
-      <div className="campaign-share-orb"><div><RiBarChartBoxLine /><span>{summary.conversionRate}%<small>conversión</small></span></div></div>
+      <div className="campaign-share-orb"><div><RiBarChartBoxLine /><span>{summary.conversionRate}%<small>{t('campaignShare.conversion')}</small></span></div></div>
     </section>
 
-    <section className="campaign-share-metrics" aria-label="Métricas de campaña">
-      <Metric Icon={RiGroupLine} label="Leads" value={summary.total.toLocaleString('es-ES')} caption="contactos incorporados" />
-      <Metric Icon={RiFocus3Line} label="Contactados" value={summary.contacted.toLocaleString('es-ES')} caption={`${summary.contactRate}% de cobertura`} />
-      <Metric Icon={RiCheckLine} label="Reuniones" value={summary.meetings.toLocaleString('es-ES')} caption="oportunidades activadas" />
+    <section className="campaign-share-metrics" aria-label={t('campaignShare.metrics')}>
+      <Metric Icon={RiGroupLine} label="Leads" value={summary.total.toLocaleString(localeCode(getLocale()))} caption={t('campaignShare.contactsAdded')} />
+      <Metric Icon={RiFocus3Line} label={t('calls.contact')} value={summary.contacted.toLocaleString(localeCode(getLocale()))} caption={t('campaignShare.coverage', { rate: summary.contactRate })} />
+      <Metric Icon={RiCheckLine} label={t('nav.meetings')} value={summary.meetings.toLocaleString(localeCode(getLocale()))} caption={t('campaignShare.opportunities')} />
     </section>
 
     <section className="campaign-share-progress">
-      <div className="campaign-share-section-copy"><p>Progreso comercial</p><h2>Del interés a la conversación.</h2><span>Las métricas se actualizan con la actividad real de la campaña.</span></div>
+      <div className="campaign-share-section-copy"><p>{t('campaignShare.commercialProgress')}</p><h2>{t('campaignShare.interestToConversation')}</h2><span>{t('campaignShare.realActivity')}</span></div>
       <div className="campaign-share-progress-list">
-        <div><span><i className="is-indigo" /> Leads recibidos</span><strong>{summary.total}</strong><b style={{ width: '100%' }} /></div>
-        <div><span><i className="is-cyan" /> Contactos trabajados</span><strong>{summary.contacted}</strong><b className="is-cyan" style={{ width: `${summary.contactRate}%` }} /></div>
-        <div><span><i className="is-green" /> Reuniones generadas</span><strong>{summary.meetings}</strong><b className="is-green" style={{ width: `${summary.conversionRate}%` }} /></div>
+        <div><span><i className="is-indigo" /> {t('campaignShare.leadsReceived')}</span><strong>{summary.total}</strong><b style={{ width: '100%' }} /></div>
+        <div><span><i className="is-cyan" /> {t('campaignShare.contactsWorked')}</span><strong>{summary.contacted}</strong><b className="is-cyan" style={{ width: `${summary.contactRate}%` }} /></div>
+        <div><span><i className="is-green" /> {t('campaignShare.meetingsGenerated')}</span><strong>{summary.meetings}</strong><b className="is-green" style={{ width: `${summary.conversionRate}%` }} /></div>
       </div>
     </section>
 
-    <footer className="campaign-share-footer"><span>Datos compartidos de forma segura por Robin.</span><strong>Actualizado en tiempo real</strong></footer>
+    <footer className="campaign-share-footer"><span>{t('campaignShare.secureFooter')}</span><strong>{t('campaignShare.realtime')}</strong></footer>
   </main>
 }

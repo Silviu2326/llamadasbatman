@@ -1,6 +1,14 @@
 import { prisma } from '../lib/prisma'
-import type { LeadStatus } from '@prisma/client'
-import { createHash, randomUUID } from 'node:crypto'
+import type { LeadStatus, Prisma } from '@prisma/client'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import {
+  fetchWithTimeout,
+  getOrganizationIntegrationOverride,
+  integrationCredentialScope,
+  redactProviderError,
+  responseErrorCode,
+} from '../lib/integrationRuntime'
+import { resolveOrganizationCredentialConfig } from './organizationCredentials.service'
 
 /**
  * Sync de contactos CRM → Mautic. Calca la forma de metaConversions.service.ts
@@ -26,10 +34,63 @@ const SEGMENT_BY_STATUS: Record<LeadStatus, string | null> = {
   converted: 'ganado',
 }
 
-let cachedToken: { value: string; expiresAt: number } | null = null
+type MauticConfig = { baseUrl: string; clientId: string; clientSecret: string; webhookSecret?: string }
+const cachedTokens = new Map<string, { value: string; expiresAt: number }>()
 
-function isConfigured(): boolean {
-  return Boolean(process.env.MAUTIC_BASE_URL && process.env.MAUTIC_CLIENT_ID && process.env.MAUTIC_CLIENT_SECRET)
+function overrideString(override: Record<string, unknown> | null, key: string): string | undefined {
+  const value = override?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+async function config(orgId?: string): Promise<MauticConfig | null> {
+  const resolved = orgId ? await resolveOrganizationCredentialConfig(orgId, 'mautic') : null
+  const override = resolved?.config ?? (orgId ? null : getOrganizationIntegrationOverride('mautic', undefined))
+  const baseUrl = overrideString(override, 'baseUrl') || (!orgId ? process.env.MAUTIC_BASE_URL : undefined)
+  const clientId = overrideString(override, 'clientId') || (!orgId ? process.env.MAUTIC_CLIENT_ID : undefined)
+  const clientSecret = overrideString(override, 'clientSecret') || (!orgId ? process.env.MAUTIC_CLIENT_SECRET : undefined)
+  if (!baseUrl || !clientId || !clientSecret) return null
+  return {
+    baseUrl: baseUrl.replace(/\/$/, ''),
+    clientId,
+    clientSecret,
+    webhookSecret: overrideString(override, 'webhookSecret') || (!orgId ? process.env.MAUTIC_WEBHOOK_SECRET : undefined),
+  }
+}
+
+export function isConfigured(orgId?: string): boolean {
+  const override = getOrganizationIntegrationOverride('mautic', orgId)
+  return Boolean(
+    (overrideString(override, 'baseUrl') || (!orgId ? process.env.MAUTIC_BASE_URL : undefined))
+    && (overrideString(override, 'clientId') || (!orgId ? process.env.MAUTIC_CLIENT_ID : undefined))
+    && (overrideString(override, 'clientSecret') || (!orgId ? process.env.MAUTIC_CLIENT_SECRET : undefined)),
+  )
+}
+
+export async function isConfiguredForOrg(orgId: string): Promise<boolean> {
+  return Boolean(await config(orgId))
+}
+
+export async function connectionMetadata(orgId?: string) {
+  const provider = await config(orgId)
+  return {
+    provider: 'mautic_email',
+    configured: Boolean(provider),
+    credentialScope: integrationCredentialScope('mautic', orgId),
+    auth: {
+      mode: 'client_credentials',
+      oauthCallback: null,
+      scopes: [],
+      refreshSupported: false,
+      revokeSupported: 'local_cache_clear_and_provider_admin',
+    },
+    webhook: {
+      header: 'X-Mautic-Webhook-Secret or Authorization: Bearer',
+      hmacHeader: 'X-Mautic-Signature',
+      signatureAlgorithm: 'HMAC-SHA256',
+      querySecretAllowed: process.env.MAUTIC_WEBHOOK_ALLOW_QUERY_SECRET === 'true' && process.env.NODE_ENV !== 'production',
+    },
+    note: provider ? 'Mautic usa client credentials; se solicita un token nuevo al caducar y se puede limpiar la caché local.' : 'Configura Mautic globalmente o mediante override de organización.',
+  } as const
 }
 
 const orgTag = (orgId: string) => `org-${orgId}`
@@ -46,35 +107,78 @@ function ownedCampaign(campaign: MauticCampaign, orgId: string): boolean {
   return typeof campaign.name === 'string' && campaign.name.startsWith(campaignPrefix(orgId))
 }
 
-async function getAccessToken(): Promise<string | null> {
-  if (!isConfigured()) return null
+async function getAccessToken(orgId?: string): Promise<string | null> {
+  const provider = await config(orgId)
+  if (!provider) return null
+  // The key contains no secret and intentionally retains the org prefix so a
+  // targeted local revoke can remove only that organization's session.
+  const cacheKey = `${orgId ?? 'global'}|${provider.baseUrl}|${provider.clientId}`
+  const cachedToken = cachedTokens.get(cacheKey)
   if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.value
 
   try {
-    const res = await fetch(`${process.env.MAUTIC_BASE_URL}/oauth/v2/token`, {
+    const res = await fetchWithTimeout(`${provider.baseUrl}/oauth/v2/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'client_credentials',
-        client_id: process.env.MAUTIC_CLIENT_ID!,
-        client_secret: process.env.MAUTIC_CLIENT_SECRET!,
+        client_id: provider.clientId,
+        client_secret: provider.clientSecret,
       }),
     })
     if (!res.ok) {
-      console.warn('[MauticSync] token request failed:', await res.text())
+      console.warn('[MauticSync] token request failed:', await responseErrorCode(res))
       return null
     }
-    const data = (await res.json()) as { access_token: string; expires_in: number }
-    cachedToken = { value: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 }
-    return cachedToken.value
+    const data = (await res.json().catch(() => null)) as { access_token?: string; expires_in?: number } | null
+    if (!data?.access_token) return null
+    const token = { value: data.access_token, expiresAt: Date.now() + Math.max(30, (data.expires_in ?? 3600) - 60) * 1000 }
+    cachedTokens.set(cacheKey, token)
+    return token.value
   } catch (err) {
-    console.warn('[MauticSync] token request error:', (err as Error).message)
+    console.warn('[MauticSync] token request error:', redactProviderError(err))
     return null
   }
 }
 
+/** Client-credentials has no provider refresh/revoke endpoint; clear our token cache. */
+export function revokeLocalSession(orgId?: string): void {
+  if (!orgId) {
+    cachedTokens.clear()
+    return
+  }
+  for (const key of cachedTokens.keys()) if (key.startsWith(`${orgId}|`)) cachedTokens.delete(key)
+}
+
+export function verifyMauticWebhookSignature(rawBody: string, signature: string | undefined, secret: string | undefined): boolean {
+  if (!rawBody || !signature || !secret) return false
+  const normalized = signature.trim().replace(/^sha256=/i, '')
+  if (!/^[a-f0-9]{64}$/i.test(normalized)) return false
+  const expected = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex')
+  const actual = Buffer.from(normalized, 'hex')
+  const wanted = Buffer.from(expected, 'hex')
+  return actual.length === wanted.length && timingSafeEqual(actual, wanted)
+}
+
+/** Resolves the webhook secret only after the CRM lead identifies its tenant. */
+export async function mauticWebhookSecretForOrg(orgId: string): Promise<string | undefined> {
+  const provider = await config(orgId)
+  return provider?.webhookSecret
+}
+
+export function verifyMauticWebhookSecret(value: string | undefined, secret: string | undefined): boolean {
+  if (!value || !secret) return false
+  const actual = Buffer.from(value)
+  const wanted = Buffer.from(secret)
+  return actual.length === wanted.length && timingSafeEqual(actual, wanted)
+}
+
 const MAUTIC_TIMEOUT_MS = 10_000
 const MAUTIC_RETRY_DELAY_MS = 500
+const EMAIL_DELIVERY_LEASE_MS = Math.max(30_000, Number(process.env.EMAIL_DELIVERY_LEASE_MS ?? 2 * 60_000))
+const MAX_EMAIL_DELIVERY_ATTEMPTS = Math.max(1, Number(process.env.EMAIL_DELIVERY_MAX_ATTEMPTS ?? 5))
+const MAX_EMAIL_DELIVERY_BACKOFF_MINUTES = 60
+const DEFAULT_EMAIL_WORKER_ID = process.env.EMAIL_DELIVERY_WORKER_ID?.trim() || `email-${process.pid}`
 
 /**
  * EM-103: timeout con AbortController + un único retry con backoff corto.
@@ -83,8 +187,9 @@ const MAUTIC_RETRY_DELAY_MS = 500
  * deja como fallo para que el caller decida (idempotency key propia si hace
  * falta, ver EmailDelivery/EM-102).
  */
-async function mauticFetch(path: string, init: RequestInit = {}): Promise<Response | null> {
-  const token = await getAccessToken()
+async function mauticFetch(path: string, init: RequestInit = {}, orgId?: string): Promise<Response | null> {
+  const provider = await config(orgId)
+  const token = await getAccessToken(orgId)
   if (!token) return null
   const method = (init.method ?? 'GET').toUpperCase()
   const isRead = method === 'GET'
@@ -93,13 +198,13 @@ async function mauticFetch(path: string, init: RequestInit = {}): Promise<Respon
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), MAUTIC_TIMEOUT_MS)
     try {
-      return await fetch(`${process.env.MAUTIC_BASE_URL}${path}`, {
+      return await fetchWithTimeout(`${provider!.baseUrl}${path}`, {
         ...init,
         headers: { ...init.headers, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         signal: controller.signal,
       })
     } catch (err) {
-      console.warn(`[MauticSync] request to ${path} failed:`, (err as Error).message)
+      console.warn('[MauticSync] request failed:', redactProviderError(err))
       return 'network-error'
     } finally {
       clearTimeout(timer)
@@ -110,7 +215,7 @@ async function mauticFetch(path: string, init: RequestInit = {}): Promise<Respon
   const shouldRetry = isRead && (result === 'network-error' || (result instanceof Response && result.status >= 500))
   if (shouldRetry) {
     await new Promise(resolve => setTimeout(resolve, MAUTIC_RETRY_DELAY_MS))
-    result = await attempt()
+        result = await attempt()
   }
   return result === 'network-error' ? null : result
 }
@@ -186,7 +291,7 @@ export async function getContactIdForLead(leadId: string, orgId?: string): Promi
     const cached = await getBindingContactId(orgId, leadId)
     if (cached) return cached
   }
-  const res = await mauticFetch(`/api/contacts?search=${encodeURIComponent(`crmleadid:${leadId}`)}&limit=1`)
+  const res = await mauticFetch(`/api/contacts?search=${encodeURIComponent(`crmleadid:${leadId}`)}&limit=1`, {}, orgId)
   if (!res?.ok) return null
   const data = (await res.json()) as MauticContactListResponse
   const first = data.contacts ? Object.values(data.contacts)[0] : null
@@ -196,7 +301,7 @@ export async function getContactIdForLead(leadId: string, orgId?: string): Promi
 
 async function getOwnedContactId(contactId: string, orgId: string): Promise<number | null> {
   if (!/^\d{1,20}$/.test(contactId)) return null
-  const res = await mauticFetch(`/api/contacts/${contactId}`)
+  const res = await mauticFetch(`/api/contacts/${contactId}`, {}, orgId)
   if (!res?.ok) return null
   const data = (await res.json()) as MauticContactDetailResponse
   const contact = data.contact
@@ -236,11 +341,11 @@ export async function syncContact(lead: SyncableLead): Promise<void> {
 
   const existingId = await getContactIdForLead(lead.id, lead.orgId)
   const res = existingId
-    ? await mauticFetch(`/api/contacts/${existingId}/edit`, { method: 'PATCH', body: JSON.stringify(payload) })
-    : await mauticFetch('/api/contacts/new', { method: 'POST', body: JSON.stringify(payload) })
+    ? await mauticFetch(`/api/contacts/${existingId}/edit`, { method: 'PATCH', body: JSON.stringify(payload) }, lead.orgId)
+    : await mauticFetch('/api/contacts/new', { method: 'POST', body: JSON.stringify(payload) }, lead.orgId)
 
   if (!res?.ok) {
-    const errMsg = res ? await res.text().catch(() => 'error desconocido') : 'Sin respuesta de Mautic'
+    const errMsg = res ? await responseErrorCode(res) : 'Sin respuesta de Mautic'
     if (res) console.warn('[MauticSync] upsert failed:', errMsg)
     await upsertContactBinding(lead.orgId, lead.id, { syncStatus: 'error', lastError: errMsg.slice(0, 500) })
     return
@@ -254,12 +359,12 @@ export async function syncContact(lead: SyncableLead): Promise<void> {
 
   const segmentAlias = SEGMENT_BY_STATUS[lead.status]
   if (!segmentAlias) return
-  if (contactId) await addToSegment(contactId, segmentAlias)
+  if (contactId) await addToSegment(contactId, segmentAlias, lead.orgId)
 }
 
-async function addToSegment(contactId: number, segmentAlias: string): Promise<void> {
-  const res = await mauticFetch(`/api/segments/${segmentAlias}/contact/${contactId}/add`, { method: 'POST' })
-  if (res && !res.ok) console.warn(`[MauticSync] add to segment ${segmentAlias} failed:`, await res.text())
+async function addToSegment(contactId: number, segmentAlias: string, orgId?: string): Promise<void> {
+  const res = await mauticFetch(`/api/segments/${encodeURIComponent(segmentAlias)}/contact/${contactId}/add`, { method: 'POST' }, orgId)
+  if (res && !res.ok) console.warn(`[MauticSync] add to segment ${segmentAlias} failed:`, await responseErrorCode(res))
 }
 
 /**
@@ -272,7 +377,7 @@ export async function sendLeadToSegment(leadId: string, segmentAlias: string, or
   if (!resolvedOrgId) return false
   const contactId = await getContactIdForLead(leadId, resolvedOrgId)
   if (!contactId) return false
-  await addToSegment(contactId, segmentAlias)
+  await addToSegment(contactId, segmentAlias, resolvedOrgId)
   return true
 }
 
@@ -284,44 +389,297 @@ export async function sendLeadToSegment(leadId: string, segmentAlias: string, or
  * `automations.service.ts` (`send_email_template`) la usen antes de disparar
  * el envío real.
  */
+export interface CreateEmailDeliveryInput {
+  campaignId?: string
+  templateExternalId?: string
+  toAddress: string
+  /** Identifies the business command that is allowed to be retried safely. */
+  idempotencyScope?: string
+}
+
+function deterministicDeliveryKey(orgId: string, leadId: string, input: CreateEmailDeliveryInput): string {
+  const address = input.toAddress.trim().toLowerCase()
+  const scope = input.idempotencyScope?.trim()
+    || `one-off:${input.templateExternalId ?? ''}:${address}`
+  return createHash('sha256')
+    .update([orgId, leadId, input.campaignId ?? '', input.templateExternalId ?? '', address, scope].join('\u0000'))
+    .digest('hex')
+}
+
 export async function createEmailDelivery(
   orgId: string,
   leadId: string,
-  input: { campaignId?: string; templateExternalId?: string; toAddress: string }
+  input: CreateEmailDeliveryInput
 ) {
-  return prisma.emailDelivery.create({
-    data: {
+  const idempotencyKey = deterministicDeliveryKey(orgId, leadId, input)
+  return prisma.emailDelivery.upsert({
+    where: { idempotencyKey },
+    create: {
       orgId,
       leadId,
       campaignId: input.campaignId,
       templateExternalId: input.templateExternalId,
       toAddress: input.toAddress,
-      idempotencyKey: randomUUID(),
+      idempotencyKey,
       status: 'queued',
+    },
+    // Retrying a command must not reset the delivery to queued after the
+    // provider has already accepted it.
+    update: {},
+  })
+}
+
+export type EmailDeliveryClaim = 'claimed' | 'accepted' | 'in_progress' | 'uncertain' | 'failed' | 'missing'
+
+function dueEmailDeliveryWhere(now: Date): Prisma.EmailDeliveryWhereInput {
+  return {
+    OR: [
+      { status: 'queued', availableAt: { lte: now } },
+      // A processing delivery without a provider attempt is safe to recover:
+      // no external POST has been durably started yet.
+      {
+        status: 'processing',
+        providerAttemptedAt: null,
+        OR: [{ leaseExpiresAt: { lte: now } }, { leaseExpiresAt: null }],
+      },
+    ],
+  }
+}
+
+/**
+ * Marks abandoned deliveries whose provider POST might have happened as
+ * `uncertain`. We intentionally do not retry them: without a provider-side
+ * idempotency guarantee, a retry could send the same email twice.
+ */
+async function quarantineAmbiguousEmailDelivery(
+  deliveryId: string,
+  orgId: string,
+  leadId: string,
+  templateExternalId: string,
+  now: Date
+): Promise<boolean> {
+  const quarantined = await prisma.emailDelivery.updateMany({
+    where: {
+      id: deliveryId,
+      orgId,
+      leadId,
+      templateExternalId,
+      status: 'processing',
+      providerAttemptedAt: { not: null },
+      OR: [{ leaseExpiresAt: { lte: now } }, { leaseExpiresAt: null }],
+    },
+    data: {
+      status: 'uncertain',
+      failedAt: now,
+      failureCode: 'OUTCOME_UNKNOWN',
+      failureDetail: 'La lease expiró después de iniciar el envío al proveedor. Se requiere revisión para evitar un reenvío duplicado.',
+      lockedAt: null,
+      leaseExpiresAt: null,
+      workerId: null,
+    },
+  })
+  return quarantined.count === 1
+}
+
+/** Atomic conditional claim used by both HTTP sends and the campaign worker. */
+export async function claimEmailDelivery(
+  deliveryId: string,
+  orgId: string,
+  leadId: string,
+  templateExternalId: string,
+  workerId = DEFAULT_EMAIL_WORKER_ID
+): Promise<EmailDeliveryClaim> {
+  const now = new Date()
+  // First convert an expired, externally ambiguous operation into a visible
+  // terminal state. This is the at-most-once fence for providers such as
+  // Mautic that do not document a durable idempotency API for this endpoint.
+  if (await quarantineAmbiguousEmailDelivery(deliveryId, orgId, leadId, templateExternalId, now)) return 'uncertain'
+
+  const claimed = await prisma.emailDelivery.updateMany({
+    where: { id: deliveryId, orgId, leadId, templateExternalId, ...dueEmailDeliveryWhere(now) },
+    data: {
+      status: 'processing',
+      attempts: { increment: 1 },
+      lockedAt: now,
+      leaseExpiresAt: new Date(now.getTime() + EMAIL_DELIVERY_LEASE_MS),
+      workerId,
+    },
+  })
+  if (claimed.count === 1) return 'claimed'
+
+  const delivery = await prisma.emailDelivery.findFirst({
+    where: { id: deliveryId, orgId, leadId, templateExternalId },
+    select: { status: true },
+  })
+  if (!delivery) return 'missing'
+  if (delivery.status === 'accepted' || delivery.status === 'delivered') return 'accepted'
+  if (delivery.status === 'processing') return 'in_progress'
+  if (delivery.status === 'uncertain') return 'uncertain'
+  return 'failed'
+}
+
+async function renewEmailDeliveryLease(deliveryId: string, workerId: string): Promise<boolean> {
+  const now = new Date()
+  const renewed = await prisma.emailDelivery.updateMany({
+    where: { id: deliveryId, status: 'processing', workerId, leaseExpiresAt: { gt: now } },
+    data: { leaseExpiresAt: new Date(now.getTime() + EMAIL_DELIVERY_LEASE_MS) },
+  })
+  return renewed.count === 1
+}
+
+async function withEmailDeliveryLease<T>(deliveryId: string, workerId: string, work: () => Promise<T>) {
+  let leaseLost = false
+  let renewal = Promise.resolve()
+  const heartbeat = () => {
+    renewal = renewal.then(async () => {
+      try {
+        if (!await renewEmailDeliveryLease(deliveryId, workerId)) leaseLost = true
+      } catch {
+        leaseLost = true
+      }
+    })
+  }
+  const timer = setInterval(heartbeat, Math.max(1_000, Math.floor(EMAIL_DELIVERY_LEASE_MS / 3)))
+  timer.unref()
+  try {
+    const value = await work()
+    clearInterval(timer)
+    await renewal
+    return { value, leaseLost }
+  } catch (error) {
+    clearInterval(timer)
+    await renewal
+    throw error
+  }
+}
+
+async function markEmailDeliveryAccepted(deliveryId: string, workerId: string, providerMessageId?: string): Promise<boolean> {
+  const accepted = await prisma.emailDelivery
+    .updateMany({
+      where: { id: deliveryId, status: 'processing', workerId },
+      data: {
+        status: 'accepted',
+        acceptedAt: new Date(),
+        ...(providerMessageId ? { providerMessageId } : {}),
+        lockedAt: null,
+        leaseExpiresAt: null,
+        workerId: null,
+      },
+    })
+    .catch(err => {
+      console.warn('[MauticSync] markEmailDeliveryAccepted failed:', (err as Error).message)
+      return { count: 0 }
+    })
+  return accepted.count === 1
+}
+
+async function markEmailDeliveryFailed(deliveryId: string, workerId: string | undefined, failureCode?: string, failureDetail?: string): Promise<void> {
+  const where = workerId
+    ? { id: deliveryId, status: 'processing', workerId }
+    : { id: deliveryId, status: { in: ['queued', 'processing'] } }
+  await prisma.emailDelivery
+    .updateMany({
+      where,
+      data: {
+        status: 'failed',
+        failedAt: new Date(),
+        failureCode,
+        failureDetail: failureDetail?.slice(0, 1000),
+        lockedAt: null,
+        leaseExpiresAt: null,
+        workerId: null,
+      },
+    })
+    .catch(err => console.warn('[MauticSync] markEmailDeliveryFailed failed:', (err as Error).message))
+}
+
+async function retryEmailDeliveryBeforeProvider(
+  deliveryId: string,
+  workerId: string,
+  errorCode: string,
+  errorDetail: string
+): Promise<void> {
+  const delivery = await prisma.emailDelivery.findFirst({
+    where: { id: deliveryId, status: 'processing', workerId },
+    select: { attempts: true },
+  })
+  if (!delivery) return
+  if (delivery.attempts >= MAX_EMAIL_DELIVERY_ATTEMPTS) {
+    await markEmailDeliveryFailed(deliveryId, workerId, 'MAX_ATTEMPTS_EXCEEDED', errorDetail)
+    return
+  }
+  const delayMinutes = Math.min(MAX_EMAIL_DELIVERY_BACKOFF_MINUTES, 2 ** Math.max(0, delivery.attempts - 1))
+  await prisma.emailDelivery.updateMany({
+    where: { id: deliveryId, status: 'processing', workerId, providerAttemptedAt: null },
+    data: {
+      status: 'queued',
+      availableAt: new Date(Date.now() + delayMinutes * 60_000),
+      failureCode: errorCode,
+      failureDetail: errorDetail.slice(0, 1000),
+      lockedAt: null,
+      leaseExpiresAt: null,
+      workerId: null,
     },
   })
 }
 
-async function markEmailDeliveryAccepted(deliveryId: string, providerMessageId?: string): Promise<void> {
-  await prisma.emailDelivery
-    .update({ where: { id: deliveryId }, data: { status: 'accepted', acceptedAt: new Date(), providerMessageId } })
-    .catch(err => console.warn('[MauticSync] markEmailDeliveryAccepted failed:', (err as Error).message))
+async function markEmailDeliveryProviderAttempted(deliveryId: string, workerId: string): Promise<boolean> {
+  const marked = await prisma.emailDelivery.updateMany({
+    where: { id: deliveryId, status: 'processing', workerId },
+    data: { providerAttemptedAt: new Date() },
+  })
+  return marked.count === 1
 }
 
-async function markEmailDeliveryFailed(deliveryId: string, failureCode?: string, failureDetail?: string): Promise<void> {
-  await prisma.emailDelivery
-    .update({
-      where: { id: deliveryId },
-      data: { status: 'failed', failedAt: new Date(), failureCode, failureDetail: failureDetail?.slice(0, 1000) },
-    })
-    .catch(err => console.warn('[MauticSync] markEmailDeliveryFailed failed:', (err as Error).message))
+async function markEmailDeliveryUncertain(deliveryId: string, workerId: string, failureCode: string, failureDetail?: string): Promise<void> {
+  await prisma.emailDelivery.updateMany({
+    where: { id: deliveryId, status: 'processing', workerId },
+    data: {
+      status: 'uncertain',
+      failedAt: new Date(),
+      failureCode,
+      failureDetail: failureDetail?.slice(0, 1000),
+      lockedAt: null,
+      leaseExpiresAt: null,
+      workerId: null,
+    },
+  })
+}
+
+/** Marks deliveries accepted only after Mautic has confirmed campaign enrollment and publication. */
+export async function markCampaignDeliveriesAccepted(deliveryIds: string[]): Promise<void> {
+  if (!deliveryIds.length) return
+  await prisma.emailDelivery.updateMany({
+    where: { id: { in: deliveryIds }, status: 'queued' },
+    data: { status: 'accepted', acceptedAt: new Date() },
+  })
+}
+
+/** Records a terminal recipient-level exclusion without changing other queued deliveries. */
+export async function markCampaignDeliveriesFailed(
+  deliveryIds: string[],
+  failureCode: string,
+  failureDetail: string
+): Promise<void> {
+  if (!deliveryIds.length) return
+  await prisma.emailDelivery.updateMany({
+    where: { id: { in: deliveryIds }, status: 'queued' },
+    data: { status: 'failed', failedAt: new Date(), failureCode, failureDetail: failureDetail.slice(0, 1000) },
+  })
 }
 
 async function extractProviderMessageId(res: Response): Promise<string | undefined> {
   try {
     const data = (await res.json()) as Record<string, unknown>
-    const id = data.id ?? (data.copy as Record<string, unknown> | undefined)?.id ?? data.emailId
-    return id === undefined ? undefined : String(id)
+    // `id` and `emailId` are normally template identifiers in Mautic. Persist
+    // only an identifier explicitly described as a message/statistic ID.
+    const message = data.providerMessageId
+      ?? data.provider_message_id
+      ?? data.messageId
+      ?? data.message_id
+      ?? data.statId
+      ?? data.stat_id
+    return message === undefined || message === null ? undefined : String(message)
   } catch {
     return undefined
   }
@@ -337,28 +695,69 @@ export async function sendEmailToLead(
   leadId: string,
   mauticEmailId: string,
   orgId?: string,
-  deliveryId?: string
+  deliveryId?: string,
+  workerId = DEFAULT_EMAIL_WORKER_ID
 ): Promise<boolean> {
   const resolvedOrgId = orgId ?? (await prisma.lead.findUnique({ where: { id: leadId }, select: { orgId: true } }))?.orgId
   if (!resolvedOrgId) {
-    if (deliveryId) await markEmailDeliveryFailed(deliveryId, 'ORG_NOT_RESOLVED', 'No se pudo resolver la organización del lead')
+    if (deliveryId) await markEmailDeliveryFailed(deliveryId, undefined, 'ORG_NOT_RESOLVED', 'No se pudo resolver la organización del lead')
     return false
   }
-  const contactId = await getContactIdForLead(leadId, resolvedOrgId)
-  if (!contactId) {
-    if (deliveryId) await markEmailDeliveryFailed(deliveryId, 'CONTACT_NOT_SYNCED', 'El lead no está sincronizado en Mautic')
-    return false
-  }
-  const res = await mauticFetch(`/api/emails/${mauticEmailId}/contact/${contactId}/send`, { method: 'POST' })
-  if (!res?.ok) {
-    if (deliveryId) {
-      const detail = res ? await res.text().catch(() => undefined) : 'Sin respuesta de Mautic'
-      await markEmailDeliveryFailed(deliveryId, res ? String(res.status) : 'NETWORK_ERROR', detail)
+
+  if (deliveryId) {
+    const claimed = await claimEmailDelivery(deliveryId, resolvedOrgId, leadId, mauticEmailId, workerId)
+    // Never repeat a provider POST when the same delivery was already
+    // accepted or is currently owned by another worker/process.
+    if (claimed === 'accepted' || claimed === 'in_progress') return true
+    if (claimed !== 'claimed') return false
+
+    const outcome = await withEmailDeliveryLease(deliveryId, workerId, async () => {
+      const contactId = await getContactIdForLead(leadId, resolvedOrgId)
+      if (!contactId) {
+        // No provider POST happened, so this retry is safe and gets an
+        // exponential backoff instead of being stranded in processing.
+        await retryEmailDeliveryBeforeProvider(deliveryId, workerId, 'CONTACT_NOT_SYNCED', 'El lead no está sincronizado en Mautic')
+        return { sent: false, providerAttempted: false }
+      }
+      if (!await markEmailDeliveryProviderAttempted(deliveryId, workerId)) {
+        return { sent: false, providerAttempted: false }
+      }
+      const res = await mauticFetch(`/api/emails/${mauticEmailId}/contact/${contactId}/send`, {
+        method: 'POST',
+        // Mautic may ignore this header, which is why the durable
+        // providerAttemptedAt/uncertain fence remains necessary. Compatible
+        // gateways can nevertheless deduplicate the same command.
+        headers: { 'Idempotency-Key': deliveryId },
+      }, resolvedOrgId)
+      return { sent: Boolean(res?.ok), providerAttempted: true, res }
+    })
+
+    if (outcome.leaseLost) {
+      // Do not overwrite another worker's state. If the POST started, a
+      // recovered worker will quarantine it as uncertain; otherwise it is
+      // safe to reclaim after the expired lease.
+      console.warn(`[MauticSync] lease perdida para EmailDelivery ${deliveryId}`)
+      return false
     }
-    return false
+    if (!outcome.value.sent) {
+      if (outcome.value.providerAttempted) {
+        const res = outcome.value.res
+        const detail = res ? await responseErrorCode(res) : 'Sin respuesta de Mautic'
+        await markEmailDeliveryUncertain(deliveryId, workerId, res ? String(res.status) : 'NETWORK_ERROR', detail)
+      }
+      return false
+    }
+    await markEmailDeliveryAccepted(deliveryId, workerId, await extractProviderMessageId(outcome.value.res!))
+    return true
   }
-  if (deliveryId) await markEmailDeliveryAccepted(deliveryId, await extractProviderMessageId(res))
-  return true
+
+  // Legacy callers that have not materialized an EmailDelivery keep their
+  // existing synchronous behaviour. All campaign sends use the leased path
+  // above, where an external command has a durable idempotency fence.
+  const contactId = await getContactIdForLead(leadId, resolvedOrgId)
+  if (!contactId) return false
+  const res = await mauticFetch(`/api/emails/${mauticEmailId}/contact/${contactId}/send`, { method: 'POST' }, resolvedOrgId)
+  return Boolean(res?.ok)
 }
 
 /**
@@ -370,6 +769,14 @@ export async function sendEmailToLead(
  * despliegue real antes de confiar en esto en producción.
  */
 
+interface MauticCampaignEvent {
+  id?: number | string
+  type?: string
+  eventType?: string
+  properties?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 interface MauticCampaign {
   id: number
   name: string
@@ -378,11 +785,33 @@ interface MauticCampaign {
   publishUp?: string | null
   publishDown?: string | null
   category?: unknown
+  events?: Record<string, MauticCampaignEvent> | MauticCampaignEvent[]
+}
+
+function campaignFromResponse(data: Record<string, unknown>): MauticCampaign | null {
+  const campaign = data.campaign && typeof data.campaign === 'object'
+    ? data.campaign as unknown as MauticCampaign
+    : data as unknown as MauticCampaign
+  return campaign && typeof campaign.id === 'number' && typeof campaign.name === 'string' ? campaign : null
+}
+
+function campaignEvents(campaign: MauticCampaign): MauticCampaignEvent[] {
+  if (Array.isArray(campaign.events)) return campaign.events
+  if (campaign.events && typeof campaign.events === 'object') return Object.values(campaign.events)
+  return []
+}
+
+function hasConfiguredEmailAction(campaign: MauticCampaign, templateExternalId: string): boolean {
+  return campaignEvents(campaign).some(event =>
+    event.type === 'email.send'
+    && event.eventType === 'action'
+    && String(event.properties?.email ?? '') === templateExternalId
+  )
 }
 
 /** GET /api/campaigns — Mautic devuelve `{ campaigns: { "1": {...}, ... } }`. */
 export async function getCampaigns(orgId: string): Promise<MauticCampaign[] | null> {
-  const res = await mauticFetch('/api/campaigns')
+  const res = await mauticFetch('/api/campaigns', {}, orgId)
   if (!res?.ok) return null
   const data = (await res.json()) as { campaigns?: Record<string, MauticCampaign> }
   return data.campaigns ? Object.values(data.campaigns).filter(campaign => ownedCampaign(campaign, orgId)) : []
@@ -392,11 +821,143 @@ export async function getCampaigns(orgId: string): Promise<MauticCampaign[] | nu
 export async function createCampaign(orgId: string, name: string, description?: string): Promise<MauticCampaign | null> {
   const res = await mauticFetch('/api/campaigns/new', {
     method: 'POST',
-    body: JSON.stringify({ name: `${campaignPrefix(orgId)} ${name}`, description }),
-  })
+    body: JSON.stringify({ name: `${campaignPrefix(orgId)} ${name}`, description, isPublished: false }),
+  }, orgId)
   if (!res?.ok) return null
   const data = (await res.json()) as { campaign?: MauticCampaign }
   return data.campaign && ownedCampaign(data.campaign, orgId) ? data.campaign : null
+}
+
+/**
+ * Creates a Mautic campaign graph that has a single, immediate email action.
+ * The graph is deliberately created unpublished; contacts are enrolled only
+ * after the response proves that the configured template action exists.
+ */
+export async function createConfiguredEmailCampaign(
+  orgId: string,
+  name: string,
+  description: string | undefined,
+  templateExternalId: string
+): Promise<MauticCampaign | null> {
+  if (!/^\d+$/.test(templateExternalId)) return null
+
+  const res = await mauticFetch('/api/campaigns/new', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: `${campaignPrefix(orgId)} ${name}`,
+      description,
+      isPublished: false,
+      events: [{
+        id: 'new1',
+        name: `Send email ${templateExternalId}`,
+        type: 'email.send',
+        eventType: 'action',
+        order: 1,
+        properties: { email: Number(templateExternalId) },
+        triggerMode: 'immediate',
+        triggerDate: null,
+        triggerInterval: null,
+        triggerIntervalUnit: null,
+        children: [],
+        parent: null,
+        decisionPath: null,
+      }],
+    }),
+  }, orgId)
+  if (!res?.ok) return null
+  const body = (await res.json()) as Record<string, unknown>
+  const created = campaignFromResponse(body)
+  if (!created || !ownedCampaign(created, orgId)) return null
+
+  // Do not trust a successful HTTP status alone. Mautic versions differ in
+  // their campaign-builder payload support, so read back the graph and prove
+  // the send action before allowing recipients or publication.
+  const detail = await getCampaignStats(String(created.id), orgId)
+  const verified = detail ? campaignFromResponse(detail) : null
+  return verified && hasConfiguredEmailAction(verified, templateExternalId) ? verified : null
+}
+
+export async function getConfiguredEmailCampaign(
+  orgId: string,
+  campaignId: string,
+  templateExternalId: string
+): Promise<MauticCampaign | null> {
+  const detail = await getCampaignStats(campaignId, orgId)
+  const campaign = detail ? campaignFromResponse(detail) : null
+  return campaign && hasConfiguredEmailAction(campaign, templateExternalId) ? campaign : null
+}
+
+export interface CampaignEnrollmentResult {
+  enrolledLeadIds: string[]
+  unsyncedLeadIds: string[]
+  failedLeadIds: string[]
+  error?: string
+}
+
+/**
+ * Adds the concrete CRM audience to an already verified, unpublished Mautic
+ * campaign. The endpoint response must explicitly be `{ success: true }`;
+ * a 2xx response without that acknowledgement is not enough to publish.
+ */
+export async function enrollLeadsInConfiguredCampaign(
+  orgId: string,
+  campaignId: string,
+  templateExternalId: string,
+  leadIds: string[]
+): Promise<CampaignEnrollmentResult> {
+  const campaign = await getConfiguredEmailCampaign(orgId, campaignId, templateExternalId)
+  if (!campaign || campaign.isPublished) {
+    return { enrolledLeadIds: [], unsyncedLeadIds: [], failedLeadIds: leadIds, error: 'La campaña remota no está configurada como borrador verificable' }
+  }
+
+  const enrolledLeadIds: string[] = []
+  const unsyncedLeadIds: string[] = []
+  const failedLeadIds: string[] = []
+  for (const leadId of leadIds) {
+    const contactId = await getContactIdForLead(leadId, orgId)
+    if (!contactId) {
+      unsyncedLeadIds.push(leadId)
+      continue
+    }
+    const res = await mauticFetch(`/api/campaigns/${campaignId}/contact/${contactId}/add`, { method: 'POST' }, orgId)
+    if (!res?.ok) {
+      failedLeadIds.push(leadId)
+      continue
+    }
+    try {
+      const payload = (await res.json()) as { success?: unknown }
+      if (payload.success === true) enrolledLeadIds.push(leadId)
+      else failedLeadIds.push(leadId)
+    } catch {
+      failedLeadIds.push(leadId)
+    }
+  }
+  return { enrolledLeadIds, unsyncedLeadIds, failedLeadIds }
+}
+
+/** Publishes a fully configured and populated Mautic campaign, then reads it back. */
+export async function publishConfiguredEmailCampaign(
+  orgId: string,
+  campaignId: string,
+  templateExternalId: string,
+  publishUp?: string,
+  publishDown?: string
+): Promise<MauticCampaign | null> {
+  const existing = await getConfiguredEmailCampaign(orgId, campaignId, templateExternalId)
+  if (!existing || existing.isPublished) return null
+
+  const res = await mauticFetch(`/api/campaigns/${campaignId}/edit`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isPublished: true, publishUp, publishDown }),
+  }, orgId)
+  if (!res?.ok) return null
+
+  // The PATCH response can be stale on some Mautic installations. Reconcile
+  // through GET and only report success when Mautic confirms publication and
+  // the originally requested email action still exists.
+  const detail = await getCampaignStats(campaignId, orgId)
+  const published = detail ? campaignFromResponse(detail) : null
+  return published?.isPublished && hasConfiguredEmailAction(published, templateExternalId) ? published : null
 }
 
 interface MauticEmailTemplate {
@@ -424,7 +985,7 @@ interface MauticEmailTemplate {
  * ofrecer vincular una desde /api/mautic/templates/unclaimed (admin).
  */
 export async function getEmailTemplates(orgId: string): Promise<MauticEmailTemplate[] | null> {
-  const res = await mauticFetch('/api/emails')
+  const res = await mauticFetch('/api/emails', {}, orgId)
   if (!res?.ok) return null
   const data = (await res.json()) as { emails?: Record<string, MauticEmailTemplate> }
   const remote = data.emails ? Object.values(data.emails) : []
@@ -504,16 +1065,43 @@ export async function isTemplateOwnedByOrg(orgId: string, emailId: string): Prom
  * despliegue real; confirmar contra la documentación de la versión
  * desplegada antes de depender de esto.
  */
-export async function sendTestEmail(emailId: string, testContactId: string, deliveryId?: string): Promise<boolean> {
-  const res = await mauticFetch(`/api/emails/${emailId}/send/${testContactId}`, { method: 'POST' })
-  if (!res?.ok) {
-    if (deliveryId) {
-      const detail = res ? await res.text().catch(() => undefined) : 'Sin respuesta de Mautic'
-      await markEmailDeliveryFailed(deliveryId, res ? String(res.status) : 'NETWORK_ERROR', detail)
-    }
+export async function sendTestEmail(
+  emailId: string,
+  testContactId: string,
+  deliveryId?: string,
+  workerId = DEFAULT_EMAIL_WORKER_ID,
+  orgId?: string
+): Promise<boolean> {
+  if (!deliveryId) {
+    const res = await mauticFetch(`/api/emails/${emailId}/send/${testContactId}`, { method: 'POST' }, orgId)
+    return Boolean(res?.ok)
+  }
+
+  const delivery = await prisma.emailDelivery.findUnique({
+    where: { id: deliveryId },
+    select: { orgId: true, leadId: true, templateExternalId: true },
+  })
+  if (!delivery?.templateExternalId || delivery.templateExternalId !== emailId) return false
+  const claimed = await claimEmailDelivery(deliveryId, delivery.orgId, delivery.leadId, emailId, workerId)
+  if (claimed === 'accepted' || claimed === 'in_progress') return true
+  if (claimed !== 'claimed') return false
+
+  const outcome = await withEmailDeliveryLease(deliveryId, workerId, async () => {
+    if (!await markEmailDeliveryProviderAttempted(deliveryId, workerId)) return { sent: false, res: null as Response | null }
+    const res = await mauticFetch(`/api/emails/${emailId}/send/${testContactId}`, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': deliveryId },
+    }, delivery.orgId)
+    return { sent: Boolean(res?.ok), res }
+  })
+  if (outcome.leaseLost) return false
+  if (!outcome.value.sent) {
+    const res = outcome.value.res
+    const detail = res ? await responseErrorCode(res) : 'Sin respuesta de Mautic'
+    await markEmailDeliveryUncertain(deliveryId, workerId, res ? String(res.status) : 'NETWORK_ERROR', detail)
     return false
   }
-  if (deliveryId) await markEmailDeliveryAccepted(deliveryId, await extractProviderMessageId(res))
+  await markEmailDeliveryAccepted(deliveryId, workerId, await extractProviderMessageId(outcome.value.res!))
   return true
 }
 
@@ -533,7 +1121,7 @@ export async function scheduleCampaign(
   const res = await mauticFetch(`/api/campaigns/${campaignId}/edit`, {
     method: 'PATCH',
     body: JSON.stringify({ publishUp, publishDown }),
-  })
+  }, orgId)
   if (!res?.ok) return null
   const data = (await res.json()) as { campaign?: MauticCampaign }
   return data.campaign && ownedCampaign(data.campaign, orgId) ? data.campaign : null
@@ -545,13 +1133,16 @@ export async function pauseCampaign(orgId: string, campaignId: string): Promise<
   const res = await mauticFetch(`/api/campaigns/${campaignId}/edit`, {
     method: 'PATCH',
     body: JSON.stringify({ isPublished: false }),
-  })
-  return Boolean(res?.ok)
+  }, orgId)
+  if (!res?.ok) return false
+  const detail = await getCampaignStats(campaignId, orgId)
+  const campaign = detail ? campaignFromResponse(detail) : null
+  return campaign?.isPublished === false
 }
 
 /** GET /api/campaigns/:id — Mautic suele incluir conteos/stats en el detalle. */
 export async function getCampaignStats(campaignId: string, orgId?: string): Promise<Record<string, unknown> | null> {
-  const res = await mauticFetch(`/api/campaigns/${campaignId}`)
+  const res = await mauticFetch(`/api/campaigns/${campaignId}`, {}, orgId)
   if (!res?.ok) return null
   const data = (await res.json()) as Record<string, unknown>
   const campaign = (data.campaign && typeof data.campaign === 'object'

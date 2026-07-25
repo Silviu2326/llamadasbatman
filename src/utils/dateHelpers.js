@@ -4,9 +4,12 @@ export function formatInputDate(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-export function formatDisplayDate(d) {
-  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
+export function formatDisplayDate(d, locale = 'es') {
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(d)
 }
 
 export function addDays(d, days) {

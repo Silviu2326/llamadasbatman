@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import FormModal from '../components/ui/FormModal'
 import FormSelect from '../components/forms/FormSelect'
 import { apiFetch } from '../lib/api'
+import { useI18n } from '../i18n'
 
 const POLL_MS = 2000
 
 export default function ImportLeadsModal({ onClose, onSuccess }) {
+  const { t } = useI18n()
   const [campaigns, setCampaigns] = useState([])
   const [campaignId, setCampaignId] = useState('')
   const [file, setFile] = useState(null)
@@ -38,8 +40,8 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
 
   async function handleSubmit() {
     if (job) { onSuccess ? onSuccess(job) : onClose(); return }
-    if (!campaignId) { setError('Elegí una campaña'); return }
-    if (!file) { setError('Elegí un archivo CSV'); return }
+    if (!campaignId) { setError(t('modal.campaignRequired')); return }
+    if (!file) { setError(t('modal.fileRequired')); return }
     setSaving(true)
     setError(null)
     try {
@@ -49,11 +51,11 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
         headers: { 'Content-Type': 'text/plain' },
         body: text,
       })
-      if (!res.ok) { setError('Error al importar el CSV'); return }
+      if (!res.ok) { setError(t('modal.importError')); return }
       const created = await res.json()
       setJob(created)
     } catch {
-      setError('Error de conexión')
+      setError(t('modal.connectionError'))
     } finally {
       setSaving(false)
     }
@@ -65,18 +67,18 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
 
   return (
     <FormModal
-      title="Importar leads desde CSV"
+      title={t('modal.importLeads')}
       onClose={onClose}
       onSubmit={handleSubmit}
-      submitText={isDone ? 'Cerrar' : isRunning ? 'Procesando…' : saving ? 'Enviando…' : 'Importar'}
+      submitText={isDone ? t('common.close') : isRunning ? t('modal.processing') : saving ? t('modal.sending') : t('modal.import')}
       submitDisabled={isRunning}
     >
       {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
 
       {!job && <>
-        <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>Columnas esperadas: name, phone, email, company.</p>
+        <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>{t('modal.expectedColumns')}</p>
         <FormSelect
-          label="Campaña"
+          label={t('modal.campaign')}
           value={campaignId}
           onChange={e => setCampaignId(e.target.value)}
           options={campaigns.map(c => ({ value: c.id, label: c.name }))}
@@ -88,14 +90,14 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
           style={{ color: '#94a3b8', fontSize: 13 }}
         />
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#94a3b8', cursor: 'pointer' }}>
-          <input type="checkbox" checked={autoCall} onChange={e => setAutoCall(e.target.checked)} /> Llamar automáticamente a los importados
+          <input type="checkbox" checked={autoCall} onChange={e => setAutoCall(e.target.checked)} /> {t('modal.autoCall')}
         </label>
       </>}
 
       {job && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#94a3b8' }}>
-          <span>{isRunning ? 'Importando…' : job.status === 'completed' ? 'Importación completada' : 'Importación con errores'}</span>
-          <span>{job.processedRows ?? 0} / {job.totalRows ?? 0} filas</span>
+          <span>{isRunning ? t('modal.importing') : job.status === 'completed' ? t('modal.importCompleted') : t('modal.importErrors')}</span>
+          <span>{job.processedRows ?? 0} / {job.totalRows ?? 0} {t('modal.rows')}</span>
         </div>
         <div style={{ height: 6, borderRadius: 999, background: '#1f2937', overflow: 'hidden' }}>
           <div style={{
@@ -106,9 +108,9 @@ export default function ImportLeadsModal({ onClose, onSuccess }) {
           }} />
         </div>
         <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
-          <span style={{ color: '#34d399' }}>Importados: {job.importedCount ?? 0}</span>
-          <span style={{ color: '#f59e0b' }}>Duplicados: {job.skippedCount ?? 0}</span>
-          <span style={{ color: '#ef4444' }}>Errores: {job.errorCount ?? 0}</span>
+          <span style={{ color: '#34d399' }}>{t('modal.imported')}: {job.importedCount ?? 0}</span>
+          <span style={{ color: '#f59e0b' }}>{t('modal.duplicates')}: {job.skippedCount ?? 0}</span>
+          <span style={{ color: '#ef4444' }}>{t('modal.errors')}: {job.errorCount ?? 0}</span>
         </div>
         {isDone && errorList.length > 0 && (
           <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid #1f2937', borderRadius: 8, padding: 8 }}>

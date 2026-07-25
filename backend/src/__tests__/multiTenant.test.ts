@@ -30,7 +30,7 @@ after(async () => {
 
 test('createOpportunity rechaza un leadId de otra organización', async () => {
   await assert.rejects(
-    () => createOpportunity(orgA.id, null, { leadId: leadInOrgB.id, name: 'Cross-tenant opp' }),
+    () => createOpportunity(orgA.id, userInOrgB.id, 'admin', { leadId: leadInOrgB.id, name: 'Cross-tenant opp' }),
     PipelineOwnershipError
   )
 })
@@ -38,14 +38,14 @@ test('createOpportunity rechaza un leadId de otra organización', async () => {
 test('createOpportunity rechaza un assignedTo (User) de otra organización', async () => {
   const leadInOrgA = await createTestLead(orgA.id)
   await assert.rejects(
-    () => createOpportunity(orgA.id, null, { leadId: leadInOrgA.id, assignedTo: userInOrgB.id, name: 'Cross-tenant owner' }),
+    () => createOpportunity(orgA.id, userInOrgB.id, 'admin', { leadId: leadInOrgA.id, assignedTo: userInOrgB.id, name: 'Cross-tenant owner' }),
     PipelineOwnershipError
   )
 })
 
 test('createMeeting rechaza un leadId de otra organización', async () => {
   await assert.rejects(
-    () => createMeeting(orgA.id, null, { leadId: leadInOrgB.id, title: 'Cross-tenant meeting', scheduledAt: new Date(Date.now() + 3600_000).toISOString() }),
+    () => createMeeting(orgA.id, userInOrgB.id, 'admin', { leadId: leadInOrgB.id, title: 'Cross-tenant meeting', scheduledAt: new Date(Date.now() + 3600_000).toISOString() }),
     MeetingOwnershipError
   )
 })
@@ -65,7 +65,7 @@ test('createLead rechaza un campaignId de otra organización', async () => {
 test('createOpportunity SÍ acepta referencias de la misma organización', async () => {
   const leadInOrgA = await createTestLead(orgA.id)
   const userInOrgA = await createTestUser(orgA.id)
-  const opportunity = await createOpportunity(orgA.id, null, {
+  const opportunity = await createOpportunity(orgA.id, userInOrgA.id, 'admin', {
     leadId: leadInOrgA.id,
     assignedTo: userInOrgA.id,
     name: 'Same-tenant opp',

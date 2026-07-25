@@ -2,7 +2,6 @@ import React from 'react'
 import {
   WIDGET_TYPES,
   KPI_INDEX_MAP,
-  WIDGET_META,
 } from '../../dashboardConfig'
 import KPICard from '../KPICard'
 import RendimientoChart from './RendimientoChart'
@@ -16,9 +15,8 @@ export default function WidgetRenderer({ widgetId, kpiData, stats }) {
   if (widgetId.startsWith('kpi_')) {
     const index = KPI_INDEX_MAP[widgetId]
     if (index == null || !kpiData[index]) return null
-    const meta = WIDGET_META[widgetId]
     const kpi = kpiData[index]
-    return <KPICard {...kpi} label={meta?.label ?? kpi.label} delay="0ms" large />
+    return <KPICard {...kpi} label={kpi.label} delay="0ms" large />
   }
 
   switch (widgetId) {

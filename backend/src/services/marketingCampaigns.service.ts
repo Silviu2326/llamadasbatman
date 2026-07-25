@@ -164,12 +164,14 @@ export async function validateCampaign(orgId: string, id: string): Promise<{ val
   if (!campaign.name?.trim()) missing.push('name')
   const audience = campaign.audienceDefinition as AudienceDefinition | null
   if (!audience || Object.keys(audience).length === 0) missing.push('audienceDefinition')
-  if (!campaign.templateBindingId) missing.push('templateBindingId')
+  if (!campaign.templateBindingId || !(await mauticSync.isTemplateOwnedByOrg(orgId, campaign.templateBindingId))) {
+    missing.push('templateBindingId')
+  }
   if (!campaign.sender) missing.push('sender')
 
   const valid = missing.length === 0
 
-  if (valid && (campaign.status === 'draft' || campaign.status === 'validating')) {
+  if (valid && (campaign.status === 'draft' || campaign.status === 'validating' || campaign.status === 'error')) {
     await prisma.marketingCampaign.updateMany({ where: { id, orgId }, data: { status: 'ready' } })
   } else if (!valid && campaign.status === 'draft') {
     await prisma.marketingCampaign.updateMany({ where: { id, orgId }, data: { status: 'validating' } })
@@ -214,66 +216,159 @@ export async function previewAudience(
 
 export interface PublishCampaignResult {
   campaign: MarketingCampaign
-  /** Leads con EmailDelivery creado en status='queued', pendiente de envío por campaignSendRunner. */
-  queued: number
-  /** Leads de la audiencia que NO se encolaron (sin email, o `assertEmailSendAllowed` los bloqueó). */
+  /** Contacts explicitly added to the verified Mautic campaign. */
+  enrolled: number
+  /** Audience members omitted because of no email, consent, or missing Mautic contact. */
   skipped: number
+}
+
+async function failCampaignPublication(
+  campaign: MarketingCampaign,
+  actorUserId: string,
+  message: string,
+  externalCampaignId?: string
+): Promise<never> {
+  await prisma.marketingCampaign.updateMany({
+    where: { id: campaign.id, orgId: campaign.orgId, status: 'publishing' },
+    data: { status: 'error', ...(externalCampaignId ? { externalCampaignId } : {}) },
+  })
+  await writeAuditLog({
+    orgId: campaign.orgId,
+    actorUserId,
+    action: 'campaign.publish.failed',
+    entityType: 'MarketingCampaign',
+    entityId: campaign.id,
+    before: campaign,
+    after: { status: 'error', externalCampaignId, reason: message },
+  })
+  throw new CampaignStateError(message)
 }
 
 /**
  * EM-105/EM-106: publica la campaña — exige que ya esté 'ready' (validada).
- * Crea el contenedor remoto en Mautic si no existe todavía, congela el
- * tamaño de audiencia en el momento de publicar (audienceSnapshotCount, para
- * que el histórico no cambie si la audiencia dinámica varía después) y
- * programa fechas si las hay.
- *
- * Publicar NO se limita a marcar la campaña como 'running': por cada lead de
- * la audiencia que tenga email y pase la barrera de consentimiento
- * (assertEmailSendAllowed, P0-05) se crea un EmailDelivery en status='queued'
- * (mismo pipeline probado que usan los envíos manuales/automatizados). El
- * envío real ocurre de forma asíncrona en campaignSendRunner.ts — hacerlo
- * síncrono aquí bloquearía el request de publish para audiencias grandes.
+ * Construye primero el grafo remoto con la acción de plantilla, congela el
+ * tamaño de audiencia y añade cada contacto elegible de forma explícita.
+ * Solo después de que Mautic confirme todos esos pasos se publica y se
+ * refleja un estado local 'scheduled' o 'running'.
  */
 export async function publishCampaign(orgId: string, actorUserId: string, id: string): Promise<PublishCampaignResult> {
-  const campaign = await findOwned(orgId, id)
-  if (campaign.status !== 'ready') {
+  const existing = await findOwned(orgId, id)
+  if (existing.status !== 'ready') {
     throw new CampaignStateError('La campaña debe estar validada (estado "ready") antes de publicarse')
   }
 
-  let externalCampaignId = campaign.externalCampaignId
-  if (!externalCampaignId) {
-    const remote = await mauticSync.createCampaign(orgId, campaign.name, campaign.objective ?? undefined)
-    if (!remote) throw new CampaignStateError('No se pudo crear la campaña en Mautic')
-    externalCampaignId = String(remote.id)
+  // Atomic ownership of the publication command: a duplicated click or two
+  // API workers cannot create/enroll two remote campaigns.
+  const claimed = await prisma.marketingCampaign.updateMany({
+    where: { id, orgId, status: 'ready' },
+    data: { status: 'publishing' },
+  })
+  if (claimed.count !== 1) {
+    throw new CampaignStateError('La campaña ya se está publicando o su estado cambió')
   }
+  const campaign = await findOwned(orgId, id)
+
+  try {
+
+  if (!campaign.templateBindingId || !(await mauticSync.isTemplateOwnedByOrg(orgId, campaign.templateBindingId))) {
+    return failCampaignPublication(campaign, actorUserId, 'La plantilla ya no pertenece a esta organización')
+  }
+
+  let remoteCampaign = campaign.externalCampaignId
+    ? await mauticSync.getConfiguredEmailCampaign(orgId, campaign.externalCampaignId, campaign.templateBindingId)
+    : null
+  if (!remoteCampaign && !campaign.externalCampaignId) {
+    remoteCampaign = await mauticSync.createConfiguredEmailCampaign(
+      orgId,
+      campaign.name,
+      campaign.objective ?? undefined,
+      campaign.templateBindingId
+    )
+  }
+  if (!remoteCampaign) {
+    return failCampaignPublication(
+      campaign,
+      actorUserId,
+      'Mautic no confirmó una campaña con la plantilla configurada; no se ha publicado ni enviado ningún email',
+      campaign.externalCampaignId ?? undefined
+    )
+  }
+  const externalCampaignId = String(remoteCampaign.id)
 
   // Lista completa de la audiencia (no la muestra de 5 de previewAudience) —
   // mismo `where` compartido vía buildAudienceWhere.
   const where = buildAudienceWhere(orgId, (campaign.audienceDefinition as AudienceDefinition) ?? {})
   const audienceLeads = await prisma.lead.findMany({ where, select: { id: true, email: true } })
 
-  if (campaign.scheduledStartAt) {
-    await mauticSync.scheduleCampaign(
-      orgId,
-      externalCampaignId,
-      campaign.scheduledStartAt.toISOString(),
-      campaign.scheduledEndAt ? campaign.scheduledEndAt.toISOString() : undefined
-    )
-  }
-
-  let queued = 0
   let skipped = 0
+  let alreadyEnrolled = 0
+  const deliveryByLeadId = new Map<string, string>()
   for (const lead of audienceLeads) {
     if (!lead.email) { skipped++; continue }
     const decision = await assertEmailSendAllowed(orgId, lead.id, 'marketing')
     if (!decision.allowed) { skipped++; continue }
-    await mauticSync.createEmailDelivery(orgId, lead.id, {
+    const delivery = await mauticSync.createEmailDelivery(orgId, lead.id, {
       campaignId: id,
-      templateExternalId: campaign.templateBindingId ?? undefined,
+      templateExternalId: campaign.templateBindingId,
       toAddress: lead.email,
+      idempotencyScope: `campaign:${id}`,
     })
-    queued++
+    if (delivery.status === 'accepted' || delivery.status === 'delivered') {
+      alreadyEnrolled++
+      continue
+    }
+    if (delivery.status !== 'queued') {
+      skipped++
+      continue
+    }
+    deliveryByLeadId.set(lead.id, delivery.id)
   }
+
+  const enrollment = await mauticSync.enrollLeadsInConfiguredCampaign(
+    orgId,
+    externalCampaignId,
+    campaign.templateBindingId,
+    [...deliveryByLeadId.keys()]
+  )
+  if (enrollment.failedLeadIds.length || enrollment.error) {
+    return failCampaignPublication(
+      campaign,
+      actorUserId,
+      enrollment.error || 'Mautic no confirmó que todos los contactos se añadieran a la campaña',
+      externalCampaignId
+    )
+  }
+
+  const unsyncedDeliveryIds = enrollment.unsyncedLeadIds
+    .map(leadId => deliveryByLeadId.get(leadId))
+    .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+  await mauticSync.markCampaignDeliveriesFailed(
+    unsyncedDeliveryIds,
+    'CONTACT_NOT_SYNCED',
+    'El lead no tiene un contacto Mautic de esta organización verificable'
+  )
+  skipped += enrollment.unsyncedLeadIds.length
+
+  const publishedRemote = await mauticSync.publishConfiguredEmailCampaign(
+    orgId,
+    externalCampaignId,
+    campaign.templateBindingId,
+    campaign.scheduledStartAt?.toISOString(),
+    campaign.scheduledEndAt?.toISOString()
+  )
+  if (!publishedRemote) {
+    return failCampaignPublication(
+      campaign,
+      actorUserId,
+      'Mautic no confirmó la publicación de la campaña configurada; no se marcará como activa',
+      externalCampaignId
+    )
+  }
+
+  const enrolledDeliveryIds = enrollment.enrolledLeadIds
+    .map(leadId => deliveryByLeadId.get(leadId))
+    .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+  await mauticSync.markCampaignDeliveriesAccepted(enrolledDeliveryIds)
 
   const now = new Date()
   const nextStatus = campaign.scheduledStartAt && campaign.scheduledStartAt.getTime() > now.getTime() ? 'scheduled' : 'running'
@@ -297,9 +392,18 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
     entityType: 'MarketingCampaign',
     entityId: id,
     before: campaign,
-    after: { ...updated, queued, skipped },
+    after: { ...updated, enrolled: alreadyEnrolled + enrolledDeliveryIds.length, skipped },
   })
-  return { campaign: updated, queued, skipped }
+  return { campaign: updated, enrolled: alreadyEnrolled + enrolledDeliveryIds.length, skipped }
+  } catch (err) {
+    if (err instanceof CampaignStateError) throw err
+    return failCampaignPublication(
+      campaign,
+      actorUserId,
+      'No se pudo configurar o publicar la campaña en Mautic; se ha detenido antes de enviar emails',
+      campaign.externalCampaignId ?? undefined
+    )
+  }
 }
 
 /** EM-107: pausa remota en Mautic y refleja el estado local. */
@@ -343,7 +447,9 @@ export async function reconcileCampaignStatus(orgId: string, id: string): Promis
 
   const remoteCampaign = (stats.campaign && typeof stats.campaign === 'object' ? stats.campaign : stats) as Record<string, unknown>
   const isPublished = Boolean(remoteCampaign.isPublished)
-  const reconciledStatus = isPublished ? 'running' : 'paused'
+  const remotePublishUp = typeof remoteCampaign.publishUp === 'string' ? new Date(remoteCampaign.publishUp) : null
+  const isScheduledForFuture = Boolean(remotePublishUp && !Number.isNaN(remotePublishUp.getTime()) && remotePublishUp.getTime() > Date.now())
+  const reconciledStatus = isPublished ? (isScheduledForFuture ? 'scheduled' : 'running') : 'paused'
 
   if (reconciledStatus === campaign.status) return campaign
 

@@ -1,6 +1,7 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import {
   RiArrowLeftLine, RiMapPinLine, RiMoneyDollarBoxLine,
   RiCalendarLine, RiEditLine, RiAddLine, RiPhoneLine,
@@ -12,23 +13,23 @@ const ALL_STAGES = [
   { id:'lead',        label:'Lead' },
   { id:'contactado',  label:'Contactado' },
   { id:'interesado',  label:'Interesado' },
-  { id:'reunion',     label:'ReuniÃ³n' },
+  { id:'reunion',     label:'Reunión' },
   { id:'propuesta',   label:'Propuesta' },
-  { id:'negociacion', label:'NegociaciÃ³n' },
+  { id:'negociacion', label:'Negociación' },
   { id:'ganado',      label:'Ganado' },
 ]
 
 const STAGE_COLOR = { lead:'#6366f1', contactado:'#0891b2', interesado:'#f59e0b', reunion:'#059669', propuesta:'#8b5cf6', negociacion:'#ea580c', ganado:'#10b981' }
 
-// Opciones del formulario de ediciÃ³n: usan directamente el valor del enum
+// Opciones del formulario de edición: usan directamente el valor del enum
 // OpportunityStage del backend (no el stageMap de arriba, que es solo para
-// mostrar la barra de progreso y pierde informaciÃ³n â€” "closed_lost" colapsa
-// en "lead" ahÃ­, asÃ­ que invertirlo perderÃ­a la opciÃ³n "Perdido").
+// mostrar la barra de progreso y pierde información — "closed_lost" colapsa
+// en "lead" ahí, así que invertirlo perdería la opción "Perdido").
 const STAGE_OPTIONS = [
   { value:'lead',        label:'Lead' },
   { value:'qualified',   label:'Calificado' },
   { value:'proposal',    label:'Propuesta' },
-  { value:'negotiation', label:'NegociaciÃ³n' },
+  { value:'negotiation', label:'Negociación' },
   { value:'closed_won',  label:'Ganado' },
   { value:'closed_lost', label:'Perdido' },
 ]
@@ -66,7 +67,7 @@ function fmtDateLabel(d) {
   if (!d) return null
   const date = new Date(d)
   if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString(localeCode(getLocale()), { day: 'numeric', month: 'short' })
 }
 
 function Avatar({ text, bg, size = 48 }) {
@@ -82,6 +83,7 @@ function Avatar({ text, bg, size = 48 }) {
 }
 
 export default function OpportunityDetailPage() {
+  const { locale } = useI18n()
   const { id } = useParams()
   const navigate = useNavigate()
   const [opp, setOpp] = useState(null)
@@ -142,9 +144,9 @@ export default function OpportunityDetailPage() {
         setOpp({
           ...data,
           company: data.lead?.name ?? data.name,
-          city: 'â€”',
+          city: '—',
           stage: stageMap[data.stage] ?? 'lead',
-          value: data.value ? `â‚¬${Number(data.value).toLocaleString('es-ES')}` : 'â€”',
+          value: data.value ? `€${Number(data.value).toLocaleString(localeCode(getLocale()))}` : '—',
           score: data.probability ?? 0,
           bg: '#6366f1',
           activities: [],
@@ -409,13 +411,13 @@ export default function OpportunityDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargandoâ€¦
+      {locale === 'en' ? 'Loading…' : 'Cargando…'}
     </div>
   )
 
   if (!opp) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Oportunidad no encontrada
+      {locale === 'en' ? 'Opportunity not found' : 'Oportunidad no encontrada'}
     </div>
   )
 
@@ -573,14 +575,14 @@ export default function OpportunityDetailPage() {
           {tab === 'Resumen' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>InformaciÃ³n de la oportunidad</p>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Información de la oportunidad</p>
                 {[
                   { label:'Empresa', value:opp.company },
                   { label:'Ciudad', value:opp.city },
                   { label:'Valor estimado', value:opp.value },
                   { label:'Etapa', value:opp.badge },
-                  { label:'Ãšltima actividad', value:opp.date },
-                  { label:'Lead Score', value: opp.score !== null ? `${opp.score}/100` : 'â€”' },
+                  { label:'Última actividad', value:opp.date },
+                  { label:'Lead Score', value: opp.score !== null ? `${opp.score}/100` : '—' },
                 ].map(m => (
                   <div key={m.label} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid #111827' }}>
                     <span style={{ fontSize:12.5, color:'#4b5563' }}>{m.label}</span>
@@ -589,8 +591,8 @@ export default function OpportunityDetailPage() {
                 ))}
               </div>
               <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>PrÃ³ximas acciones recomendadas</p>
-                {['Enviar propuesta actualizada', 'Agendar reuniÃ³n de seguimiento', 'Consultar decision-maker'].map((a, i) => (
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Próximas acciones recomendadas</p>
+                {['Enviar propuesta actualizada', 'Agendar reunión de seguimiento', 'Consultar decision-maker'].map((a, i) => (
                   <div key={i} style={{ display:'flex', gap:9, marginBottom:9 }}>
                     <div style={{ width:16, height:16, borderRadius:5, background:`${stageColor}15`, border:`1px solid ${stageColor}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
                       <RiCheckLine style={{ width:10, height:10, color:stageColor }} />
@@ -712,8 +714,8 @@ export default function OpportunityDetailPage() {
                       <div key={li.id} style={{ display:'grid', gridTemplateColumns:'1.6fr 0.7fr 0.9fr 0.9fr 32px', gap:8, alignItems:'center', padding:'8px 0', borderBottom:'1px solid #111827' }}>
                         <span style={{ fontSize:12.5, color:'#e2e8f0', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{li.name}</span>
                         <span style={{ fontSize:12, color:'#94a3b8' }}>{li.quantity}</span>
-                        <span style={{ fontSize:12, color:'#94a3b8' }}>{li.currency} {Number(li.unitPrice).toLocaleString('es-ES')}</span>
-                        <span style={{ fontSize:12.5, color:'#f1f5f9', fontWeight:700 }}>{li.currency} {(Number(li.quantity) * Number(li.unitPrice)).toLocaleString('es-ES')}</span>
+                        <span style={{ fontSize:12, color:'#94a3b8' }}>{li.currency} {Number(li.unitPrice).toLocaleString(localeCode(getLocale()))}</span>
+                        <span style={{ fontSize:12.5, color:'#f1f5f9', fontWeight:700 }}>{li.currency} {(Number(li.quantity) * Number(li.unitPrice)).toLocaleString(localeCode(getLocale()))}</span>
                         <button onClick={() => handleRemoveLineItem(li.id)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4, display:'flex' }} title="Quitar línea">
                           <RiCloseLine style={{ width:14, height:14 }} />
                         </button>
@@ -721,7 +723,7 @@ export default function OpportunityDetailPage() {
                     ))}
                     <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #1e2433' }}>
                       {Object.entries(lineItemTotals).map(([cur, total]) => (
-                        <p key={cur} style={{ margin:'0 0 2px', fontSize:12.5, fontWeight:700, color:'#f1f5f9' }}>Suma de líneas ({cur}): {cur} {total.toLocaleString('es-ES')}</p>
+                        <p key={cur} style={{ margin:'0 0 2px', fontSize:12.5, fontWeight:700, color:'#f1f5f9' }}>Suma de líneas ({cur}): {cur} {total.toLocaleString(localeCode(getLocale()))}</p>
                       ))}
                       <p style={{ margin:0, fontSize:11, color:'#6b7280' }}>Puede diferir del valor de la oportunidad ({opp.value}) — no se recalcula automáticamente.</p>
                     </div>
@@ -786,9 +788,9 @@ export default function OpportunityDetailPage() {
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
               <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Historial de actividad</p>
               {[
-                { type:'Llamada', desc:'Llamada de presentaciÃ³n realizada', date:opp.date, color:'#6366f1' },
-                { type:'Email', desc:'Email de seguimiento enviado', date:'Hace 2 dÃ­as', color:'#0891b2' },
-                { type:'Lead', desc:'Lead creado en el sistema', date:'Hace 5 dÃ­as', color:'#10b981' },
+                { type:'Llamada', desc:'Llamada de presentación realizada', date:opp.date, color:'#6366f1' },
+                { type:'Email', desc:'Email de seguimiento enviado', date:'Hace 2 días', color:'#0891b2' },
+                { type:'Lead', desc:'Lead creado en el sistema', date:'Hace 5 días', color:'#10b981' },
               ].map((a, i) => (
                 <div key={i} style={{ display:'flex', gap:12, marginBottom:14 }}>
                   <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:0 }}>
@@ -810,7 +812,7 @@ export default function OpportunityDetailPage() {
           {tab === 'Notas' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
               <textarea
-                placeholder="Escribe tus notas aquÃ­..."
+                placeholder="Escribe tus notas aquí..."
                 value={notesText}
                 onChange={e => setNotesText(e.target.value)}
                 style={{
@@ -829,7 +831,7 @@ export default function OpportunityDetailPage() {
                     cursor: savingNotes ? 'not-allowed' : 'pointer', opacity: savingNotes ? 0.6 : 1,
                   }}
                 >
-                  {savingNotes ? 'Guardandoâ€¦' : 'Guardar notas'}
+                  {savingNotes ? 'Guardando…' : 'Guardar notas'}
                 </button>
                 {notesMessage && <span style={{ fontSize:11.5, color:'#94a3b8' }}>{notesMessage}</span>}
               </div>
@@ -874,11 +876,11 @@ export default function OpportunityDetailPage() {
             </div>
           )}
           <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Acciones rÃ¡pidas</p>
+            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Acciones rápidas</p>
             {[
               { Icon:RiPhoneLine, label:'Nueva llamada', color:'#6366f1', action:() => navigate('/llamadas') },
-              { Icon:RiCalendarLine, label:'Agendar reuniÃ³n', color:'#8b5cf6', action:() => navigate('/reuniones') },
-              { Icon:RiAddLine, label:'AÃ±adir nota', color:'#10b981', action:() => setTab('Notas') },
+              { Icon:RiCalendarLine, label:'Agendar reunión', color:'#8b5cf6', action:() => navigate('/reuniones') },
+              { Icon:RiAddLine, label:'Añadir nota', color:'#10b981', action:() => setTab('Notas') },
               { Icon:RiEditLine, label:'Editar oportunidad', color:'#0891b2', action:openEdit },
             ].map(({ Icon, label, color, action }) => (
               <button key={label} onClick={action} style={{
@@ -1019,7 +1021,7 @@ export default function OpportunityDetailPage() {
                     cursor: savingEdit ? 'not-allowed' : 'pointer', opacity: savingEdit ? 0.6 : 1,
                   }}
                 >
-                  {savingEdit ? 'Guardandoâ€¦' : 'Guardar'}
+                  {savingEdit ? 'Guardando…' : 'Guardar'}
                 </button>
               </div>
             </div>
@@ -1085,7 +1087,7 @@ export default function OpportunityDetailPage() {
                     cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
                   }}
                 >
-                  {actioning ? 'Guardandoâ€¦' : 'Confirmar'}
+                  {actioning ? 'Guardando…' : 'Confirmar'}
                 </button>
               </div>
             </div>

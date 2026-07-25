@@ -99,3 +99,90 @@ Respondé solo el JSON con esas 4 claves.`
     }
   }
 }
+
+export interface SocialContentPost {
+  platform: string
+  text: string
+  suggestedDate: string
+}
+
+export interface SocialContentPlan {
+  title: string
+  summary: string
+  posts: SocialContentPost[]
+  generatedBy: 'ai' | 'fallback'
+}
+
+function addDaysIso(base: string | undefined, days: number): string {
+  const date = base ? new Date(`${base}T00:00:00`) : new Date()
+  if (Number.isNaN(date.getTime())) date.setTime(Date.now())
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+function staticSocialPlan(params: { prompt: string; channels: string[]; tone?: string; startDate?: string }): SocialContentPlan {
+  return {
+    title: `Plan de contenido: ${params.prompt.slice(0, 60)}`,
+    summary: `${params.channels.length} publicación(es) con tono ${params.tone ?? 'cercano'}, una por canal.`,
+    posts: params.channels.map((platform, index) => ({
+      platform,
+      text: `${params.prompt} Descubre más y escríbenos si tenés dudas.`,
+      suggestedDate: addDaysIso(params.startDate, index),
+    })),
+    generatedBy: 'fallback',
+  }
+}
+
+/**
+ * Copiloto de contenido para redes sociales (Postiz). Reemplaza el
+ * `createAiPlan()` que antes corría 100% en el navegador con templates
+ * hardcodeados — mismo cliente/estilo de prompt que `generateFallbackAssets`,
+ * mismo fallback estático si no hay `CLAUDE_API_KEY`.
+ */
+export async function generateSocialContentPlan(params: {
+  prompt: string
+  channels: string[]
+  tone?: string
+  startDate?: string
+}): Promise<SocialContentPlan> {
+  const channels = params.channels?.length ? params.channels : ['instagram']
+  const client = getClient()
+  if (!client) return staticSocialPlan({ ...params, channels })
+
+  const prompt = `Brief de contenido: "${params.prompt}".
+Canales a cubrir (uno por uno, en este orden): ${channels.join(', ')}.
+Tono: "${params.tone ?? 'cercano'}".
+Fecha de inicio sugerida: "${params.startDate ?? 'hoy'}".
+Generá, en español y en JSON plano (sin markdown, sin explicación), un plan de contenido para redes sociales con estos campos:
+- "title": título corto del plan
+- "summary": resumen de 1 frase del plan completo
+- "posts": un array con exactamente un objeto por cada canal listado arriba, cada uno con:
+  - "platform": el nombre del canal tal cual se listó arriba
+  - "text": el copy del post, adaptado al canal y al tono indicado, 1-3 frases
+  - "suggestedDate": fecha sugerida en formato YYYY-MM-DD, escalonando cada post unos días después del anterior a partir de la fecha de inicio
+Respondé solo el JSON con esas 3 claves.`
+
+  try {
+    const res = await client.messages.create({
+      model: process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6',
+      max_tokens: 900,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const text = res.content[0]?.type === 'text' ? res.content[0].text : ''
+    const parsed = JSON.parse(text.trim())
+    if (!Array.isArray(parsed.posts) || !parsed.posts.length) throw new Error('invalid plan shape from LLM')
+    return {
+      title: parsed.title ?? `Plan de contenido: ${params.prompt.slice(0, 60)}`,
+      summary: parsed.summary ?? '',
+      posts: parsed.posts.map((post: any, index: number) => ({
+        platform: post.platform ?? channels[index % channels.length],
+        text: post.text ?? '',
+        suggestedDate: post.suggestedDate ?? addDaysIso(params.startDate, index),
+      })),
+      generatedBy: 'ai',
+    }
+  } catch (err) {
+    console.warn('[AssetGenerator] social plan generation failed, using static fallback:', (err as Error).message)
+    return staticSocialPlan({ ...params, channels })
+  }
+}

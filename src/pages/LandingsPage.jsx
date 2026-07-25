@@ -10,6 +10,7 @@ import {
 } from 'react-icons/ri'
 import CaptureJourney from '../components/capture/CaptureJourney'
 import { apiFetch } from '../lib/api'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import './landings.css'
 
 const STORAGE_KEY = 'vozia.external-webs.v1'
@@ -68,7 +69,7 @@ function normalizeCampaign(campaign, index) {
     leads,
     meetings,
     visits,
-    updatedAt: activityDate ? new Date(activityDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha',
+    updatedAt: activityDate ? new Date(activityDate).toLocaleDateString(localeCode(getLocale()), { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha',
     updatedBy: campaign.agent?.name || 'Equipo VozIA',
     image: assets.imageUrl || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
     offer: assets.offer || '',
@@ -81,12 +82,12 @@ function normalizeCampaign(campaign, index) {
 
 function formatNumber(value) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—'
-  return new Intl.NumberFormat('es-ES').format(Number(value))
+  return new Intl.NumberFormat(localeCode(getLocale())).format(Number(value))
 }
 
 function formatPercent(value) {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—'
-  return `${value.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+  return `${value.toLocaleString(localeCode(getLocale()), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
 }
 
 function getConversion(item) {
@@ -203,6 +204,7 @@ function LandingModal({ mode, item, onClose, onSave, saving }) {
 }
 
 export default function LandingsPage() {
+  const { locale } = useI18n()
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [externalWebs, setExternalWebs] = useState([])
@@ -329,14 +331,14 @@ export default function LandingsPage() {
     notify(nextStatus === 'active' ? 'Landing publicada' : 'Landing pausada')
   }
 
-  if (loading) return <main className="dark-scroll landings-page landings-loading"><div className="landings-loading-orb"><RiGlobalLine /></div><strong>Cargando tus landings</strong><span>Conectando campañas, webs y métricas…</span></main>
+  if (loading) return <main className="dark-scroll landings-page landings-loading"><div className="landings-loading-orb"><RiGlobalLine /></div><strong>{locale === 'en' ? 'Loading your landing pages' : 'Cargando tus landings'}</strong><span>{locale === 'en' ? 'Connecting campaigns, websites and metrics…' : 'Conectando campañas, webs y métricas…'}</span></main>
 
   const tabs = [{ id: 'all', label: 'Todas', count: allItems.length }, { id: 'published', label: 'Publicadas', count: allItems.filter(item => item.status === 'published').length }, { id: 'draft', label: 'Borradores', count: allItems.filter(item => item.status === 'draft').length }, { id: 'none', label: 'Sin landing', count: allItems.filter(item => item.status === 'none').length }, { id: 'external', label: 'Webs externas', count: externalWebs.length }]
 
   return <main className="dark-scroll landings-page" onClick={() => openMenu && setOpenMenu(null)}>
     <header className="landings-header">
-      <div className="landings-heading"><span className="landings-brand-icon"><RiGlobalLine /></span><div><h1>Landings & webs</h1><p>Convierte el interés de tus campañas en oportunidades medibles.</p></div></div>
-      <div className="landings-header-actions"><button className="landing-button ghost" onClick={() => setModal({ mode: 'import', item: null })}><RiUploadCloud2Line /> Importar URL</button><button className="landing-button primary" onClick={() => setModal({ mode: 'create', item: null })}><RiAddLine /> Nueva landing <RiArrowDownSLine /></button></div>
+      <div className="landings-heading"><span className="landings-brand-icon"><RiGlobalLine /></span><div><h1>Landings &amp; webs</h1><p>{locale === 'en' ? 'Turn campaign interest into measurable opportunities.' : 'Convierte el interés de tus campañas en oportunidades medibles.'}</p></div></div>
+      <div className="landings-header-actions"><button className="landing-button ghost" onClick={() => setModal({ mode: 'import', item: null })}><RiUploadCloud2Line /> {locale === 'en' ? 'Import URL' : 'Importar URL'}</button><button className="landing-button primary" onClick={() => setModal({ mode: 'create', item: null })}><RiAddLine /> {locale === 'en' ? 'New landing page' : 'Nueva landing'} <RiArrowDownSLine /></button></div>
     </header>
     <CaptureJourney active="convert" />
     {loadError ? <div className="landings-inline-alert" role="alert"><RiRefreshLine /><span><strong>No se han podido cargar las campañas.</strong> No se muestran datos de referencia ni métricas simuladas.</span><button onClick={loadLandings}>Reintentar</button></div> : null}

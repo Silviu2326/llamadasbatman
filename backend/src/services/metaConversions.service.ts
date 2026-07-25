@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { prisma } from '../lib/prisma'
 import { getDecryptedToken } from './metaAdAccount.service'
+import { fetchWithTimeout, stableIdempotencyKey } from '../lib/integrationRuntime'
 
 const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION ?? 'v23.0'
 
@@ -35,7 +36,8 @@ async function sendEvent(
   orgId: string,
   eventName: string,
   userData: ConversionUserData,
-  customData?: ConversionCustomData
+  customData?: ConversionCustomData,
+  eventId?: string,
 ) {
   const creds = await getPixelAndToken(orgId)
   if (!creds) return
@@ -48,7 +50,9 @@ async function sendEvent(
   const event: Record<string, unknown> = {
     event_name: eventName,
     event_time: Math.floor(Date.now() / 1000),
-    event_id: `${orgId}-${eventName}-${Date.now()}`,
+    // A deterministic event id lets Meta deduplicate retries from the outbox
+    // or a provider timeout. Do not use Date.now() for a business event.
+    event_id: eventId || stableIdempotencyKey('meta-capi', orgId, eventName, userData.externalId || userData.email || userData.phone || 'anonymous'),
     action_source: 'website',
     user_data: payloadUserData,
   }
@@ -62,9 +66,10 @@ async function sendEvent(
 
   const body = new URLSearchParams({ data: JSON.stringify([event]) })
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://graph.facebook.com/${GRAPH_VERSION}/${creds.pixelId}/events?access_token=${creds.token}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body },
+      15_000,
     )
     if (!res.ok) {
       console.warn(`[MetaConversions] ${eventName} failed:`, await res.text())
@@ -82,7 +87,7 @@ export async function sendLeadEvent(
     email: lead.email ?? undefined,
     phone: lead.phone ?? undefined,
     externalId: lead.id,
-  }, lead.campaignId ? { campaignId: lead.campaignId } : undefined)
+  }, lead.campaignId ? { campaignId: lead.campaignId } : undefined, `lead:${lead.id}:Lead`)
 }
 
 export async function sendScheduleEvent(orgId: string, meeting: { leadId: string }) {
@@ -95,5 +100,5 @@ export async function sendScheduleEvent(orgId: string, meeting: { leadId: string
     email: lead.email ?? undefined,
     phone: lead.phone ?? undefined,
     externalId: lead.id,
-  }, { campaignId: lead.campaignId })
+  }, { campaignId: lead.campaignId }, `lead:${lead.id}:Schedule`)
 }

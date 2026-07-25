@@ -1,7 +1,9 @@
 import React from 'react'
 import { RiEditLine, RiCheckLine } from 'react-icons/ri'
+import { useI18n } from '../../i18n'
 
 export default function EditModeButton({ isEditMode, onClick }) {
+  const { locale } = useI18n()
   return (
     <button
       onClick={onClick}
@@ -25,12 +27,12 @@ export default function EditModeButton({ isEditMode, onClick }) {
       {isEditMode ? (
         <>
           <RiCheckLine style={{ width: 15, height: 15 }} />
-          Listo
+          {locale === 'en' ? 'Done' : 'Listo'}
         </>
       ) : (
         <>
           <RiEditLine style={{ width: 15, height: 15 }} />
-          Editar dashboard
+          {locale === 'en' ? 'Edit dashboard' : 'Editar dashboard'}
         </>
       )}
     </button>

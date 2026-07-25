@@ -6,8 +6,10 @@ import {
   RiCheckLine, RiAlertLine, RiCodeBoxLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
+import { getLocale, localeCode, useI18n } from '../i18n'
 
 export default function MetaAccountPage() {
+  const { t } = useI18n()
   const [searchParams] = useSearchParams()
   const [account, setAccount] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -20,9 +22,9 @@ export default function MetaAccountPage() {
   const oauthStatus = searchParams.get('status')
 
   useEffect(() => {
-    if (oauthStatus === 'connected') setMessage('Cuenta conectada correctamente.')
-    if (oauthStatus === 'error') setMessage('No se pudo conectar la cuenta. Intentá de nuevo.')
-  }, [oauthStatus])
+    if (oauthStatus === 'connected') setMessage(t('meta.connected'))
+    if (oauthStatus === 'error') setMessage(t('meta.connectError'))
+  }, [oauthStatus, t])
 
   useEffect(() => {
     loadAccount()
@@ -45,7 +47,7 @@ export default function MetaAccountPage() {
 
   async function handleConnect() {
     const res = await apiFetch('/api/meta/accounts/oauth/start-url')
-    if (!res.ok) return setMessage('No se pudo iniciar el OAuth.')
+    if (!res.ok) return setMessage(t('meta.oauthError'))
     const { url } = await res.json()
     window.location.href = url
   }
@@ -61,10 +63,10 @@ export default function MetaAccountPage() {
         body: JSON.stringify({ dailyBudgetCapCents: cents }),
       })
       if (!res.ok) throw new Error()
-      setMessage('Presupuesto diario guardado.')
+      setMessage(t('meta.budgetSaved'))
       await loadAccount()
     } catch {
-      setMessage('No se pudo guardar el presupuesto.')
+      setMessage(t('meta.budgetSaveError'))
     } finally {
       setSaving(false)
     }
@@ -79,32 +81,32 @@ export default function MetaAccountPage() {
         body: JSON.stringify({ metaPixelId: pixelId.trim() }),
       })
       if (!res.ok) throw new Error()
-      setMessage('Pixel ID guardado.')
+      setMessage(t('meta.pixelSaved'))
       await loadAccount()
     } catch {
-      setMessage('No se pudo guardar el Pixel ID.')
+      setMessage(t('meta.pixelSaveError'))
     } finally {
       setSavingPixel(false)
     }
   }
 
   async function handleDisconnect() {
-    if (!account || !window.confirm('¿Seguro que querés desconectar la cuenta de Meta?')) return
+    if (!account || !window.confirm(t('meta.disconnectConfirm'))) return
     try {
       const res = await apiFetch(`/api/meta/accounts/${account.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
       setAccount(null)
       setBudget('')
-      setMessage('Cuenta desconectada.')
+      setMessage(t('meta.disconnected'))
     } catch {
-      setMessage('No se pudo desconectar la cuenta.')
+      setMessage(t('meta.disconnectError'))
     }
   }
 
   if (loading) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 14, background: '#080c14' }}>
-        Cargando…
+        {t('common.loading')}
       </div>
     )
   }
@@ -116,8 +118,8 @@ export default function MetaAccountPage() {
           <RiMetaLine style={{ width: 22, height: 22, color: '#fff' }} />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>Cuenta de Meta Ads</h1>
-          <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>Conectá tu cuenta publicitaria para publicar campañas reales.</p>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>{t('meta.title')}</h1>
+          <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>{t('meta.subtitle')}</p>
         </div>
       </div>
 
@@ -137,7 +139,7 @@ export default function MetaAccountPage() {
 
       {!account ? (
         <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '28px', textAlign: 'center' }}>
-          <p style={{ margin: '0 0 18px', fontSize: 14, color: '#94a3b8' }}>No hay ninguna cuenta de Meta conectada.</p>
+          <p style={{ margin: '0 0 18px', fontSize: 14, color: '#94a3b8' }}>{t('meta.noAccount')}</p>
           <button
             onClick={handleConnect}
             style={{
@@ -147,17 +149,17 @@ export default function MetaAccountPage() {
               fontSize: 14, fontWeight: 700, cursor: 'pointer',
             }}
           >
-            <RiLink style={{ width: 16, height: 16 }} /> Conectar cuenta de Meta
+            <RiLink style={{ width: 16, height: 16 }} /> {t('meta.connectAccount')}
           </button>
         </div>
       ) : (
         <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {[
-              { label: 'Ad Account ID', value: account.metaAdAccountId },
-              { label: 'Página de Meta', value: account.metaPageId || '—' },
-              { label: 'Estado', value: account.status },
-              { label: 'Conectada', value: new Date(account.connectedAt).toLocaleDateString('es-ES') },
+              { label: t('meta.accountId'), value: account.metaAdAccountId },
+              { label: t('meta.page'), value: account.metaPageId || '—' },
+              { label: t('meta.status'), value: account.status },
+              { label: t('meta.connectedAt'), value: new Date(account.connectedAt).toLocaleDateString(localeCode(getLocale())) },
             ].map(item => (
               <div key={item.label} style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 10, padding: '12px 14px' }}>
                 <p style={{ margin: '0 0 4px', fontSize: 11, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase' }}>{item.label}</p>
@@ -169,7 +171,7 @@ export default function MetaAccountPage() {
           <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 10, padding: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <RiMoneyDollarCircleLine style={{ width: 18, height: 18, color: '#10b981' }} />
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Tope diario de gasto (€)</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{t('meta.dailyCap')}</p>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <input
@@ -178,7 +180,7 @@ export default function MetaAccountPage() {
                 step="0.01"
                 value={budget}
                 onChange={e => setBudget(e.target.value)}
-                placeholder="Sin tope"
+                placeholder={t('meta.noCap')}
                 style={{ flex: 1, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 8, padding: '10px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
               />
               <button
@@ -190,16 +192,16 @@ export default function MetaAccountPage() {
                   fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer',
                 }}
               >
-                {saving ? 'Guardando…' : 'Guardar'}
+                {saving ? t('common.saving') : t('meta.save')}
               </button>
             </div>
-            <p style={{ margin: '8px 0 0', fontSize: 11, color: '#4b5563' }}>Si el gasto del día supera este valor, la campaña se pausa automáticamente.</p>
+            <p style={{ margin: '8px 0 0', fontSize: 11, color: '#4b5563' }}>{t('meta.dailyCapHint')}</p>
           </div>
 
           <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 10, padding: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <RiCodeBoxLine style={{ width: 18, height: 18, color: '#818cf8' }} />
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Pixel ID de Meta</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{t('meta.pixelId')}</p>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <input
@@ -217,10 +219,10 @@ export default function MetaAccountPage() {
                   fontSize: 13, fontWeight: 600, cursor: savingPixel ? 'default' : 'pointer',
                 }}
               >
-                {savingPixel ? 'Guardando…' : 'Guardar'}
+                {savingPixel ? t('common.saving') : t('meta.save')}
               </button>
             </div>
-            <p style={{ margin: '8px 0 0', fontSize: 11, color: '#4b5563' }}>Necesario para enviar conversiones (Lead, Schedule) a Meta Conversions API.</p>
+            <p style={{ margin: '8px 0 0', fontSize: 11, color: '#4b5563' }}>{t('meta.pixelHint')}</p>
           </div>
 
           <button
@@ -231,7 +233,7 @@ export default function MetaAccountPage() {
               background: '#ef444415', color: '#ef4444', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}
           >
-            <RiLinkUnlink style={{ width: 15, height: 15 }} /> Desconectar cuenta
+            <RiLinkUnlink style={{ width: 15, height: 15 }} /> {t('meta.disconnect')}
           </button>
         </div>
       )}

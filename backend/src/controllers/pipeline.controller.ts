@@ -136,15 +136,15 @@ export async function get(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
-  const opp = await pipelineService.getOpportunity(orgId, request.params.id)
+  const { orgId, userId, role } = request.user as JWTUser
+  const opp = await pipelineService.getOpportunity(orgId, { userId, role }, request.params.id)
   if (!opp) return reply.status(404).send({ error: 'Not found' })
   return reply.send(opp)
 }
 
 export async function listByStage(request: FastifyRequest, reply: FastifyReply) {
-  const { orgId } = request.user as JWTUser
-  const result = await pipelineService.listByStage(orgId)
+  const { orgId, userId, role } = request.user as JWTUser
+  const result = await pipelineService.listByStage(orgId, { userId, role })
   return reply.send(result)
 }
 
@@ -152,12 +152,12 @@ export async function create(
   request: FastifyRequest<{ Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const data = parseRequest(reply, createOpportunitySchema, request.body)
   if (!data) return
 
   try {
-    const opp = await pipelineService.createOpportunity(orgId, userId, data)
+    const opp = await pipelineService.createOpportunity(orgId, userId, role, data)
     return reply.status(201).send(opp)
   } catch (err) {
     if (err instanceof OwnershipError) {
@@ -186,12 +186,12 @@ export async function update(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const data = parseRequest(reply, updateOpportunitySchema, request.body)
   if (!data) return
 
   try {
-    const opp = await pipelineService.updateOpportunity(orgId, userId, request.params.id, data)
+    const opp = await pipelineService.updateOpportunity(orgId, userId, role, request.params.id, data)
     return reply.send(opp)
   } catch (err) {
     if (err instanceof OpportunityNotFoundError) {
@@ -208,7 +208,7 @@ export async function moveStage(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const data = parseRequest(reply, moveStageSchema, request.body)
   if (!data) return
 
@@ -216,6 +216,7 @@ export async function moveStage(
     const opp = await pipelineService.moveStage(
       orgId,
       userId,
+      role,
       request.params.id,
       data.toStage,
       data.reason,
@@ -240,12 +241,12 @@ export async function markWon(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const data = parseRequest(reply, markWonSchema, request.body)
   if (!data) return
 
   try {
-    const opp = await pipelineService.markWon(orgId, userId, request.params.id, data)
+    const opp = await pipelineService.markWon(orgId, userId, role, request.params.id, data)
     return reply.send(opp)
   } catch (err) {
     if (err instanceof OpportunityNotFoundError) {
@@ -262,12 +263,12 @@ export async function markLost(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const data = parseRequest(reply, markLostSchema, request.body)
   if (!data) return
 
   try {
-    const opp = await pipelineService.markLost(orgId, userId, request.params.id, data)
+    const opp = await pipelineService.markLost(orgId, userId, role, request.params.id, data)
     return reply.send(opp)
   } catch (err) {
     if (err instanceof OpportunityNotFoundError) {
@@ -284,12 +285,12 @@ export async function reopen(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const data = parseRequest(reply, reopenSchema, request.body)
   if (!data) return
 
   try {
-    const opp = await pipelineService.reopen(orgId, userId, request.params.id, data)
+    const opp = await pipelineService.reopen(orgId, userId, role, request.params.id, data)
     return reply.send(opp)
   } catch (err) {
     if (err instanceof OpportunityNotFoundError) {
@@ -306,9 +307,9 @@ export async function history(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   try {
-    const rows = await pipelineService.getStageHistory(orgId, request.params.id)
+    const rows = await pipelineService.getStageHistory(orgId, { userId, role }, request.params.id)
     return reply.send(rows)
   } catch (err) {
     if (err instanceof OpportunityNotFoundError) {
@@ -336,10 +337,10 @@ export async function list(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const query = parseRequest(reply, listQuerySchema, request.query)
   if (!query) return
-  const result = await pipelineService.listOpportunities(orgId, query)
+  const result = await pipelineService.listOpportunities(orgId, { userId, role }, query)
   return reply.send(result)
 }
 
@@ -357,10 +358,10 @@ export async function forecast(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const query = parseRequest(reply, forecastQuerySchema, request.query)
   if (!query) return
-  const result = await pipelineService.getForecast(orgId, query)
+  const result = await pipelineService.getForecast(orgId, { userId, role }, query)
   return reply.send(result)
 }
 
@@ -368,12 +369,12 @@ export async function updateForecastCategory(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const data = parseRequest(reply, forecastCategorySchema, request.body)
   if (!data) return
 
   try {
-    const opp = await pipelineService.updateForecastCategory(orgId, userId, request.params.id, data.forecastCategory)
+    const opp = await pipelineService.updateForecastCategory(orgId, userId, role, request.params.id, data.forecastCategory)
     return reply.send(opp)
   } catch (err) {
     if (err instanceof OpportunityNotFoundError) {

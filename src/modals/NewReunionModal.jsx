@@ -7,6 +7,7 @@ import FormRow from '../components/forms/FormRow'
 import FormToggle from '../components/forms/FormToggle'
 import { apiFetch } from '../lib/api'
 import { RiSearchLine, RiUserLine } from 'react-icons/ri'
+import { useI18n } from '../i18n'
 
 const DURACIONES = ['15 min', '30 min', '45 min', '60 min']
 const DUR_MAP = { '15 min': 15, '30 min': 30, '45 min': 45, '60 min': 60 }
@@ -43,6 +44,7 @@ function toggleBtnStyle(active) {
  * reunión nueva (así no se pierde la referencia a la reunión original).
  */
 export default function NewReunionModal({ onClose, onSuccess, meeting }) {
+  const { t, locale } = useI18n()
   const isReschedule = !!meeting
   const initial = isReschedule ? splitDateTime(meeting.scheduledAt) : { date: '', time: '' }
 
@@ -102,13 +104,13 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
     setError(null)
     try {
       if (isReschedule) {
-        if (!form.date || !form.time) { setError('Indica fecha y hora'); return }
+        if (!form.date || !form.time) { setError(t('modal.dateTimeRequired')); return }
         const scheduledAt = `${form.date}T${form.time}:00`
         const res = await apiFetch(`/api/meetings/${meeting.id}/reschedule`, {
           method: 'POST',
           body: JSON.stringify({ scheduledAt, reason: form.reason || undefined }),
         })
-        if (!res.ok) { setError('Error al reprogramar la reunión'); return }
+        if (!res.ok) { setError(t('modal.createError')); return }
         const item = await res.json()
         onSuccess ? onSuccess(item) : onClose()
         return
@@ -116,15 +118,15 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
 
       let leadId
       if (useExisting) {
-        if (!selectedLead) { setError('Selecciona un lead existente'); return }
+        if (!selectedLead) { setError(t('modal.selectExistingLead')); return }
         leadId = selectedLead.id
       } else {
-        if (!form.lead) { setError('Indica el nombre del lead'); return }
+        if (!form.lead) { setError(t('modal.fullName')); return }
         const leadRes = await apiFetch('/api/leads', {
           method: 'POST',
           body: JSON.stringify({ name: form.lead, company: form.company || undefined }),
         })
-        if (!leadRes.ok) { setError('Error al crear el lead'); return }
+        if (!leadRes.ok) { setError(t('modal.createError')); return }
         const lead = await leadRes.json()
         leadId = lead.id
       }
@@ -140,35 +142,35 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
           notes: form.objective || undefined,
         }),
       })
-      if (!res.ok) { setError('Error al crear la reunión'); return }
+      if (!res.ok) { setError(t('modal.createError')); return }
       const item = await res.json()
       onSuccess ? onSuccess(item) : onClose()
-    } catch { setError('Error de conexión') } finally { setSaving(false) }
+    } catch { setError(t('modal.connectionError')) } finally { setSaving(false) }
   }
 
   return (
     <FormModal
-      title={isReschedule ? 'Reprogramar reunión' : 'Nueva reunión'}
+      title={isReschedule ? t('modal.rescheduleMeeting') : t('modal.newMeeting')}
       onClose={onClose}
       onSubmit={handleSubmit}
-      submitText={saving ? (isReschedule ? 'Guardando…' : 'Creando…') : (isReschedule ? 'Confirmar nueva fecha' : 'Crear reunión')}
+      submitText={saving ? t('common.saving') : (isReschedule ? t('modal.confirmNewDate') : t('modal.createMeeting'))}
     >
       {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
 
       {isReschedule ? (
         <div style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 11, color: '#6b7280' }}>Reunión</span>
+          <span style={{ fontSize: 11, color: '#6b7280' }}>{t('modal.newMeeting')}</span>
           <strong style={{ fontSize: 13, color: '#e2e8f0' }}>{meeting.objetivo || meeting.title || 'Reunión'}</strong>
           <span style={{ fontSize: 12, color: '#94a3b8' }}>{meeting.lead?.name}{meeting.lead?.company ? ` · ${meeting.lead.company}` : ''}</span>
         </div>
       ) : (
         <div>
-          <FormToggle label="Usar lead existente" checked={useExisting} onChange={value => { setUseExisting(value); setSelectedLead(null); setLeadQuery('') }} />
+          <FormToggle label={t('modal.existingLead')} checked={useExisting} onChange={value => { setUseExisting(value); setSelectedLead(null); setLeadQuery('') }} />
 
           {useExisting ? (
             <div ref={boxRef} style={{ position: 'relative', marginTop: 10 }}>
               <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5, fontWeight: 500 }}>
-                Buscar lead<span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>
+                {t('modal.searchLead')}<span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
                 <RiSearchLine style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#6b7280' }} />
@@ -176,13 +178,13 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
                   value={selectedLead ? selectedLead.name : leadQuery}
                   onChange={event => { setSelectedLead(null); setLeadQuery(event.target.value); setLeadDropdownOpen(true) }}
                   onFocus={() => setLeadDropdownOpen(true)}
-                  placeholder="Nombre del lead o empresa…"
+                  placeholder={t('modal.searchLead')}
                   style={{ width: '100%', boxSizing: 'border-box', background: '#080c14', border: '1px solid #1e2433', borderRadius: 8, padding: '9px 12px 9px 30px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
                 />
               </div>
               {leadDropdownOpen && (leadResults.length > 0 || searchingLeads) && (
                 <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: '0 12px 32px #0009' }}>
-                  {searchingLeads && <div style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>Buscando…</div>}
+                  {searchingLeads && <div style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{t('common.search')}…</div>}
                   {!searchingLeads && leadResults.map(lead => (
                     <button
                       key={lead.id}
@@ -193,36 +195,36 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
                       onMouseLeave={event => (event.currentTarget.style.background = 'none')}
                     >
                       <strong style={{ fontSize: 12.5 }}>{lead.name}</strong>
-                      <span style={{ fontSize: 11, color: '#6b7280' }}>{lead.company || 'Sin empresa'}</span>
+                      <span style={{ fontSize: 11, color: '#6b7280' }}>{lead.company || t('modal.company')}</span>
                     </button>
                   ))}
                   {!searchingLeads && !leadResults.length && debouncedLeadQuery && (
-                    <div style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>Sin resultados para "{debouncedLeadQuery}"</div>
+                    <div style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{t('common.noResults')}: "{debouncedLeadQuery}"</div>
                   )}
                 </div>
               )}
               {selectedLead && (
                 <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#34d399', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <RiUserLine style={{ width: 12, height: 12 }} /> Lead seleccionado: {selectedLead.name}
+                  <RiUserLine style={{ width: 12, height: 12 }} /> {t('modal.selectedLead')}: {selectedLead.name}
                 </p>
               )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
-              <FormInput label="Nombre del lead" value={form.lead} onChange={e => update('lead', e.target.value)} placeholder="Ej. María Rodríguez" required />
-              <FormInput label="Empresa" value={form.company} onChange={e => update('company', e.target.value)} placeholder="Ej. TechSolutions S.L." />
+              <FormInput label={t('modal.fullName')} value={form.lead} onChange={e => update('lead', e.target.value)} placeholder={locale === 'en' ? 'e.g. Maria Rodriguez' : 'Ej. María Rodríguez'} required />
+              <FormInput label={t('modal.company')} value={form.company} onChange={e => update('company', e.target.value)} placeholder={locale === 'en' ? 'e.g. TechSolutions Ltd.' : 'Ej. TechSolutions S.L.'} />
             </div>
           )}
         </div>
       )}
 
       <FormRow>
-        <FormInput label="Fecha" type="date" value={form.date} onChange={e => update('date', e.target.value)} required />
-        <FormInput label="Hora" type="time" value={form.time} onChange={e => update('time', e.target.value)} required />
+        <FormInput label={t('modal.date')} type="date" value={form.date} onChange={e => update('date', e.target.value)} required />
+        <FormInput label={t('modal.time')} type="time" value={form.time} onChange={e => update('time', e.target.value)} required />
       </FormRow>
-      <FormSelect label="Duración" value={form.duration} onChange={e => update('duration', e.target.value)} options={DURACIONES} />
-      {!isReschedule && <FormTextarea label="Objetivo de la reunión" value={form.objective} onChange={e => update('objective', e.target.value)} placeholder="¿Qué queremos conseguir en esta llamada?" />}
-      {isReschedule && <FormTextarea label="Motivo del cambio (opcional)" value={form.reason} onChange={e => update('reason', e.target.value)} placeholder="Ej. El cliente pidió mover la reunión" />}
+      <FormSelect label={t('modal.duration')} value={form.duration} onChange={e => update('duration', e.target.value)} options={DURACIONES} />
+      {!isReschedule && <FormTextarea label={t('modal.meetingObjective')} value={form.objective} onChange={e => update('objective', e.target.value)} placeholder={locale === 'en' ? 'What do we want to achieve on this call?' : '¿Qué queremos conseguir en esta llamada?'} />}
+      {isReschedule && <FormTextarea label={t('modal.changeReason')} value={form.reason} onChange={e => update('reason', e.target.value)} placeholder={locale === 'en' ? 'e.g. The customer asked to move the meeting' : 'Ej. El cliente pidió mover la reunión'} />}
     </FormModal>
   )
 }

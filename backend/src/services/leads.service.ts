@@ -7,6 +7,7 @@ import { syncContact } from './mauticSync.service'
 import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
 import { orchestrateNewLead, ChannelConsentInput } from './conversations.service'
+import { scopedOwnerId, type DataActor } from '../lib/dataScope'
 
 /** LE-101: campos permitidos para ordenar server-side; 'campo:direccion'. */
 const SORTABLE_LEAD_FIELDS = new Set(['createdAt', 'updatedAt', 'name'])
@@ -77,14 +78,18 @@ async function assertOwnedAccount(orgId: string, accountId?: string | null) {
  * `listLeads()` (paginado) y `exportLeadsCsv()` (sin paginar) para que ambos
  * apliquen exactamente los mismos filtros sin duplicar la lógica.
  */
-function buildLeadQuery(orgId: string, filters: Omit<LeadFilters, 'page' | 'limit'>) {
+function buildLeadQuery(orgId: string, actor: DataActor, permission: 'leads.read' | 'leads.export', filters: Omit<LeadFilters, 'page' | 'limit'>) {
   const { campaignId, status, search, source, ownerId, sort } = filters
 
   const where: Record<string, unknown> = { orgId }
+  const forcedOwnerId = scopedOwnerId(actor, permission)
   if (campaignId) where.campaignId = campaignId
   if (status) where.status = status
   if (source) where.source = source
-  if (ownerId) where.ownerId = ownerId
+  // Never trust the owner filter from the client when the grant is own/team.
+  // Team currently collapses to own until a Team model exists.
+  if (forcedOwnerId !== undefined) where.ownerId = forcedOwnerId
+  else if (ownerId) where.ownerId = ownerId
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -107,10 +112,10 @@ function buildLeadQuery(orgId: string, filters: Omit<LeadFilters, 'page' | 'limi
   return { where, orderBy }
 }
 
-export async function listLeads(orgId: string, filters: LeadFilters = {}) {
+export async function listLeads(orgId: string, actor: DataActor, filters: LeadFilters = {}) {
   const { page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
-  const { where, orderBy } = buildLeadQuery(orgId, filters)
+  const { where, orderBy } = buildLeadQuery(orgId, actor, 'leads.read', filters)
 
   const [rows, total] = await Promise.all([
     prisma.lead.findMany({
@@ -136,8 +141,8 @@ export async function listLeads(orgId: string, filters: LeadFilters = {}) {
  */
 const MAX_EXPORT_ROWS = 10_000
 
-export async function exportLeadsForCsv(orgId: string, filters: Omit<LeadFilters, 'page' | 'limit'> = {}) {
-  const { where, orderBy } = buildLeadQuery(orgId, filters)
+export async function exportLeadsForCsv(orgId: string, actor: DataActor, filters: Omit<LeadFilters, 'page' | 'limit'> = {}) {
+  const { where, orderBy } = buildLeadQuery(orgId, actor, 'leads.export', filters)
   const rows = await prisma.lead.findMany({
     where,
     orderBy,
@@ -150,8 +155,9 @@ export async function exportLeadsForCsv(orgId: string, filters: Omit<LeadFilters
   return rows
 }
 
-export async function getLead(orgId: string, id: string) {
-  const lead = await prisma.lead.findFirst({ where: { id, orgId } })
+export async function getLead(orgId: string, actor: DataActor, id: string) {
+  const ownerId = scopedOwnerId(actor, 'leads.read')
+  const lead = await prisma.lead.findFirst({ where: { id, orgId, ownerId } })
   if (!lead) return null
   return { ...lead, firstResponseOverdue: isFirstResponseOverdue(lead) }
 }
@@ -170,17 +176,20 @@ export async function listOwnerOptions(orgId: string) {
  * lead. Valida que el nuevo owner pertenezca a la misma organización antes
  * de tocar la base (mismo patrón que assertOwnedCampaign).
  */
-export async function assignOwner(orgId: string, actorUserId: string | null | undefined, leadId: string, ownerId: string | null) {
+export async function assignOwner(orgId: string, actorUserId: string, actorRole: string, leadId: string, ownerId: string | null) {
+  const scopedActor: DataActor = { userId: actorUserId, role: actorRole }
+  const forcedOwnerId = scopedOwnerId(scopedActor, 'leads.write')
+  if (forcedOwnerId !== undefined && ownerId !== forcedOwnerId) throw new LeadNotFoundError()
   if (ownerId) {
     const owner = await prisma.user.findFirst({ where: { id: ownerId, orgId }, select: { id: true } })
     if (!owner) throw new OwnershipError('ownerId')
   }
 
-  const before = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
+  const before = await prisma.lead.findFirst({ where: { id: leadId, orgId, ownerId: forcedOwnerId } })
   if (!before) throw new LeadNotFoundError()
 
   const result = await prisma.lead.updateMany({
-    where: { id: leadId, orgId },
+    where: { id: leadId, orgId, ownerId: forcedOwnerId },
     data: { ownerId },
   })
   if (result.count === 0) throw new LeadNotFoundError()
@@ -236,7 +245,7 @@ export async function createLead(orgId: string, actorUserId: string | null | und
 
   const { consent, ...leadData } = data
   const lead = await prisma.lead.create({
-    data: { orgId, ...leadData } as any,
+    data: { orgId, ...leadData, ownerId: actorUserId ?? undefined } as any,
   })
 
   // Update campaign totalLeads
@@ -366,7 +375,7 @@ export async function listImportJobs(orgId: string, opts: { page?: number; limit
   return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
-export async function updateLead(orgId: string, actorUserId: string | null | undefined, id: string, data: {
+export async function updateLead(orgId: string, actorUserId: string, actorRole: string, id: string, data: {
   name?: string
   phone?: string
   email?: string
@@ -381,7 +390,8 @@ export async function updateLead(orgId: string, actorUserId: string | null | und
   await assertOwnedCampaign(orgId, data.campaignId)
   await assertOwnedAccount(orgId, data.accountId)
 
-  const before = await prisma.lead.findFirst({ where: { id, orgId } })
+  const forcedOwnerId = scopedOwnerId({ userId: actorUserId, role: actorRole }, 'leads.write')
+  const before = await prisma.lead.findFirst({ where: { id, orgId, ownerId: forcedOwnerId } })
   if (!before) throw new LeadNotFoundError()
 
   // LE-106: la primera vez que un lead sale de 'new' se marca firstRespondedAt,
@@ -393,7 +403,7 @@ export async function updateLead(orgId: string, actorUserId: string | null | und
   }
 
   const result = await prisma.lead.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, ownerId: forcedOwnerId },
     data: updateData as any,
   })
   if (result.count === 0) throw new LeadNotFoundError()

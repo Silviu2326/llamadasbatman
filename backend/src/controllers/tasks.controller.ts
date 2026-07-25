@@ -5,7 +5,7 @@ import { OwnershipError, TaskNotFoundError } from '../services/tasks.service'
 import type { TaskStatus } from '@prisma/client'
 import { parseRequest } from '../lib/validation'
 
-type JWTUser = { userId: string; orgId: string; role: string; email: string }
+type JWTUser = { userId: string; orgId: string; role: string; email: string; workspaceScope?: 'own' | 'team' | 'org' }
 
 const TASK_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const
 
@@ -59,9 +59,9 @@ export async function list(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const q = request.query
-  const result = await tasksService.listTasks(orgId, {
+  const result = await tasksService.listTasks(orgId, { userId, role, workspaceScope }, {
     ownerId: q.ownerId,
     leadId: q.leadId,
     opportunityId: q.opportunityId,
@@ -78,8 +78,8 @@ export async function get(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
-  const task = await tasksService.getTask(orgId, request.params.id)
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
+  const task = await tasksService.getTask(orgId, { userId, role, workspaceScope }, request.params.id)
   if (!task) return reply.status(404).send({ error: 'Not found' })
   return reply.send(task)
 }
@@ -88,12 +88,12 @@ export async function create(
   request: FastifyRequest<{ Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const data = parseRequest(reply, createTaskSchema, request.body)
   if (!data) return
 
   try {
-    const task = await tasksService.createTask(orgId, userId, data)
+    const task = await tasksService.createTask(orgId, { userId, role, workspaceScope }, data)
     return reply.status(201).send(task)
   } catch (err) {
     if (err instanceof OwnershipError) {
@@ -107,12 +107,12 @@ export async function update(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const data = parseRequest(reply, updateTaskSchema, request.body)
   if (!data) return
 
   try {
-    const task = await tasksService.updateTask(orgId, userId, request.params.id, data)
+    const task = await tasksService.updateTask(orgId, { userId, role, workspaceScope }, request.params.id, data)
     return reply.send(task)
   } catch (err) {
     if (err instanceof TaskNotFoundError) {
@@ -129,9 +129,9 @@ export async function complete(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   try {
-    const task = await tasksService.completeTask(orgId, userId, request.params.id)
+    const task = await tasksService.completeTask(orgId, { userId, role, workspaceScope }, request.params.id)
     return reply.send(task)
   } catch (err) {
     if (err instanceof TaskNotFoundError) {
@@ -145,9 +145,9 @@ export async function cancel(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   try {
-    const task = await tasksService.cancelTask(orgId, userId, request.params.id)
+    const task = await tasksService.cancelTask(orgId, { userId, role, workspaceScope }, request.params.id)
     return reply.send(task)
   } catch (err) {
     if (err instanceof TaskNotFoundError) {

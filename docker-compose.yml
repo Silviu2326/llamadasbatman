@@ -9,10 +9,10 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MAUTIC_DB_ROOT_PASSWORD:-changeme}
+      MYSQL_ROOT_PASSWORD: ${MAUTIC_DB_ROOT_PASSWORD:?MAUTIC_DB_ROOT_PASSWORD must be set}
       MYSQL_DATABASE: mautic
       MYSQL_USER: mautic
-      MYSQL_PASSWORD: ${MAUTIC_DB_PASSWORD:-changeme}
+      MYSQL_PASSWORD: ${MAUTIC_DB_PASSWORD:?MAUTIC_DB_PASSWORD must be set}
     volumes:
       - mautic_db_data:/var/lib/mysql
 
@@ -25,7 +25,7 @@ services:
       MAUTIC_DB_HOST: mautic-db
       MAUTIC_DB_NAME: mautic
       MAUTIC_DB_USER: mautic
-      MAUTIC_DB_PASSWORD: ${MAUTIC_DB_PASSWORD:-changeme}
+      MAUTIC_DB_PASSWORD: ${MAUTIC_DB_PASSWORD:?MAUTIC_DB_PASSWORD must be set}
     ports:
       - '8100:80'
     volumes:
@@ -38,9 +38,9 @@ services:
       - postiz-db
       - postiz-redis
     environment:
-      DATABASE_URL: postgresql://postiz:${POSTIZ_DB_PASSWORD:-changeme}@postiz-db:5432/postiz
+      DATABASE_URL: postgresql://postiz:${POSTIZ_DB_PASSWORD:?POSTIZ_DB_PASSWORD must be set}@postiz-db:5432/postiz
       REDIS_URL: redis://postiz-redis:6379
-      JWT_SECRET: ${POSTIZ_JWT_SECRET:-changeme}
+      JWT_SECRET: ${POSTIZ_JWT_SECRET:?POSTIZ_JWT_SECRET must be set}
       MAIN_URL: ${POSTIZ_BASE_URL:-http://localhost:8101}
       FRONTEND_URL: ${POSTIZ_BASE_URL:-http://localhost:8101}
       NEXT_PUBLIC_BACKEND_URL: ${POSTIZ_BASE_URL:-http://localhost:8101}/api
@@ -54,7 +54,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postiz
-      POSTGRES_PASSWORD: ${POSTIZ_DB_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${POSTIZ_DB_PASSWORD:?POSTIZ_DB_PASSWORD must be set}
       POSTGRES_DB: postiz
     volumes:
       - postiz_db_data:/var/lib/postgresql/data

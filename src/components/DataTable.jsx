@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import '../dashboard.css'
+import { useI18n } from '../i18n'
 
 function DataRow({ children, gridTemplate, selected, isLast, onClick, accent, compact }) {
   const [hov, setHov] = useState(false)
@@ -44,9 +45,11 @@ function DataRow({ children, gridTemplate, selected, isLast, onClick, accent, co
 export default function DataTable({
   columns, gridTemplate, rows, rowKey,
   selected, onSelect, renderRow,
-  accent = '#4f46e5', emptyText = 'Sin datos',
+  accent = '#4f46e5', emptyText,
   headerContent, scrollable = true, compact = false, style,
 }) {
+  const { locale } = useI18n()
+  const resolvedEmptyText = emptyText ?? (locale === 'en' ? 'No data' : 'Sin datos')
   const normCols = (columns ?? []).map(c => typeof c === 'string' ? { label: c } : c)
 
   return (
@@ -71,7 +74,7 @@ export default function DataTable({
         {/* rows */}
         <div className={scrollable ? 'dark-scroll' : undefined} style={scrollable ? { flex: 1, overflowY: 'auto', minHeight: 0 } : {}}>
           {rows.length === 0
-            ? <p style={{ margin: 0, padding: '32px 16px', textAlign: 'center', fontSize: 13, color: '#4b5563' }}>{emptyText}</p>
+            ? <p style={{ margin: 0, padding: '32px 16px', textAlign: 'center', fontSize: 13, color: '#4b5563' }}>{resolvedEmptyText}</p>
             : rows.map((row, i) => {
                 const isSelected = selected === row[rowKey]
                 return (

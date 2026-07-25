@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma'
 import { TaskPriority, TaskStatus } from '@prisma/client'
 import { writeAuditLog } from '../lib/audit'
+import { scopedOwnerId, type DataActor } from '../lib/dataScope'
 
 interface TaskFilters {
   ownerId?: string
@@ -29,12 +30,14 @@ export class TaskNotFoundError extends Error {
   }
 }
 
-export async function listTasks(orgId: string, filters: TaskFilters = {}) {
+export async function listTasks(orgId: string, actor: DataActor, filters: TaskFilters = {}) {
   const { ownerId, leadId, opportunityId, meetingId, status, dueBefore, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
 
   const where: Record<string, unknown> = { orgId }
-  if (ownerId) where.ownerId = ownerId
+  const forcedOwnerId = scopedOwnerId(actor, 'tasks.read')
+  if (forcedOwnerId !== undefined) where.ownerId = forcedOwnerId
+  else if (ownerId) where.ownerId = ownerId
   if (leadId) where.leadId = leadId
   if (opportunityId) where.opportunityId = opportunityId
   if (meetingId) where.meetingId = meetingId
@@ -58,9 +61,9 @@ export async function listTasks(orgId: string, filters: TaskFilters = {}) {
   return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
-export async function getTask(orgId: string, id: string) {
+export async function getTask(orgId: string, actor: DataActor, id: string) {
   return prisma.task.findFirst({
-    where: { id, orgId },
+    where: { id, orgId, ownerId: scopedOwnerId(actor, 'tasks.read') },
     include: {
       owner: { select: { id: true, name: true, role: true } },
       createdBy: { select: { id: true, name: true, role: true } },
@@ -80,7 +83,7 @@ async function assertOwnedReferences(orgId: string, refs: {
   opportunityId?: string
   meetingId?: string
   conversationId?: string
-}) {
+}, forcedOwnerId?: string) {
   const checks: Promise<void>[] = []
 
   if (refs.ownerId) {
@@ -92,28 +95,28 @@ async function assertOwnedReferences(orgId: string, refs: {
   }
   if (refs.leadId) {
     checks.push(
-      prisma.lead.findFirst({ where: { id: refs.leadId, orgId }, select: { id: true } }).then((lead) => {
+      prisma.lead.findFirst({ where: { id: refs.leadId, orgId, ownerId: forcedOwnerId }, select: { id: true } }).then((lead) => {
         if (!lead) throw new OwnershipError('leadId')
       })
     )
   }
   if (refs.opportunityId) {
     checks.push(
-      prisma.opportunity.findFirst({ where: { id: refs.opportunityId, orgId }, select: { id: true } }).then((opportunity) => {
+      prisma.opportunity.findFirst({ where: { id: refs.opportunityId, orgId, assignedTo: forcedOwnerId }, select: { id: true } }).then((opportunity) => {
         if (!opportunity) throw new OwnershipError('opportunityId')
       })
     )
   }
   if (refs.meetingId) {
     checks.push(
-      prisma.meeting.findFirst({ where: { id: refs.meetingId, orgId }, select: { id: true } }).then((meeting) => {
+      prisma.meeting.findFirst({ where: { id: refs.meetingId, orgId, assignedTo: forcedOwnerId }, select: { id: true } }).then((meeting) => {
         if (!meeting) throw new OwnershipError('meetingId')
       })
     )
   }
   if (refs.conversationId) {
     checks.push(
-      prisma.conversation.findFirst({ where: { id: refs.conversationId, orgId }, select: { id: true } }).then((conversation) => {
+      prisma.conversation.findFirst({ where: { id: refs.conversationId, orgId, assignedUserId: forcedOwnerId }, select: { id: true } }).then((conversation) => {
         if (!conversation) throw new OwnershipError('conversationId')
       })
     )
@@ -138,14 +141,14 @@ export interface CreateTaskInput {
   sourceId?: string
 }
 
-export async function createTask(orgId: string, actorUserId: string | null | undefined, data: CreateTaskInput) {
+async function createTaskRecord(orgId: string, actorUserId: string | null | undefined, data: CreateTaskInput, forcedOwnerId?: string) {
   await assertOwnedReferences(orgId, {
-    ownerId: data.ownerId,
+    ownerId: forcedOwnerId ?? data.ownerId,
     leadId: data.leadId,
     opportunityId: data.opportunityId,
     meetingId: data.meetingId,
     conversationId: data.conversationId,
-  })
+  }, forcedOwnerId)
 
   const task = await prisma.task.create({
     data: {
@@ -153,7 +156,7 @@ export async function createTask(orgId: string, actorUserId: string | null | und
       type: data.type,
       title: data.title,
       description: data.description,
-      ownerId: data.ownerId,
+      ownerId: forcedOwnerId ?? data.ownerId,
       priority: data.priority,
       dueAt: data.dueAt ? new Date(data.dueAt) : undefined,
       reminderAt: data.reminderAt ? new Date(data.reminderAt) : undefined,
@@ -179,6 +182,15 @@ export async function createTask(orgId: string, actorUserId: string | null | und
   return task
 }
 
+export async function createTask(orgId: string, actor: DataActor, data: CreateTaskInput) {
+  return createTaskRecord(orgId, actor.userId, data, scopedOwnerId(actor, 'tasks.write'))
+}
+
+/** Explicit internal entry point for workers and automation services. */
+export async function createSystemTask(orgId: string, actorUserId: string | null | undefined, data: CreateTaskInput) {
+  return createTaskRecord(orgId, actorUserId, data)
+}
+
 export interface UpdateTaskInput {
   title?: string
   description?: string
@@ -188,19 +200,21 @@ export interface UpdateTaskInput {
   ownerId?: string
 }
 
-export async function updateTask(orgId: string, actorUserId: string | null | undefined, id: string, data: UpdateTaskInput) {
-  await assertOwnedReferences(orgId, { ownerId: data.ownerId })
+export async function updateTask(orgId: string, actor: DataActor, id: string, data: UpdateTaskInput) {
+  const forcedOwnerId = scopedOwnerId(actor, 'tasks.write')
+  if (forcedOwnerId !== undefined && data.ownerId !== undefined && data.ownerId !== forcedOwnerId) throw new TaskNotFoundError()
+  await assertOwnedReferences(orgId, { ownerId: forcedOwnerId ?? data.ownerId }, forcedOwnerId)
 
-  const before = await prisma.task.findFirst({ where: { id, orgId } })
+  const before = await prisma.task.findFirst({ where: { id, orgId, ownerId: forcedOwnerId } })
   if (!before) throw new TaskNotFoundError()
 
   const result = await prisma.task.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, ownerId: forcedOwnerId },
     data: {
       title: data.title,
       description: data.description,
       priority: data.priority,
-      ownerId: data.ownerId,
+      ownerId: forcedOwnerId ?? data.ownerId,
       dueAt: data.dueAt ? new Date(data.dueAt) : undefined,
       reminderAt: data.reminderAt ? new Date(data.reminderAt) : undefined,
     },
@@ -212,7 +226,7 @@ export async function updateTask(orgId: string, actorUserId: string | null | und
 
   await writeAuditLog({
     orgId,
-    actorUserId,
+    actorUserId: actor.userId,
     action: 'task.update',
     entityType: 'Task',
     entityId: id,
@@ -223,12 +237,13 @@ export async function updateTask(orgId: string, actorUserId: string | null | und
   return after
 }
 
-export async function completeTask(orgId: string, actorUserId: string | null | undefined, id: string) {
-  const before = await prisma.task.findFirst({ where: { id, orgId } })
+export async function completeTask(orgId: string, actor: DataActor, id: string) {
+  const ownerId = scopedOwnerId(actor, 'tasks.write')
+  const before = await prisma.task.findFirst({ where: { id, orgId, ownerId } })
   if (!before) throw new TaskNotFoundError()
 
   const result = await prisma.task.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, ownerId },
     data: { status: TaskStatus.completed, completedAt: new Date() },
   })
   if (result.count === 0) throw new TaskNotFoundError()
@@ -237,7 +252,7 @@ export async function completeTask(orgId: string, actorUserId: string | null | u
 
   await writeAuditLog({
     orgId,
-    actorUserId,
+    actorUserId: actor.userId,
     action: 'task.complete',
     entityType: 'Task',
     entityId: id,
@@ -248,12 +263,13 @@ export async function completeTask(orgId: string, actorUserId: string | null | u
   return after
 }
 
-export async function cancelTask(orgId: string, actorUserId: string | null | undefined, id: string) {
-  const before = await prisma.task.findFirst({ where: { id, orgId } })
+export async function cancelTask(orgId: string, actor: DataActor, id: string) {
+  const ownerId = scopedOwnerId(actor, 'tasks.write')
+  const before = await prisma.task.findFirst({ where: { id, orgId, ownerId } })
   if (!before) throw new TaskNotFoundError()
 
   const result = await prisma.task.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, ownerId },
     data: { status: TaskStatus.cancelled },
   })
   if (result.count === 0) throw new TaskNotFoundError()
@@ -262,7 +278,7 @@ export async function cancelTask(orgId: string, actorUserId: string | null | und
 
   await writeAuditLog({
     orgId,
-    actorUserId,
+    actorUserId: actor.userId,
     action: 'task.cancel',
     entityType: 'Task',
     entityId: id,

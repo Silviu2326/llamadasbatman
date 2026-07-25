@@ -11,7 +11,9 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:seed": "node --env-file=.env --import=tsx prisma/seed.ts",
-    "test": "node --env-file=.env --import=tsx --test src/__tests__/*.test.ts"
+    "pretest": "node --env-file=.env scripts/test-database-guard.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "test:offline": "node --test scripts/test-runtime.offline.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",

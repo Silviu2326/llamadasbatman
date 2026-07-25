@@ -2,12 +2,21 @@ import { randomUUID } from 'crypto'
 import bcrypt from 'bcrypt'
 import { prisma } from '../lib/prisma'
 
+// El runner fija estas variables antes de importar cualquier test o singleton
+// Prisma. Aquí sólo verificamos la identidad efectiva; no mutamos DATABASE_URL
+// después de que Prisma haya sido construido.
+const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim()
+if (!testDatabaseUrl) {
+  throw new Error('TEST_DATABASE_URL es obligatoria para las pruebas de integración.')
+}
+if (process.env.NODE_ENV !== 'test' || process.env.DATABASE_URL?.trim() !== testDatabaseUrl) {
+  throw new Error('La suite debe inicializar Prisma con TEST_DATABASE_URL antes de importar los tests.')
+}
+
 /**
- * Helpers de setup/teardown para pruebas de integración contra la base de
- * datos real de desarrollo (no hay una base de datos de test separada
- * configurada todavía — ver docs/auditoria-nutricion-ventas/IMPLEMENTACION-PROGRESO.md).
- * Todo lo creado se prefija con "test-" y se limpia explícitamente en el
- * teardown de cada suite; no se deja basura en la base de datos compartida.
+ * Helpers de setup/teardown contra la base aislada indicada por
+ * TEST_DATABASE_URL. Todo lo creado se prefija con "test-" y se limpia
+ * explícitamente en el teardown de cada suite.
  */
 
 export async function createTestOrg(name = `test-org-${randomUUID()}`) {
@@ -43,6 +52,20 @@ export async function createTestLead(orgId: string, data: Partial<{ name: string
 export async function cleanupOrgs(orgIds: string[]) {
   if (!orgIds.length) return
   const where = { orgId: { in: orgIds } }
+  await prisma.salesSequenceStepRun.deleteMany({ where })
+  await prisma.salesSequenceEnrollment.deleteMany({ where })
+  await prisma.growthProgram.deleteMany({ where })
+  await prisma.actionItemHistory.deleteMany({ where })
+  await prisma.actionItem.deleteMany({ where })
+  await prisma.sensitiveApprovalRequest.deleteMany({ where })
+  await prisma.organizationIntegrationCredential.deleteMany({ where })
+  await prisma.metaOAuthState.deleteMany({ where })
+  await prisma.webhookEvent.deleteMany({ where })
+  await prisma.organicAction.deleteMany({ where })
+  await prisma.organicAsset.deleteMany({ where })
+  await prisma.organicOpportunity.deleteMany({ where })
+  await prisma.organicProject.deleteMany({ where })
+  await prisma.organicIntegration.deleteMany({ where })
   await prisma.automationStepRun.deleteMany({ where })
   await prisma.automationRun.deleteMany({ where })
   await prisma.automationVersion.deleteMany({ where })
@@ -55,6 +78,8 @@ export async function cleanupOrgs(orgIds: string[]) {
   await prisma.meeting.deleteMany({ where })
   await prisma.auditLog.deleteMany({ where })
   await prisma.lead.deleteMany({ where })
+  await prisma.userPreference.deleteMany({ where: { user: { orgId: { in: orgIds } } } })
+  await prisma.authSession.deleteMany({ where: { user: { orgId: { in: orgIds } } } })
   await prisma.user.deleteMany({ where })
   await prisma.organization.deleteMany({ where: { id: { in: orgIds } } })
 }

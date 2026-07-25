@@ -11,7 +11,7 @@ import { parseRequest } from '../lib/validation'
 import { parse } from 'csv-parse/sync'
 import { LeadStatus } from '@prisma/client'
 
-type JWTUser = { userId: string; orgId: string; role: string; email: string }
+type JWTUser = { userId: string; orgId: string; role: string; email: string; workspaceScope?: 'own' | 'team' | 'org' }
 
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted'] as const satisfies readonly LeadStatus[]
 
@@ -124,10 +124,10 @@ export async function list(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const query = parseRequest(reply, listQuerySchema, request.query)
   if (!query) return
-  const result = await leadsService.listLeads(orgId, query)
+  const result = await leadsService.listLeads(orgId, { userId, role, workspaceScope }, query)
   return reply.send(result)
 }
 
@@ -135,10 +135,10 @@ export async function get(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
   if (!params) return
-  const lead = await leadsService.getLead(orgId, params.id)
+  const lead = await leadsService.getLead(orgId, { userId, role, workspaceScope }, params.id)
   if (!lead) return reply.status(404).send({ error: 'Not found' })
   return reply.send(lead)
 }
@@ -217,7 +217,7 @@ export async function getImportJob(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const params = parseRequest(reply, importJobIdParamsSchema, request.params)
   if (!params) return
   const job = await leadsService.getImportJob(orgId, params.id)
@@ -230,7 +230,7 @@ export async function listImportJobs(
   request: FastifyRequest<{ Querystring: { page?: string; limit?: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const query = parseRequest(reply, importJobsQuerySchema, request.query)
   if (!query) return
   const result = await leadsService.listImportJobs(orgId, query)
@@ -263,11 +263,11 @@ export async function exportCsv(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const query = parseRequest(reply, exportQuerySchema, request.query)
   if (!query) return
 
-  const leads = await leadsService.exportLeadsForCsv(orgId, query)
+  const leads = await leadsService.exportLeadsForCsv(orgId, { userId, role }, query)
 
   const headers = ['id', 'nombre', 'email', 'telefono', 'empresa', 'estado', 'fuente', 'campaña', 'propietario', 'etiquetas', 'creado']
   const lines = [headers.join(',')]
@@ -300,12 +300,12 @@ export async function update(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
   const body = parseRequest(reply, updateLeadSchema, request.body)
   if (!params || !body) return
   try {
-    await leadsService.updateLead(orgId, userId, params.id, body)
+    await leadsService.updateLead(orgId, userId, role, params.id, body)
     return reply.send({ ok: true })
   } catch (err) {
     if (err instanceof LeadNotFoundError) return reply.status(404).send({ error: 'Not found' })
@@ -323,12 +323,12 @@ export async function updateOwner(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
   const body = parseRequest(reply, updateOwnerSchema, request.body)
   if (!params || !body) return
   try {
-    const lead = await leadsService.assignOwner(orgId, userId, params.id, body.ownerId)
+    const lead = await leadsService.assignOwner(orgId, userId, role, params.id, body.ownerId)
     return reply.send(lead)
   } catch (err) {
     if (err instanceof LeadNotFoundError) return reply.status(404).send({ error: 'Not found' })
@@ -343,7 +343,7 @@ export async function listOwners(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const owners = await leadsService.listOwnerOptions(orgId)
   return reply.send(owners)
 }
@@ -365,10 +365,10 @@ export async function callNow(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
   if (!params) return
-  const lead = await leadsService.getLead(orgId, params.id)
+  const lead = await leadsService.getLead(orgId, { userId, role }, params.id)
   if (!lead) return reply.status(404).send({ error: 'Not found' })
   const queued = await enqueueLeadCall(orgId, lead.id)
   return reply.send({ ok: true, queued })
@@ -384,11 +384,11 @@ export async function activities(
   request: FastifyRequest<{ Params: { id: string }; Querystring: { page?: string; limit?: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
   const query = parseRequest(reply, activitiesQuerySchema, request.query)
   if (!params || !query) return
-  const lead = await leadsService.getLead(orgId, params.id)
+  const lead = await leadsService.getLead(orgId, { userId, role }, params.id)
   if (!lead) return reply.status(404).send({ error: 'Not found' })
   const result = await leadsService.getLeadActivities(orgId, params.id, query)
   return reply.send(result)

@@ -20,6 +20,7 @@ import {
   RiTeamLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { formatLocaleNumber, getLocale, useI18n } from '../i18n'
 import CaptureJourney from '../components/capture/CaptureJourney'
 import funnelSignalIntake from '../assets/funnels/funnel-signal-intake.png'
 import funnelConversationOrbit from '../assets/funnels/funnel-conversation-orbit.png'
@@ -40,12 +41,12 @@ const FUNNEL_VISUALS = [
   { id: 'momentum', image: funnelMeetingMomentum, label: 'Siguiente paso', title: 'Llevar la intención a una reunión', detail: 'El avance que importa.' },
 ]
 
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString('es-ES')
+function formatNumber(value, locale = getLocale()) {
+  return formatLocaleNumber(Number(value || 0), locale)
 }
 
-function formatRate(value) {
-  return value == null ? '—' : `${value.toLocaleString('es-ES')}%`
+function formatRate(value, locale = getLocale()) {
+  return value == null ? '—' : `${formatLocaleNumber(value, locale)}%`
 }
 
 function Metric({ Icon, label, value, detail, tone = 'indigo' }) {
@@ -163,6 +164,7 @@ function CreateFunnelModal({ onClose, onCreated }) {
 }
 
 export default function FunnelsPage() {
+  const { locale } = useI18n()
   const [searchParams, setSearchParams] = useSearchParams()
   const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -209,11 +211,11 @@ export default function FunnelsPage() {
     await loadOverview(id)
   }
 
-  if (loading) return <main className="funnels-page funnels-loading"><span /><p>Cargando el recorrido de tus funnels…</p></main>
+  if (loading) return <main className="funnels-page funnels-loading"><span /><p>{locale === 'en' ? 'Loading your funnel journey…' : 'Cargando el recorrido de tus funnels…'}</p></main>
   if (error) return <main className="funnels-page"><section className="funnels-error"><RiAlertLine /><div><strong>No se pudo cargar Funnels</strong><span>Comprueba la conexión con el backend e inténtalo de nuevo.</span></div><button type="button" className="funnels-button ghost" onClick={() => loadOverview()}><RiRefreshLine /> Reintentar</button></section></main>
 
   return <main className="funnels-page">
-    <header className="funnels-header"><div className="funnels-heading"><span><RiFlowChart /></span><div><h1>Funnels</h1><p>Mide cómo la demanda se convierte en conversaciones, reuniones y oportunidades reales.</p></div></div><div className="funnels-header-actions"><Link className="funnels-button ghost" to="/landings"><RiGlobalLine /> Landings</Link><button type="button" className="funnels-button primary" onClick={() => setShowCreate(true)}><RiAddLine /> Nuevo funnel</button></div></header>
+    <header className="funnels-header"><div className="funnels-heading"><span><RiFlowChart /></span><div><h1>Funnels</h1><p>{locale === 'en' ? 'Measure how demand becomes conversations, meetings and real opportunities.' : 'Mide cómo la demanda se convierte en conversaciones, reuniones y oportunidades reales.'}</p></div></div><div className="funnels-header-actions"><Link className="funnels-button ghost" to="/landings"><RiGlobalLine /> Landings</Link><button type="button" className="funnels-button primary" onClick={() => setShowCreate(true)}><RiAddLine /> {locale === 'en' ? 'New funnel' : 'Nuevo funnel'}</button></div></header>
     <CaptureJourney active="close" />
     {overview?.recommendation && <section className="funnels-command"><span><RiLineChartLine /></span><div><small>Prioridad recomendada</small><strong>{overview.recommendation.title}</strong><p>{overview.recommendation.detail}</p></div><Link to={overview.recommendation.action.to}>{overview.recommendation.action.label} <RiArrowRightLine /></Link></section>}
     <section className="funnels-metrics" aria-label="Resumen del funnel"><Metric Icon={RiRocketLine} label="Funnels activos" value={formatNumber(summary?.active)} detail="en operación" /><Metric Icon={RiEyeLine} label="Visitas medidas" value={summary?.trackedFunnels ? formatNumber(summary.visits) : 'Sin tracking'} detail={summary?.trackedFunnels ? `${summary.trackedFunnels} funnel${summary.trackedFunnels === 1 ? '' : 's'} con medición` : `${summary?.untrackedFunnels || 0} pendiente${summary?.untrackedFunnels === 1 ? '' : 's'} de medir`} tone="cyan" /><Metric Icon={RiTeamLine} label="Leads captados" value={formatNumber(summary?.leads)} detail={summary?.visitToLead == null ? 'conversión pendiente' : `${formatRate(summary.visitToLead)} visita a lead`} tone="emerald" /><Metric Icon={RiCalendarLine} label="Reuniones" value={formatNumber(summary?.meetings)} detail={summary?.visitToMeeting == null ? 'conversión pendiente' : `${formatRate(summary.visitToMeeting)} visita a reunión`} tone="amber" /></section>

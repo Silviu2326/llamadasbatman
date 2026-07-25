@@ -7,10 +7,14 @@ export function generateCorrelationId(): string {
   return randomUUID()
 }
 
+export function isSafeCorrelationId(value: string): boolean {
+  return value.length > 0 && value.length <= 128 && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)
+}
+
 /** Reusa el correlationId que mande el cliente en 'x-correlation-id', o genera uno nuevo. */
 export function getOrCreateCorrelationId(request: FastifyRequest): string {
   const header = request.headers['x-correlation-id']
   const value = Array.isArray(header) ? header[0] : header
   const trimmed = value ? String(value).trim() : ''
-  return trimmed || generateCorrelationId()
+  return isSafeCorrelationId(trimmed) ? trimmed : generateCorrelationId()
 }

@@ -1,3 +1,5 @@
+import { getLocale, localeCode } from '../i18n'
+
 // Convierte un Lead real (Prisma) al shape que usan Leads.jsx y LeadDetailPage.jsx.
 // Único lugar donde se deriva score/nivel/actividad a partir del status —
 // evita que las dos pantallas se desincronicen si mañana hay un score real.
@@ -24,7 +26,7 @@ export function mapLead(l, i = 0) {
     score, sl,
     act: {
       type: l.status === 'contacted' || l.status === 'qualified' ? 'phone' : l.status === 'converted' ? 'calendar' : 'upload',
-      date: l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }) : '—',
+      date: l.updatedAt ? new Date(l.updatedAt).toLocaleDateString(localeCode(getLocale()), { month: 'short', day: 'numeric' }) : '—',
       action: ACT_BY_STATUS[l.status] ?? 'Actualizado',
     },
     value: '—',

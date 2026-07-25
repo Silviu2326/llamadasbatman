@@ -3,20 +3,18 @@ import { RiDownloadLine } from 'react-icons/ri'
 import { HiChevronDown } from 'react-icons/hi'
 import useClickOutside from '../../hooks/useClickOutside'
 import { downloadCSV } from '../../utils/csvExport'
+import { useI18n } from '../../i18n'
 
 export default function ExportDropdown({ data, filename, columns, label = 'Exportar' }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useClickOutside([ref], () => setOpen(false))
 
   function handleExport(format) {
     setOpen(false)
-    if (format === 'csv') {
-      const rows = [columns.map(c => c.header), ...data.map(row => columns.map(c => c.getValue(row)))]
-      downloadCSV(filename, rows)
-    } else {
-      alert(`Exportar como ${format.toUpperCase()} — funcionalidad disponible próximamente.`)
-    }
+    const rows = [columns.map(c => c.header), ...data.map(row => columns.map(c => c.getValue(row)))]
+    downloadCSV(filename, rows)
   }
 
   return (
@@ -39,7 +37,7 @@ export default function ExportDropdown({ data, filename, columns, label = 'Expor
         }}
       >
         <RiDownloadLine style={{ width: 13, height: 13 }} />
-        {label} <HiChevronDown style={{ width: 12, height: 12, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        {label === 'Exportar' ? t('calls.export') : label} <HiChevronDown style={{ width: 12, height: 12, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
       {open && (
         <div
@@ -60,22 +58,25 @@ export default function ExportDropdown({ data, filename, columns, label = 'Expor
           }}
         >
           {[
-            { key: 'csv', label: 'CSV' },
-            { key: 'xlsx', label: 'Excel' },
-            { key: 'pdf', label: 'PDF' },
+            { key: 'csv', label: 'CSV', available: true },
+            { key: 'xlsx', label: `Excel — ${t('common.comingSoon')}`, available: false },
+            { key: 'pdf', label: `PDF — ${t('common.comingSoon')}`, available: false },
           ].map(o => (
             <button
               key={o.key}
-              onClick={() => handleExport(o.key)}
+              onClick={() => o.available && handleExport(o.key)}
+              disabled={!o.available}
+              aria-disabled={!o.available}
               style={{
                 background: 'transparent',
                 border: 'none',
                 borderRadius: 6,
                 padding: '7px 10px',
-                color: '#cbd5e1',
+                color: o.available ? '#cbd5e1' : '#64748b',
                 fontSize: 12,
                 textAlign: 'left',
-                cursor: 'pointer',
+                cursor: o.available ? 'pointer' : 'not-allowed',
+                opacity: o.available ? 1 : 0.7,
               }}
             >
               {o.label}

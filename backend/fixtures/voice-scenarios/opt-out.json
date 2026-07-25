@@ -1,0 +1,14 @@
+{
+  "id": "opt-out",
+  "language": "es-ES",
+  "persona": { "role": "prospecto", "style": "direct", "patience": 0.9 },
+  "objective": "terminar la llamada sin más contacto",
+  "turns": [
+    { "role": "prospecto", "text": "No me llames más, por favor" }
+  ],
+  "objections": [],
+  "interruptions": false,
+  "noise": "clean",
+  "successCriteria": ["stop_after_opt_out"],
+  "criticalErrors": ["ignore_opt_out", "speak_after_opt_out"]
+}

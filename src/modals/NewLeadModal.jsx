@@ -4,6 +4,7 @@ import FormInput from '../components/forms/FormInput'
 import FormSelect from '../components/forms/FormSelect'
 import FormRow from '../components/forms/FormRow'
 import { apiFetch } from '../lib/api'
+import { useI18n } from '../i18n'
 
 const STATUS_MAP = {
   'Nuevo': 'new', 'Contactado': 'contacted', 'Interesado': 'qualified',
@@ -13,6 +14,7 @@ const ESTADOS = ['Nuevo', 'Contactado', 'Interesado', 'Reunión agendada', 'Nego
 const FUENTES = ['Web form', 'LinkedIn', 'Referido', 'Evento', 'Cold email', 'Importación CRM']
 
 export default function NewLeadModal({ onClose, onSuccess }) {
+  const { t, locale } = useI18n()
   const [form, setForm] = useState({
     name: '', role: '', company: '', email: '', phone: '',
     status: 'Nuevo', value: '', source: 'Web form', tags: '',
@@ -40,37 +42,37 @@ export default function NewLeadModal({ onClose, onSuccess }) {
           customFields: form.role || form.value ? { role: form.role, value: form.value } : undefined,
         }),
       })
-      if (!res.ok) { setError('Error al crear el lead'); return }
+      if (!res.ok) { setError(t('modal.createError')); return }
       const item = await res.json()
       if (callNow && item.phone) {
         apiFetch(`/api/leads/${item.id}/call-now`, { method: 'POST' }).catch(() => {})
       }
       onSuccess ? onSuccess(item) : onClose()
-    } catch { setError('Error de conexión') } finally { setSaving(false) }
+    } catch { setError(t('modal.connectionError')) } finally { setSaving(false) }
   }
 
   return (
-    <FormModal title="Nuevo lead" onClose={onClose} onSubmit={handleSubmit} submitText={saving ? 'Creando…' : 'Crear lead'}>
+    <FormModal title={t('modal.newLead')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createLead')}>
       {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
       <FormRow>
-        <FormInput label="Nombre completo" value={form.name} onChange={e => update('name', e.target.value)} placeholder="Ej. Carlos Méndez" required />
-        <FormInput label="Cargo" value={form.role} onChange={e => update('role', e.target.value)} placeholder="Ej. CEO" />
+        <FormInput label={t('modal.fullName')} value={form.name} onChange={e => update('name', e.target.value)} placeholder={locale === 'en' ? 'e.g. Carlos Mendez' : 'Ej. Carlos Méndez'} required />
+        <FormInput label={t('modal.role')} value={form.role} onChange={e => update('role', e.target.value)} placeholder={locale === 'en' ? 'e.g. CEO' : 'Ej. CEO'} />
       </FormRow>
-      <FormInput label="Empresa" value={form.company} onChange={e => update('company', e.target.value)} placeholder="Ej. TechSolutions S.L." />
+      <FormInput label={t('modal.company')} value={form.company} onChange={e => update('company', e.target.value)} placeholder={locale === 'en' ? 'e.g. TechSolutions Ltd.' : 'Ej. TechSolutions S.L.'} />
       <FormRow>
-        <FormInput label="Email" type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="carlos@empresa.com" />
-        <FormInput label="Teléfono" type="tel" value={form.phone} onChange={e => update('phone', e.target.value)} placeholder="+34 600 000 000" />
-      </FormRow>
-      <FormRow>
-        <FormSelect label="Estado" value={form.status} onChange={e => update('status', e.target.value)} options={ESTADOS} />
-        <FormInput label="Valor potencial" value={form.value} onChange={e => update('value', e.target.value)} placeholder="€0" />
+        <FormInput label={t('modal.email')} type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="carlos@empresa.com" />
+        <FormInput label={t('modal.phone')} type="tel" value={form.phone} onChange={e => update('phone', e.target.value)} placeholder="+34 600 000 000" />
       </FormRow>
       <FormRow>
-        <FormSelect label="Fuente" value={form.source} onChange={e => update('source', e.target.value)} options={FUENTES} />
-        <FormInput label="Etiquetas" value={form.tags} onChange={e => update('tags', e.target.value)} placeholder="SaaS, Enterprise, Madrid..." />
+        <FormSelect label={t('modal.status')} value={form.status} onChange={e => update('status', e.target.value)} options={ESTADOS} />
+        <FormInput label={t('modal.potentialValue')} value={form.value} onChange={e => update('value', e.target.value)} placeholder="€0" />
+      </FormRow>
+      <FormRow>
+        <FormSelect label={t('modal.source')} value={form.source} onChange={e => update('source', e.target.value)} options={FUENTES} />
+        <FormInput label={t('modal.tags')} value={form.tags} onChange={e => update('tags', e.target.value)} placeholder="SaaS, Enterprise, Madrid..." />
       </FormRow>
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#94a3b8', cursor: 'pointer' }}>
-        <input type="checkbox" checked={callNow} onChange={e => setCallNow(e.target.checked)} /> Llamar ahora si tiene teléfono
+        <input type="checkbox" checked={callNow} onChange={e => setCallNow(e.target.checked)} /> {t('modal.callNow')}
       </label>
     </FormModal>
   )

@@ -4,6 +4,11 @@ import { sendScheduleEvent } from './metaConversions.service'
 import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
 import * as tasksService from './tasks.service'
+import { scopedOwnerId, type DataActor } from '../lib/dataScope'
+
+function meetingOwner(actor: DataActor, permission: 'meetings.read' | 'meetings.write') {
+  return scopedOwnerId(actor, permission)
+}
 
 interface MeetingFilters {
   assignedTo?: string
@@ -24,9 +29,9 @@ export class OwnershipError extends Error {
   }
 }
 
-export async function getMeeting(orgId: string, id: string) {
+export async function getMeeting(orgId: string, actor: DataActor, id: string) {
   return prisma.meeting.findFirst({
-    where: { id, orgId },
+    where: { id, orgId, assignedTo: meetingOwner(actor, 'meetings.read') },
     include: { lead: true, assignee: { select: { id: true, name: true, role: true } } },
   })
 }
@@ -38,8 +43,8 @@ export async function getMeeting(orgId: string, id: string) {
  * (sin resumen generado por IA): la UI decide cómo presentarlo y cómo mostrar
  * "sin datos" cuando alguna sección viene vacía.
  */
-export async function getMeetingPrep(orgId: string, meetingId: string) {
-  const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, orgId } })
+export async function getMeetingPrep(orgId: string, actor: DataActor, meetingId: string) {
+  const meeting = await prisma.meeting.findFirst({ where: { id: meetingId, orgId, assignedTo: meetingOwner(actor, 'meetings.read') } })
   if (!meeting) throw new MeetingNotFoundError()
 
   const { leadId } = meeting
@@ -120,12 +125,14 @@ export async function getMeetingPrep(orgId: string, meetingId: string) {
   return { lead, recentNotes, recentCalls, openOpportunity, recentActivity, previousMeetings }
 }
 
-export async function listMeetings(orgId: string, filters: MeetingFilters = {}) {
+export async function listMeetings(orgId: string, actor: DataActor, filters: MeetingFilters = {}) {
   const { assignedTo, status, dateFrom, dateTo, search, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
 
   const where: Record<string, unknown> = { orgId }
-  if (assignedTo) where.assignedTo = assignedTo
+  const forcedOwnerId = meetingOwner(actor, 'meetings.read')
+  if (forcedOwnerId !== undefined) where.assignedTo = forcedOwnerId
+  else if (assignedTo) where.assignedTo = assignedTo
   if (status) where.status = status
   if (dateFrom || dateTo) {
     where.scheduledAt = {
@@ -190,7 +197,7 @@ async function assertOwnedReferences(orgId: string, refs: {
   await Promise.all(checks)
 }
 
-export async function createMeeting(orgId: string, actorUserId: string | null | undefined, data: {
+export async function createMeeting(orgId: string, actorUserId: string, actorRole: string, data: {
   leadId: string
   callId?: string
   assignedTo?: string
@@ -199,19 +206,25 @@ export async function createMeeting(orgId: string, actorUserId: string | null | 
   durationMinutes?: number
   notes?: string
   meetingUrl?: string
-}) {
+}, workspaceScope?: 'own' | 'team' | 'org') {
+  const forcedOwnerId = meetingOwner({ userId: actorUserId, role: actorRole, workspaceScope }, 'meetings.write')
+  const assignedTo = forcedOwnerId ?? data.assignedTo
   await assertOwnedReferences(orgId, {
     leadId: data.leadId,
     callId: data.callId,
-    assignedTo: data.assignedTo,
+    assignedTo,
   })
+  if (forcedOwnerId) {
+    const ownedLead = await prisma.lead.findFirst({ where: { id: data.leadId, orgId, ownerId: forcedOwnerId }, select: { id: true } })
+    if (!ownedLead) throw new OwnershipError('leadId')
+  }
 
   const meeting = await prisma.meeting.create({
     data: {
       orgId,
       leadId: data.leadId,
       callId: data.callId,
-      assignedTo: data.assignedTo,
+      assignedTo,
       title: data.title,
       scheduledAt: new Date(data.scheduledAt),
       durationMinutes: data.durationMinutes ?? 30,
@@ -279,7 +292,7 @@ export class MeetingStateError extends Error {
   }
 }
 
-export async function updateMeeting(orgId: string, actorUserId: string | null | undefined, id: string, data: {
+export async function updateMeeting(orgId: string, actorUserId: string, actorRole: string, id: string, data: {
   title?: string
   scheduledAt?: string
   durationMinutes?: number
@@ -287,14 +300,16 @@ export async function updateMeeting(orgId: string, actorUserId: string | null | 
   notes?: string
   meetingUrl?: string
   assignedTo?: string
-}) {
+}, workspaceScope?: 'own' | 'team' | 'org') {
   await assertOwnedReferences(orgId, { assignedTo: data.assignedTo })
 
-  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  const assignedTo = meetingOwner({ userId: actorUserId, role: actorRole, workspaceScope }, 'meetings.write')
+  if (assignedTo !== undefined && data.assignedTo !== undefined && data.assignedTo !== assignedTo) throw new MeetingNotFoundError()
+  const before = await prisma.meeting.findFirst({ where: { id, orgId, assignedTo } })
   if (!before) throw new MeetingNotFoundError()
 
   const result = await prisma.meeting.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, assignedTo },
     data: {
       ...data,
       scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
@@ -352,18 +367,21 @@ export async function updateMeeting(orgId: string, actorUserId: string | null | 
  */
 export async function rescheduleMeeting(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
-  data: { scheduledAt: string; reason?: string }
+  data: { scheduledAt: string; reason?: string },
+  workspaceScope?: 'own' | 'team' | 'org'
 ) {
-  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  const assignedTo = meetingOwner({ userId: actorUserId, role: actorRole, workspaceScope }, 'meetings.write')
+  const before = await prisma.meeting.findFirst({ where: { id, orgId, assignedTo } })
   if (!before) throw new MeetingNotFoundError()
 
   const oldScheduledAt = before.scheduledAt
   const newScheduledAt = new Date(data.scheduledAt)
 
   const result = await prisma.meeting.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, assignedTo },
     data: {
       scheduledAt: newScheduledAt,
       status: 'scheduled',
@@ -427,16 +445,19 @@ export async function rescheduleMeeting(
  */
 export async function completeMeeting(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
-  data: { outcome: string; agreements?: string; createFollowUpTask?: boolean }
+  data: { outcome: string; agreements?: string; createFollowUpTask?: boolean },
+  workspaceScope?: 'own' | 'team' | 'org'
 ) {
-  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  const assignedTo = meetingOwner({ userId: actorUserId, role: actorRole, workspaceScope }, 'meetings.write')
+  const before = await prisma.meeting.findFirst({ where: { id, orgId, assignedTo } })
   if (!before) throw new MeetingNotFoundError()
   if (before.status === 'cancelled') throw new MeetingStateError(before.status)
 
   const result = await prisma.meeting.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, assignedTo },
     data: { status: 'completed', outcome: data.outcome, agreements: data.agreements },
   })
   if (result.count === 0) throw new MeetingNotFoundError()
@@ -472,7 +493,7 @@ export async function completeMeeting(
   let followUpTask = null
   if (data.createFollowUpTask !== false) {
     const dueAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
-    followUpTask = await tasksService.createTask(orgId, actorUserId, {
+    followUpTask = await tasksService.createTask(orgId, { userId: actorUserId, role: actorRole, workspaceScope }, {
       type: 'follow_up',
       title: `Seguimiento: ${before.title}`,
       description: data.agreements ? `Acuerdos: ${data.agreements}` : undefined,
@@ -511,16 +532,19 @@ export async function completeMeeting(
  */
 export async function markNoShow(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
-  data: { notes?: string }
+  data: { notes?: string },
+  workspaceScope?: 'own' | 'team' | 'org'
 ) {
-  const before = await prisma.meeting.findFirst({ where: { id, orgId } })
+  const assignedTo = meetingOwner({ userId: actorUserId, role: actorRole, workspaceScope }, 'meetings.write')
+  const before = await prisma.meeting.findFirst({ where: { id, orgId, assignedTo } })
   if (!before) throw new MeetingNotFoundError()
   if (before.status === 'cancelled') throw new MeetingStateError(before.status)
 
   const result = await prisma.meeting.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, assignedTo },
     data: { status: 'no_show', notes: data.notes ?? before.notes },
   })
   if (result.count === 0) throw new MeetingNotFoundError()

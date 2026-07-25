@@ -1,13 +1,16 @@
 import { randomUUID } from 'crypto'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { findByVertical } from './adPlaybook.service'
 import { generateFallbackAssets } from './assetGenerator.service'
-import { publishCampaign, activateCampaign } from './metaCampaignBuilder.service'
+import { publishCampaign } from './metaCampaignBuilder.service'
 
 export async function runWizard(orgId: string, input: {
   vertical: string
   objetivo: string
   presupuestoMensual: number
+  audience?: string
+  strategy?: Record<string, unknown>
 }) {
   const playbook = await findByVertical(input.vertical)
 
@@ -22,13 +25,20 @@ export async function runWizard(orgId: string, input: {
       }
     : { ...(await generateFallbackAssets(input)), source: 'generated' as const }
 
+  const adAssets = {
+    ...assets,
+    presupuestoMensual: input.presupuestoMensual,
+    ...(input.audience?.trim() ? { audience: input.audience.trim() } : {}),
+    ...(input.strategy ? { strategy: input.strategy } : {}),
+  } as Prisma.InputJsonValue
+
   const campaign = await prisma.campaign.create({
     data: {
       orgId,
       name: `${input.vertical} — ${input.objetivo}`,
       objective: input.objetivo,
       adPlaybookId: playbook?.id,
-      adAssets: { ...assets, presupuestoMensual: input.presupuestoMensual },
+      adAssets,
       adStatus: 'draft',
       landingSlug: `${input.vertical}-${randomUUID().slice(0, 8)}`,
       status: 'draft',
@@ -42,13 +52,12 @@ export async function runWizard(orgId: string, input: {
   if (metaAccount) {
     try {
       await publishCampaign(orgId, campaign.id)
-      await activateCampaign(orgId, campaign.id)
     } catch (err) {
       console.error(`[AdsWizard] no se pudo publicar la campaña ${campaign.id} en Meta:`, err)
     }
   }
 
-  return campaign
+  return prisma.campaign.findFirst({ where: { id: campaign.id, orgId } })
 }
 
 export async function getCampaignAdStatus(orgId: string, campaignId: string) {
@@ -61,6 +70,8 @@ export async function getCampaignAdStatus(orgId: string, campaignId: string) {
       adAssets: true,
       landingSlug: true,
       metaCampaignId: true,
+      metaAdSetId: true,
+      metaAdId: true,
       totalLeads: true,
       meetingsScheduled: true,
       maxCostPerLeadCents: true,

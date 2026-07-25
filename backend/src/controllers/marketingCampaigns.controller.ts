@@ -118,11 +118,10 @@ export async function audiencePreview(request: FastifyRequest<{ Params: { id: st
 }
 
 /**
- * POST /:id/publish — exige 'ready', crea/programa en Mautic, congela el
- * snapshot de audiencia y encola un EmailDelivery por cada lead elegible
- * (ver publishCampaign). La respuesta mezcla la campaña actualizada con
- * queuedCount/skippedCount para que la UI informe cuántos se encolaron y
- * cuántos se saltaron (sin email o sin consentimiento).
+ * POST /:id/publish — exige 'ready', configura el grafo de email en Mautic,
+ * añade la audiencia y solo refleja un estado activo tras leer de vuelta la
+ * confirmación remota. La respuesta comunica contactos incorporados y
+ * destinatarios omitidos por cumplimiento o falta de sincronización.
  */
 export async function publish(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
   const { orgId, userId } = request.user as JWTUser
@@ -130,7 +129,7 @@ export async function publish(request: FastifyRequest<{ Params: { id: string } }
   if (!params) return
   try {
     const result = await service.publishCampaign(orgId, userId, params.id)
-    return reply.send({ ...result.campaign, queuedCount: result.queued, skippedCount: result.skipped })
+    return reply.send({ ...result.campaign, enrolledCount: result.enrolled, skippedCount: result.skipped })
   } catch (err) {
     return handleServiceError(err, reply)
   }

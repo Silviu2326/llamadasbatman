@@ -1,84 +1,105 @@
+import { randomUUID } from 'node:crypto'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import * as mauticSync from '../services/mauticSync.service'
+import { recordQueueEvent } from '../observability/metrics'
+import { classifyOperationalError, logOperational } from '../observability/operationalLog'
 
 /**
- * EM-105: envía en background los EmailDelivery en 'queued' que
- * publishCampaign encola (marketingCampaigns.service.ts) — mismo patrón de
- * poll + procesar-por-lotes que importJobRunner.ts. No hace falta un claim
- * atómico por fila (a diferencia de ImportJob, que sí tiene contención entre
- * varios jobs pendientes): el flag `running` evita ticks solapados dentro de
- * este proceso, y sendEmailToLead dentro de mauticSync.service.ts es lo
- * único que muta cada EmailDelivery, sacándolo de 'queued' en cuanto se
- * intenta (accepted/failed), así que un delivery nunca se reprocesa dos
- * veces en el mismo tick ni en el siguiente.
+ * EM-105: entrega la cola local de EmailDelivery con claims condicionales
+ * persistidos. El flag `running` evita solapes dentro de este proceso; el
+ * workerId/lease evita duplicados entre procesos o despliegues simultáneos.
  */
 const POLL_MS = Number(process.env.CAMPAIGN_SEND_POLL_MS ?? 7_000)
 const BATCH_SIZE = 15
+const WORKER_ID = process.env.CAMPAIGN_SEND_WORKER_ID?.trim() || `campaign-send-${process.pid}-${randomUUID()}`
 let running = false
 
+function dueDeliveryWhere(now: Date): Prisma.EmailDeliveryWhereInput {
+  return {
+    OR: [
+      { status: 'queued', availableAt: { lte: now } },
+      { status: 'processing', OR: [{ leaseExpiresAt: { lte: now } }, { leaseExpiresAt: null }] },
+    ],
+  }
+}
+
 async function sendQueuedDeliveries(): Promise<void> {
-  // Corrección: publishCampaign() encola EmailDelivery para TODA campaña
-  // publicada, incluidas las que quedan en status='scheduled' porque
-  // scheduledStartAt es futuro. Sin este filtro, una campaña "programada
-  // para mañana" enviaba hoy en cuanto se publicaba, porque este runner no
-  // distinguía campañas 'running' de 'scheduled'.
+  const now = new Date()
+  // A native Mautic campaign owns its delivery. Only local/legacy campaigns
+  // without a remote campaign ID are sent through this direct-send runner.
   const deliveries = await prisma.emailDelivery.findMany({
-    where: { status: 'queued', campaignId: { not: null }, campaign: { status: 'running' } },
-    take: BATCH_SIZE,
+    where: {
+      campaignId: { not: null },
+      campaign: { status: 'running', externalCampaignId: null },
+      ...dueDeliveryWhere(now),
+    },
+    // Workers can race on candidate selection, therefore fetch additional
+    // candidates and let `claimEmailDelivery` be the atomic arbiter.
+    take: BATCH_SIZE * 2,
     orderBy: { queuedAt: 'asc' },
   })
 
-  for (const delivery of deliveries) {
+  for (const delivery of deliveries.slice(0, BATCH_SIZE)) {
     if (!delivery.templateExternalId) {
-      // Sin plantilla vinculada no hay nada que enviar — se marca failed en
-      // vez de reintentarlo indefinidamente en cada tick.
+      // A template is validated before publication. If a legacy row lacks it,
+      // finish it only when it is due/abandoned; never overwrite an active
+      // lease owned by another worker.
       await prisma.emailDelivery.updateMany({
-        where: { id: delivery.id, status: 'queued' },
+        where: { id: delivery.id, ...dueDeliveryWhere(new Date()) },
         data: {
           status: 'failed',
           failedAt: new Date(),
           failureCode: 'NO_TEMPLATE',
           failureDetail: 'La campaña no tiene plantilla (templateBindingId) vinculada',
+          lockedAt: null,
+          leaseExpiresAt: null,
+          workerId: null,
         },
       })
       continue
     }
 
     await mauticSync
-      .sendEmailToLead(delivery.leadId, delivery.templateExternalId, delivery.orgId, delivery.id)
-      .catch(err => console.error('[CampaignSendRunner] sendEmailToLead failed:', (err as Error).message))
+      .sendEmailToLead(delivery.leadId, delivery.templateExternalId, delivery.orgId, delivery.id, WORKER_ID)
+      .catch(err => {
+        const classified = classifyOperationalError(err)
+        recordQueueEvent({ queue: 'email-delivery', outcome: 'tick_error' })
+        logOperational('error', 'email_delivery.send.failed', {
+          queue: 'email-delivery', jobId: delivery.id, errorCode: classified.code, remediation: classified.remediation,
+        })
+      })
   }
 }
 
 /**
- * Criterio de cierre (deliberadamente simple, sin over-engineering): una
- * campaña 'running' pasa a 'completed' en cuanto ya no le queda ningún
- * EmailDelivery en 'queued' — incluye el caso borde de audiencia vacía o
- * completamente bloqueada por consentimiento (0 EmailDelivery creados), que
- * también se considera "nada pendiente" y se cierra de inmediato. El detalle
- * de éxito/fallo por destinatario ya queda auditado por lead en
- * EmailDelivery.status, así que esta función no distingue envíos parciales.
+ * A campaign only becomes completed after the durable queue is exhausted.
+ * An `uncertain` recipient is escalated as `error`, not silently completed:
+ * its provider outcome needs operator review before any redrive.
  */
 async function completeFinishedCampaigns(): Promise<void> {
   const runningCampaigns = await prisma.marketingCampaign.findMany({
-    where: { status: 'running' },
+    where: { status: 'running', externalCampaignId: null },
     select: { id: true, orgId: true },
   })
 
   for (const campaign of runningCampaigns) {
-    const pending = await prisma.emailDelivery.count({
-      where: { campaignId: campaign.id, orgId: campaign.orgId, status: 'queued' },
+    const byStatus = await prisma.emailDelivery.groupBy({
+      by: ['status'],
+      where: { campaignId: campaign.id, orgId: campaign.orgId },
+      _count: { _all: true },
     })
-    if (pending > 0) continue
+    const count = (status: string) => byStatus.find(row => row.status === status)?._count._all ?? 0
+    if (count('queued') + count('processing') > 0) continue
 
     await prisma.marketingCampaign.updateMany({
       where: { id: campaign.id, orgId: campaign.orgId, status: 'running' },
-      data: { status: 'completed' },
+      data: { status: count('uncertain') > 0 ? 'error' : 'completed' },
     })
   }
 }
 
-/** Activa campañas 'scheduled' cuya scheduledStartAt ya llegó, para que sendQueuedDeliveries empiece a procesarlas. */
+/** Activa campañas 'scheduled' cuya scheduledStartAt ya llegó. */
 async function activateScheduledCampaigns(): Promise<void> {
   await prisma.marketingCampaign.updateMany({
     where: { status: 'scheduled', scheduledStartAt: { lte: new Date() } },
@@ -94,7 +115,9 @@ async function processCampaignSendTick(): Promise<void> {
     await sendQueuedDeliveries()
     await completeFinishedCampaigns()
   } catch (error) {
-    console.error('[CampaignSendRunner] tick failed:', (error as Error).message)
+    const classified = classifyOperationalError(error)
+    recordQueueEvent({ queue: 'email-delivery', outcome: 'tick_error' })
+    logOperational('error', 'email_delivery.tick.failed', { queue: 'email-delivery', errorCode: classified.code, remediation: classified.remediation })
   } finally {
     running = false
   }

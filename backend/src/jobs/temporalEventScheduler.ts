@@ -1,20 +1,46 @@
 import { prisma } from '../lib/prisma'
 
-// P0-08/AU-01: los cuatro eventos temporales del catálogo de automatizaciones
-// (lead.inactive.7d/30d, meeting.scheduled.24h, opportunity.proposal.3d) no
-// tenían ningún productor — una automatización activada para ellos nunca
-// corría. Este job escanea las entidades candidatas, materializa un
-// ScheduledTrigger deterministamente deduplicado por entidad+regla
-// (dedupeKey unique) y publica los vencidos al outbox, la misma fuente de
-// verdad que consume runAutomationsForEvent()/outboxDispatcher.
+// Materializa los eventos temporales una vez y los entrega por outbox. Cada
+// dedupeKey incorpora la revisión temporal de la entidad: una reunión
+// reprogramada o una oportunidad que vuelve a proposal puede generar el
+// disparo correcto, mientras que los triggers anteriores se cancelan.
 const POLL_MS = Number(process.env.TEMPORAL_TRIGGER_POLL_MS ?? 5 * 60_000)
 const BATCH_SIZE = 200
 const DAY_MS = 24 * 60 * 60 * 1000
+const TEMPORAL_RULES = [
+  'lead.inactive.7d',
+  'lead.inactive.30d',
+  'meeting.scheduled.24h',
+  'opportunity.proposal.3d',
+] as const
+
+type TemporalRule = typeof TEMPORAL_RULES[number]
+type ScheduledTriggerRecord = Awaited<ReturnType<typeof prisma.scheduledTrigger.findMany>>[number]
+
 let running = false
+
+function payloadObject(payload: unknown): Record<string, unknown> {
+  return payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? payload as Record<string, unknown>
+    : {}
+}
+
+function payloadDate(payload: Record<string, unknown>, key: string): Date | null {
+  const value = payload[key]
+  if (typeof value !== 'string') return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function inactiveDays(ruleKey: string): 7 | 30 | null {
+  if (ruleKey === 'lead.inactive.7d') return 7
+  if (ruleKey === 'lead.inactive.30d') return 30
+  return null
+}
 
 async function upsertScheduledTrigger(input: {
   orgId: string
-  ruleKey: string
+  ruleKey: TemporalRule
   entityType: string
   entityId: string
   dedupeKey: string
@@ -22,31 +48,41 @@ async function upsertScheduledTrigger(input: {
   payload: Record<string, unknown>
 }) {
   const existing = await prisma.scheduledTrigger.findUnique({ where: { dedupeKey: input.dedupeKey } })
-  // Ya existe un trigger (pending/fired/cancelled) para esta entidad+regla:
-  // no se duplica la emisión aunque la condición siga siendo verdadera en
-  // ciclos posteriores.
-  if (existing) return
-  await prisma.scheduledTrigger.create({
-    data: {
-      orgId: input.orgId,
-      ruleKey: input.ruleKey,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      dedupeKey: input.dedupeKey,
-      // CORRECCIÓN (revisión posterior): antes se guardaba siempre `now()`
-      // sin importar la regla, así que un trigger se disparaba en el mismo
-      // ciclo en que se detectaba (p.ej. "T-24h" en realidad disparaba en
-      // cuanto la reunión entraba en la ventana de 24h, no exactamente a
-      // T-24h). Ahora cada scan calcula el dueAt real de su regla.
-      dueAt: input.dueAt,
-      status: 'pending',
-      payload: input.payload as any,
-    },
-  })
+  if (existing) {
+    // Solo el trigger aún pendiente puede ser reprogramado. Un fired es un
+    // hecho histórico; una nueva revisión usa un dedupeKey diferente.
+    if (existing.status === 'pending') {
+      await prisma.scheduledTrigger.updateMany({
+        where: { id: existing.id, status: 'pending' },
+        data: { dueAt: input.dueAt, payload: input.payload as any },
+      })
+    }
+    return existing
+  }
+
+  try {
+    return await prisma.scheduledTrigger.create({
+      data: {
+        orgId: input.orgId,
+        ruleKey: input.ruleKey,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        dedupeKey: input.dedupeKey,
+        dueAt: input.dueAt,
+        status: 'pending',
+        payload: input.payload as any,
+      },
+    })
+  } catch (error: any) {
+    // Dos procesos pueden descubrir la misma entidad a la vez. La unique de
+    // dedupeKey es el árbitro y el ganador ya dejó el trigger materializado.
+    if (error?.code === 'P2002') return prisma.scheduledTrigger.findUnique({ where: { dedupeKey: input.dedupeKey } })
+    throw error
+  }
 }
 
 async function scanLeadInactivity(days: 7 | 30) {
-  const ruleKey = days === 7 ? 'lead.inactive.7d' : 'lead.inactive.30d'
+  const ruleKey: TemporalRule = days === 7 ? 'lead.inactive.7d' : 'lead.inactive.30d'
   const threshold = new Date(Date.now() - days * DAY_MS)
   const leads = await prisma.lead.findMany({
     where: {
@@ -56,76 +92,157 @@ async function scanLeadInactivity(days: 7 | 30) {
         { lastAttemptAt: null, createdAt: { lte: threshold } },
       ],
     },
-    select: { id: true, orgId: true },
+    select: { id: true, orgId: true, createdAt: true, lastAttemptAt: true },
     take: BATCH_SIZE,
   })
-  const now = new Date()
+
   for (const lead of leads) {
-    const dedupeKey = `${ruleKey}:${lead.id}`
+    const inactiveSince = lead.lastAttemptAt ?? lead.createdAt
+    const dedupeKey = `${ruleKey}:${lead.id}:${inactiveSince.getTime()}`
     await upsertScheduledTrigger({
       orgId: lead.orgId,
       ruleKey,
       entityType: 'Lead',
       entityId: lead.id,
       dedupeKey,
-      // El umbral ya pasó (es la condición de la query), así que el dueAt
-      // real cae en el pasado — se dispara en el próximo publishDueTriggers,
-      // que es el comportamiento correcto para "ya lleva N días inactivo".
-      dueAt: now,
-      payload: { leadId: lead.id, eventId: dedupeKey },
+      dueAt: new Date(inactiveSince.getTime() + days * DAY_MS),
+      payload: { leadId: lead.id, eventId: dedupeKey, inactiveSince: inactiveSince.toISOString() },
     })
   }
 }
 
 async function scanMeetingsSoon() {
-  const ruleKey = 'meeting.scheduled.24h'
+  const ruleKey: TemporalRule = 'meeting.scheduled.24h'
   const now = new Date()
-  // Ventana ampliada por POLL_MS: detecta reuniones ANTES de que crucen el
-  // umbral T-24h para poder guardar un dueAt futuro y dejar que
-  // publishDueTriggers() lo dispare justo cuando llegue, en vez de disparar
-  // en cuanto la reunión "ya está" dentro de las 24h (que podía ser mucho
-  // antes o, para reuniones creadas con poca antelación, casi al instante).
+  // Se descubre una reunión antes de cruzar T-24 y se conserva su dueAt
+  // exacto. Si se creó con menos de 24 h de margen, dicho dueAt ya está en el
+  // pasado y se entrega en el siguiente ciclo, sin pretender que fue T-24.
   const windowEnd = new Date(now.getTime() + DAY_MS + POLL_MS)
   const meetings = await prisma.meeting.findMany({
     where: { status: 'scheduled', scheduledAt: { gte: now, lte: windowEnd } },
     select: { id: true, orgId: true, leadId: true, scheduledAt: true },
     take: BATCH_SIZE,
   })
+
   for (const meeting of meetings) {
-    const dedupeKey = `${ruleKey}:${meeting.id}`
+    const scheduledAt = meeting.scheduledAt
+    const dedupeKey = `${ruleKey}:${meeting.id}:${scheduledAt.getTime()}`
     await upsertScheduledTrigger({
       orgId: meeting.orgId,
       ruleKey,
       entityType: 'Meeting',
       entityId: meeting.id,
       dedupeKey,
-      dueAt: new Date(meeting.scheduledAt.getTime() - DAY_MS),
-      payload: { meetingId: meeting.id, leadId: meeting.leadId, eventId: dedupeKey },
+      dueAt: new Date(scheduledAt.getTime() - DAY_MS),
+      payload: {
+        meetingId: meeting.id,
+        leadId: meeting.leadId,
+        eventId: dedupeKey,
+        scheduledAt: scheduledAt.toISOString(),
+      },
     })
   }
 }
 
-async function scanStaleProposals() {
-  const ruleKey = 'opportunity.proposal.3d'
-  const threshold = new Date(Date.now() - 3 * DAY_MS)
-  // CORRECCIÓN (revisión posterior): usaba createdAt, así que una oportunidad
-  // antigua movida HOY a "proposal" se marcaba estancada de inmediato.
-  // stageEnteredAt existe desde OP-101 (historial de etapa) — se usa aquí.
-  const opportunities = await prisma.opportunity.findMany({
-    where: { stage: 'proposal', stageEnteredAt: { lte: threshold } },
-    select: { id: true, orgId: true, leadId: true, stageEnteredAt: true },
-    take: BATCH_SIZE,
-  })
+async function scheduleProposals(opportunities: Array<{ id: string; orgId: string; leadId: string; stageEnteredAt: Date }>) {
+  const ruleKey: TemporalRule = 'opportunity.proposal.3d'
   for (const opportunity of opportunities) {
-    const dedupeKey = `${ruleKey}:${opportunity.id}`
+    const stageEnteredAt = opportunity.stageEnteredAt
+    const dedupeKey = `${ruleKey}:${opportunity.id}:${stageEnteredAt.getTime()}`
     await upsertScheduledTrigger({
       orgId: opportunity.orgId,
       ruleKey,
       entityType: 'Opportunity',
       entityId: opportunity.id,
       dedupeKey,
-      dueAt: new Date(opportunity.stageEnteredAt.getTime() + 3 * DAY_MS),
-      payload: { opportunityId: opportunity.id, leadId: opportunity.leadId, eventId: dedupeKey },
+      dueAt: new Date(stageEnteredAt.getTime() + 3 * DAY_MS),
+      payload: {
+        opportunityId: opportunity.id,
+        leadId: opportunity.leadId,
+        eventId: dedupeKey,
+        stageEnteredAt: stageEnteredAt.toISOString(),
+      },
+    })
+  }
+}
+
+async function scanStaleProposals() {
+  const now = new Date()
+  const threshold = new Date(now.getTime() - 3 * DAY_MS)
+  // Las dos consultas evitan que una cola histórica de propuestas viejas
+  // impida materializar propuestas recién movidas a la etapa. Ambas usan
+  // stageEnteredAt, nunca createdAt.
+  const [recent, stale] = await Promise.all([
+    prisma.opportunity.findMany({
+      where: { stage: 'proposal', stageEnteredAt: { gt: threshold } },
+      select: { id: true, orgId: true, leadId: true, stageEnteredAt: true },
+      orderBy: { stageEnteredAt: 'asc' },
+      take: BATCH_SIZE,
+    }),
+    prisma.opportunity.findMany({
+      where: { stage: 'proposal', stageEnteredAt: { lte: threshold } },
+      select: { id: true, orgId: true, leadId: true, stageEnteredAt: true },
+      orderBy: { stageEnteredAt: 'desc' },
+      take: BATCH_SIZE,
+    }),
+  ])
+  await scheduleProposals([...recent, ...stale])
+}
+
+async function triggerIsStillValid(trigger: ScheduledTriggerRecord): Promise<boolean> {
+  const payload = payloadObject(trigger.payload)
+
+  if (trigger.ruleKey === 'meeting.scheduled.24h') {
+    const expectedAt = payloadDate(payload, 'scheduledAt')
+    // Los triggers creados por versiones anteriores no incluían la revisión
+    // de la cita. Se cancelan de forma conservadora y el scan crea uno nuevo.
+    if (!expectedAt) return false
+    const meeting = await prisma.meeting.findFirst({
+      where: { id: trigger.entityId, orgId: trigger.orgId },
+      select: { status: true, scheduledAt: true },
+    })
+    return Boolean(meeting && meeting.status === 'scheduled' && meeting.scheduledAt.getTime() === expectedAt.getTime())
+  }
+
+  if (trigger.ruleKey === 'opportunity.proposal.3d') {
+    const expectedAt = payloadDate(payload, 'stageEnteredAt')
+    if (!expectedAt) return false
+    const opportunity = await prisma.opportunity.findFirst({
+      where: { id: trigger.entityId, orgId: trigger.orgId },
+      select: { stage: true, stageEnteredAt: true },
+    })
+    return Boolean(opportunity && opportunity.stage === 'proposal' && opportunity.stageEnteredAt.getTime() === expectedAt.getTime())
+  }
+
+  const days = inactiveDays(trigger.ruleKey)
+  if (days) {
+    const expectedAt = payloadDate(payload, 'inactiveSince')
+    if (!expectedAt) return false
+    const lead = await prisma.lead.findFirst({
+      where: { id: trigger.entityId, orgId: trigger.orgId },
+      select: { status: true, createdAt: true, lastAttemptAt: true },
+    })
+    if (!lead || lead.status === 'converted') return false
+    const inactiveSince = lead.lastAttemptAt ?? lead.createdAt
+    return inactiveSince.getTime() === expectedAt.getTime()
+      && inactiveSince.getTime() <= Date.now() - days * DAY_MS
+  }
+
+  return false
+}
+
+async function cancelInvalidScheduledTriggers() {
+  const pending = await prisma.scheduledTrigger.findMany({
+    where: { status: 'pending', ruleKey: { in: [...TEMPORAL_RULES] } },
+    orderBy: { dueAt: 'asc' },
+    take: BATCH_SIZE,
+  })
+
+  for (const trigger of pending) {
+    if (await triggerIsStillValid(trigger)) continue
+    await prisma.scheduledTrigger.updateMany({
+      where: { id: trigger.id, status: 'pending' },
+      data: { status: 'cancelled' },
     })
   }
 }
@@ -133,32 +250,45 @@ async function scanStaleProposals() {
 async function publishDueTriggers() {
   const due = await prisma.scheduledTrigger.findMany({
     where: { status: 'pending', dueAt: { lte: new Date() } },
+    orderBy: { dueAt: 'asc' },
     take: BATCH_SIZE,
   })
+
   for (const trigger of due) {
-    const claimed = await prisma.scheduledTrigger.updateMany({
-      where: { id: trigger.id, status: 'pending' },
-      data: { status: 'fired', firedAt: new Date() },
-    })
-    if (!claimed.count) continue
+    if (!(await triggerIsStillValid(trigger))) {
+      await prisma.scheduledTrigger.updateMany({
+        where: { id: trigger.id, status: 'pending' },
+        data: { status: 'cancelled' },
+      })
+      continue
+    }
+
     try {
-      const payload = trigger.payload && typeof trigger.payload === 'object' && !Array.isArray(trigger.payload)
-        ? trigger.payload as Record<string, unknown>
-        : { eventId: trigger.dedupeKey }
-      await prisma.outboxEvent.create({
-        data: {
-          orgId: trigger.orgId,
-          topic: trigger.ruleKey,
-          aggregateType: trigger.entityType,
-          aggregateId: trigger.entityId,
-          payload: payload as any,
-        },
+      // Reclamar el trigger y crear su outbox en la misma transacción evita
+      // tanto la doble publicación como perderlo si el proceso cae entre
+      // ambas escrituras.
+      await prisma.$transaction(async (tx) => {
+        const claimed = await tx.scheduledTrigger.updateMany({
+          where: { id: trigger.id, status: 'pending' },
+          data: { status: 'fired', firedAt: new Date() },
+        })
+        if (!claimed.count) return
+
+        const payload = payloadObject(trigger.payload)
+        await tx.outboxEvent.create({
+          data: {
+            orgId: trigger.orgId,
+            topic: trigger.ruleKey,
+            aggregateType: trigger.entityType,
+            aggregateId: trigger.entityId,
+            payload: { ...payload, eventId: payload.eventId ?? trigger.dedupeKey } as any,
+          },
+        })
       })
     } catch (error) {
+      // La transacción revierte el claim: queda pending para un reintento
+      // posterior. No se altera firedAt ni se pierde el disparador.
       console.error(`[TemporalEventScheduler] error publicando trigger ${trigger.id}:`, error)
-      // Deja el registro reintentable en el próximo ciclo si no se pudo
-      // publicar al outbox, en vez de perder el evento silenciosamente.
-      await prisma.scheduledTrigger.updateMany({ where: { id: trigger.id, status: 'fired' }, data: { status: 'pending', firedAt: null } })
     }
   }
 }
@@ -167,6 +297,7 @@ async function runTemporalEventScheduler() {
   if (running) return
   running = true
   try {
+    await cancelInvalidScheduledTriggers()
     await scanLeadInactivity(7)
     await scanLeadInactivity(30)
     await scanMeetingsSoon()

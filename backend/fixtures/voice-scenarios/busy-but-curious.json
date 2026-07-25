@@ -1,0 +1,16 @@
+{
+  "id": "busy-but-curious",
+  "language": "es-ES",
+  "persona": { "role": "directora comercial", "style": "brief", "patience": 0.35 },
+  "objective": "aceptar una reunión si se entiende el valor",
+  "turns": [
+    { "role": "prospecto", "text": "Ahora mismo voy con prisa" },
+    { "role": "prospecto", "text": "Sí, dime en veinte segundos" },
+    { "role": "prospecto", "text": "¿Y cómo lo hacéis actualmente?" }
+  ],
+  "objections": ["no_time"],
+  "interruptions": true,
+  "noise": "office",
+  "successCriteria": ["ask_permission_before_pitch", "discover_current_process"],
+  "criticalErrors": ["ignore_opt_out", "invent_result", "repeat_same_question"]
+}

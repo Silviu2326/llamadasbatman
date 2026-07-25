@@ -1,8 +1,10 @@
 import React from 'react'
 import { RiAddLine, RiCloseLine, RiLayoutLine, RiRefreshLine } from 'react-icons/ri'
 import { WIDGET_META, ALL_WIDGET_IDS } from '../../dashboardConfig'
+import { useI18n } from '../../i18n'
 
 export default function EditPanel({ removedWidgets, onAddWidget, onClose, onReset }) {
+  const { t } = useI18n()
   const hasRemoved = removedWidgets.length > 0
 
   return (
@@ -30,8 +32,8 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
             <RiLayoutLine style={{ width: 18, height: 18, color: '#818cf8' }} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>Editar dashboard</h3>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6b7280' }}>{ALL_WIDGET_IDS.length - removedWidgets.length} de {ALL_WIDGET_IDS.length} visibles</p>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{t('dashboard.editDashboard')}</h3>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6b7280' }}>{t('dashboard.visibleWidgets', { visible: ALL_WIDGET_IDS.length - removedWidgets.length, total: ALL_WIDGET_IDS.length })}</p>
           </div>
         </div>
         <button
@@ -52,13 +54,13 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
         padding: '12px 14px', marginBottom: 20,
       }}>
         <p style={{ margin: 0, fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
-          Arrastra los widgets para reorganizarlos. Arrastra las esquinas para redimensionarlos. Pulsa la <strong style={{ color:'#f87171' }}>×</strong> de un widget para quitarlo.
+          {t('dashboard.widgetHelp')}
         </p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <h4 style={{ margin: 0, fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          {hasRemoved ? 'Widgets eliminados' : 'Widgets disponibles'}
+          {hasRemoved ? t('dashboard.removedWidgets') : t('dashboard.availableWidgets')}
         </h4>
         <button
           onClick={onReset}
@@ -70,7 +72,7 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
           }}
         >
           <RiRefreshLine style={{ width: 13, height: 13 }} />
-          Restablecer
+          {t('dashboard.reset')}
         </button>
       </div>
 
@@ -126,7 +128,7 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
               <RiLayoutLine style={{ width: 24, height: 24, color: '#4b5563' }} />
             </div>
             <p style={{ margin: 0, fontSize: 12, color: '#6b7280', lineHeight: 1.5 }}>
-              Todos los widgets están visibles. Elimina alguno desde el dashboard para que aparezca aquí.
+              {t('dashboard.allVisible')}
             </p>
           </div>
         )}

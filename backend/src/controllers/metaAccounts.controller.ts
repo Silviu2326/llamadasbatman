@@ -1,40 +1,39 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import * as service from '../services/metaAdAccount.service'
+import { getAppUrl } from '../lib/securityConfig'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
 export async function oauthStartUrl(request: FastifyRequest, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
-  return reply.send({ url: service.buildOAuthStartUrl(orgId) })
+  return reply.send({ url: await service.buildOAuthStartUrl(orgId) })
 }
 
 export async function oauthStart(request: FastifyRequest, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
-  return reply.redirect(service.buildOAuthStartUrl(orgId))
+  return reply.redirect(await service.buildOAuthStartUrl(orgId))
 }
 
 export async function oauthCallback(
   request: FastifyRequest<{ Querystring: { code?: string; state?: string; error?: string } }>,
   reply: FastifyReply
 ) {
-  const appUrl = process.env.APP_URL ?? 'http://localhost:5173'
+  const appUrl = getAppUrl()
+  const errorUrl = new URL('/captacion/conectar?status=error', appUrl).toString()
   const { code, state, error } = request.query
 
-  if (error || !code || !state) {
-    return reply.redirect(`${appUrl}/captacion/conectar?status=error`)
-  }
-
-  const orgId = service.verifyState(state)
-  if (!orgId) {
-    return reply.redirect(`${appUrl}/captacion/conectar?status=error`)
-  }
+  // Consume provider-error callbacks too. Otherwise Meta could replay the
+  // same valid state and weaken the one-use guarantee.
+  if (!state) return reply.redirect(errorUrl)
+  const oauthState = await service.consumeOAuthState(state)
+  if (!oauthState || error || !code) return reply.redirect(errorUrl)
 
   try {
-    await service.completeOAuth(orgId, code)
-    return reply.redirect(`${appUrl}/captacion/conectar?status=connected`)
+    await service.completeOAuth(oauthState.orgId, code, oauthState.codeVerifier)
+    return reply.redirect(new URL('/captacion/conectar?status=connected', appUrl).toString())
   } catch (err) {
     console.error('[MetaOAuth] callback error:', err)
-    return reply.redirect(`${appUrl}/captacion/conectar?status=error`)
+    return reply.redirect(errorUrl)
   }
 }
 

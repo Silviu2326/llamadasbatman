@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { DEMO_MODE } from '../lib/dataMode'
+import { classifyFetchError, statusMessage } from '../lib/dataStatus'
+import DataStatusBanner from './ui/DataStatusBanner'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   PieChart, Pie, Cell, Tooltip, CartesianGrid,
@@ -17,6 +20,7 @@ import KPICard from './KPICard'
 import DataTable from './DataTable'
 import '../dashboard.css'
 import NewOportunidadModal from '../modals/NewOportunidadModal'
+import { getLocale, localeCode, useI18n } from '../i18n'
 
 // ─── shared ──────────────────────────────────────────────────────────────────
 const card = { background: '#0d1117', border: '1px solid #1e2433', borderRadius: 13 }
@@ -234,7 +238,7 @@ function DonutPanel({ donutData, totalValue }) {
 
 function PredictionPanel({ prediction }) {
   const totalFmt = prediction.total > 0
-    ? `€${prediction.total.toLocaleString('es-ES')}`
+    ? `€${prediction.total.toLocaleString(localeCode(getLocale()))}`
     : '—'
   const weeks = prediction.weeks ?? []
   const maxVal = Math.max(...weeks.map(w => w.value), 1)
@@ -276,7 +280,7 @@ function PredictionPanel({ prediction }) {
 // convertir divisas, cada bloque de moneda se muestra por separado.
 function ForecastPanel({ forecast }) {
   const currencies = Object.keys(forecast)
-  const fmt = (cur, v) => `${cur} ${Math.round(v).toLocaleString('es-ES')}`
+  const fmt = (cur, v) => `${cur} ${Math.round(v).toLocaleString(localeCode(getLocale()))}`
 
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
@@ -454,12 +458,12 @@ function PipelineListView({ onSelect }) {
         {STAGE_LABEL[opp.stage] ?? opp.stage}
       </span>,
       <span key="v" style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>
-        {opp.value != null ? `${opp.currency ?? 'EUR'} ${Number(opp.value).toLocaleString('es-ES')}` : '—'}
+        {opp.value != null ? `${opp.currency ?? 'EUR'} ${Number(opp.value).toLocaleString(localeCode(getLocale()))}` : '—'}
       </span>,
       <span key="p" style={{ fontSize: 11.5, color: '#94a3b8' }}>{opp.probability ?? 0}%</span>,
       <span key="o" style={{ fontSize: 11.5, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.assignee?.name ?? '—'}</span>,
       <span key="c" style={{ fontSize: 11.5, color: '#94a3b8' }}>
-        {opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toLocaleDateString('es-ES') : '—'}
+        {opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toLocaleDateString(localeCode(getLocale())) : '—'}
       </span>,
     ]
   }
@@ -555,6 +559,7 @@ function PipelineListView({ onSelect }) {
 }
 
 export default function Pipeline() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const [showNewOpp, setShowNewOpp] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -574,24 +579,28 @@ export default function Pipeline() {
   const [acciones, setAcciones]       = useState([])
   const [draggingId, setDraggingId]   = useState(null)
   const [dragError, setDragError]     = useState('')
+  const [dataStatus, setDataStatus]   = useState('loading')
+  const [dataError, setDataError]     = useState('')
 
   useEffect(() => {
-    Promise.all([
-      apiFetch('/api/pipeline/insights').then(r => r.json()),
-      apiFetch('/api/pipeline/prediction').then(r => r.json()),
-      apiFetch('/api/pipeline/actions').then(r => r.json()),
-      // OP-107: forecast real (commit/best case/pipeline) — ver ForecastPanel.
-      apiFetch('/api/pipeline/forecast').then(r => r.json()),
-    ]).then(([ins, pred, acts, fc]) => {
-      setInsights(ins)
-      setPrediction(pred)
-      setAcciones(acts)
-      setForecast(fc && typeof fc === 'object' ? fc : {})
-    }).catch(() => {})
-  }, [refreshKey])
+    let active = true
+    setDataStatus('loading')
+    setDataError('')
+    async function loadPipeline() {
+      try {
+        const paths = ['/api/pipeline/insights', '/api/pipeline/prediction', '/api/pipeline/actions', '/api/pipeline/forecast', '/api/pipeline']
+        const payloads = await Promise.all(paths.map(async path => {
+          const response = await apiFetch(path)
+          if (!response.ok) throw new Error(`pipeline_${response.status}`)
+          return response.json()
+        }))
+        if (!active) return
+        const [ins, pred, acts, fc, data] = payloads
+        setInsights(Array.isArray(ins) ? ins : [])
+        setPrediction(pred && typeof pred === 'object' ? pred : { total: 0, weeks: [] })
+        setAcciones(Array.isArray(acts) ? acts : [])
+        setForecast(fc && typeof fc === 'object' ? fc : {})
 
-  useEffect(() => {
-    apiFetch('/api/pipeline').then(r => r.json()).then(data => {
       // Build flat opps list
       const flat = STAGE_CONFIG.flatMap(({ id, label }) =>
         (data[id] ?? []).map((o, i) => ({
@@ -599,10 +608,10 @@ export default function Pipeline() {
           stage: id,
           company: o.lead?.company ?? o.name,
           city: o.lead?.city ?? '',
-          value: o.value ? `€${Number(o.value).toLocaleString('es-ES')}` : '—',
+          value: o.value ? `€${Number(o.value).toLocaleString(localeCode(getLocale()))}` : '—',
           score: o.probability ?? null,
           badge: label,
-          date: new Date(o.createdAt).toLocaleDateString('es-ES'),
+          date: new Date(o.createdAt).toLocaleDateString(localeCode(getLocale())),
           bg: BG_CYCLE[i % BG_CYCLE.length],
         }))
       )
@@ -612,7 +621,7 @@ export default function Pipeline() {
       const builtStages = STAGE_CONFIG.map(cfg => {
         const items = data[cfg.id] ?? []
         const total = items.reduce((s, o) => s + (Number(o.value) || 0), 0)
-        return { ...cfg, count: items.length, value: `€${total.toLocaleString('es-ES')}` }
+        return { ...cfg, count: items.length, value: `€${total.toLocaleString(localeCode(getLocale()))}` }
       })
       setStages(builtStages)
 
@@ -627,9 +636,9 @@ export default function Pipeline() {
       // Sin endpoint de histórico semanal todavía: no se muestra "pct" (P0-09,
       // ningún fallback positivo). Cuando exista una fuente real, se recalcula aquí.
       setKpis([
-        { ...KPI_DECO[0], value: `€${tv.toLocaleString('es-ES')}`, pct: null },
+        { ...KPI_DECO[0], value: `€${tv.toLocaleString(localeCode(getLocale()))}`, pct: null },
         { ...KPI_DECO[1], value: String(all.length), pct: null },
-        { ...KPI_DECO[2], value: `€${Math.round(wv).toLocaleString('es-ES')}`, pct: null },
+        { ...KPI_DECO[2], value: `€${Math.round(wv).toLocaleString(localeCode(getLocale()))}`, pct: null },
         { ...KPI_DECO[3], value: conv === '—' ? '—' : `${conv}%`, pct: null },
       ])
 
@@ -651,7 +660,20 @@ export default function Pipeline() {
         })
         .filter(d => d.value > 0)
       )
-    }).catch(() => {})
+      setDataStatus(DEMO_MODE ? 'demo' : flat.length ? 'live' : 'empty')
+      } catch (error) {
+        if (!active) return
+        setOpps([])
+        setInsights([])
+        setAcciones([])
+        setForecast({})
+        const status = classifyFetchError(error)
+        setDataStatus(status)
+        setDataError(statusMessage(status, { error: 'No se pudieron cargar los datos del pipeline.' }))
+      }
+    }
+    loadPipeline()
+    return () => { active = false }
   }, [refreshKey])
 
   function handleDragStartCard(opp, e) {
@@ -707,7 +729,7 @@ export default function Pipeline() {
       <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>Pipeline</h1>
+            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>{t('modules.pipelineTitle')}</h1>
             <span style={{ color: '#8b5cf6', fontSize: 16 }}>✦</span>
           </div>
           <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Visualiza y gestiona tu pipeline de ventas impulsado por IA.</p>
@@ -737,10 +759,18 @@ export default function Pipeline() {
             </button>
           </div>
           <button onClick={() => setShowNewOpp(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
-            <RiAddLine style={{ width: 14, height: 14 }} /> Nueva oportunidad
+            <RiAddLine style={{ width: 14, height: 14 }} /> {t('modules.pipelineCreate')}
           </button>
         </div>
       </div>
+
+      <DataStatusBanner
+        status={dataStatus}
+        message={dataError || statusMessage(dataStatus, { live: 'Pipeline real sincronizado con tu organización.', empty: 'La conexión está disponible, pero todavía no hay oportunidades en el pipeline.', demo: 'Modo demo explícito: no se muestran oportunidades ficticias ni se ejecutan movimientos.' })}
+        onRetry={dataStatus === 'error' || dataStatus === 'disconnected' ? () => setRefreshKey(key => key + 1) : undefined}
+        onAction={dataStatus === 'empty' || dataStatus === 'demo' ? () => setShowNewOpp(true) : dataStatus === 'disconnected' ? () => navigate('/configuracion') : undefined}
+        actionLabel={dataStatus === 'disconnected' ? 'Configurar conexión' : 'Crear oportunidad'}
+      />
 
       {showNewOpp && <NewOportunidadModal onClose={() => setShowNewOpp(false)} onSuccess={() => { setShowNewOpp(false); setRefreshKey(k => k + 1) }} />}
 
@@ -755,6 +785,17 @@ export default function Pipeline() {
         </div>
       )}
 
+      {dataStatus !== 'live' ? (
+        <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 24 }}>
+          <div style={{ width: 'min(560px, 100%)', padding: 28, border: '1px solid #1e2433', borderRadius: 14, background: '#0d1117', textAlign: 'center' }}>
+            <RiBriefcaseLine style={{ width: 30, height: 30, color: dataStatus === 'error' || dataStatus === 'disconnected' ? '#fbbf24' : '#818cf8' }} />
+            <h2 style={{ margin: '12px 0 7px', color: '#f1f5f9', fontSize: 17 }}>{dataStatus === 'loading' ? 'Cargando pipeline…' : dataStatus === 'empty' ? 'Tu pipeline está listo para empezar' : dataStatus === 'demo' ? 'Modo demo explícito' : 'No se pudo cargar el pipeline'}</h2>
+            <p style={{ margin: '0 auto 18px', maxWidth: 430, color: '#64748b', fontSize: 12.5, lineHeight: 1.5 }}>{dataError || statusMessage(dataStatus, { empty: 'Crea tu primera oportunidad para empezar a mover etapas.', demo: 'Activa una conexión real o crea una oportunidad en tu organización para trabajar con datos reales.' })}</p>
+            {dataStatus === 'empty' || dataStatus === 'demo' ? <button onClick={() => setShowNewOpp(true)} style={{ background: '#4f46e5', border: '1px solid #6366f1', borderRadius: 8, padding: '8px 13px', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}><RiAddLine /> Crear oportunidad</button> : <button onClick={() => setRefreshKey(key => key + 1)} style={{ background: '#1e293b', border: '1px solid #475569', borderRadius: 8, padding: '8px 13px', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>}
+          </div>
+        </div>
+      ) : (
+      <>
       {/* body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
@@ -824,6 +865,8 @@ export default function Pipeline() {
           <InsightsPanel insights={insights} />
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }

@@ -8,9 +8,32 @@ datasource db {
 }
 
 enum UserRole {
+  owner
   admin
+  revenue_ops
+  sales_manager
+  sales_rep
+  marketing_growth
+  analyst
+  compliance
+  finance_controller
+  guest
   agent
   viewer
+}
+
+enum AccessRequestType {
+  role_elevation
+  paid_experiment
+  playbook_change
+}
+
+enum AccessRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+  consumed
 }
 
 enum CampaignStatus {
@@ -71,6 +94,22 @@ enum TaskPriority {
   urgent
 }
 
+// Programas persistentes que agrupan las nuevas capacidades de crecimiento.
+// El tipo queda como enum para impedir que cada cliente invente taxonomías
+// incompatibles; los detalles específicos de cada programa viven en `config`.
+enum GrowthProgramType {
+  newsletter
+  lead_magnet
+  popup
+  automation_journey
+  webinar
+  referral
+  nps
+  sales_sequence
+  proposal
+  customer_health
+}
+
 model Organization {
   id                 String   @id @default(cuid())
   name               String
@@ -97,52 +136,74 @@ model Organization {
   address  String?
   currency String  @default("EUR")
 
-  users              User[]
-  agents             Agent[]
-  campaigns          Campaign[]
-  leads              Lead[]
-  calls              Call[]
-  meetings           Meeting[]
-  opportunities      Opportunity[]
-  playbooks          Playbook[]
-  automations        Automation[]
-  knowledgeBases     KnowledgeBase[]
-  metaAdAccounts     MetaAdAccount[]
-  adInsightSnapshots AdInsightSnapshot[]
-  optOuts            OptOut[]
-  leadNotes          LeadNote[]
-  leadAudits         LeadAudit[]
-  leadFiles          LeadFile[]
-  adWizardDrafts     AdWizardDraft[]
-  callTasks          CallTask[]
-  knowledgeFavorites KnowledgeFavorite[]
-  acquisitionEvents  AcquisitionEvent[]
-  channelIdentities  ChannelIdentity[]
-  conversations      Conversation[]
-  messages           Message[]
-  contactConsents    ContactConsent[]
-  messageTemplates   MessageTemplate[]
-  webhookEvents      WebhookEvent[]
-  automationRuns     AutomationRun[]
-  outboxEvents       OutboxEvent[]
-  nextBestActions    NextBestAction[]
-  auditLogs          AuditLog[]
-  mauticAssetBindings MauticAssetBinding[]
-  automationStepRuns AutomationStepRun[]
-  scheduledTriggers  ScheduledTrigger[]
-  salesActivities    SalesActivity[]
-  tasks              Task[]
-  opportunityStageHistory OpportunityStageHistory[]
-  automationVersions AutomationVersion[]
-  importJobs         ImportJob[]
-  mauticContactBindings MauticContactBinding[]
-  marketingCampaigns MarketingCampaign[]
-  emailDeliveries    EmailDelivery[]
-  emailEvents        EmailEvent[]
-  accounts           Account[]
-  opportunityContacts OpportunityContact[]
-  products           Product[]
-  opportunityLineItems OpportunityLineItem[]
+  users                      User[]
+  agents                     Agent[]
+  campaigns                  Campaign[]
+  leads                      Lead[]
+  calls                      Call[]
+  voiceCallEvents            VoiceCallEvent[]
+  voiceCallMetrics           VoiceCallMetric[]
+  voiceCallEvaluations       VoiceCallEvaluation[]
+  meetings                   Meeting[]
+  opportunities              Opportunity[]
+  playbooks                  Playbook[]
+  automations                Automation[]
+  knowledgeBases             KnowledgeBase[]
+  metaAdAccounts             MetaAdAccount[]
+  adInsightSnapshots         AdInsightSnapshot[]
+  optOuts                    OptOut[]
+  leadNotes                  LeadNote[]
+  leadAudits                 LeadAudit[]
+  leadFiles                  LeadFile[]
+  adWizardDrafts             AdWizardDraft[]
+  callTasks                  CallTask[]
+  knowledgeFavorites         KnowledgeFavorite[]
+  acquisitionEvents          AcquisitionEvent[]
+  channelIdentities          ChannelIdentity[]
+  conversations              Conversation[]
+  messages                   Message[]
+  contactConsents            ContactConsent[]
+  messageTemplates           MessageTemplate[]
+  webhookEvents              WebhookEvent[]
+  automationRuns             AutomationRun[]
+  outboxEvents               OutboxEvent[]
+  nextBestActions            NextBestAction[]
+  auditLogs                  AuditLog[]
+  mauticAssetBindings        MauticAssetBinding[]
+  automationStepRuns         AutomationStepRun[]
+  scheduledTriggers          ScheduledTrigger[]
+  salesActivities            SalesActivity[]
+  tasks                      Task[]
+  opportunityStageHistory    OpportunityStageHistory[]
+  automationVersions         AutomationVersion[]
+  importJobs                 ImportJob[]
+  mauticContactBindings      MauticContactBinding[]
+  marketingCampaigns         MarketingCampaign[]
+  emailDeliveries            EmailDelivery[]
+  emailEvents                EmailEvent[]
+  accounts                   Account[]
+  opportunityContacts        OpportunityContact[]
+  products                   Product[]
+  opportunityLineItems       OpportunityLineItem[]
+  growthPrograms             GrowthProgram[]
+  metaOAuthStates            MetaOAuthState[]
+  revenueExperiments         RevenueExperiment[]
+  experimentAssignments      RevenueExperimentAssignment[]
+  operationalMemoryProposals OperationalMemoryProposal[]
+  governancePolicies         GovernancePolicy[]
+  accessControlRequests      AccessControlRequest[]
+  sensitiveApprovalRequests  SensitiveApprovalRequest[]
+  organicProjects            OrganicProject[]
+  organicOpportunities       OrganicOpportunity[]
+  organicAssets              OrganicAsset[]
+  organicActions             OrganicAction[]
+  organicIntegrations        OrganicIntegration[]
+  organicOAuthStates         OrganicOAuthState[]
+  actionItems                ActionItem[]
+  actionItemHistory          ActionItemHistory[]
+  salesSequenceEnrollments   SalesSequenceEnrollment[]
+  salesSequenceStepRuns      SalesSequenceStepRun[]
+  integrationCredentials     OrganizationIntegrationCredential[]
 }
 
 model User {
@@ -154,22 +215,95 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
-  org                   Organization        @relation(fields: [orgId], references: [id])
-  meetings              Meeting[]           @relation("AssignedMeetings")
-  opportunities         Opportunity[]       @relation("AssignedOpportunities")
-  adWizardDrafts        AdWizardDraft[]
-  preference            UserPreference?
-  callTasks             CallTask[]
-  knowledgeFavorites    KnowledgeFavorite[]
-  assignedConversations Conversation[]      @relation("ConversationAssignee")
-  authoredMessages      Message[]           @relation("MessageAuthor")
-  acceptedNextActions   NextBestAction[]    @relation("NextActionAcceptedBy")
-  auditLogs             AuditLog[]          @relation("AuditLogActor")
-  salesActivities       SalesActivity[]     @relation("SalesActivityActor")
-  ownedTasks            Task[]              @relation("TaskOwner")
-  createdTasks          Task[]              @relation("TaskCreatedBy")
-  ownedLeads            Lead[]              @relation("LeadOwner")
-  ownedAccounts         Account[]           @relation("AccountOwner")
+  org                       Organization                @relation(fields: [orgId], references: [id])
+  meetings                  Meeting[]                   @relation("AssignedMeetings")
+  opportunities             Opportunity[]               @relation("AssignedOpportunities")
+  adWizardDrafts            AdWizardDraft[]
+  preference                UserPreference?
+  callTasks                 CallTask[]
+  knowledgeFavorites        KnowledgeFavorite[]
+  assignedConversations     Conversation[]              @relation("ConversationAssignee")
+  authoredMessages          Message[]                   @relation("MessageAuthor")
+  acceptedNextActions       NextBestAction[]            @relation("NextActionAcceptedBy")
+  auditLogs                 AuditLog[]                  @relation("AuditLogActor")
+  salesActivities           SalesActivity[]             @relation("SalesActivityActor")
+  ownedTasks                Task[]                      @relation("TaskOwner")
+  createdTasks              Task[]                      @relation("TaskCreatedBy")
+  ownedLeads                Lead[]                      @relation("LeadOwner")
+  ownedAccounts             Account[]                   @relation("AccountOwner")
+  authSessions              AuthSession[]
+  createdRevenueExperiments RevenueExperiment[]         @relation("RevenueExperimentCreatedBy")
+  createdMemoryProposals    OperationalMemoryProposal[] @relation("OperationalMemoryCreatedBy")
+  reviewedMemoryProposals   OperationalMemoryProposal[] @relation("OperationalMemoryReviewedBy")
+  requestedAccessChanges    AccessControlRequest[]      @relation("AccessRequestRequester")
+  decidedAccessChanges      AccessControlRequest[]      @relation("AccessRequestDecider")
+  targetedAccessChanges     AccessControlRequest[]      @relation("AccessRequestTargetUser")
+  requestedSensitiveApprovals SensitiveApprovalRequest[] @relation("SensitiveApprovalRequester")
+  decidedSensitiveApprovals   SensitiveApprovalRequest[] @relation("SensitiveApprovalDecider")
+  ownedActionItems          ActionItem[]                @relation("ActionItemOwner")
+  actionItemHistory         ActionItemHistory[]         @relation("ActionItemHistoryActor")
+}
+
+// Sesiones de refresco opacas y revocables. El navegador recibe solo el
+// secreto aleatorio; la base conserva su hash para que una filtración de la
+// base de datos no se convierta directamente en una sesión válida.
+model AuthSession {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+// Estado efímero de OAuth: opaco, de un solo uso y con verifier PKCE cifrado.
+model MetaOAuthState {
+  id              String    @id @default(cuid())
+  orgId           String
+  stateHash       String    @unique
+  codeVerifierEnc String
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, expiresAt])
+}
+
+// Credenciales no OAuth de proveedores externos. El contenido de `secretEnc`
+// es un documento cifrado con AES-256-GCM; nunca se devuelve por API ni se
+// incluye en logs. `slot` permite varias cuentas del mismo proveedor sin
+// usar nombres de secretos como claves de aislamiento.
+model OrganizationIntegrationCredential {
+  id                    String    @id @default(cuid())
+  orgId                 String
+  provider              String
+  slot                  String    @default("default")
+  secretEnc             String?
+  metadata              Json?
+  scopes                String[]  @default([])
+  status                String    @default("connected") // connected|revoked|needs_reauth|error
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  lastRefreshedAt       DateTime?
+  lastUsedAt            DateTime?
+  revokedAt             DateTime?
+  lastError             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, provider, slot])
+  @@index([orgId, provider, status])
+  @@index([provider, status, updatedAt])
 }
 
 // Preferencias por usuario para /configuracion. Separado de User porque son
@@ -194,6 +328,8 @@ model Agent {
   orgId        String
   name         String
   role         String
+  agentType    String   @default("sales")
+  callDirection String  @default("both")
   personality  String?
   voiceId      String?
   systemPrompt String?
@@ -239,59 +375,63 @@ model Campaign {
   shareToken          String?        @unique
   createdAt           DateTime       @default(now())
 
-  org                Organization        @relation(fields: [orgId], references: [id])
-  agent              Agent?              @relation(fields: [agentId], references: [id])
-  playbook           Playbook?           @relation(fields: [playbookId], references: [id])
-  adPlaybook         AdPlaybook?         @relation(fields: [adPlaybookId], references: [id])
-  leads              Lead[]
-  calls              Call[]
-  adInsightSnapshots AdInsightSnapshot[]
-  acquisitionEvents  AcquisitionEvent[]
-  importJobs         ImportJob[]
+  org                  Organization         @relation(fields: [orgId], references: [id])
+  agent                Agent?               @relation(fields: [agentId], references: [id])
+  playbook             Playbook?            @relation(fields: [playbookId], references: [id])
+  adPlaybook           AdPlaybook?          @relation(fields: [adPlaybookId], references: [id])
+  leads                Lead[]
+  calls                Call[]
+  adInsightSnapshots   AdInsightSnapshot[]
+  acquisitionEvents    AcquisitionEvent[]
+  importJobs           ImportJob[]
+  organicOpportunities OrganicOpportunity[]
 }
 
 model Lead {
-  id             String     @id @default(cuid())
-  orgId          String
-  campaignId     String?
-  name           String
-  phone          String?
-  email          String?
-  company        String?
-  status         LeadStatus @default(new)
-  source         String?
-  externalLeadId String?
-  tags           String[]   @default([])
-  customFields   Json?
-  attempts       Int        @default(0)
-  lastAttemptAt  DateTime?
-  ownerId        String?
+  id               String     @id @default(cuid())
+  orgId            String
+  campaignId       String?
+  name             String
+  phone            String?
+  email            String?
+  company          String?
+  status           LeadStatus @default(new)
+  source           String?
+  externalLeadId   String?
+  tags             String[]   @default([])
+  customFields     Json?
+  attempts         Int        @default(0)
+  lastAttemptAt    DateTime?
+  ownerId          String?
   firstRespondedAt DateTime?
-  accountId      String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  accountId        String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  org               Organization       @relation(fields: [orgId], references: [id])
-  campaign          Campaign?          @relation(fields: [campaignId], references: [id])
-  owner             User?              @relation("LeadOwner", fields: [ownerId], references: [id])
-  account           Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  opportunityContacts OpportunityContact[]
-  calls             Call[]
-  meetings          Meeting[]
-  opportunities     Opportunity[]
-  notes             LeadNote[]
-  audits            LeadAudit[]
-  files             LeadFile[]
-  acquisitionEvents AcquisitionEvent[]
-  channelIdentities ChannelIdentity[]
-  conversations     Conversation[]
-  messages          Message[]
-  contactConsents   ContactConsent[]
-  nextBestActions   NextBestAction[]
-  salesActivities   SalesActivity[]
-  tasks             Task[]
+  org                   Organization           @relation(fields: [orgId], references: [id])
+  campaign              Campaign?              @relation(fields: [campaignId], references: [id])
+  owner                 User?                  @relation("LeadOwner", fields: [ownerId], references: [id])
+  account               Account?               @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  opportunityContacts   OpportunityContact[]
+  calls                 Call[]
+  meetings              Meeting[]
+  opportunities         Opportunity[]
+  notes                 LeadNote[]
+  audits                LeadAudit[]
+  files                 LeadFile[]
+  acquisitionEvents     AcquisitionEvent[]
+  channelIdentities     ChannelIdentity[]
+  conversations         Conversation[]
+  messages              Message[]
+  contactConsents       ContactConsent[]
+  salesSequenceEnrollments SalesSequenceEnrollment[]
+  salesSequenceStepRuns   SalesSequenceStepRun[]
+  nextBestActions       NextBestAction[]
+  salesActivities       SalesActivity[]
+  tasks                 Task[]
   mauticContactBindings MauticContactBinding[]
-  emailDeliveries   EmailDelivery[]
+  emailDeliveries       EmailDelivery[]
+  organicOpportunities  OrganicOpportunity[]
 
   @@unique([orgId, externalLeadId])
   @@index([orgId, status, updatedAt])
@@ -344,6 +484,9 @@ model Call {
   sentimentScore  Float?
   summary         String?
   outcome         String     @default("none")
+  contactClassification String?
+  contactClassificationConfidence Float?
+  amdResult       Json?
   callbackAt      DateTime?
   startedAt       DateTime?
   endedAt         DateTime?
@@ -357,8 +500,77 @@ model Call {
   meetings Meeting[]
   notes    LeadNote[]
   tasks    CallTask[]
+  voiceEvents VoiceCallEvent[]
+  voiceMetrics VoiceCallMetric[]
+  voiceEvaluation VoiceCallEvaluation?
+  runtimeSnapshot Json?
 
   @@unique([orgId, externalCallId])
+}
+
+model VoiceCallEvent {
+  id           String   @id @default(cuid())
+  orgId        String
+  callId       String
+  seq          Int
+  atMs         Int
+  type         String
+  role         String?
+  payload      Json
+  component    String?
+  componentVer String?
+  model        String?
+  provider     String?
+  createdAt    DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  call Call         @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@unique([callId, seq])
+  @@index([orgId, createdAt])
+  @@index([callId, atMs])
+  @@index([callId, type])
+}
+
+model VoiceCallMetric {
+  id           String   @id @default(cuid())
+  orgId        String
+  callId       String
+  metric       String
+  value        Float
+  unit         String?
+  sampleCount  Int?
+  dimensions   Json?
+  createdAt    DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  call Call         @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, metric, createdAt])
+  @@index([callId, metric])
+}
+
+model VoiceCallEvaluation {
+  id             String   @id @default(cuid())
+  orgId          String
+  callId         String   @unique
+  status         String   @default("pending")
+  overall        Int?
+  rubricVersion  String
+  judgeProvider  String
+  judgeModel     String
+  dimensions     Json?
+  criticalErrors Json?
+  evidence       Json?
+  trainingTag    String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  call Call         @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status, createdAt])
 }
 
 // Tarea de seguimiento de una llamada (checklist en CallDetailPage). No hay
@@ -401,6 +613,7 @@ model Meeting {
   assignee        User?           @relation("AssignedMeetings", fields: [assignedTo], references: [id])
   salesActivities SalesActivity[]
   tasks           Task[]
+  salesSequenceStepRuns SalesSequenceStepRun[]
 
   @@index([orgId, status, scheduledAt])
 }
@@ -421,7 +634,7 @@ model Opportunity {
   lossReason        String?
   actualCloseDate   DateTime?
   accountId         String?
-  forecastCategory  String?          // pipeline|best_case|commit|omitted — null hasta que el usuario lo fije (OP-107)
+  forecastCategory  String? // pipeline|best_case|commit|omitted — null hasta que el usuario lo fije (OP-107)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
@@ -445,19 +658,19 @@ model Opportunity {
 // que el cambio de etapa; `leftAt` nulo significa que sigue siendo la etapa
 // vigente (permite calcular aging con una sola fila por transición).
 model OpportunityStageHistory {
-  id             String    @id @default(cuid())
-  orgId          String
-  opportunityId  String
-  fromStage      String?
-  toStage        String
+  id              String    @id @default(cuid())
+  orgId           String
+  opportunityId   String
+  fromStage       String?
+  toStage         String
   fromProbability Int?
-  toProbability  Int?
-  actorUserId    String?
-  source         String    @default("manual") // manual|automation
-  reason         String?
-  metadata       Json?
-  enteredAt      DateTime  @default(now())
-  leftAt         DateTime?
+  toProbability   Int?
+  actorUserId     String?
+  source          String    @default("manual") // manual|automation
+  reason          String?
+  metadata        Json?
+  enteredAt       DateTime  @default(now())
+  leftAt          DateTime?
 
   org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   opportunity Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
@@ -504,10 +717,15 @@ model MetaAdAccount {
   id                  String   @id @default(cuid())
   orgId               String
   metaAdAccountId     String
+  metaUserId          String?
   metaPageId          String?
   metaBusinessId      String?
   metaPixelId         String?
-  systemUserTokenEnc  String
+  systemUserTokenEnc  String?
+  scopes              String[] @default([])
+  accessTokenExpiresAt DateTime?
+  lastValidatedAt     DateTime?
+  lastError           String?
   status              String   @default("connected") // connected | revoked | error
   dailyBudgetCapCents Int?
   connectedAt         DateTime @default(now())
@@ -790,7 +1008,11 @@ model WebhookEvent {
   provider        String
   channel         String
   eventType       String?
-  status          String    @default("received")
+  status          String    @default("received") // received|processing|processed|failed|dead_letter
+  attempts        Int       @default(0)
+  lastAttemptAt   DateTime?
+  correlationId   String?
+  errorCode       String?
   metadata        Json?
   error           String?
   receivedAt      DateTime  @default(now())
@@ -800,6 +1022,8 @@ model WebhookEvent {
 
   @@index([provider, channel, receivedAt])
   @@index([orgId, status, receivedAt])
+  @@index([status, lastAttemptAt])
+  @@index([orgId, correlationId])
 }
 
 model AutomationRun {
@@ -819,14 +1043,14 @@ model AutomationRun {
   errorCode           String?
   nextRunAt           DateTime?
   startedAt           DateTime?
-  finishedAt           DateTime?
+  finishedAt          DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  org               Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  automation        Automation         @relation(fields: [automationId], references: [id], onDelete: Cascade)
-  automationVersion AutomationVersion? @relation(fields: [automationVersionId], references: [id], onDelete: SetNull)
-  conversation      Conversation?      @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  org               Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  automation        Automation          @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  automationVersion AutomationVersion?  @relation(fields: [automationVersionId], references: [id], onDelete: SetNull)
+  conversation      Conversation?       @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   stepRuns          AutomationStepRun[]
 
   @@unique([orgId, automationId, triggerEventId])
@@ -836,24 +1060,28 @@ model AutomationRun {
 }
 
 model OutboxEvent {
-  id            String    @id @default(cuid())
-  orgId         String
-  topic         String
-  aggregateType String
-  aggregateId   String
-  payload       Json
-  status        String    @default("pending")
-  attempts      Int       @default(0)
-  availableAt   DateTime  @default(now())
-  processedAt   DateTime?
-  lastError     String?
-  lastErrorCode String?
-  correlationId String?
-  createdAt     DateTime  @default(now())
+  id             String    @id @default(cuid())
+  orgId          String
+  topic          String
+  aggregateType  String
+  aggregateId    String
+  payload        Json
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  availableAt    DateTime  @default(now())
+  lockedAt       DateTime?
+  leaseExpiresAt DateTime?
+  workerId       String?
+  processedAt    DateTime?
+  lastError      String?
+  lastErrorCode  String?
+  correlationId  String?
+  createdAt      DateTime  @default(now())
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([status, availableAt])
+  @@index([status, availableAt, leaseExpiresAt])
   @@index([orgId, aggregateType, aggregateId])
   @@index([orgId, correlationId])
 }
@@ -862,47 +1090,56 @@ model OutboxEvent {
 // encola el job; el worker procesa fila a fila con dedupe/preview/errores
 // por fila, sin bloquear la petición HTTP como hacía importLeads() antes.
 model ImportJob {
-  id            String    @id @default(cuid())
-  orgId         String
-  campaignId    String?
-  createdById   String?
-  fileName      String?
-  status        String    @default("pending") // pending|processing|completed|failed
-  totalRows     Int       @default(0)
-  processedRows Int       @default(0)
-  importedCount Int       @default(0)
-  skippedCount  Int       @default(0)
-  errorCount    Int       @default(0)
-  rows          Json?
-  errors        Json?
-  createdAt     DateTime  @default(now())
-  startedAt     DateTime?
-  finishedAt    DateTime?
+  id             String    @id @default(cuid())
+  orgId          String
+  campaignId     String?
+  createdById    String?
+  fileName       String?
+  status         String    @default("pending") // pending|processing|completed|failed
+  totalRows      Int       @default(0)
+  processedRows  Int       @default(0)
+  importedCount  Int       @default(0)
+  skippedCount   Int       @default(0)
+  errorCount     Int       @default(0)
+  retryCount     Int       @default(0)
+  rows           Json?
+  errors         Json?
+  createdAt      DateTime  @default(now())
+  availableAt    DateTime  @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  lockedAt       DateTime?
+  leaseExpiresAt DateTime?
+  workerId       String?
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   campaign Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@index([orgId, status, createdAt])
+  @@index([status, availableAt, leaseExpiresAt])
 }
 
 model NextBestAction {
-  id             String    @id @default(cuid())
-  orgId          String
-  conversationId String
-  leadId         String?
-  acceptedById   String?
-  type           String
-  channel        String?
-  score          Float     @default(0)
-  reason         String
-  status         String    @default("proposed") // proposed|accepted|dismissed|executed
-  metadata       Json?
-  expiresAt      DateTime?
-  acceptedAt     DateTime?
-  executedAt     DateTime?
+  id              String    @id @default(cuid())
+  orgId           String
+  conversationId  String
+  leadId          String?
+  acceptedById    String?
+  type            String
+  channel         String?
+  score           Float     @default(0)
+  confidence      Float     @default(0)
+  reason          String
+  message         String?
+  status          String    @default("proposed") // proposed|accepted|dismissed|executed
+  metadata        Json?
+  recommendedFor  DateTime?
+  expiresAt       DateTime?
+  acceptedAt      DateTime?
+  executedAt      DateTime?
   convertedTaskId String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -910,6 +1147,7 @@ model NextBestAction {
   acceptedBy   User?        @relation("NextActionAcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
 
   @@index([orgId, status, score])
+  @@index([orgId, status, recommendedFor])
   @@index([conversationId, status])
   @@index([leadId])
   @@index([acceptedById])
@@ -1164,6 +1402,7 @@ model Task {
   opportunity  Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
   meeting      Meeting?      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  salesSequenceStepRuns SalesSequenceStepRun[]
 
   @@index([orgId, ownerId, status, dueAt])
   @@index([orgId, leadId, status])
@@ -1232,30 +1471,38 @@ model MarketingCampaign {
 // EM-102/EM-10: un registro por destinatario y envío, con idempotencyKey para
 // que un reintento (webhook duplicado, job reintentado) nunca reenvíe.
 model EmailDelivery {
-  id                 String    @id @default(cuid())
-  orgId              String
-  campaignId         String?
-  leadId             String
-  templateExternalId String?
-  toAddress          String
-  idempotencyKey     String    @unique
-  providerMessageId  String?
-  status             String    @default("queued") // queued|accepted|delivered|failed|bounced|unsubscribed
-  queuedAt           DateTime  @default(now())
-  acceptedAt         DateTime?
-  deliveredAt        DateTime?
-  failedAt           DateTime?
-  failureCode        String?
-  failureDetail      String?
-  createdAt          DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  orgId               String
+  campaignId          String?
+  leadId              String
+  templateExternalId  String?
+  toAddress           String
+  idempotencyKey      String    @unique
+  providerMessageId   String?
+  status              String    @default("queued") // queued|processing|accepted|delivered|failed|uncertain|bounced|unsubscribed
+  attempts            Int       @default(0)
+  queuedAt            DateTime  @default(now())
+  availableAt         DateTime  @default(now())
+  lockedAt            DateTime?
+  leaseExpiresAt      DateTime?
+  workerId            String?
+  providerAttemptedAt DateTime?
+  acceptedAt          DateTime?
+  deliveredAt         DateTime?
+  failedAt            DateTime?
+  failureCode         String?
+  failureDetail       String?
+  createdAt           DateTime  @default(now())
 
   org      Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   campaign MarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   lead     Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
   events   EmailEvent[]
+  salesSequenceStepRuns SalesSequenceStepRun[]
 
   @@index([orgId, leadId, createdAt])
   @@index([orgId, campaignId, status])
+  @@index([orgId, campaignId, status, availableAt])
 }
 
 // EM-102/EM-08: evento normalizado (open/click/bounce/unsubscribe/complaint),
@@ -1267,7 +1514,7 @@ model EmailEvent {
   deliveryId      String?
   provider        String   @default("mautic")
   externalEventId String?
-  type            String   // delivered|open|click|soft_bounce|hard_bounce|unsubscribe|complaint|reply
+  type            String // delivered|open|click|soft_bounce|hard_bounce|unsubscribe|complaint|reply
   url             String?
   occurredAt      DateTime @default(now())
   receivedAt      DateTime @default(now())
@@ -1350,7 +1597,7 @@ model Product {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  org       Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org       Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   lineItems OpportunityLineItem[]
 
   @@index([orgId, isActive])
@@ -1372,4 +1619,534 @@ model OpportunityLineItem {
   product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([orgId, opportunityId])
+}
+
+// Superficie unificada para los programas de captación, nutrición, ventas y
+// customer success. Los campos comunes son consultables e indexados; `config`
+// y `metrics` conservan la configuración particular sin dispersarla entre
+// nueve tablas prematuras. Cada acceso se filtra siempre por orgId.
+model GrowthProgram {
+  id          String            @id @default(cuid())
+  orgId       String
+  type        GrowthProgramType
+  name        String
+  description String?
+  status      String            @default("draft") // draft|active|paused|scheduled|completed|archived
+  config      Json?
+  metrics     Json?
+  startsAt    DateTime?
+  endsAt      DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  org          Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  enrollments  SalesSequenceEnrollment[]
+  stepRuns     SalesSequenceStepRun[]
+
+  @@index([orgId, type, archivedAt, updatedAt])
+  @@index([orgId, status, updatedAt])
+}
+
+// Experimentos comerciales con variantes versionadas y asignaciÃ³n estable de
+// audiencia. Las conversiones se guardan en la asignaciÃ³n para poder atribuir
+// reuniones, oportunidades o ingresos a la variante que los originÃ³.
+// Organic Leads: agregado multi-tenant para oportunidades de captación
+// orgánica. No almacena credenciales de proveedores; las integraciones solo
+// conservan estado y referencias públicas/no secretas.
+// Ejecución durable por lead de un programa `sales_sequence`. La unicidad
+// programa+lead es la valla de matriculación: repetir la misma petición nunca
+// crea dos recorridos ni dos primeros envíos.
+model SalesSequenceEnrollment {
+  id              String   @id @default(cuid())
+  orgId           String
+  programId       String
+  leadId          String
+  status          String   @default("active") // active|paused|completed|stopped|blocked
+  currentStep     Int      @default(0)
+  nextRunAt       DateTime?
+  enrolledAt      DateTime @default(now())
+  lastRespondedAt DateTime?
+  stoppedAt       DateTime?
+  stopReason      String?
+  lastErrorCode   String?
+  lastError       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org     Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  program GrowthProgram             @relation(fields: [programId], references: [id], onDelete: Cascade)
+  lead    Lead                      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  steps   SalesSequenceStepRun[]
+
+  @@unique([programId, leadId])
+  @@index([orgId, status, nextRunAt])
+  @@index([orgId, leadId, status])
+}
+
+// Estado idempotente por paso. Las acciones externas usan el mismo patrón de
+// lease/resultado incierto que EmailDelivery; las acciones CRM se identifican
+// por `sourceId`/IDs deterministas y pueden reintentarse sin duplicarse.
+model SalesSequenceStepRun {
+  id                  String   @id @default(cuid())
+  orgId               String
+  programId           String
+  enrollmentId        String
+  leadId              String
+  stepKey             String
+  stepIndex            Int
+  type                String
+  status               String   @default("pending") // pending|processing|succeeded|blocked|failed
+  dueAt               DateTime
+  availableAt         DateTime @default(now())
+  attempts            Int      @default(0)
+  maxAttempts         Int      @default(5)
+  lockedAt             DateTime?
+  leaseExpiresAt       DateTime?
+  workerId             String?
+  providerAttemptedAt  DateTime?
+  emailDeliveryId      String?  @unique
+  meetingId            String?  @unique
+  taskId               String?  @unique
+  output               Json?
+  lastErrorCode        String?
+  lastError            String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  org           Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  program       GrowthProgram            @relation(fields: [programId], references: [id], onDelete: Cascade)
+  enrollment    SalesSequenceEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lead          Lead                     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  emailDelivery EmailDelivery?          @relation(fields: [emailDeliveryId], references: [id], onDelete: SetNull)
+  meeting       Meeting?                 @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  task          Task?                    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@unique([enrollmentId, stepKey])
+  @@index([orgId, status, availableAt])
+  @@index([orgId, enrollmentId, stepIndex])
+  @@index([orgId, dueAt, status])
+}
+
+model OrganicProject {
+  id                    String   @id @default(cuid())
+  orgId                 String   @unique
+  name                  String
+  website               String?
+  services              String[] @default([])
+  locations             String[] @default([])
+  averageLeadValueCents Int?
+  currency              String   @default("EUR")
+  config                Json?
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  org           Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  opportunities OrganicOpportunity[]
+  assets        OrganicAsset[]
+  actions       OrganicAction[]
+  integrations  OrganicIntegration[]
+}
+
+model OrganicOpportunity {
+  id                  String   @id @default(cuid())
+  orgId               String
+  projectId           String
+  title               String
+  query               String?
+  location            String?
+  status              String   @default("open")
+  score               Int?
+  estimatedValueCents Int?
+  source              String   @default("manual")
+  sourceKey           String?
+  metadata            Json?
+  leadId              String?
+  campaignId          String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  org      Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project  OrganicProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lead     Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaign Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  actions  OrganicAction[]
+  assets   OrganicAsset[]
+
+  @@unique([orgId, projectId, source, sourceKey])
+  @@index([orgId, projectId, status, updatedAt])
+  @@index([orgId, projectId, score])
+  @@index([leadId])
+}
+
+model OrganicAsset {
+  id            String    @id @default(cuid())
+  orgId         String
+  projectId     String
+  opportunityId String?
+  type          String
+  title         String
+  status        String    @default("draft")
+  content       Json?
+  targetUrl     String?
+  createdById   String?
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  org         Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project     OrganicProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  opportunity OrganicOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, projectId, status, updatedAt])
+  @@index([opportunityId])
+}
+
+model OrganicAction {
+  id            String    @id @default(cuid())
+  orgId         String
+  projectId     String
+  opportunityId String?
+  type          String
+  title         String
+  description   String?
+  status        String    @default("pending")
+  priority      Int       @default(0)
+  dueAt         DateTime?
+  completedAt   DateTime?
+  metadata      Json?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  org         Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project     OrganicProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  opportunity OrganicOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, projectId, status, priority, updatedAt])
+  @@index([opportunityId])
+}
+
+model OrganicIntegration {
+  id                   String    @id @default(cuid())
+  orgId                String
+  projectId            String
+  provider             String
+  status               String    @default("not_connected")
+  accessTokenEnc       String?
+  refreshTokenEnc      String?
+  accessTokenExpiresAt DateTime?
+  scopes               String[]  @default([])
+  externalPropertyId   String?
+  discovery            Json?
+  lastDiscoveredAt     DateTime?
+  lastSyncedAt         DateTime?
+  lastError            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project OrganicProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, projectId, provider])
+  @@index([orgId, projectId, status])
+}
+
+// Estado efímero de Google OAuth. Nunca contiene tokens; el state es opaco,
+// se guarda únicamente hasheado y el verifier PKCE queda cifrado.
+model OrganicOAuthState {
+  id              String    @id @default(cuid())
+  orgId           String
+  projectId       String
+  createdByUserId String?
+  provider        String
+  stateHash       String    @unique
+  codeVerifierEnc String
+  scopes          String[]  @default([])
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, provider, expiresAt])
+  @@index([projectId, provider, expiresAt])
+}
+
+model RevenueExperiment {
+  id                    String    @id @default(cuid())
+  orgId                 String
+  createdById           String?
+  name                  String
+  surface               String // landing|playbook|voice|sequence|audience
+  primaryMetric         String
+  status                String    @default("draft") // draft|running|paused|completed|archived
+  audienceDefinition    Json?
+  attributionWindowDays Int       @default(30)
+  budgetCents           Int?
+  startsAt              DateTime?
+  endsAt                DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  org         Organization                  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy   User?                         @relation("RevenueExperimentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  variants    RevenueExperimentVariant[]
+  assignments RevenueExperimentAssignment[]
+
+  @@index([orgId, status, updatedAt])
+  @@index([orgId, surface, status])
+}
+
+model RevenueExperimentVariant {
+  id           String   @id @default(cuid())
+  experimentId String
+  key          String
+  name         String
+  isControl    Boolean  @default(false)
+  allocation   Int      @default(50)
+  payload      Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  experiment  RevenueExperiment             @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  assignments RevenueExperimentAssignment[]
+
+  @@unique([experimentId, key])
+  @@index([experimentId, isControl])
+}
+
+model RevenueExperimentAssignment {
+  id                String    @id @default(cuid())
+  orgId             String
+  experimentId      String
+  variantId         String
+  subjectKey        String
+  leadId            String?
+  assignedAt        DateTime  @default(now())
+  exposedAt         DateTime  @default(now())
+  convertedAt       DateTime?
+  conversionType    String?
+  attributedRevenue Decimal?
+  currency          String    @default("EUR")
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  org        Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  experiment RevenueExperiment        @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  variant    RevenueExperimentVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([experimentId, subjectKey])
+  @@index([orgId, experimentId, convertedAt])
+  @@index([orgId, leadId])
+  @@index([variantId, convertedAt])
+}
+
+// Los aprendizajes nunca actualizan playbooks o contenido automÃ¡ticamente:
+// primero viven como una propuesta trazable que un administrador aprueba o
+// rechaza. `proposedChange` almacena un parche semÃ¡ntico, no HTML ejecutable.
+model OperationalMemoryProposal {
+  id             String    @id @default(cuid())
+  orgId          String
+  createdById    String?
+  reviewedById   String?
+  sourceType     String // conversation|call|experiment|manual
+  sourceId       String?
+  targetType     String // playbook|knowledge_base|message_template|campaign
+  targetId       String?
+  title          String
+  summary        String
+  evidence       Json?
+  proposedChange Json?
+  confidence     Float     @default(0)
+  status         String    @default("proposed") // proposed|approved|rejected|applied
+  reviewComment  String?
+  reviewedAt     DateTime?
+  appliedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy  User?        @relation("OperationalMemoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy User?        @relation("OperationalMemoryReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([orgId, status, updatedAt])
+  @@index([orgId, targetType, targetId])
+  @@index([orgId, sourceType, sourceId])
+}
+
+// PolÃ­ticas empresariales por organizaciÃ³n. La clave es estable y la
+// configuraciÃ³n flexible permite desplegar nuevos lÃ­mites sin una migraciÃ³n
+// de schema por cada requisito de compliance o coste.
+model GovernancePolicy {
+  id          String   @id @default(cuid())
+  orgId       String
+  key         String // consent|cost|approvals
+  enabled     Boolean  @default(true)
+  config      Json?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
+  @@index([orgId, updatedAt])
+}
+
+// Solicitudes sensibles sujetas a separacion de funciones. La solicitud y la
+// decision son filas distintas del cambio de rol o del efecto de negocio: esto
+// permite exigir aprobacion humana, impedir autoaprobaciones y conservar una
+// pista forense incluso despues de consumir una elevacion aprobada.
+model AccessControlRequest {
+  id              String              @id @default(cuid())
+  orgId           String
+  type            AccessRequestType
+  status          AccessRequestStatus @default(pending)
+  requesterUserId String
+  targetUserId    String?
+  decidedByUserId String?
+  resourceType    String?
+  resourceId      String?
+  reason          String?
+  payload         Json?
+  decisionComment String?
+  decidedAt       DateTime?
+  consumedAt      DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  requester  User         @relation("AccessRequestRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  decider    User?        @relation("AccessRequestDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  targetUser User?        @relation("AccessRequestTargetUser", fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, status, createdAt])
+  @@index([orgId, type, status, createdAt])
+  @@index([requesterUserId, status, createdAt])
+  @@index([decidedByUserId, decidedAt])
+  @@index([targetUserId, type, status])
+  @@index([orgId, resourceType, resourceId])
+}
+
+// Aprobaciones de efectos sensibles fuera del orquestador. Son one-shot:
+// pending -> approved/rejected -> consumed. El action/resource quedan ligados
+// al tenant para impedir reutilización cruzada o replay de un permiso.
+model SensitiveApprovalRequest {
+  id              String   @id @default(cuid())
+  orgId           String
+  action          String
+  status          String   @default("pending")
+  requesterUserId String
+  decidedByUserId String?
+  resourceType    String
+  resourceId      String
+  reason          String
+  payload         Json?
+  decisionComment String?
+  decidedAt       DateTime?
+  consumedAt      DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  requester User         @relation("SensitiveApprovalRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  decider   User?        @relation("SensitiveApprovalDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, status, createdAt])
+  @@index([orgId, action, resourceType, resourceId, status])
+  @@index([requesterUserId, status, createdAt])
+  @@index([decidedByUserId, decidedAt])
+}
+
+enum ActionItemStatus {
+  new
+  accepted
+  in_progress
+  completed
+  dismissed
+  blocked
+}
+
+enum ActionItemPriority {
+  urgent
+  high
+  medium
+  low
+}
+
+// Centro de acción materializado. `dedupeKey` representa la señal de negocio
+// estable (no el texto mostrado) y evita que cada refresco cree otra acción.
+// El estado vive aquí, por lo que sobrevive reinicios y no depende de memoria
+// de proceso.
+model ActionItem {
+  id           String             @id @default(cuid())
+  orgId        String
+  dedupeKey    String
+  kind         String
+  title        String
+  evidence     String
+  priority     ActionItemPriority @default(medium)
+  impactMetric String?
+  impactValue  Float?
+  impactLabel  String?
+  ownerType    String             @default("team")
+  ownerId      String?
+  ownerLabel   String
+  status       ActionItemStatus   @default(new)
+  ctaLabel     String
+  ctaMethod    String             @default("navigate")
+  targetType   String
+  targetId     String?
+  targetPath   String
+  dueAt        DateTime?
+  result       Json?
+  resultLabel  String?
+  lastResultAt DateTime?
+  completedAt  DateTime?
+  dismissedAt  DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  org     Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner   User?               @relation("ActionItemOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  history ActionItemHistory[]
+
+  @@unique([orgId, dedupeKey])
+  @@index([orgId, status, priority, updatedAt])
+  @@index([orgId, dueAt])
+  @@index([orgId, ownerId, status])
+}
+
+// Auditoría específica del centro de acción. La clave de idempotencia es
+// obligatoria: el servicio genera una cuando el cliente no la proporciona,
+// y la restricción por organización hace que un reintento HTTP no duplique la
+// transición ni pueda reaplicarse contra otro tenant.
+model ActionItemHistory {
+  id             String            @id @default(cuid())
+  orgId          String
+  actionItemId   String
+  fromStatus     ActionItemStatus?
+  toStatus       ActionItemStatus
+  actorUserId    String?
+  actorType      String            @default("user")
+  idempotencyKey String
+  reason         String?
+  result         Json?
+  createdAt      DateTime          @default(now())
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actionItem ActionItem   @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+  actor      User?        @relation("ActionItemHistoryActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, actionItemId, createdAt])
+  @@index([orgId, createdAt])
+  @@index([actorUserId, createdAt])
 }

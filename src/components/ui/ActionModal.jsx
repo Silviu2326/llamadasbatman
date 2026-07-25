@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { RiCloseLine } from 'react-icons/ri'
+import { useI18n } from '../../i18n'
 
 export default function ActionModal({ title, message, onClose, icon: Icon }) {
+  const { locale } = useI18n()
   useEffect(() => {
     function handleKey(e) {
       if (e.key === 'Escape') onClose()
@@ -84,7 +86,7 @@ export default function ActionModal({ title, message, onClose, icon: Icon }) {
             cursor: 'pointer',
           }}
         >
-          Entendido
+          {locale === 'en' ? 'Got it' : 'Entendido'}
         </button>
       </div>
     </div>

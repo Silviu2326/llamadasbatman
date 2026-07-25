@@ -3,6 +3,11 @@ import { OpportunityStage } from '@prisma/client'
 import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
 import { createTask, listTasks } from './tasks.service'
+import { scopedOwnerId, type DataActor } from '../lib/dataScope'
+
+function opportunityOwner(actor: DataActor, permission: 'pipeline.read' | 'pipeline.write' | 'pipeline.reopen') {
+  return scopedOwnerId(actor, permission)
+}
 
 /** Errores de dominio para que el controller pueda mapear a códigos HTTP. */
 export class OwnershipError extends Error {
@@ -80,19 +85,20 @@ const ACTIVE_FOLLOWUP_STAGES: OpportunityStage[] = ['qualified', 'proposal', 'ne
  */
 async function ensureFollowUpTask(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   opportunity: { id: string; name: string; leadId: string; assignedTo: string | null },
   toStage: OpportunityStage
 ) {
   if (!ACTIVE_FOLLOWUP_STAGES.includes(toStage)) return
 
   const [open, inProgress] = await Promise.all([
-    listTasks(orgId, { opportunityId: opportunity.id, status: 'open', limit: 1 }),
-    listTasks(orgId, { opportunityId: opportunity.id, status: 'in_progress', limit: 1 }),
+    listTasks(orgId, { userId: actorUserId, role: actorRole }, { opportunityId: opportunity.id, status: 'open', limit: 1 }),
+    listTasks(orgId, { userId: actorUserId, role: actorRole }, { opportunityId: opportunity.id, status: 'in_progress', limit: 1 }),
   ])
   if (open.total > 0 || inProgress.total > 0) return
 
-  await createTask(orgId, actorUserId, {
+  await createTask(orgId, { userId: actorUserId, role: actorRole }, {
     type: 'follow_up',
     title: `Siguiente paso: ${opportunity.name}`,
     opportunityId: opportunity.id,
@@ -133,16 +139,16 @@ async function assertOwnedReferences(orgId: string, refs: {
   await Promise.all(checks)
 }
 
-export async function getOpportunity(orgId: string, id: string) {
+export async function getOpportunity(orgId: string, actor: DataActor, id: string) {
   return prisma.opportunity.findFirst({
-    where: { id, orgId },
+    where: { id, orgId, assignedTo: opportunityOwner(actor, 'pipeline.read') },
     include: { lead: true },
   })
 }
 
-export async function listByStage(orgId: string) {
+export async function listByStage(orgId: string, actor: DataActor) {
   const opportunities = await prisma.opportunity.findMany({
-    where: { orgId },
+    where: { orgId, assignedTo: opportunityOwner(actor, 'pipeline.read') },
     include: { lead: true, assignee: true },
     orderBy: { createdAt: 'desc' },
   })
@@ -190,12 +196,14 @@ interface OpportunityListFilters {
  * siguiendo el mismo patrón que buildLeadQuery (LE-101) / listMeetings
  * (RE-103): filtros server-side + paginado.
  */
-function buildOpportunityQuery(orgId: string, filters: Omit<OpportunityListFilters, 'page' | 'limit'>) {
+function buildOpportunityQuery(orgId: string, actor: DataActor, filters: Omit<OpportunityListFilters, 'page' | 'limit'>) {
   const { search, stage, ownerId, closeFrom, closeTo, source, sort } = filters
 
   const where: Record<string, unknown> = { orgId }
+  const forcedOwnerId = opportunityOwner(actor, 'pipeline.read')
   if (stage) where.stage = stage
-  if (ownerId) where.assignedTo = ownerId
+  if (forcedOwnerId !== undefined) where.assignedTo = forcedOwnerId
+  else if (ownerId) where.assignedTo = ownerId
   if (source) where.lead = { source }
   if (closeFrom || closeTo) {
     where.expectedCloseDate = {
@@ -222,10 +230,10 @@ function buildOpportunityQuery(orgId: string, filters: Omit<OpportunityListFilte
 }
 
 /** OP-103: vista de lista (alternativa al kanban de listByStage) con búsqueda/filtros/paginado. */
-export async function listOpportunities(orgId: string, filters: OpportunityListFilters = {}) {
+export async function listOpportunities(orgId: string, actor: DataActor, filters: OpportunityListFilters = {}) {
   const { page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
-  const { where, orderBy } = buildOpportunityQuery(orgId, filters)
+  const { where, orderBy } = buildOpportunityQuery(orgId, actor, filters)
 
   const [rows, total] = await Promise.all([
     prisma.opportunity.findMany({
@@ -245,7 +253,7 @@ export async function listOpportunities(orgId: string, filters: OpportunityListF
   return { data: rows, total, page, limit, totalPages: Math.ceil(total / limit) }
 }
 
-export async function createOpportunity(orgId: string, actorUserId: string | null | undefined, data: {
+export async function createOpportunity(orgId: string, actorUserId: string, actorRole: string, data: {
   leadId: string
   assignedTo?: string
   name: string
@@ -256,7 +264,13 @@ export async function createOpportunity(orgId: string, actorUserId: string | nul
   expectedCloseDate?: string
   notes?: string
 }) {
-  await assertOwnedReferences(orgId, { leadId: data.leadId, assignedTo: data.assignedTo })
+  const forcedOwnerId = opportunityOwner({ userId: actorUserId, role: actorRole }, 'pipeline.write')
+  const assignedTo = forcedOwnerId ?? data.assignedTo
+  await assertOwnedReferences(orgId, { leadId: data.leadId, assignedTo })
+  if (forcedOwnerId) {
+    const ownedLead = await prisma.lead.findFirst({ where: { id: data.leadId, orgId, ownerId: forcedOwnerId }, select: { id: true } })
+    if (!ownedLead) throw new OwnershipError('leadId')
+  }
 
   const initialStage = data.stage ?? 'lead'
 
@@ -265,7 +279,7 @@ export async function createOpportunity(orgId: string, actorUserId: string | nul
       data: {
         orgId,
         leadId: data.leadId,
-        assignedTo: data.assignedTo,
+        assignedTo,
         name: data.name,
         stage: initialStage,
         value: data.value,
@@ -334,13 +348,15 @@ export async function createOpportunity(orgId: string, actorUserId: string | nul
  */
 export async function moveStage(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
   toStage: OpportunityStage,
   reason?: string,
   probability?: number
 ) {
-  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  const assignedTo = opportunityOwner({ userId: actorUserId, role: actorRole }, 'pipeline.write')
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId, assignedTo } })
   if (!opportunity) throw new OpportunityNotFoundError()
 
   if (toStage === opportunity.stage) return opportunity
@@ -438,6 +454,7 @@ export async function moveStage(
   await ensureFollowUpTask(
     orgId,
     actorUserId,
+    actorRole,
     { id: updated.id, name: updated.name, leadId: updated.leadId, assignedTo: updated.assignedTo },
     toStage
   )
@@ -454,11 +471,13 @@ export async function moveStage(
  */
 export async function markWon(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
   data: { actualCloseDate?: string; finalValue?: number }
 ) {
-  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  const assignedTo = opportunityOwner({ userId: actorUserId, role: actorRole }, 'pipeline.write')
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId, assignedTo } })
   if (!opportunity) throw new OpportunityNotFoundError()
 
   if (CLOSED_STAGES.includes(opportunity.stage)) {
@@ -469,7 +488,7 @@ export async function markWon(
     throw new PipelineValidationError('finalValue debe ser mayor o igual a 0')
   }
 
-  await moveStage(orgId, actorUserId, id, 'closed_won', undefined, 100)
+  await moveStage(orgId, actorUserId, actorRole, id, 'closed_won', undefined, 100)
 
   const result = await prisma.opportunity.update({
     where: { id },
@@ -510,18 +529,20 @@ export async function markWon(
  */
 export async function markLost(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
   data: { reason: string; lossNotes?: string }
 ) {
-  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  const assignedTo = opportunityOwner({ userId: actorUserId, role: actorRole }, 'pipeline.write')
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId, assignedTo } })
   if (!opportunity) throw new OpportunityNotFoundError()
 
   if (CLOSED_STAGES.includes(opportunity.stage)) {
     throw new PipelineStateError('La oportunidad ya está cerrada; reábrela antes de marcarla como perdida')
   }
 
-  await moveStage(orgId, actorUserId, id, 'closed_lost', data.reason)
+  await moveStage(orgId, actorUserId, actorRole, id, 'closed_lost', data.reason)
 
   const result = await prisma.opportunity.update({
     where: { id },
@@ -561,11 +582,13 @@ export async function markLost(
  */
 export async function reopen(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
   data: { toStage?: OpportunityStage }
 ) {
-  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  const assignedTo = opportunityOwner({ userId: actorUserId, role: actorRole }, 'pipeline.reopen')
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId, assignedTo } })
   if (!opportunity) throw new OpportunityNotFoundError()
 
   if (!CLOSED_STAGES.includes(opportunity.stage)) {
@@ -575,7 +598,7 @@ export async function reopen(
   const toStage = data.toStage ?? 'negotiation'
   const fromStage = opportunity.stage
 
-  await moveStage(orgId, actorUserId, id, toStage)
+  await moveStage(orgId, actorUserId, actorRole, id, toStage)
 
   const result = await prisma.opportunity.update({
     where: { id },
@@ -617,8 +640,8 @@ export async function reopen(
   return result
 }
 
-export async function getStageHistory(orgId: string, id: string) {
-  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId }, select: { id: true } })
+export async function getStageHistory(orgId: string, actor: DataActor, id: string) {
+  const opportunity = await prisma.opportunity.findFirst({ where: { id, orgId, assignedTo: opportunityOwner(actor, 'pipeline.read') }, select: { id: true } })
   if (!opportunity) throw new OpportunityNotFoundError()
 
   return prisma.opportunityStageHistory.findMany({
@@ -706,7 +729,7 @@ export async function getPipelineActions(orgId: string) {
   ]
 }
 
-export async function updateOpportunity(orgId: string, actorUserId: string | null | undefined, id: string, data: {
+export async function updateOpportunity(orgId: string, actorUserId: string, actorRole: string, id: string, data: {
   name?: string
   value?: number
   currency?: string
@@ -717,11 +740,12 @@ export async function updateOpportunity(orgId: string, actorUserId: string | nul
 }) {
   await assertOwnedReferences(orgId, { assignedTo: data.assignedTo })
 
-  const before = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  const assignedTo = opportunityOwner({ userId: actorUserId, role: actorRole }, 'pipeline.write')
+  const before = await prisma.opportunity.findFirst({ where: { id, orgId, assignedTo } })
   if (!before) throw new OpportunityNotFoundError()
 
   const result = await prisma.opportunity.updateMany({
-    where: { id, orgId },
+    where: { id, orgId, assignedTo },
     data: {
       ...data,
       expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : undefined,
@@ -769,14 +793,16 @@ interface ForecastFilters {
  * 'omitted' se excluye de todos los totales: es la categoría que el usuario
  * usa para sacar una oportunidad del forecast oficial sin cerrarla.
  */
-export async function getForecast(orgId: string, filters: ForecastFilters = {}) {
+export async function getForecast(orgId: string, actor: DataActor, filters: ForecastFilters = {}) {
   const { ownerId, category, currency, closeFrom, closeTo } = filters
 
   const where: Record<string, unknown> = {
     orgId,
     stage: { notIn: CLOSED_STAGES },
   }
-  if (ownerId) where.assignedTo = ownerId
+  const forcedOwnerId = opportunityOwner(actor, 'pipeline.read')
+  if (forcedOwnerId !== undefined) where.assignedTo = forcedOwnerId
+  else if (ownerId) where.assignedTo = ownerId
   if (currency) where.currency = currency
   if (closeFrom || closeTo) {
     where.expectedCloseDate = {
@@ -828,11 +854,13 @@ export async function getForecast(orgId: string, filters: ForecastFilters = {}) 
 /** OP-107: fija manualmente la categoría de forecast de una oportunidad. */
 export async function updateForecastCategory(
   orgId: string,
-  actorUserId: string | null | undefined,
+  actorUserId: string,
+  actorRole: string,
   id: string,
   forecastCategory: ForecastCategory
 ) {
-  const before = await prisma.opportunity.findFirst({ where: { id, orgId } })
+  const assignedTo = opportunityOwner({ userId: actorUserId, role: actorRole }, 'pipeline.write')
+  const before = await prisma.opportunity.findFirst({ where: { id, orgId, assignedTo } })
   if (!before) throw new OpportunityNotFoundError()
 
   const after = await prisma.opportunity.update({

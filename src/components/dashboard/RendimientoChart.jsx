@@ -6,16 +6,25 @@ import {
 import { HiChevronDown } from 'react-icons/hi'
 import useClickOutside from '../../hooks/useClickOutside'
 import { card, tooltipStyle, dot, activeDot, VIEW_OPTIONS_DEFAULT, REND_SERIES, getChartDomain } from './dashboardData'
+import { useI18n } from '../../i18n'
 
 export default function RendimientoChart({ dayData }) {
+  const { locale } = useI18n()
   const [view, setView] = useState('day')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useClickOutside([ref], () => setOpen(false))
 
+  const localizedSeries = REND_SERIES.map((series, index) => ({
+    ...series,
+    name: locale === 'en' ? ['Calls', 'Contacted', 'Meetings'][index] : series.name,
+  }))
+
   const VIEW_OPTIONS = {
     ...VIEW_OPTIONS_DEFAULT,
-    day: { label:'Por día', data: dayData?.length ? dayData : VIEW_OPTIONS_DEFAULT.day.data },
+    day: { label: locale === 'en' ? 'By day' : 'Por día', data: dayData?.length ? dayData : VIEW_OPTIONS_DEFAULT.day.data },
+    week: { ...VIEW_OPTIONS_DEFAULT.week, label: locale === 'en' ? 'By week' : 'Por semana' },
+    month: { ...VIEW_OPTIONS_DEFAULT.month, label: locale === 'en' ? 'By month' : 'Por mes' },
   }
   const current = VIEW_OPTIONS[view]
   const { leftMax, rightMax } = getChartDomain(current.data)
@@ -36,7 +45,7 @@ export default function RendimientoChart({ dayData }) {
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', gap:12, height:'100%' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>Rendimiento general</h3>
+        <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>{locale === 'en' ? 'Overall performance' : 'Rendimiento general'}</h3>
         <div ref={ref} style={{ position:'relative' }}>
           <button
             onClick={() => setOpen(v => !v)}
@@ -61,7 +70,7 @@ export default function RendimientoChart({ dayData }) {
       </div>
 
       <div style={{ display:'flex', gap:18, flexWrap:'wrap' }}>
-        {[['#60a5fa','Llamadas'],['#34d399','Contactados'],['#a78bfa','Reuniones'],['#fb923c','Conversión (%)']].map(([c,l]) => (
+        {[['#60a5fa', locale === 'en' ? 'Calls' : 'Llamadas'],['#34d399', locale === 'en' ? 'Contacted' : 'Contactados'],['#a78bfa', locale === 'en' ? 'Meetings' : 'Reuniones'],['#fb923c', locale === 'en' ? 'Conversion (%)' : 'Conversión (%)']].map(([c,l]) => (
           <div key={l} style={{ display:'flex', alignItems:'center', gap:6 }}>
             <div style={{ width:8, height:8, borderRadius:'50%', background:c, boxShadow:`0 0 6px ${c}` }} />
             <span style={{ fontSize:11.5, color:'#cbd5e1' }}>{l}</span>
@@ -72,13 +81,13 @@ export default function RendimientoChart({ dayData }) {
       <div style={{ flex:1, minHeight:180 }}>
         {!current.data?.length ? (
           <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>Sin datos de rendimiento</p>
+            <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>{locale === 'en' ? 'No performance data' : 'Sin datos de rendimiento'}</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={current.data} margin={{ top:5, right:38, left:0, bottom:0 }}>
               <defs>
-                {REND_SERIES.map(({ grad, color }) => (
+                {localizedSeries.map(({ grad, color }) => (
                   <linearGradient key={grad} id={grad} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor={color} stopOpacity={0.35} />
                     <stop offset="95%" stopColor={color} stopOpacity={0.02} />
@@ -95,13 +104,13 @@ export default function RendimientoChart({ dayData }) {
                 tick={{ fill:'#94a3b8', fontSize:10 }} axisLine={false} tickLine={false} width={30} />
               <Tooltip {...tooltipStyle} />
 
-              {REND_SERIES.map(({ key, color, yId }) => (
+              {localizedSeries.map(({ key, color, yId }) => (
                 <Area key={`glow-${key}`} yAxisId={yId} type="monotone" dataKey={key}
                   stroke={color} strokeWidth={10} strokeOpacity={0.25}
                   fill="none" dot={false} isAnimationActive={false} legendType="none" />
               ))}
 
-              {REND_SERIES.map(({ key, name, color, yId }) => (
+              {localizedSeries.map(({ key, name, color, yId }) => (
                 <Area key={key} yAxisId={yId} type="monotone" dataKey={key} name={name}
                   stroke={color} fill="none" strokeWidth={2.5}
                   dot={dot(color)} activeDot={activeDot(color)} />
@@ -109,7 +118,7 @@ export default function RendimientoChart({ dayData }) {
 
               <Line yAxisId="R" type="monotone" dataKey="conversion" stroke="#fb923c"
                 strokeWidth={10} strokeOpacity={0.25} dot={false} isAnimationActive={false} legendType="none" />
-              <Line yAxisId="R" type="monotone" dataKey="conversion" name="Conversión %"
+              <Line yAxisId="R" type="monotone" dataKey="conversion" name={locale === 'en' ? 'Conversion %' : 'Conversión %'}
                 stroke="#fb923c" strokeWidth={2.5} dot={dot('#fb923c')} activeDot={activeDot('#fb923c')} />
             </ComposedChart>
           </ResponsiveContainer>

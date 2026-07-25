@@ -5,6 +5,7 @@ import FormSelect from '../components/forms/FormSelect'
 import FormTextarea from '../components/forms/FormTextarea'
 import FormRow from '../components/forms/FormRow'
 import { apiFetch } from '../lib/api'
+import { useI18n } from '../i18n'
 
 const DISPARADORES = [
   { value: 'call.completed', label: 'Llamada completada' },
@@ -25,6 +26,7 @@ const CHANNEL_ACTIONS = [
 ]
 
 export default function NewAutomatizacionModal({ onClose, onSuccess }) {
+  const { t, locale } = useI18n()
   const [form, setForm] = useState({ name: '', description: '', trigger: DISPARADORES[0].value, isActive: true })
   const [sendToMautic, setSendToMautic] = useState(false)
   const [segmentAlias, setSegmentAlias] = useState('')
@@ -59,29 +61,29 @@ export default function NewAutomatizacionModal({ onClose, onSuccess }) {
           isActive: form.isActive,
         }),
       })
-      if (!res.ok) { setError('Error al crear la automatización'); return }
+      if (!res.ok) { setError(t('modal.createError')); return }
       const item = await res.json()
       onSuccess ? onSuccess(item) : onClose()
-    } catch { setError('Error de conexión') } finally { setSaving(false) }
+    } catch { setError(t('modal.connectionError')) } finally { setSaving(false) }
   }
 
   return (
-    <FormModal title="Nueva automatización" onClose={onClose} onSubmit={handleSubmit} submitText={saving ? 'Creando…' : 'Crear automatización'}>
+    <FormModal title={t('modal.newAutomation')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createAutomation')}>
       {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
-      <FormInput label="Nombre" value={form.name} onChange={e => update('name', e.target.value)} placeholder="Ej. Seguimiento post-llamada" required />
-      <FormTextarea label="Descripción" value={form.description} onChange={e => update('description', e.target.value)} placeholder="¿Qué hace esta automatización?" />
+      <FormInput label={t('modal.name')} value={form.name} onChange={e => update('name', e.target.value)} placeholder={locale === 'en' ? 'e.g. Post-call follow-up' : 'Ej. Seguimiento post-llamada'} required />
+      <FormTextarea label={t('modal.description')} value={form.description} onChange={e => update('description', e.target.value)} placeholder={locale === 'en' ? 'What does this automation do?' : '¿Qué hace esta automatización?'} />
       <FormRow>
-        <FormSelect label="Disparador" value={form.trigger} onChange={e => update('trigger', e.target.value)} options={DISPARADORES} required />
+        <FormSelect label={t('modal.trigger')} value={form.trigger} onChange={e => update('trigger', e.target.value)} options={DISPARADORES} required />
       </FormRow>
-      <FormSelect label="Respuesta por canal" value={channelAction} onChange={e => setChannelAction(e.target.value)} options={CHANNEL_ACTIONS} />
+      <FormSelect label={t('modal.channelResponse')} value={channelAction} onChange={e => setChannelAction(e.target.value)} options={CHANNEL_ACTIONS} />
       {channelAction === 'send_whatsapp_template' && <FormInput label="Content SID aprobado en Twilio" value={contentSid} onChange={e => setContentSid(e.target.value)} placeholder="HX..." required />}
       {channelAction === 'send_email_template' && <FormInput label="ID de plantilla/email en Mautic" value={emailId} onChange={e => setEmailId(e.target.value)} placeholder="42" required />}
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8', cursor: 'pointer' }}>
         <input type="checkbox" checked={sendToMautic} onChange={e => setSendToMautic(e.target.checked)} />
-        Enviar el lead a un segmento de Mautic cuando se dispare
+        {t('modal.sendToSegment')}
       </label>
       {sendToMautic && (
-        <FormInput label="Alias del segmento en Mautic" value={segmentAlias} onChange={e => setSegmentAlias(e.target.value)} placeholder="ej. reactivacion" />
+        <FormInput label={t('modal.segmentAlias')} value={segmentAlias} onChange={e => setSegmentAlias(e.target.value)} placeholder={locale === 'en' ? 'e.g. reactivation' : 'Ej. reactivacion'} />
       )}
     </FormModal>
   )

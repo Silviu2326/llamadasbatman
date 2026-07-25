@@ -1,0 +1,2 @@
+ALTER TABLE "Agent" ADD COLUMN "agentType" TEXT NOT NULL DEFAULT 'sales';
+ALTER TABLE "Agent" ADD COLUMN "callDirection" TEXT NOT NULL DEFAULT 'both';

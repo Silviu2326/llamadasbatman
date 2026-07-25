@@ -6,6 +6,7 @@ import {
   RiArrowRightLine, RiFlowChart, RiCloseLine, RiGitBranchLine,
 } from 'react-icons/ri'
 import { mapAutomation, stableIndex } from '../lib/automationMapping'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import '../dashboard.css'
 
 const TABS = ['Resumen', 'Historial', 'Configuración']
@@ -36,7 +37,7 @@ function StatusBadge({ status, map }) {
 
 function formatDateTime(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('es-ES', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+  return new Date(value).toLocaleString(localeCode(getLocale()), { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
 }
 
 function truncate(value, max = 220) {
@@ -46,6 +47,7 @@ function truncate(value, max = 220) {
 }
 
 export default function AutomacionDetailPage() {
+  const { locale } = useI18n()
   const { id } = useParams()
   const navigate = useNavigate()
   const [auto, setAuto] = useState(null)
@@ -138,7 +140,7 @@ export default function AutomacionDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargando…
+      {locale === 'en' ? 'Loading…' : 'Cargando…'}
     </div>
   )
 

@@ -104,6 +104,51 @@ export interface AutomationStepResult {
   errorDetail?: string
 }
 
+// Un run puede volver a ser recogido después de un fallo del proceso. Para
+// acciones que solo escriben en nuestra base de datos es seguro reintentarlo;
+// para efectos externos no hay una garantía end-to-end si el proceso muere
+// entre la llamada al proveedor y la actualización de AutomationStepRun.
+// En ese caso elegimos no repetir el efecto y lo dejamos bloqueado para
+// revisión, en vez de poder enviar dos mensajes o iniciar dos llamadas.
+const EXTERNAL_EFFECT_ACTIONS = new Set<string>([
+  'send_to_mautic_segment',
+  'send_whatsapp_template',
+  'queue_voice_call',
+  'send_email_template',
+  'ai_reply_whatsapp',
+])
+const MAX_AUTOMATION_RUN_ATTEMPTS = Math.max(1, Number(process.env.AUTOMATION_RUN_MAX_ATTEMPTS ?? 3))
+const AUTOMATION_RUN_LEASE_MS = Math.max(60_000, Number(process.env.AUTOMATION_RUN_LEASE_MS ?? 10 * 60_000))
+
+function isExternalEffectAction(actionType: string) {
+  return EXTERNAL_EFFECT_ACTIONS.has(actionType)
+}
+
+function automationStepIdempotencyKey(runId: string, stepKey: string) {
+  // Es estable a través de los reintentos del mismo run y se conserva tanto
+  // en AutomationStepRun como en la metadata de los proveedores que la
+  // soportan. No se afirma que Mautic/Twilio la apliquen como garantía.
+  return `automation-${runId}-step-${stepKey}`
+}
+
+/**
+ * Mautic es una instancia compartida entre organizaciones. Las acciones de
+ * automatización no pueden confiar en un id/alias guardado en JSON: el
+ * binding activo es la frontera de autorización justo antes del efecto
+ * externo, también si una plantilla se desvinculó tras publicar el flujo.
+ */
+async function isActiveMauticAssetBound(
+  orgId: string,
+  assetType: 'template' | 'segment',
+  externalId: string,
+): Promise<boolean> {
+  const binding = await prisma.mauticAssetBinding.findFirst({
+    where: { orgId, assetType, externalId, isActive: true },
+    select: { id: true },
+  })
+  return Boolean(binding)
+}
+
 async function executeAutomationAction(
   orgId: string,
   automation: { id: string; name: string },
@@ -111,7 +156,8 @@ async function executeAutomationAction(
   action: { type: string; params?: Record<string, unknown> },
   event: string,
   payload: Record<string, unknown>,
-  conversationId: string | undefined
+  conversationId: string | undefined,
+  idempotencyKey: string
 ): Promise<AutomationStepResult> {
   switch (action.type) {
     case 'log': {
@@ -131,8 +177,11 @@ async function executeAutomationAction(
     }
     case 'send_to_mautic_segment': {
       if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
-      const segmentAlias = action.params?.segmentAlias as string | undefined
+      const segmentAlias = String(action.params?.segmentAlias ?? '').trim()
       if (!segmentAlias) return { status: 'skipped', errorCode: 'MISSING_PARAM', errorDetail: 'Falta segmentAlias en params' }
+      if (!(await isActiveMauticAssetBound(orgId, 'segment', segmentAlias))) {
+        return { status: 'blocked', errorCode: 'MAUTIC_ASSET_UNAUTHORIZED', errorDetail: 'El segmento de Mautic no está vinculado y activo para esta organización' }
+      }
       const ok = await sendLeadToSegment(String(payload.leadId), segmentAlias, orgId).catch(() => false)
       if (!ok) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'Mautic no confirmó la asignación al segmento' }
       return { status: 'succeeded', output: { segmentAlias } }
@@ -151,7 +200,7 @@ async function executeAutomationAction(
         to: lead.phone,
         contentSid: String(action.params?.contentSid),
         contentVariables: { 1: lead.name },
-        metadata: { automationId: automation.id, automationRunId: run.id },
+        metadata: { automationId: automation.id, automationRunId: run.id, automationStepIdempotencyKey: idempotencyKey },
       })
       return { status: 'succeeded', output: { leadId, channel: 'whatsapp' } }
     }
@@ -165,7 +214,7 @@ async function executeAutomationAction(
       const queued = await enqueueLeadCall(orgId, leadId)
       if (!queued) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'La cola de llamadas no está disponible' }
       if (conversationId) {
-        await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'voice', provider: 'twilio', address: lead.phone, direction: 'outbound', contentType: 'call', body: 'Llamada automática solicitada', status: 'queued', metadata: { automationId: automation.id, automationRunId: run.id } } })
+        await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'voice', provider: 'twilio', address: lead.phone, direction: 'outbound', contentType: 'call', body: 'Llamada automática solicitada', status: 'queued', metadata: { automationId: automation.id, automationRunId: run.id, automationStepIdempotencyKey: idempotencyKey } } })
       }
       return { status: 'succeeded', output: { leadId, channel: 'voice' } }
     }
@@ -175,17 +224,20 @@ async function executeAutomationAction(
       const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
       if (!lead) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
       if (!lead.email) return { status: 'blocked', errorCode: 'ADDRESS_MISSING', errorDetail: 'El lead no tiene email' }
+      const emailId = String(action.params?.emailId ?? '').trim()
+      if (!(await isActiveMauticAssetBound(orgId, 'template', emailId))) {
+        return { status: 'blocked', errorCode: 'MAUTIC_ASSET_UNAUTHORIZED', errorDetail: 'La plantilla de Mautic no está vinculada y activa para esta organización' }
+      }
       const emailDecision = await assertEmailSendAllowed(orgId, leadId, 'contact')
       if (!emailDecision.allowed) {
         return { status: 'blocked', errorCode: EMAIL_BLOCK_ERROR_CODE[emailDecision.reason], errorDetail: `Envío bloqueado por cumplimiento: ${emailDecision.reason}` }
       }
-      const emailId = String(action.params?.emailId)
       // EM-102: registro normalizado del intento de envío antes de invocar Mautic.
       const delivery = await createEmailDelivery(orgId, leadId, { templateExternalId: emailId, toAddress: lead.email })
       const sent = await sendEmailToLead(leadId, emailId, orgId, delivery.id)
       if (!sent) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'Mautic no confirmó el envío automático' }
       if (conversationId) {
-        await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'email', provider: 'mautic', address: lead.email, direction: 'outbound', contentType: 'template', body: 'Email automático enviado', status: 'sent', sentAt: new Date(), metadata: { mauticEmailId: emailId, automationId: automation.id, automationRunId: run.id } } })
+        await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'email', provider: 'mautic', address: lead.email, direction: 'outbound', contentType: 'template', body: 'Email automático enviado', status: 'sent', sentAt: new Date(), metadata: { mauticEmailId: emailId, automationId: automation.id, automationRunId: run.id, automationStepIdempotencyKey: idempotencyKey } } })
       }
       return { status: 'succeeded', output: { leadId, emailId, deliveryId: delivery.id } }
     }
@@ -199,7 +251,7 @@ async function executeAutomationAction(
       if (!(await hasConsent(orgId, leadId, 'whatsapp'))) return { status: 'blocked', errorCode: 'CONSENT_MISSING', errorDetail: 'Sin consentimiento de WhatsApp' }
       const suggestion = await suggestConversationReply(orgId, conversationId, String(action.params?.tone ?? 'consultivo'))
       if (!suggestion) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'No se pudo generar la respuesta de IA' }
-      await sendWhatsApp({ orgId, leadId, conversationId, to: lead.phone, body: suggestion.text, metadata: { aiGenerated: true, aiReason: suggestion.reason, automationId: automation.id, automationRunId: run.id } })
+      await sendWhatsApp({ orgId, leadId, conversationId, to: lead.phone, body: suggestion.text, metadata: { aiGenerated: true, aiReason: suggestion.reason, automationId: automation.id, automationRunId: run.id, automationStepIdempotencyKey: idempotencyKey } })
       return { status: 'succeeded', output: { leadId, channel: 'whatsapp', aiGenerated: true } }
     }
     // AU-108: crea una tarea real de seguimiento para el owner del lead.
@@ -214,7 +266,7 @@ async function executeAutomationAction(
       const dueAt = new Date(Date.now() + (Number.isFinite(dueInDays) ? dueInDays : 3) * 24 * 60 * 60 * 1000)
       const priorityParam = action.params?.priority as string | undefined
       const priority = priorityParam && ['low', 'normal', 'high', 'urgent'].includes(priorityParam) ? priorityParam as 'low' | 'normal' | 'high' | 'urgent' : undefined
-      const task = await tasksService.createTask(orgId, null, {
+      const task = await tasksService.createSystemTask(orgId, null, {
         type: 'automation',
         title,
         leadId,
@@ -305,7 +357,7 @@ async function executeAutomationAction(
       const owner = await prisma.user.findFirst({ where: { id: ownerId, orgId }, select: { id: true } })
       if (!owner) return { status: 'skipped', errorCode: 'OWNER_NOT_FOUND', errorDetail: 'El usuario no pertenece a la organización' }
       const message = String(action.params?.message ?? `Notificación de automatización: ${automation.name}`)
-      const task = await tasksService.createTask(orgId, null, {
+      const task = await tasksService.createSystemTask(orgId, null, {
         type: 'notification',
         title: message.slice(0, 200),
         description: message,
@@ -343,7 +395,7 @@ export async function listAutomations(orgId: string) {
 // AU-104: historial de runs — la automation debe pertenecer a la org antes
 // de exponer cualquier run; devolvemos un conteo de pasos por estado en vez
 // del detalle completo de stepRuns para mantener la lista liviana.
-export const AUTOMATION_RUN_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const
+export const AUTOMATION_RUN_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'dead_letter'] as const
 export type AutomationRunStatus = typeof AUTOMATION_RUN_STATUSES[number]
 
 export async function listRuns(orgId: string, automationId: string, filters: {
@@ -544,10 +596,44 @@ export async function runAutomationsForEvent(
       },
       update: {},
     })
-    if (run.status === 'succeeded') continue
+    if (run.status === 'succeeded' || run.status === 'dead_letter') continue
+
+    const now = new Date()
+    const staleBefore = new Date(now.getTime() - AUTOMATION_RUN_LEASE_MS)
+    // Un proceso terminado abruptamente deja el run en `running`. Solo se
+    // recupera tras expirar el lease; así no compiten dos workers sanos. Los
+    // reintentos están acotados y el último estado se conserva como DLQ de
+    // runs para que el outbox pueda avanzar sin crear un ciclo infinito.
+    // Un run `running` con lease vigente nunca se envía a DLQ por un evento
+    // duplicado: el worker original todavía es quien puede resolverlo.
+    if (run.attempt >= MAX_AUTOMATION_RUN_ATTEMPTS) {
+      await prisma.automationRun.updateMany({
+        where: {
+          id: run.id,
+          OR: [
+            { status: { in: ['queued', 'failed'] } },
+            { status: 'running', startedAt: { lt: staleBefore } },
+          ],
+        },
+        data: {
+          status: 'dead_letter',
+          errorCode: 'MAX_ATTEMPTS_EXCEEDED',
+          error: `Se agotaron ${MAX_AUTOMATION_RUN_ATTEMPTS} intentos del run`,
+          finishedAt: new Date(),
+        },
+      })
+      continue
+    }
     const claimed = await prisma.automationRun.updateMany({
-      where: { id: run.id, status: { in: ['queued', 'failed'] } },
-      data: { status: 'running', attempt: { increment: 1 }, startedAt: new Date(), finishedAt: null, error: null },
+      where: {
+        id: run.id,
+        attempt: { lt: MAX_AUTOMATION_RUN_ATTEMPTS },
+        OR: [
+          { status: { in: ['queued', 'failed'] } },
+          { status: 'running', startedAt: { lt: staleBefore } },
+        ],
+      },
+      data: { status: 'running', attempt: { increment: 1 }, startedAt: now, finishedAt: null, error: null, errorCode: null },
     })
     if (!claimed.count) continue
 
@@ -573,6 +659,7 @@ export async function runAutomationsForEvent(
       for (let index = run.currentStep; index < actions.length; index += 1) {
         const action = actions[index]
         const stepKey = String(index)
+        const idempotencyKey = automationStepIdempotencyKey(run.id, stepKey)
 
         // Idempotencia por paso (P0-07/AU-02): reclama/lee el AutomationStepRun
         // dentro de una transacción antes de tocar cualquier proveedor externo.
@@ -585,9 +672,20 @@ export async function runAutomationsForEvent(
             if (existing.status === 'succeeded' || existing.status === 'skipped' || existing.status === 'blocked') {
               return existing
             }
+            if (isExternalEffectAction(existing.type)) {
+              return tx.automationStepRun.update({
+                where: { id: existing.id },
+                data: {
+                  status: 'blocked',
+                  errorCode: 'OUTCOME_UNKNOWN',
+                  errorDetail: 'El proceso se interrumpió antes de confirmar el resultado del proveedor; no se reintenta para evitar un efecto externo duplicado.',
+                  finishedAt: new Date(),
+                },
+              })
+            }
             return tx.automationStepRun.update({
               where: { id: existing.id },
-              data: { status: 'pending', attempt: { increment: 1 }, startedAt: new Date(), finishedAt: null, errorCode: null, errorDetail: null },
+              data: { status: 'pending', attempt: { increment: 1 }, startedAt: new Date(), finishedAt: null, idempotencyKey: existing.idempotencyKey ?? idempotencyKey, errorCode: null, errorDetail: null },
             })
           }
           return tx.automationStepRun.create({
@@ -599,6 +697,7 @@ export async function runAutomationsForEvent(
               status: 'pending',
               input: (action.params ?? undefined) as any,
               attempt: 1,
+              idempotencyKey,
               startedAt: new Date(),
             },
           })
@@ -613,8 +712,24 @@ export async function runAutomationsForEvent(
 
         let result: AutomationStepResult
         try {
-          result = await executeAutomationAction(orgId, automation, run, action, event, payload, conversationId)
+          result = await executeAutomationAction(orgId, automation, run, action, canonicalEvent, payload, conversationId, idempotencyKey)
         } catch (actionError) {
+          if (isExternalEffectAction(action.type)) {
+            // El proveedor puede haber aceptado el efecto y fallar antes de
+            // devolver respuesta. Registrar el caso para revisión es más
+            // seguro que repetir a ciegas un envío o una llamada.
+            await prisma.automationStepRun.update({
+              where: { id: stepRun.id },
+              data: {
+                status: 'blocked',
+                errorCode: 'OUTCOME_UNKNOWN',
+                errorDetail: (actionError as Error).message,
+                finishedAt: new Date(),
+              },
+            })
+            await prisma.automationRun.update({ where: { id: run.id }, data: { currentStep: index + 1 } })
+            continue
+          }
           await prisma.automationStepRun.update({
             where: { id: stepRun.id },
             data: { status: 'failed', errorCode: 'UNEXPECTED_ERROR', errorDetail: (actionError as Error).message, finishedAt: new Date() },
@@ -670,7 +785,7 @@ export async function getEngineHealth(orgId: string) {
   const now = new Date()
   const staleThresholdMs = 10 * 60_000
 
-  const [oldestPendingOutbox, pendingOutboxCount, failingOutboxCount, runsByStatus, overdueTriggers, pendingTriggers] = await Promise.all([
+  const [oldestPendingOutbox, pendingOutboxCount, failingOutboxCount, deadLetterOutboxCount, runsByStatus, overdueTriggers, pendingTriggers] = await Promise.all([
     prisma.outboxEvent.findFirst({
       where: { orgId, status: 'pending' },
       orderBy: { createdAt: 'asc' },
@@ -678,6 +793,7 @@ export async function getEngineHealth(orgId: string) {
     }),
     prisma.outboxEvent.count({ where: { orgId, status: 'pending' } }),
     prisma.outboxEvent.count({ where: { orgId, status: 'pending', attempts: { gte: 5 } } }),
+    prisma.outboxEvent.count({ where: { orgId, status: 'dead_letter' } }),
     prisma.automationRun.groupBy({
       by: ['status'],
       where: { orgId, createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60_000) } },
@@ -699,6 +815,7 @@ export async function getEngineHealth(orgId: string) {
       pending: pendingOutboxCount,
       oldestPendingAgeMs,
       failingAfterRetries: failingOutboxCount,
+      deadLetter: deadLetterOutboxCount,
       lagging: outboxLagging,
     },
     runsLast24h: Object.fromEntries(runsByStatus.map(r => [r.status, r._count._all])),

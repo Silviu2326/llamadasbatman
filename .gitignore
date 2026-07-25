@@ -1,6 +1,13 @@
 # Session recordings (conversations)
 backend/sessions/
 
+# Local secrets and runtime environment files. Keep only the examples tracked.
+backend/.env
+.env
+.env.*
+!.env.example
+!backend/.env.example
+
 # Claude Code session data and local skill files
 .claude/
 ui-ux-pro-max-skill/
@@ -18,6 +25,11 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Python voice-engine runtime artifacts
+voice-engine/.venv/
+voice-engine/__pycache__/
+*.py[cod]
 
 # Editor directories and files
 .vscode/*

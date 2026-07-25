@@ -1,11 +1,16 @@
-import twilio from 'twilio'
 import { prisma } from '../lib/prisma'
+import {
+  createTwilioClient,
+  getTwilioIntegrationConfig,
+  twilioWebhookUrl,
+  verifyTwilioSignatureWithAuthToken,
+  type TwilioIntegrationConfig,
+} from './twilioIntegration.service'
 
 /**
- * Twilio WhatsApp integration.  The Prisma schema for this service is owned by
- * another agent, therefore this module intentionally keeps the persistence
- * boundary dynamic.  It only uses the agreed model names and fields below;
- * relations, enum names and generated Prisma types are deliberately avoided.
+ * Twilio WhatsApp integration. Persistence stays behind the existing dynamic
+ * boundary, while all provider credentials are resolved by org before any
+ * outbound request or webhook signature check.
  */
 const db = prisma as unknown as Record<string, any>
 const WINDOW_MS = 24 * 60 * 60 * 1000
@@ -22,7 +27,6 @@ export interface SendWhatsAppInput {
   contentVariables?: Record<string, string>
   metadata?: Record<string, unknown>
 }
-
 export interface WhatsAppResult {
   id?: string
   providerMessageId: string
@@ -32,26 +36,47 @@ export interface WhatsAppResult {
 
 function now() { return new Date() }
 function asAddress(value: string) { return value.startsWith('whatsapp:') ? value : `whatsapp:${value}` }
-function twilioClient() {
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  if (!sid || !token) throw new Error('Twilio no está configurado')
-  return twilio(sid, token)
+
+async function twilioClient(orgId: string): Promise<{ client: ReturnType<typeof createTwilioClient>; config: TwilioIntegrationConfig }> {
+  const config = await getTwilioIntegrationConfig(orgId)
+  if (!config) throw new Error('TWILIO_ORG_CREDENTIAL_MISSING')
+  return { client: createTwilioClient(config), config }
 }
-function fromAddress() {
-  const value = process.env.TWILIO_WHATSAPP_FROM
+
+function fromAddress(config: TwilioIntegrationConfig) {
+  const value = config.whatsappFrom
   if (!value) throw new Error('TWILIO_WHATSAPP_FROM no está configurado')
   return asAddress(value)
 }
-function publicCallback(path: string) {
-  const base = process.env.TWILIO_WEBHOOK_BASE_URL
-  if (!base) throw new Error('TWILIO_WEBHOOK_BASE_URL no está configurado')
-  return `${base.replace(/\/$/, '')}${path}`
+
+function publicCallback(config: TwilioIntegrationConfig, path: string, query = '') {
+  return twilioWebhookUrl(config.webhookBaseUrl, path, query)
 }
 
-export function verifyTwilioSignature(url: string, params: TwilioParams, signature?: string) {
-  const token = process.env.TWILIO_AUTH_TOKEN
-  return Boolean(token && signature && twilio.validateRequest(token, signature, url, params))
+/** Resolves the tenant before validating a Twilio callback. */
+export async function resolveTwilioWebhookOrgId(params: TwilioParams, kind: 'inbound' | 'status'): Promise<string | undefined> {
+  if (kind === 'inbound') {
+    const identity = await db.channelIdentity.findFirst({
+      where: { provider: 'twilio', channel: 'whatsapp', address: asAddress(params.To || '') },
+      select: { orgId: true },
+    })
+    return identity?.orgId ?? undefined
+  }
+  const message = await db.message.findFirst({
+    where: { provider: 'twilio', providerMessageId: params.MessageSid || '' },
+    select: { orgId: true },
+  })
+  return message?.orgId ?? undefined
+}
+
+export async function verifyTwilioSignature(
+  url: string,
+  params: TwilioParams,
+  signature?: string,
+  orgId?: string,
+): Promise<boolean> {
+  const config = await getTwilioIntegrationConfig(orgId)
+  return verifyTwilioSignatureWithAuthToken(config?.authToken, url, params, signature)
 }
 
 async function findConversation(orgId: string, address: string, leadId?: string) {
@@ -63,7 +88,6 @@ async function findConversation(orgId: string, address: string, leadId?: string)
 async function ensureConversation(orgId: string, address: string, leadId?: string) {
   const existing = await findConversation(orgId, address, leadId)
   if (existing) return existing
-  // Do not use nested connects: the schema may expose scalar ids only.
   return db.conversation.create({ data: {
     orgId, ...(leadId ? { leadId } : {}), channel: 'whatsapp', provider: 'twilio', address,
     status: 'open', metadata: {},
@@ -90,7 +114,6 @@ async function recordWebhook(externalEventId: string, metadata: Record<string, u
     await db.webhookEvent.create({ data: { externalEventId, provider: 'twilio', channel: 'whatsapp', metadata } })
     return false
   } catch (error: any) {
-    // A unique constraint is the authoritative idempotency guard under races.
     if (error?.code === 'P2002') return true
     throw error
   }
@@ -177,8 +200,8 @@ export async function sendWhatsApp(input: SendWhatsAppInput): Promise<WhatsAppRe
   if (!input.contentSid && (!input.body || !inWindow)) {
     throw new Error('Fuera de la ventana de 24 horas se requiere contentSid/template; el texto libre requiere un inbound vigente')
   }
-  const client = twilioClient()
-  const sender = fromAddress()
+  const { client, config } = await twilioClient(input.orgId)
+  const sender = fromAddress(config)
   await db.channelIdentity.upsert({
     where: { orgId_provider_address: { orgId: input.orgId, provider: 'twilio', address: sender } },
     create: { orgId: input.orgId, channel: 'whatsapp', provider: 'twilio', address: sender, isActive: true },
@@ -186,7 +209,7 @@ export async function sendWhatsApp(input: SendWhatsAppInput): Promise<WhatsAppRe
   })
   const message = await client.messages.create({
     from: sender, to, ...(input.contentSid ? { contentSid: input.contentSid, contentVariables: input.contentVariables ? JSON.stringify(input.contentVariables) : undefined } : { body: input.body }),
-    statusCallback: publicCallback('/api/whatsapp/status'),
+    statusCallback: publicCallback(config, '/api/whatsapp/status', new URLSearchParams({ orgId: input.orgId }).toString()),
   })
   const createdAt = now()
   const saved = await db.message.create({ data: {

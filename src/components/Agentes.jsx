@@ -1,524 +1,295 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch } from '../lib/api'
 import {
-  RiRobot2Line, RiSearchLine, RiFilterLine, RiAddLine,
-  RiPhoneLine, RiCalendarLine, RiPercentLine, RiGroupLine,
-  RiMoreLine, RiStarLine, RiArrowRightLine, RiPlayLine,
-  RiEditLine, RiBookOpenLine, RiFileCopyLine, RiFileTextLine,
-  RiCloseLine, RiSettings3Line, RiMoneyDollarBoxLine,
+  RiAddLine, RiArrowDownSLine, RiArrowRightLine, RiBarChartLine,
+  RiBookOpenLine, RiCalendarLine, RiCheckLine, RiCloseLine,
+  RiExternalLinkLine, RiFilter3Line, RiFlashlightLine,
+  RiMessage3Line, RiPhoneLine, RiRobot2Line, RiSearchLine,
+  RiSettings3Line, RiShieldCheckLine,
 } from 'react-icons/ri'
-import { HiChevronDown } from 'react-icons/hi'
-import KPICard from './KPICard'
-import '../dashboard.css'
+import { apiFetch } from '../lib/api'
+import { DEMO_MODE } from '../lib/dataMode'
+import { classifyFetchError, statusMessage } from '../lib/dataStatus'
+import DataStatusBanner from './ui/DataStatusBanner'
 import NewAgenteModal from '../modals/NewAgenteModal'
+import agentHeroImage from '../assets/hero.png'
+import './agents.css'
+import { useI18n } from '../i18n'
 
-// ─── shared ──────────────────────────────────────────────────────────────────
 const STATUS = {
-  Activo:    { color: '#10b981', bg: '#10b98112', border: '#10b98130' },
-  Pausado:   { color: '#f59e0b', bg: '#f59e0b12', border: '#f59e0b30' },
-  Borrador:  { color: '#94a3b8', bg: '#94a3b812', border: '#94a3b830' },
-  Archivado: { color: '#6b7280', bg: '#6b728012', border: '#6b728030' },
+  Activo: { color: '#34d399', bg: '#10b98115', border: '#10b98135' },
+  Pausado: { color: '#fbbf24', bg: '#f59e0b14', border: '#f59e0b35' },
 }
 
-const BG  = ['#4f46e5','#0891b2','#047857','#b45309','#be185d','#7c3aed','#065f46','#312e81']
-const CLR = ['#818cf8','#22d3ee','#34d399','#fbbf24','#f472b6','#a78bfa','#10b981','#6366f1']
+const TYPE_META = {
+  ventas: { label: 'Ventas', short: 'Ventas', color: '#a78bfa', icon: RiPhoneLine, description: 'Califica leads y acompaña al equipo comercial.' },
+  soporte: { label: 'Soporte', short: 'Soporte', color: '#22d3ee', icon: RiMessage3Line, description: 'Atiende consultas y deriva incidencias.' },
+  agenda: { label: 'Agendamiento', short: 'Agenda', color: '#34d399', icon: RiCalendarLine, description: 'Coordina reuniones y próximos pasos.' },
+  cobranza: { label: 'Recuperación', short: 'Recuperación', color: '#fb923c', icon: RiFlashlightLine, description: 'Hace seguimiento de oportunidades.' },
+}
 
-function mapAgent(a, i) {
+const AGENT_TYPE_META = {
+  sales: { es: 'Ventas', en: 'Sales' },
+  receptionist: { es: 'Recepción', en: 'Receptionist' },
+  qualification: { es: 'Cualificación', en: 'Lead qualification' },
+  appointment: { es: 'Citas', en: 'Appointment setter' },
+  support: { es: 'Soporte', en: 'Customer support' },
+  collections: { es: 'Cobros y renovaciones', en: 'Collections and renewals' },
+  handoff: { es: 'Transferencia a humano', en: 'Human handoff' },
+}
+
+const CALL_DIRECTION_META = {
+  inbound: { es: 'Recibe llamadas', en: 'Receives calls' },
+  outbound: { es: 'Realiza llamadas', en: 'Makes calls' },
+  both: { es: 'Entrante y saliente', en: 'Inbound and outbound' },
+}
+
+function agentTypeLabel(type, locale = 'es') {
+  const item = AGENT_TYPE_META[type] ?? AGENT_TYPE_META.sales
+  return item[locale === 'en' ? 'en' : 'es']
+}
+
+function callDirectionLabel(direction, locale = 'es') {
+  const item = CALL_DIRECTION_META[direction] ?? CALL_DIRECTION_META.both
+  return item[locale === 'en' ? 'en' : 'es']
+}
+
+const TABS = [
+  { id: 'tipo', label: 'Rol', Icon: RiRobot2Line },
+  { id: 'estrategia', label: 'Instrucciones', Icon: RiFlashlightLine },
+  { id: 'configuracion', label: 'Configuración', Icon: RiSettings3Line },
+  { id: 'mensajes', label: 'Mensajes', Icon: RiMessage3Line },
+  { id: 'conocimiento', label: 'Knowledge Base', Icon: RiBookOpenLine },
+]
+
+const FILTERS = ['Todos', 'Activos', 'Pausados']
+
+function resolveType(role) {
+  const value = String(role ?? '').toLowerCase()
+  if (value.includes('soport')) return 'soporte'
+  if (value.includes('agenda') || value.includes('reun')) return 'agenda'
+  if (value.includes('cobr') || value.includes('recuper')) return 'cobranza'
+  return 'ventas'
+}
+
+function normalizeAgent(agent) {
+  const type = resolveType(agent.role)
   return {
-    id: a.id,
-    name: a.name,
-    verified: true,
-    role: a.role ?? 'Agente IA',
-    subrole: '',
-    desc: a.systemPrompt?.slice(0, 80) ?? '',
-    status: a.isActive ? 'Activo' : 'Pausado',
-    calls: 0, callsPct: 0, success: null,
-    bg: BG[i % BG.length], color: CLR[i % CLR.length],
-    stats: [
-      { label: 'Llamadas', value: '—', pct: '—' },
-      { label: 'Tasa de éxito', value: '—', pct: '—' },
-      { label: 'Reuniones', value: '—', pct: '—' },
-      { label: 'Pipe generado', value: '—', pct: '—' },
-    ],
-    tags: a.personality ? a.personality.split(',').map(t => t.trim()).filter(Boolean) : [],
-    energia: 5, humor: 3,
-    objetivo: a.systemPrompt ?? '',
-    docs: [], extraDocs: 0,
+    ...agent,
+    name: agent.name || 'Sin nombre',
+    role: agent.role || 'ventas',
+    agentType: agent.agentType || 'sales',
+    callDirection: agent.callDirection || 'both',
+    type,
+    status: agent.isActive ? 'Activo' : 'Pausado',
+    language: agent.language || 'Sin definir',
+    color: TYPE_META[type].color,
   }
-}
-
-const TABS = ['Todos','Activos','Pausados','Borradores','Archivados']
-const DETAIL_TABS = ['Resumen','Configuración','Conocimiento','Rendimiento','Actividad']
-
-// ─── sub-components ───────────────────────────────────────────────────────────
-function AgentAvatar({ name, color, bg, size = 72 }) {
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `radial-gradient(circle at 35% 30%, ${color}50, ${bg}cc)`,
-      border: `2px solid ${color}60`,
-      boxShadow: `0 0 0 4px ${color}12, 0 0 22px ${color}28`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.38, fontWeight: 800, color: '#fff',
-      textShadow: `0 0 14px ${color}`,
-    }}>
-      {name[0]}
-    </div>
-  )
 }
 
 function StatusBadge({ status }) {
-  const s = STATUS[status] ?? STATUS.Activo
-  return (
-    <span style={{
-      fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
-      background: s.bg, border: `1px solid ${s.border}`, color: s.color,
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-    }}>
-      {status === 'Activo' && <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color, display: 'inline-block' }} />}
-      {status}
-    </span>
-  )
+  const meta = STATUS[status] ?? STATUS.Pausado
+  return <span className="agent-status" style={{ color: meta.color, background: meta.bg, borderColor: meta.border }}><i style={{ background: meta.color }} />{status}</span>
 }
 
-function AgentCard({ agent, selected, onClick }) {
-  const [hov, setHov] = useState(false)
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      className="fade-up"
-      style={{
-        background: selected ? '#0f1423' : hov ? '#0e1220' : '#0d1117',
-        border: `1px solid ${selected ? agent.color + '55' : '#1e2433'}`,
-        borderRadius: 14, padding: '14px 14px 12px', cursor: 'pointer',
-        boxShadow: selected ? `0 0 0 1px ${agent.color}30, 0 0 28px ${agent.color}18` : 'none',
-        transition: 'all .2s ease', display: 'flex', flexDirection: 'column', gap: 10,
-      }}
-    >
-      {/* top row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <RiStarLine style={{ width: 14, height: 14, color: '#374151', cursor: 'pointer' }} />
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <StatusBadge status={agent.status} />
-          <RiMoreLine style={{ width: 14, height: 14, color: '#374151', cursor: 'pointer' }} />
-        </div>
-      </div>
-
-      {/* avatar */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <AgentAvatar name={agent.name} color={agent.color} bg={agent.bg} size={72} />
-      </div>
-
-      {/* name + role + desc */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{agent.name}</span>
-          {agent.verified && (
-            <span style={{ width: 15, height: 15, borderRadius: '50%', background: agent.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#fff', fontWeight: 800, flexShrink: 0 }}>✓</span>
-          )}
-        </div>
-        <p style={{ margin: '0 0 5px', fontSize: 11.5, color: agent.color, fontWeight: 600 }}>{agent.role}</p>
-        <p style={{ margin: 0, fontSize: 11, color: '#6b7280', lineHeight: 1.45 }}>{agent.desc}</p>
-      </div>
-
-      {/* stats */}
-      <div style={{ borderTop: '1px solid #1a2235', paddingTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-        <div>
-          <p style={{ margin: '0 0 2px', fontSize: 9.5, color: '#4b5563', textTransform: 'uppercase', letterSpacing: 0.3 }}>Llamadas esta semana</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{agent.calls || '0'}</span>
-            {agent.callsPct > 0 && <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600 }}>↑{agent.callsPct}%</span>}
-          </div>
-        </div>
-        <div>
-          <p style={{ margin: '0 0 2px', fontSize: 9.5, color: '#4b5563', textTransform: 'uppercase', letterSpacing: 0.3 }}>Tasa de éxito</p>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{agent.success !== null ? `${agent.success}%` : '—'}</span>
-        </div>
-      </div>
-
-      {/* bottom icons */}
-      <div style={{ display: 'flex', gap: 6 }}>
-        {[RiPhoneLine, RiCalendarLine, RiGroupLine].map((Icon, i) => (
-          <div key={i} style={{ width: 26, height: 26, borderRadius: 7, background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon style={{ width: 12, height: 12, color: '#4b5563' }} />
-          </div>
-        ))}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-          <RiMoreLine style={{ width: 13, height: 13, color: '#4b5563' }} />
-        </div>
-      </div>
-    </div>
-  )
+function AgentAvatar({ agent, size = 'md' }) {
+  const meta = TYPE_META[agent.type] ?? TYPE_META.ventas
+  const Icon = meta.icon
+  return <span className={`agent-avatar agent-avatar-${size}`} style={{ '--agent-color': agent.color ?? meta.color }}><Icon /></span>
 }
 
-function AgentDetail({ agent, onClose, onNavigate, onToggle }) {
-  const [tab, setTab] = useState('Resumen')
-  const [isActive, setIsActive] = useState(agent.status === 'Activo')
-  const [toggling, setToggling] = useState(false)
-  const [agentStats, setAgentStats] = useState(null)
-  const [loadingStats, setLoadingStats] = useState(false)
+function Metric({ Icon, label, value, detail, color }) {
+  return <div className="agent-metric"><span className="agent-metric-icon" style={{ color, background: `${color}18`, borderColor: `${color}38` }}><Icon /></span><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div>
+}
+
+function AgentListItem({ agent, selected, onClick, locale = (document.documentElement.lang === 'en' ? 'en' : 'es') }) {
+  const meta = TYPE_META[agent.type] ?? TYPE_META.ventas
+  return <button type="button" className={`agent-list-item${selected ? ' is-selected' : ''}`} style={{ '--agent-color': agent.color ?? meta.color }} onClick={onClick}>
+    <AgentAvatar agent={agent} />
+    <span className="agent-list-copy"><strong>{agent.name}</strong><small>{agent.role || meta.short} <b>·</b> {agent.language}</small><small>{agentTypeLabel(agent.agentType, locale)} <b>·</b> {callDirectionLabel(agent.callDirection, locale)}</small></span>
+    <span className="agent-list-right"><StatusBadge status={agent.status} /><RiArrowRightLine /></span>
+  </button>
+}
+
+function Toggle({ enabled, onClick, label }) {
+  return <button type="button" className={`agent-toggle${enabled ? ' is-on' : ''}`} onClick={onClick} aria-label={label} aria-pressed={enabled}><i /></button>
+}
+
+function Field({ label, value, onChange, type = 'text' }) {
+  if (type === 'textarea') return <label className="agent-field"><span>{label}</span><textarea value={value} onChange={event => onChange(event.target.value)} /></label>
+  return <label className="agent-field"><span>{label}</span><div className="agent-input-wrap"><input value={value} onChange={event => onChange(event.target.value)} /><RiArrowDownSLine /></div></label>
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return <label className="agent-field"><span>{label}</span><div className="agent-input-wrap"><select value={value} onChange={event => onChange(event.target.value)}>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select><RiArrowDownSLine /></div></label>
+}
+
+function UnavailableNotice({ title, children, action }) {
+  return <section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Disponible próximamente</span><h3>{title}</h3></div><RiSettings3Line /></div><p className="agent-panel-intro">{children}</p>{action}</section>
+}
+
+function TypePanel({ agent, onEdit }) {
+  const meta = TYPE_META[agent.type] ?? TYPE_META.ventas
+  const Icon = meta.icon
+  return <div className="agent-studio-grid agent-type-grid">
+    <section className="agent-panel agent-type-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Rol guardado en el agente</span><h3>Elige el propósito</h3></div><RiRobot2Line /></div><p className="agent-panel-intro">El cambio se guarda como el rol del agente al pulsar «Guardar cambios».</p><div className="agent-type-options">{Object.entries(TYPE_META).map(([id, item]) => { const TypeIcon = item.icon; return <button type="button" key={id} className={`agent-type-option${id === agent.type ? ' is-selected' : ''}`} onClick={() => onEdit({ role: id })} style={{ '--type-color': item.color }}><span><TypeIcon /></span><strong>{item.label}</strong><small>{item.description}</small>{id === agent.type && <RiCheckLine />}</button> })}</div></section>
+    <section className="agent-panel agent-summary-panel" style={{ '--agent-color': agent.color }}><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Perfil actual</span><h3>{agent.name}</h3></div><AgentAvatar agent={agent} size="lg" /></div><div className="agent-profile-badge" style={{ color: meta.color, background: `${meta.color}16`, borderColor: `${meta.color}35` }}><Icon /> {agent.role}</div><p>{agent.systemPrompt || 'Este agente todavía no tiene instrucciones registradas.'}</p></section>
+  </div>
+}
+
+function StrategyPanel({ agent, onEdit }) {
+  return <div className="agent-studio-grid agent-strategy-grid"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campo persistente</span><h3>Instrucciones del agente</h3></div><RiFlashlightLine /></div><p className="agent-panel-intro">Estas instrucciones se guardan como el prompt del sistema del agente.</p><Field label="Instrucciones" type="textarea" value={agent.systemPrompt || ''} onChange={value => onEdit({ systemPrompt: value })} /></section><UnavailableNotice title="Reglas de escalado">Las reglas individuales de escalado aún no tienen una API de configuración. No se muestran reglas de ejemplo como si estuvieran activas.</UnavailableNotice></div>
+}
+
+function ConfigPanel({ agent, onEdit, locale = (document.documentElement.lang === 'en' ? 'en' : 'es') }) {
+  const typeOptions = Object.entries(AGENT_TYPE_META).map(([value, labels]) => ({ value, label: labels[locale === 'en' ? 'en' : 'es'] }))
+  const directionOptions = Object.entries(CALL_DIRECTION_META).map(([value, labels]) => ({ value, label: labels[locale === 'en' ? 'en' : 'es'] }))
+  return <div className="agent-studio-grid agent-config-grid"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campos persistentes</span><h3>Identidad del agente</h3></div><RiSettings3Line /></div><div className="agent-form-grid"><Field label="Nombre del agente" value={agent.name} onChange={value => onEdit({ name: value })} /><Field label="Personalidad" value={agent.personality || ''} onChange={value => onEdit({ personality: value })} /><Field label="Idioma" value={agent.language} onChange={value => onEdit({ language: value })} /><SelectField label={locale === 'en' ? 'Agent type' : 'Tipo de agente'} value={agent.agentType} onChange={value => onEdit({ agentType: value })} options={typeOptions} /><SelectField label={locale === 'en' ? 'Call direction' : 'Dirección de llamadas'} value={agent.callDirection} onChange={value => onEdit({ callDirection: value })} options={directionOptions} /></div><div className="agent-setting-row"><div><strong>Agente habilitado</strong><small>Este cambio se guarda al confirmar.</small></div><Toggle enabled={agent.isActive} onClick={() => onEdit({ isActive: !agent.isActive })} label="Activar agente" /></div></section><UnavailableNotice title="Configuración de voz">El canal, la velocidad y otros controles de voz no se almacenan desde esta pantalla todavía. No se aplicarán cambios locales aparentes.</UnavailableNotice></div>
+}
+
+function MessagesPanel() {
+  return <div className="agent-messages-layout"><UnavailableNotice title="Mensajes clave">La edición de mensajes por situación no está disponible en la API actual. No se muestran respuestas ficticias ni controles sin persistencia.</UnavailableNotice></div>
+}
+
+function KnowledgePanel({ onNavigate }) {
+  return <div className="agent-knowledge-layout"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Fuente de datos pendiente</span><h3>Knowledge Base del agente</h3></div><RiBookOpenLine /></div><p className="agent-panel-intro">Esta vista no recibe todavía las fuentes asociadas a cada agente. Gestiona los artículos desde Knowledge Base.</p><button type="button" className="agent-button secondary" onClick={() => onNavigate('/knowledge-base')}><RiBookOpenLine /> Gestionar Knowledge Base <RiExternalLinkLine /></button></section></div>
+}
+
+function Studio({ agent, tab, setTab, onEdit, onNavigate, onSave, saving, locale }) {
+  const panels = {
+    tipo: <TypePanel agent={agent} onEdit={onEdit} />,
+    estrategia: <StrategyPanel agent={agent} onEdit={onEdit} />,
+    configuracion: <ConfigPanel agent={agent} onEdit={onEdit} locale={locale} />,
+    mensajes: <MessagesPanel />,
+    conocimiento: <KnowledgePanel onNavigate={onNavigate} />,
+  }
+  return <section className="agent-studio"><div className="agent-studio-head"><div className="agent-studio-title"><AgentAvatar agent={agent} size="lg" /><div><div className="agent-studio-name"><h2>{agent.name}</h2><StatusBadge status={agent.status} /></div><p>{agent.role} <b>·</b> {agent.language}</p></div></div><div className="agent-studio-actions"><button type="button" className="agent-button secondary" onClick={() => onNavigate(`/agentes/${agent.id}`)}><RiExternalLinkLine /> Ver detalle</button></div></div><div className="agent-stepper">{TABS.map((step, index) => <button type="button" key={step.id} className={tab === step.id ? 'is-active' : ''} onClick={() => setTab(step.id)}><span>{index + 1}</span><b>{step.label}</b>{index < TABS.length - 1 && <i />}</button>)}</div><div className="agent-studio-body">{panels[tab]}</div><div className="agent-studio-footer"><span>Los cambios no se guardan hasta confirmarlos.</span><button type="button" className="agent-button primary" onClick={onSave} disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'} <RiArrowRightLine /></button></div></section>
+}
+
+export default function Agentes() {
+  const { t, locale } = useI18n()
+  const navigate = useNavigate()
+  const [agents, setAgents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [dataStatus, setDataStatus] = useState('loading')
+  const [reloadKey, setReloadKey] = useState(0)
+  const [activeFilter, setActiveFilter] = useState('Todos')
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState('Más recientes')
+  const [selectedId, setSelectedId] = useState(null)
+  const [studioTab, setStudioTab] = useState('tipo')
+  const [showNewAgent, setShowNewAgent] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
 
   useEffect(() => {
-    setIsActive(agent.status === 'Activo')
-    setTab('Resumen')
-    setAgentStats(null)
-  }, [agent.id])
+    let active = true
+    async function loadAgents() {
+      setLoading(true)
+      setLoadError('')
+      setDataStatus('loading')
+      try {
+        const response = await apiFetch('/api/agents')
+        if (!response.ok) throw new Error(`agents_${response.status}`)
+        const data = await response.json()
+        if (!Array.isArray(data)) throw new Error('invalid_response')
+        if (!active) return
+        const next = data.map(normalizeAgent)
+        setAgents(next)
+        setSelectedId(previous => next.some(agent => agent.id === previous) ? previous : next[0]?.id ?? null)
+        setDataStatus(DEMO_MODE ? 'demo' : next.length ? 'live' : 'empty')
+      } catch (error) {
+        if (active) {
+          setAgents([])
+          setSelectedId(null)
+          const status = classifyFetchError(error)
+          setDataStatus(status)
+          setLoadError(statusMessage(status, { error: 'No se pudieron cargar los agentes.' }))
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    loadAgents()
+    return () => { active = false }
+  }, [reloadKey])
 
-  useEffect(() => {
-    if (tab !== 'Rendimiento') return
-    setLoadingStats(true)
-    apiFetch(`/api/agents/${agent.id}/stats`)
-      .then(r => r.json())
-      .then(setAgentStats)
-      .catch(() => {})
-      .finally(() => setLoadingStats(false))
-  }, [tab, agent.id])
+  const selectedAgent = agents.find(agent => agent.id === selectedId) ?? null
+  const filtered = useMemo(() => agents.filter(agent => {
+    const matchesFilter = activeFilter === 'Todos' || agent.status === activeFilter
+    const matchesSearch = `${agent.name} ${agent.role} ${agent.systemPrompt || ''}`.toLowerCase().includes(search.toLowerCase())
+    return matchesFilter && matchesSearch
+  }).sort((a, b) => sort === 'Nombre A-Z' ? a.name.localeCompare(b.name) : 0), [activeFilter, agents, search, sort])
 
-  async function handleToggle() {
-    if (toggling) return
-    const next = !isActive
-    setIsActive(next)
-    setToggling(true)
+  const updateSelected = useCallback((changes) => {
+    setAgents(current => current.map(agent => agent.id === selectedId ? normalizeAgent({ ...agent, ...changes }) : agent))
+  }, [selectedId])
+
+  function notify(message) {
+    setToast(message)
+    window.setTimeout(() => setToast(''), 2800)
+  }
+
+  async function saveSelected() {
+    if (!selectedAgent) return
+    const agentBeforeSave = normalizeAgent({ ...selectedAgent })
+    setSaving(true)
+    setLoadError('')
     try {
-      await apiFetch(`/api/agents/${agent.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ isActive: next }),
-      })
-      onToggle?.(agent.id, next)
+      const payload = {
+        name: selectedAgent.name.trim(),
+        role: selectedAgent.role,
+        agentType: selectedAgent.agentType,
+        callDirection: selectedAgent.callDirection,
+        personality: selectedAgent.personality || undefined,
+        systemPrompt: selectedAgent.systemPrompt || undefined,
+        language: selectedAgent.language,
+        isActive: selectedAgent.isActive,
+      }
+      if (!payload.name) throw new Error('missing_name')
+      const response = await apiFetch(`/api/agents/${selectedAgent.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+      if (!response.ok) throw new Error('save_failed')
+      notify('Cambios guardados correctamente')
     } catch {
-      setIsActive(!next) // revert on error
+      // Local form edits are deliberately optimistic for typing, but they
+      // must not survive a failed/missing PUT as if they had been persisted.
+      setAgents(current => current.map(agent => agent.id === agentBeforeSave.id ? agentBeforeSave : agent))
+      setLoadError('No se pudieron guardar los cambios en la API. Se restauró la última configuración confirmada.')
+      notify('No se pudieron guardar los cambios')
     } finally {
-      setToggling(false)
+      setSaving(false)
     }
   }
 
-  return (
-    <div className="dark-scroll panel-desktop" style={{
-      width: 292, flexShrink: 0,
-      background: '#090d18', borderLeft: '1px solid #1e2433',
-      display: 'flex', flexDirection: 'column', overflowY: 'auto',
-    }}>
-      {/* close */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 14px 0', gap: 6 }}>
-        <button onClick={onClose} style={{ background: '#131b2b', border: '1px solid #1e2433', borderRadius: 7, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', cursor: 'pointer' }}>
-          <RiCloseLine style={{ width: 14, height: 14 }} />
-        </button>
-      </div>
+  const activeAgents = agents.filter(agent => agent.isActive).length
+  const metrics = [
+    { Icon: RiRobot2Line, label: 'Agentes configurados', value: agents.length, detail: 'datos de tu organización', color: '#a78bfa' },
+    { Icon: RiCheckLine, label: 'Agentes activos', value: activeAgents, detail: 'habilitados actualmente', color: '#34d399' },
+    { Icon: RiBarChartLine, label: 'Agentes pausados', value: agents.length - activeAgents, detail: 'sin atención de nuevas conversaciones', color: '#fbbf24' },
+  ]
 
-      <div style={{ padding: '10px 16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* avatar + status + info */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <AgentAvatar name={agent.name} color={agent.color} bg={agent.bg} size={80} />
+  return <div className="agents-page dark-scroll">
+    <header className="agents-header"><div className="agents-heading"><span className="agents-brand-icon"><RiRobot2Line /></span><div><h1>{t('modules.agentTitle')}</h1><p>{locale === 'en' ? 'Create and configure your organization’s voice agents.' : 'Crea y configura los agentes de voz de tu organización.'}</p></div></div><div className="agents-header-actions"><button type="button" className="agent-button primary" onClick={() => setShowNewAgent(true)}><RiAddLine /> {t('modal.newAgent')}</button></div></header>
 
-          {/* status + toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <StatusBadge status={isActive ? 'Activo' : 'Pausado'} />
-            <div onClick={handleToggle} style={{ width: 34, height: 18, borderRadius: 99, background: isActive ? '#10b981' : '#374151', position: 'relative', cursor: toggling ? 'wait' : 'pointer', transition: 'background .2s', flexShrink: 0, opacity: toggling ? 0.6 : 1 }}>
-              <div style={{ position: 'absolute', top: 2, left: isActive ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
-            </div>
-          </div>
+    <DataStatusBanner
+      status={dataStatus}
+      message={loadError || statusMessage(dataStatus, { live: 'Agentes reales cargados desde tu organización.', empty: 'La conexión está disponible, pero todavía no hay agentes configurados.', demo: 'Modo demo explícito: estos datos no activan agentes reales.' })}
+      onRetry={dataStatus === 'error' || dataStatus === 'disconnected' ? () => setReloadKey(key => key + 1) : undefined}
+      onAction={dataStatus === 'empty' || dataStatus === 'demo' ? () => setShowNewAgent(true) : dataStatus === 'disconnected' ? () => navigate('/configuracion') : undefined}
+      actionLabel={dataStatus === 'disconnected' ? 'Configurar conexión' : 'Crear agente'}
+    />
 
-          {/* name */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>{agent.name}</span>
-              {agent.verified && (
-                <span style={{ width: 17, height: 17, borderRadius: '50%', background: agent.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', fontWeight: 800 }}>✓</span>
-              )}
-            </div>
-            <p style={{ margin: '0 0 3px', fontSize: 11.5, color: '#94a3b8' }}>{agent.role}{agent.subrole ? ` • ${agent.subrole}` : ''}</p>
-          </div>
+    <section className="agents-hero"><div className="agents-hero-copy"><span className="agents-overline"><i /> Configuración de agentes</span><h2>Centraliza la configuración de tus agentes.</h2><p>Consulta los agentes registrados y guarda los cambios que admite la plataforma.</p><div className="agents-hero-meta"><span><RiRobot2Line /> {activeAgents} agentes activos</span><span><RiShieldCheckLine /> Datos cargados desde tu organización</span></div></div><div className="agents-hero-art"><img src={agentHeroImage} alt="Red de conocimiento conectada a un núcleo de inteligencia" /><div className="hero-art-node hero-art-node-one"><RiPhoneLine /></div><div className="hero-art-node hero-art-node-two"><RiBookOpenLine /></div><div className="hero-art-caption"><strong>Agentes IA</strong><span>Configuración centralizada</span></div></div></section>
 
-          {/* probar button */}
-          <button onClick={() => onNavigate?.('/agentes/' + agent.id)} style={{
-            display: 'flex', alignItems: 'center', gap: 7, width: '100%', justifyContent: 'center',
-            background: `linear-gradient(90deg, ${agent.bg}, ${agent.color}90)`,
-            border: 'none', borderRadius: 9, padding: '9px 16px',
-            color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            boxShadow: `0 0 18px ${agent.color}25`,
-          }}>
-            <RiPlayLine style={{ width: 14, height: 14 }} /> Probar agente
-          </button>
-        </div>
+    <div className="agents-metrics">{metrics.map(metric => <Metric key={metric.label} {...metric} />)}</div>
 
-        {/* detail tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #1e2433' }}>
-          {DETAIL_TABS.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              flex: 1, background: 'none', border: 'none', padding: '7px 0',
-              fontSize: 10, fontWeight: tab === t ? 700 : 400,
-              color: tab === t ? agent.color : '#4b5563',
-              borderBottom: `2px solid ${tab === t ? agent.color : 'transparent'}`,
-              cursor: 'pointer', transition: 'all .15s',
-            }}>{t}</button>
-          ))}
-        </div>
+    <section className="agents-section agents-workspace-section"><div className="agents-section-heading"><div><h2>Tu espacio de trabajo</h2><p>Selecciona un agente para revisar sus campos configurables.</p></div><span className="agents-count">{agents.length} agentes registrados</span></div><div className="agents-toolbar"><div className="agents-tabs">{FILTERS.map(filter => <button type="button" key={filter} className={activeFilter === filter ? 'is-active' : ''} onClick={() => setActiveFilter(filter)}>{filter}<span>{filter === 'Todos' ? agents.length : agents.filter(agent => agent.status === filter).length}</span></button>)}</div><div className="agents-toolbar-actions"><label className="agents-search"><RiSearchLine /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar agente..." /></label><label className="agents-sort"><RiFilter3Line /><select value={sort} onChange={event => setSort(event.target.value)}><option>Más recientes</option><option>Nombre A-Z</option></select><RiArrowDownSLine /></label></div></div>
+      <div className="agents-main-grid"><aside className="agents-list-panel"><div className="agents-list-head"><strong>Agentes registrados</strong><span>{filtered.length} visibles</span></div><div className="agent-list">{loading ? <div className="agent-list-loading">Cargando agentes…</div> : loadError ? <div className="agent-list-loading"><p>{loadError}</p><button type="button" className="agent-button secondary" onClick={() => setReloadKey(key => key + 1)}>Reintentar</button></div> : filtered.length ? filtered.map(agent => <AgentListItem key={agent.id} agent={agent} selected={selectedAgent?.id === agent.id} onClick={() => { setSelectedId(agent.id); setStudioTab('tipo') }} />) : <div className="agent-list-loading">{agents.length ? 'No hay agentes que coincidan con los filtros.' : 'Todavía no hay agentes registrados.'}</div>}</div><button type="button" className="agent-create-row" onClick={() => setShowNewAgent(true)}><span><RiAddLine /></span><strong>Crear nuevo agente</strong><RiArrowRightLine /></button></aside>{selectedAgent ? <Studio agent={selectedAgent} tab={studioTab} setTab={setStudioTab} onEdit={updateSelected} onNavigate={navigate} onSave={saveSelected} saving={saving} /> : !loading && !loadError && <section className="agent-studio"><div className="agent-studio-body"><UnavailableNotice title="Selecciona o crea un agente">Cuando haya un agente registrado podrás revisar y guardar su configuración desde aquí.</UnavailableNotice></div></section>}</div>
+    </section>
 
-        {/* resumen content */}
-        {tab === 'Resumen' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            {/* mini stats 2x2 */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Rendimiento esta semana</span>
-                <span style={{ fontSize: 10, color: agent.color, cursor: 'pointer' }}>Ver reporte completo</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-                {agent.stats.map(s => (
-                  <div key={s.label} style={{ background: '#111827', borderRadius: 10, padding: '10px 11px', border: '1px solid #1a2235' }}>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9', marginBottom: 1 }}>{s.value}</div>
-                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4 }}>{s.label}</div>
-                    <div style={{ fontSize: 10.5, color: '#4ade80', fontWeight: 600 }}>{s.pct}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* personalidad */}
-            {agent.tags.length > 0 && (
-              <div>
-                <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Personalidad y tono</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {agent.tags.map(tag => (
-                    <span key={tag} style={{
-                      fontSize: 11, padding: '4px 10px', borderRadius: 20,
-                      background: `${agent.color}14`, border: `1px solid ${agent.color}28`,
-                      color: agent.color, fontWeight: 600,
-                    }}>{tag}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* objetivo */}
-            {agent.objetivo && (
-              <div style={{ background: '#111827', borderRadius: 10, padding: '11px 12px', border: '1px solid #1a2235' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-                  <div style={{ width: 26, height: 26, borderRadius: 8, background: `${agent.color}18`, border: `1px solid ${agent.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <RiSettings3Line style={{ width: 14, height: 14, color: agent.color }} />
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Objetivo principal</span>
-                </div>
-                <p style={{ margin: 0, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.5 }}>{agent.objetivo}</p>
-              </div>
-            )}
-
-            {/* acciones rápidas */}
-            <div>
-              <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Acciones rápidas</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-                {[
-                  [RiEditLine,    'Editar configuración', () => onNavigate?.('/agentes/' + agent.id)],
-                  [RiBookOpenLine,'Entrenar con documentos', () => onNavigate?.('/knowledge-base')],
-                  [RiFileTextLine,'Ver playbook', () => onNavigate?.('/playbooks')],
-                  [RiFileCopyLine,'Clonar agente', () => onNavigate?.('/agentes')],
-                ].map(([Icon, label, action]) => (
-                  <button key={label} onClick={action} style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px',
-                    background: '#111827', border: '1px solid #1a2235', borderRadius: 9,
-                    color: '#94a3b8', fontSize: 11, cursor: 'pointer', textAlign: 'left',
-                    transition: 'border-color .15s',
-                  }}>
-                    <Icon style={{ width: 13, height: 13, flexShrink: 0 }} />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* rendimiento tab — real stats from API */}
-        {tab === 'Rendimiento' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {loadingStats ? (
-              <p style={{ textAlign: 'center', color: '#374151', fontSize: 13, padding: '32px 0' }}>Cargando…</p>
-            ) : agentStats ? (
-              <>
-                {[
-                  { label: 'Total llamadas', value: agentStats.calls ?? 0 },
-                  { label: 'Reuniones agendadas', value: agentStats.meetingsScheduled ?? 0 },
-                  { label: 'Sentimiento promedio', value: agentStats.avgSentimentScore != null ? `${(agentStats.avgSentimentScore * 100).toFixed(0)}%` : '—' },
-                ].map(s => (
-                  <div key={s.label} style={{ background: '#111827', borderRadius: 10, padding: '12px 14px', border: '1px solid #1a2235', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: '#94a3b8' }}>{s.label}</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{s.value}</span>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <p style={{ textAlign: 'center', color: '#374151', fontSize: 13, padding: '32px 0' }}>Sin datos</p>
-            )}
-          </div>
-        )}
-
-        {tab !== 'Resumen' && tab !== 'Rendimiento' && (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: '#374151', fontSize: 13 }}>
-            Próximamente
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── main ─────────────────────────────────────────────────────────────────────
-export default function Agentes() {
-  const [activeTab, setActiveTab] = useState('Todos')
-  const navigate = useNavigate()
-  const [showNewAgent, setShowNewAgent] = useState(false)
-  const [viewMode, setViewMode] = useState('grid')
-  const [agents, setAgents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [selectedAgent, setSelectedAgent] = useState(null)
-  const [refreshKey, setRefreshKey] = useState(0)
-
-  useEffect(() => {
-    setLoading(true)
-    apiFetch('/api/agents')
-      .then(r => r.json())
-      .then(data => {
-        if (!Array.isArray(data)) return
-        setAgents(data.map(mapAgent))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [refreshKey])
-
-  const handleToggle = useCallback((id, isActive) => {
-    setAgents(prev => prev.map(a => a.id === id ? { ...a, status: isActive ? 'Activo' : 'Pausado' } : a))
-  }, [])
-
-  const kpis = useMemo(() => {
-    const total = agents.length
-    const active = agents.filter(a => a.status === 'Activo').length
-    return [
-      { Icon: RiRobot2Line,  iconBg:'#6d28d9', label:'Total\nagentes',          value: String(total),  pct: 0, color:'#a78bfa', data:[] },
-      { Icon: RiGroupLine,   iconBg:'#0e7490', label:'Agentes\nactivos',         value: String(active), pct: 0, color:'#22d3ee', data:[] },
-      { Icon: RiPhoneLine,   iconBg:'#047857', label:'Llamadas esta\nsemana',    value: '—',            pct: 0, color:'#34d399', data:[] },
-      { Icon: RiPercentLine, iconBg:'#b45309', label:'Tasa de éxito\npromedio',  value: '—',            pct: 0, color:'#fbbf24', data:[] },
-      { Icon: RiCalendarLine,iconBg:'#1e40af', label:'Reuniones\nagendadas',     value: '—',            pct: 0, color:'#60a5fa', data:[] },
-    ]
-  }, [agents])
-
-  const filtered = activeTab === 'Todos'      ? agents
-    : activeTab === 'Activos'                 ? agents.filter(a => a.status === 'Activo')
-    : activeTab === 'Pausados'                ? agents.filter(a => a.status === 'Pausado')
-    : activeTab === 'Borradores'              ? agents.filter(a => a.status === 'Borrador')
-    : agents.filter(a => a.status === 'Archivado')
-
-  return (
-    <div style={{ flex: 1, display: 'flex', background: '#080c14', minWidth: 0, overflow: 'hidden' }}>
-
-      {/* ── scrollable left ── */}
-      <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-
-        {/* header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-              <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>Agentes IA</h1>
-              <RiRobot2Line style={{ width: 19, height: 19, color: '#a78bfa' }} />
-            </div>
-            <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Crea, configura y gestiona tus agentes de voz inteligentes.</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 12px' }}>
-              <RiSearchLine style={{ width: 13, height: 13, color: '#6b7280' }} />
-              <input placeholder="Buscar agente…" style={{ background: 'none', border: 'none', outline: 'none', color: '#94a3b8', fontSize: 12, width: 140 }} />
-              <span style={{ fontSize: 10, color: '#374151', background: '#111827', border: '1px solid #1a2235', borderRadius: 4, padding: '1px 5px' }}>⌘K</span>
-            </div>
-            <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 13px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
-              <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros
-            </button>
-            <button onClick={() => setShowNewAgent(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
-              <RiAddLine style={{ width: 14, height: 14 }} /> Nuevo agente
-            </button>
-          </div>
-        </div>
-
-        {showNewAgent && <NewAgenteModal onClose={() => setShowNewAgent(false)} onSuccess={() => { setShowNewAgent(false); setRefreshKey(k => k + 1) }} />}
-
-        {/* kpi row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
-          {kpis.map((k, i) => <KPICard key={k.label} {...k} delay={`${i * 55}ms`} compact />)}
-        </div>
-
-        {/* tabs + controls */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1a2235' }}>
-          <div style={{ display: 'flex' }}>
-            {TABS.map(t => (
-              <button key={t} onClick={() => setActiveTab(t)} style={{
-                background: 'none', border: 'none', padding: '9px 16px',
-                fontSize: 13, fontWeight: activeTab === t ? 700 : 400,
-                color: activeTab === t ? '#f1f5f9' : '#4b5563',
-                borderBottom: `2px solid ${activeTab === t ? '#8b5cf6' : 'transparent'}`,
-                cursor: 'pointer', transition: 'all .15s',
-              }}>{t}</button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8 }}>
-            <span style={{ fontSize: 11.5, color: '#4b5563' }}>Vista:</span>
-            <div style={{ display: 'flex', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, overflow: 'hidden' }}>
-              <button onClick={() => setViewMode('grid')} style={{ padding: '4px 9px', background: viewMode === 'grid' ? '#1a2235' : 'none', border: 'none', color: viewMode === 'grid' ? '#94a3b8' : '#374151', cursor: 'pointer', fontSize: 13 }}>⊞</button>
-              <button onClick={() => setViewMode('list')} style={{ padding: '4px 9px', background: viewMode === 'list' ? '#1a2235' : 'none', border: 'none', color: viewMode === 'list' ? '#94a3b8' : '#374151', cursor: 'pointer', fontSize: 13 }}>☰</button>
-            </div>
-            <button style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 10px', color: '#94a3b8', fontSize: 11.5, cursor: 'pointer' }}>
-              Ordenar por: Más recientes <HiChevronDown style={{ width: 11, height: 11 }} />
-            </button>
-          </div>
-        </div>
-
-        {/* loading */}
-        {loading && (
-          <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '48px 0' }}>Cargando agentes…</p>
-        )}
-
-        {/* agent grid */}
-        {!loading && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(215px, 1fr))',
-            gap: 12,
-          }}>
-            {filtered.map(a => (
-              <AgentCard key={a.id} agent={a}
-                selected={selectedAgent?.id === a.id}
-                onClick={() => setSelectedAgent(prev => prev?.id === a.id ? null : a)}
-              />
-            ))}
-
-            {/* create new */}
-            <div onClick={() => setShowNewAgent(true)} className="fade-up" style={{
-              background: 'transparent', border: '1px dashed #2a3244', borderRadius: 14,
-              padding: '16px', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 200,
-            }}>
-              <div style={{ width: 36, height: 36, borderRadius: 99, background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px #4f46e540' }}>
-                <RiAddLine style={{ width: 18, height: 18, color: '#fff' }} />
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#818cf8' }}>Crear nuevo agente</p>
-                <p style={{ margin: '3px 0 0', fontSize: 11, color: '#4b5563' }}>Diseña tu agente IA desde cero</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── detail panel ── */}
-      {selectedAgent && (
-        <AgentDetail
-          agent={selectedAgent}
-          onClose={() => setSelectedAgent(null)}
-          onNavigate={navigate}
-          onToggle={handleToggle}
-        />
-      )}
-    </div>
-  )
+    <section className="agents-bottom-grid"><div className="agent-insight-panel"><div><span className="agent-panel-kicker">Knowledge Base</span><h2>Conecta el conocimiento de tu negocio.</h2><p>Gestiona artículos y fuentes desde el espacio de Knowledge Base.</p><button type="button" className="agent-text-action" onClick={() => navigate('/knowledge-base')}>Explorar Knowledge Base <RiArrowRightLine /></button></div><div className="agent-insight-orbit"><RiBookOpenLine /><i /><i /><i /></div></div><div className="agent-activity-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Actividad</span><h3>Actividad por agente</h3></div><RiBarChartLine /></div><p className="agent-panel-intro">La actividad reciente consolidada todavía no está disponible en esta vista.</p></div></section>
+    {toast && <div className="agents-toast" role="status"><RiCheckLine /> {toast}<button type="button" onClick={() => setToast('')} aria-label="Cerrar aviso"><RiCloseLine /></button></div>}
+    {showNewAgent && <NewAgenteModal onClose={() => setShowNewAgent(false)} onSuccess={item => { const agent = normalizeAgent(item); setAgents(current => [agent, ...current]); setSelectedId(agent.id); setStudioTab('tipo'); setShowNewAgent(false); notify('Nuevo agente creado') }} />}
+  </div>
 }

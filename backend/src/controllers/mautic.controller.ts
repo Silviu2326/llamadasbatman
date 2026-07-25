@@ -156,7 +156,7 @@ export async function sendTestEmail(
     ? await mauticSync.createEmailDelivery(orgId, body.testLeadId, { templateExternalId: body.emailId, toAddress: leadEmail })
     : null
 
-  const ok = await mauticSync.sendTestEmail(body.emailId, String(testContactId), delivery?.id)
+  const ok = await mauticSync.sendTestEmail(body.emailId, String(testContactId), delivery?.id, undefined, orgId)
   if (!ok) return reply.status(503).send({ error: 'No se pudo enviar el email de prueba' })
   return reply.send({ ok: true })
 }

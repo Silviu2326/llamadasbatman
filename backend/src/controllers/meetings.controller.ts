@@ -5,7 +5,7 @@ import { OwnershipError, MeetingNotFoundError, MeetingStateError } from '../serv
 import type { MeetingStatus } from '@prisma/client'
 import { parseRequest } from '../lib/validation'
 
-type JWTUser = { userId: string; orgId: string; role: string; email: string }
+type JWTUser = { userId: string; orgId: string; role: string; email: string; workspaceScope?: 'own' | 'team' | 'org' }
 
 const MEETING_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
 
@@ -86,8 +86,8 @@ export async function get(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
-  const meeting = await meetingsService.getMeeting(orgId, request.params.id)
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
+  const meeting = await meetingsService.getMeeting(orgId, { userId, role, workspaceScope }, request.params.id)
   if (!meeting) return reply.status(404).send({ error: 'Not found' })
   return reply.send(meeting)
 }
@@ -98,9 +98,9 @@ export async function prep(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   try {
-    const result = await meetingsService.getMeetingPrep(orgId, request.params.id)
+    const result = await meetingsService.getMeetingPrep(orgId, { userId, role, workspaceScope }, request.params.id)
     return reply.send(result)
   } catch (err) {
     if (err instanceof MeetingNotFoundError) {
@@ -124,10 +124,10 @@ export async function list(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const query = parseRequest(reply, listMeetingsQuerySchema, request.query)
   if (!query) return
-  const result = await meetingsService.listMeetings(orgId, {
+  const result = await meetingsService.listMeetings(orgId, { userId, role, workspaceScope }, {
     assignedTo: query.assignedTo,
     status: query.status as MeetingStatus | undefined,
     dateFrom: query.dateFrom,
@@ -143,12 +143,12 @@ export async function create(
   request: FastifyRequest<{ Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const data = parseRequest(reply, createMeetingSchema, request.body)
   if (!data) return
 
   try {
-    const meeting = await meetingsService.createMeeting(orgId, userId, data)
+    const meeting = await meetingsService.createMeeting(orgId, userId, role, data, workspaceScope)
     return reply.status(201).send(meeting)
   } catch (err) {
     if (err instanceof OwnershipError) {
@@ -165,12 +165,12 @@ export async function update(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const data = parseRequest(reply, updateMeetingSchema, request.body)
   if (!data) return
 
   try {
-    const meeting = await meetingsService.updateMeeting(orgId, userId, request.params.id, data)
+    const meeting = await meetingsService.updateMeeting(orgId, userId, role, request.params.id, data, workspaceScope)
     return reply.send(meeting)
   } catch (err) {
     if (err instanceof MeetingNotFoundError) {
@@ -190,12 +190,12 @@ export async function reschedule(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const data = parseRequest(reply, rescheduleMeetingSchema, request.body)
   if (!data) return
 
   try {
-    const meeting = await meetingsService.rescheduleMeeting(orgId, userId, request.params.id, data)
+    const meeting = await meetingsService.rescheduleMeeting(orgId, userId, role, request.params.id, data, workspaceScope)
     return reply.send(meeting)
   } catch (err) {
     if (err instanceof MeetingNotFoundError) {
@@ -214,12 +214,12 @@ export async function complete(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const data = parseRequest(reply, completeMeetingSchema, request.body)
   if (!data) return
 
   try {
-    const result = await meetingsService.completeMeeting(orgId, userId, request.params.id, data)
+    const result = await meetingsService.completeMeeting(orgId, userId, role, request.params.id, data, workspaceScope)
     return reply.send(result)
   } catch (err) {
     if (err instanceof MeetingNotFoundError) {
@@ -240,12 +240,12 @@ export async function noShow(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const data = parseRequest(reply, noShowMeetingSchema, request.body)
   if (!data) return
 
   try {
-    const meeting = await meetingsService.markNoShow(orgId, userId, request.params.id, data)
+    const meeting = await meetingsService.markNoShow(orgId, userId, role, request.params.id, data, workspaceScope)
     return reply.send(meeting)
   } catch (err) {
     if (err instanceof MeetingNotFoundError) {

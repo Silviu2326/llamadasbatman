@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react'
 import { RiFilterLine } from 'react-icons/ri'
 import useClickOutside from '../../hooks/useClickOutside'
+import { useI18n } from '../../i18n'
 
 export default function FilterDropdown({ filters, activeFilters, onChange, badgeCount = 0 }) {
+  const { locale } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useClickOutside([ref], () => setOpen(false))
@@ -32,7 +34,7 @@ export default function FilterDropdown({ filters, activeFilters, onChange, badge
         }}
       >
         <RiFilterLine style={{ width: 13, height: 13 }} />
-        Filtros
+        {locale === 'en' ? 'Filters' : 'Filtros'}
         {badgeCount > 0 && (
           <span
             style={{

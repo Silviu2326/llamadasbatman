@@ -1606,4 +1606,3 @@ ALTER TABLE "OpportunityLineItem" ADD CONSTRAINT "OpportunityLineItem_opportunit
 
 -- AddForeignKey
 ALTER TABLE "OpportunityLineItem" ADD CONSTRAINT "OpportunityLineItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-

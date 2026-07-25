@@ -1,6 +1,7 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import {
   RiArrowLeftLine, RiCalendarLine, RiVideoLine, RiUserLine,
   RiEditLine, RiCloseLine, RiCheckLine, RiTimeLine,
@@ -10,32 +11,32 @@ import '../dashboard.css'
 import NewReunionModal from '../modals/NewReunionModal'
 
 const BG_POOL = ['#2563eb','#0891b2','#7c3aed','#b45309','#be185d','#059669','#d97706','#0d9488']
-const STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistiÃ³' }
+const STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistió' }
 const STATUS_COLOR = { scheduled:'#10b981', completed:'#6b7280', cancelled:'#ef4444', no_show:'#f59e0b' }
 const PLATFORM_COLORS = { google:'#34a853', zoom:'#2D8CFF', teams:'#5b5ea6' }
-const TABS = ['PreparaciÃ³n', 'Notas', 'Historial']
+const TABS = ['Preparación', 'Notas', 'Historial']
 
-// RE-108: mapeos de labels para los datos reales de preparaciÃ³n (nada de
-// constantes decorativas â€” solo texto para presentar valores del backend).
+// RE-108: mapeos de labels para los datos reales de preparación (nada de
+// constantes decorativas — solo texto para presentar valores del backend).
 const LEAD_STATUS_LABEL = { new:'Nuevo', contacted:'Contactado', qualified:'Interesado', unqualified:'Perdido', converted:'Ganado' }
-const OPP_STAGE_LABEL = { lead:'Lead', qualified:'Calificada', proposal:'Propuesta', negotiation:'NegociaciÃ³n', closed_won:'Ganada', closed_lost:'Perdida' }
-const MEETING_STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistiÃ³' }
-const CALL_STATUS_LABEL = { completed:'Completada', failed:'Fallida', no_answer:'Sin respuesta', busy:'OcupÃ³' }
+const OPP_STAGE_LABEL = { lead:'Lead', qualified:'Calificada', proposal:'Propuesta', negotiation:'Negociación', closed_won:'Ganada', closed_lost:'Perdida' }
+const MEETING_STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistió' }
+const CALL_STATUS_LABEL = { completed:'Completada', failed:'Fallida', no_answer:'Sin respuesta', busy:'Ocupó' }
 const SALES_ACTIVITY_TYPE_LABEL = {
   call:'Llamada', message:'Mensaje', email:'Email', note:'Nota', file:'Archivo',
-  meeting:'ReuniÃ³n', status_change:'Cambio de estado', stage_change:'Cambio de etapa', task:'Tarea',
+  meeting:'Reunión', status_change:'Cambio de estado', stage_change:'Cambio de etapa', task:'Tarea',
 }
 
 function fmtDate(iso) {
-  if (!iso) return 'â€”'
-  return new Date(iso).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString(localeCode(getLocale()), { day:'2-digit', month:'short', year:'numeric' })
 }
 
 function fmtMoney(value, currency) {
-  if (value === null || value === undefined) return 'â€”'
+  if (value === null || value === undefined) return '—'
   const n = typeof value === 'string' ? parseFloat(value) : value
-  if (Number.isNaN(n)) return 'â€”'
-  return new Intl.NumberFormat('es-ES', { style:'currency', currency: currency || 'EUR', maximumFractionDigits:0 }).format(n)
+  if (Number.isNaN(n)) return '—'
+  return new Intl.NumberFormat(localeCode(getLocale()), { style:'currency', currency: currency || 'EUR', maximumFractionDigits:0 }).format(n)
 }
 
 function Avatar({ name, bg, size = 40 }) {
@@ -56,25 +57,25 @@ function mapRaw(data, id) {
   const dur = data.durationMinutes ?? 30
   const end = new Date(d.getTime() + dur * 60000)
   const now = new Date()
-  const time = d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })
-  const endTime = end.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })
+  const time = d.toLocaleTimeString(localeCode(getLocale()), { hour:'2-digit', minute:'2-digit' })
+  const endTime = end.toLocaleTimeString(localeCode(getLocale()), { hour:'2-digit', minute:'2-digit' })
   // derive a stable color from the id
   const idx = id ? id.charCodeAt(0) % BG_POOL.length : 0
   return {
     id: data.id,
     status: data.status,
     lead: {
-      name: data.lead?.name ?? 'â€”',
-      company: data.lead?.company ?? 'â€”',
+      name: data.lead?.name ?? '—',
+      company: data.lead?.company ?? '—',
       role: '',
       bg: BG_POOL[idx],
     },
     agent: {
-      name: data.assignee?.name ?? 'â€”',
+      name: data.assignee?.name ?? '—',
       role: data.assignee?.role ?? '',
       bg: '#4f46e5',
     },
-    date: d.toLocaleDateString('es-ES'),
+    date: d.toLocaleDateString(localeCode(getLocale())),
     range: `${time} - ${endTime}`,
     dur: `${dur} min`,
     platform: data.meetingUrl?.includes('zoom') ? 'zoom' : 'google',
@@ -86,7 +87,7 @@ function mapRaw(data, id) {
     title: data.title ?? '',
     summary: '',
     notes: data.notes ?? '',
-    value: 'â€”', leadStatus: 'â€”', leadStatusColor: '#94a3b8',
+    value: '—', leadStatus: '—', leadStatusColor: '#94a3b8',
     priority: 'Media', prioColor: '#60a5fa',
     resources: [],
     meetingUrl: data.meetingUrl,
@@ -97,11 +98,12 @@ function mapRaw(data, id) {
 }
 
 export default function MeetingDetailPage() {
+  const { locale } = useI18n()
   const { id } = useParams()
   const navigate = useNavigate()
   const [mtg, setMtg] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('PreparaciÃ³n')
+  const [tab, setTab] = useState('Preparación')
   const [showCancel, setShowCancel] = useState(false)
   const [showReschedule, setShowReschedule] = useState(false)
   const [notes, setNotes] = useState('')
@@ -113,8 +115,8 @@ export default function MeetingDetailPage() {
   const [completing, setCompleting] = useState(false)
   const [markingNoShow, setMarkingNoShow] = useState(false)
   const [resultError, setResultError] = useState('')
-  // RE-108: contexto real de preparaciÃ³n (lead, notas, llamadas, oportunidad
-  // abierta, actividad y reuniones previas) â€” nunca datos inventados.
+  // RE-108: contexto real de preparación (lead, notas, llamadas, oportunidad
+  // abierta, actividad y reuniones previas) — nunca datos inventados.
   const [prep, setPrep] = useState(null)
   const [prepLoading, setPrepLoading] = useState(true)
   const [prepError, setPrepError] = useState(false)
@@ -218,13 +220,13 @@ export default function MeetingDetailPage() {
 
   if (loading) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      Cargandoâ€¦
+      {locale === 'en' ? 'Loading…' : 'Cargando…'}
     </div>
   )
 
   if (!mtg) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
-      ReuniÃ³n no encontrada
+      {locale === 'en' ? 'Meeting not found' : 'Reunión no encontrada'}
     </div>
   )
 
@@ -264,7 +266,7 @@ export default function MeetingDetailPage() {
                   <RiCalendarLine style={{ width:12, height:12 }} /> {mtg.date}
                 </span>
                 <span style={{ fontSize:12, color:'#4b5563', display:'flex', alignItems:'center', gap:5 }}>
-                  <RiTimeLine style={{ width:12, height:12 }} /> {mtg.range} Â· {mtg.dur}
+                  <RiTimeLine style={{ width:12, height:12 }} /> {mtg.range} · {mtg.dur}
                 </span>
                 <span style={{ fontSize:12, fontWeight:700, color:platColor, textTransform:'capitalize', display:'flex', alignItems:'center', gap:5 }}>
                   <RiVideoLine style={{ width:12, height:12 }} /> {mtg.platform}
@@ -355,17 +357,17 @@ export default function MeetingDetailPage() {
             ))}
           </div>
 
-          {tab === 'PreparaciÃ³n' && (
+          {tab === 'Preparación' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               {prepLoading && (
                 <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563', textAlign:'center' }}>Cargando contexto del leadâ€¦</p>
+                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563', textAlign:'center' }}>Cargando contexto del lead…</p>
                 </div>
               )}
 
               {!prepLoading && prepError && (
                 <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                  <p style={{ margin:0, fontSize:12.5, color:'#ef4444', textAlign:'center' }}>No se pudo cargar el contexto de preparaciÃ³n</p>
+                  <p style={{ margin:0, fontSize:12.5, color:'#ef4444', textAlign:'center' }}>No se pudo cargar el contexto de preparación</p>
                 </div>
               )}
 
@@ -382,11 +384,11 @@ export default function MeetingDetailPage() {
                         </div>
                         <div>
                           <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Empresa</p>
-                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.lead.company || 'â€”'}</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.lead.company || '—'}</p>
                         </div>
                         <div>
                           <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>Contacto</p>
-                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.lead.email || prep.lead.phone || 'â€”'}</p>
+                          <p style={{ margin:0, fontSize:12.5, color:'#e2e8f0', fontWeight:600 }}>{prep.lead.email || prep.lead.phone || '—'}</p>
                         </div>
                       </div>
                     ) : (
@@ -400,21 +402,21 @@ export default function MeetingDetailPage() {
                     {prep.recentNotes?.length ? prep.recentNotes.map(n => (
                       <div key={n.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
                         <p style={{ margin:'0 0 3px', fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>{n.text}</p>
-                        <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>{n.authorName} Â· {fmtDate(n.createdAt)}</p>
+                        <p style={{ margin:0, fontSize:10.5, color:'#4b5563' }}>{n.authorName} · {fmtDate(n.createdAt)}</p>
                       </div>
                     )) : (
                       <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin notas previas</p>
                     )}
                   </div>
 
-                  {/* Ãšltimas llamadas */}
+                  {/* Últimas llamadas */}
                   <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Ãšltimas llamadas</p>
+                    <p style={{ margin:'0 0 10px', fontSize:12.5, fontWeight:700, color:'#e2e8f0' }}>Últimas llamadas</p>
                     {prep.recentCalls?.length ? prep.recentCalls.map(c => (
                       <div key={c.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
                           <span style={{ fontSize:11, fontWeight:700, color:'#e2e8f0' }}>{CALL_STATUS_LABEL[c.status] ?? c.status}</span>
-                          {c.sentiment && <span style={{ fontSize:10.5, color:'#4b5563' }}>Â· {c.sentiment}</span>}
+                          {c.sentiment && <span style={{ fontSize:10.5, color:'#4b5563' }}>· {c.sentiment}</span>}
                           <span style={{ fontSize:10.5, color:'#4b5563', marginLeft:'auto' }}>{fmtDate(c.startedAt || c.createdAt)}</span>
                         </div>
                         <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>{c.summary || 'Sin resumen disponible'}</p>
@@ -460,7 +462,7 @@ export default function MeetingDetailPage() {
                           <span style={{ fontSize:11, fontWeight:700, color:'#818cf8' }}>{SALES_ACTIVITY_TYPE_LABEL[a.type] ?? a.type}</span>
                           <span style={{ fontSize:10.5, color:'#4b5563', marginLeft:'auto' }}>{fmtDate(a.occurredAt)}</span>
                         </div>
-                        <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>{a.subject || a.body || 'â€”'}</p>
+                        <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>{a.subject || a.body || '—'}</p>
                       </div>
                     )) : (
                       <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin actividad reciente</p>
@@ -474,11 +476,11 @@ export default function MeetingDetailPage() {
                       <div key={m.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:'1px solid #1a2235' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
                           <span style={{ fontSize:11, fontWeight:700, color:'#e2e8f0' }}>{m.title}</span>
-                          <span style={{ fontSize:10.5, color:'#4b5563', marginLeft:'auto' }}>{fmtDate(m.scheduledAt)} Â· {MEETING_STATUS_LABEL[m.status] ?? m.status}</span>
+                          <span style={{ fontSize:10.5, color:'#4b5563', marginLeft:'auto' }}>{fmtDate(m.scheduledAt)} · {MEETING_STATUS_LABEL[m.status] ?? m.status}</span>
                         </div>
                         {m.status === 'completed' ? (
                           <p style={{ margin:0, fontSize:12.5, color:'#94a3b8', lineHeight:1.5 }}>
-                            {m.outcome}{m.agreements ? ` â€” Acuerdos: ${m.agreements}` : ''}
+                            {m.outcome}{m.agreements ? ` — Acuerdos: ${m.agreements}` : ''}
                           </p>
                         ) : (
                           <p style={{ margin:0, fontSize:12.5, color:'#4b5563', fontStyle:'italic' }}>Sin resultado registrado</p>
@@ -499,7 +501,7 @@ export default function MeetingDetailPage() {
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 onBlur={saveNotes}
-                placeholder="Escribe tus notas aquÃ­..."
+                placeholder="Escribe tus notas aquí..."
                 style={{
                   width:'100%', minHeight:180, background:'transparent', border:'none',
                   color:'#94a3b8', fontSize:13, outline:'none', resize:'vertical', lineHeight:1.6,
@@ -508,7 +510,7 @@ export default function MeetingDetailPage() {
               />
               <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8 }}>
                 <button onClick={saveNotes} style={{ background:'#4f46e5', border:'none', borderRadius:7, padding:'6px 14px', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                  {notesSaving ? 'Guardandoâ€¦' : 'Guardar notas'}
+                  {notesSaving ? 'Guardando…' : 'Guardar notas'}
                 </button>
               </div>
             </div>
@@ -516,7 +518,7 @@ export default function MeetingDetailPage() {
 
           {tab === 'Historial' && (
             <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-              <p style={{ margin:0, fontSize:13, color:'#4b5563', textAlign:'center', padding:'20px 0' }}>Historial disponible tras completar la reuniÃ³n</p>
+              <p style={{ margin:0, fontSize:13, color:'#4b5563', textAlign:'center', padding:'20px 0' }}>Historial disponible tras completar la reunión</p>
             </div>
           )}
         </div>
@@ -595,11 +597,11 @@ export default function MeetingDetailPage() {
       {showCancel && (
         <div onClick={() => setShowCancel(false)} style={{ position:'fixed', inset:0, zIndex:100, background:'#000a', display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:14, padding:'24px', width:340, boxShadow:'0 40px 80px #0009' }}>
-            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:700, color:'#f1f5f9' }}>Â¿Cancelar esta reuniÃ³n?</p>
-            <p style={{ margin:'0 0 18px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>Se marcarÃ¡ como cancelada.</p>
+            <p style={{ margin:'0 0 6px', fontSize:16, fontWeight:700, color:'#f1f5f9' }}>¿Cancelar esta reunión?</p>
+            <p style={{ margin:'0 0 18px', fontSize:13, color:'#6b7280', lineHeight:1.5 }}>Se marcará como cancelada.</p>
             <div style={{ display:'flex', gap:10 }}>
               <button onClick={() => setShowCancel(false)} style={{ flex:1, padding:'9px 0', background:'none', border:'1px solid #1e2433', borderRadius:9, color:'#94a3b8', fontSize:13, cursor:'pointer' }}>No cancelar</button>
-              <button onClick={cancelMeeting} style={{ flex:1, padding:'9px 0', background:'#ef444415', border:'1px solid #ef444430', borderRadius:9, color:'#ef4444', fontSize:13, fontWeight:700, cursor:'pointer' }}>Cancelar reuniÃ³n</button>
+              <button onClick={cancelMeeting} style={{ flex:1, padding:'9px 0', background:'#ef444415', border:'1px solid #ef444430', borderRadius:9, color:'#ef4444', fontSize:13, fontWeight:700, cursor:'pointer' }}>Cancelar reunión</button>
             </div>
           </div>
         </div>

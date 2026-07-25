@@ -19,8 +19,10 @@ import { CSS } from '@dnd-kit/utilities'
 import { RiCloseLine } from 'react-icons/ri'
 import KPICard from '../KPICard'
 import { KPI_WIDGET_IDS, KPI_INDEX_MAP } from '../../dashboardConfig'
+import { useI18n } from '../../i18n'
 
 function SortableKpiItem({ id, kpi, isEditMode, onRemove }) {
+  const { locale } = useI18n()
   const {
     attributes,
     listeners,
@@ -56,7 +58,7 @@ function SortableKpiItem({ id, kpi, isEditMode, onRemove }) {
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          title="Quitar KPI"
+          title={locale === 'en' ? 'Remove KPI' : 'Quitar KPI'}
         >
           <RiCloseLine style={{ width:12, height:12 }} />
         </button>

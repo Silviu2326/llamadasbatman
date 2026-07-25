@@ -41,30 +41,44 @@ async function seedAdPlaybooks() {
   console.log(`Ad playbooks: ${AD_PLAYBOOKS.length} sembrados`)
 }
 
-async function main() {
-  await seedAdPlaybooks()
+/**
+ * A demo account is opt-in, development-only and must use credentials supplied
+ * by the operator. Seeds must never create or print a predictable admin.
+ */
+async function seedDevelopmentUser() {
+  if (process.env.NODE_ENV !== 'development' || process.env.SEED_DEMO_USER !== 'true') return
+
+  const email = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase()
+  const password = process.env.SEED_ADMIN_PASSWORD
+  if (!email || !password || password.length < 12) {
+    throw new Error('SEED_DEMO_USER requiere SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD (mínimo 12 caracteres)')
+  }
+
   const org = await prisma.organization.upsert({
-    where: { id: 'seed-org' },
+    where: { id: process.env.SEED_ORG_ID?.trim() || 'local-development-org' },
     update: {},
-    create: { id: 'seed-org', name: 'Vozia Demo', plan: 'pro' },
+    create: { id: process.env.SEED_ORG_ID?.trim() || 'local-development-org', name: process.env.SEED_ORG_NAME?.trim() || 'Vozia Local', plan: 'pro' },
   })
-
-  const passwordHash = await bcrypt.hash('admin1234', 10)
-
+  const passwordHash = await bcrypt.hash(password, 12)
   const user = await prisma.user.upsert({
-    where: { email: 'admin@vozia.ai' },
-    update: {},
+    where: { email },
+    update: { passwordHash, orgId: org.id, name: process.env.SEED_ADMIN_NAME?.trim() || 'Propietario local', role: 'owner' },
     create: {
       orgId: org.id,
-      email: 'admin@vozia.ai',
+      email,
       passwordHash,
-      name: 'Admin',
-      role: 'admin',
+      name: process.env.SEED_ADMIN_NAME?.trim() || 'Propietario local',
+      // Bootstrap explicito y solo de desarrollo. En operacion normal un
+      // owner adicional siempre requiere solicitud y aprobacion de otro owner.
+      role: 'owner',
     },
   })
+  console.log(`Usuario local creado/actualizado: ${user.email}`)
+}
 
-  console.log(`Org: ${org.name}`)
-  console.log(`User: ${user.email} / admin1234`)
+async function main() {
+  await seedAdPlaybooks()
+  await seedDevelopmentUser()
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect())

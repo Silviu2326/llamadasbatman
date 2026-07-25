@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ops:production-gate": "node scripts/production-gate.mjs",
+    "ops:prisma-audit": "node scripts/prisma-readiness-audit.mjs"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.1",

@@ -46,6 +46,24 @@ test('eventos no reconocidos en el catálogo canónico no disparan ningún run (
   assert.equal(result.triggered, 0)
 })
 
+test('los eventos de oportunidad publicados por pipeline sí llegan al motor', async () => {
+  const automation = await createAutomation(org.id, {
+    name: 'Test opportunity.created',
+    trigger: { event: 'opportunity.created' },
+    actions: [{ type: 'log' }],
+  })
+
+  const result = await runAutomationsForEvent(org.id, 'opportunity.created', {
+    eventId: `test-opportunity-${automation.id}`,
+    opportunityId: 'fake-opportunity-id',
+  })
+
+  assert.equal(result.triggered, 1)
+  const run = await prisma.automationRun.findFirst({ where: { orgId: org.id, automationId: automation.id } })
+  assert.ok(run)
+  assert.equal(run!.status, 'succeeded')
+})
+
 test('un run ejecuta el snapshot de AutomationVersion, no automation.actions en vivo tras editarla', async () => {
   const automation = await createAutomation(org.id, {
     name: 'Test versioned log',

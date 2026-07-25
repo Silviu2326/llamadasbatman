@@ -14,6 +14,61 @@ interface CallFilters {
   limit?: number
 }
 
+export interface VoiceResourceIds {
+  orgId: string
+  leadId?: string
+  agentId?: string
+  campaignId?: string
+}
+
+export class InvalidVoiceContextError extends Error {
+  readonly statusCode = 400
+
+  constructor(message = 'Invalid voice resource context') {
+    super(message)
+    this.name = 'InvalidVoiceContextError'
+  }
+}
+
+/**
+ * Validates all voice references against the same tenant. Relationship
+ * checks are enforced when the records declare one, while nullable legacy
+ * relationships remain compatible with existing calls.
+ */
+export async function validateVoiceResourceOwnership(
+  ids: VoiceResourceIds,
+  options: { requireAll?: boolean; requireActiveAgent?: boolean; callDirection?: 'inbound' | 'outbound' } = {},
+): Promise<boolean> {
+  const orgId = ids.orgId?.trim()
+  const leadId = ids.leadId?.trim()
+  const agentId = ids.agentId?.trim()
+  const campaignId = ids.campaignId?.trim()
+
+  if (!orgId) return false
+  if (options.requireAll && (!leadId || !agentId || !campaignId)) return false
+  if (!leadId && !agentId && !campaignId) return false
+
+  const [lead, agent, campaign] = await Promise.all([
+    leadId
+      ? prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { id: true, campaignId: true } })
+      : Promise.resolve(null),
+    agentId
+      ? prisma.agent.findFirst({ where: { id: agentId, orgId, ...(options.requireActiveAgent ? { isActive: true } : {}) }, select: { id: true, callDirection: true } })
+      : Promise.resolve(null),
+    campaignId
+      ? prisma.campaign.findFirst({ where: { id: campaignId, orgId }, select: { id: true, agentId: true } })
+      : Promise.resolve(null),
+  ])
+
+  if (leadId && !lead) return false
+  if (agentId && !agent) return false
+  if (agent && options.callDirection && agent.callDirection !== 'both' && agent.callDirection !== options.callDirection) return false
+  if (campaignId && !campaign) return false
+  if (lead?.campaignId && campaignId && lead.campaignId !== campaignId) return false
+  if (campaign?.agentId && agentId && campaign.agentId !== agentId) return false
+  return true
+}
+
 export async function listCalls(orgId: string, filters: CallFilters = {}) {
   const { agentId, campaignId, status, dateFrom, dateTo, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
@@ -50,6 +105,81 @@ export async function getCall(orgId: string, id: string) {
   })
 }
 
+export async function getCallTrace(orgId: string, callId: string, limit = 1000) {
+  const call = await prisma.call.findFirst({
+    where: { id: callId, orgId },
+    select: { id: true, externalCallId: true, runtimeSnapshot: true, startedAt: true, endedAt: true },
+  })
+  if (!call) return null
+
+  const safeLimit = Math.min(Math.max(limit, 1), 5000)
+  const [events, metrics] = await Promise.all([
+    prisma.voiceCallEvent.findMany({
+      where: { callId, orgId },
+      orderBy: { seq: 'asc' },
+      take: safeLimit,
+    }),
+    prisma.voiceCallMetric.findMany({
+      where: { callId, orgId },
+      orderBy: { createdAt: 'asc' },
+    }),
+  ])
+
+  return { call, events, metrics }
+}
+
+export async function getVoiceMetrics(orgId: string, from?: string, to?: string) {
+  const createdAt = {
+    ...(from ? { gte: new Date(from) } : {}),
+    ...(to ? { lte: new Date(to) } : {}),
+  }
+  const rows = await prisma.voiceCallMetric.findMany({
+    where: { orgId, ...(from || to ? { createdAt } : {}) },
+    select: { metric: true, value: true, unit: true, dimensions: true, createdAt: true },
+    orderBy: { createdAt: 'asc' },
+    take: 10_000,
+  })
+
+  const grouped = new Map<string, { metric: string; unit: string | null; count: number; sum: number; min: number; max: number }>()
+  for (const row of rows) {
+    const current = grouped.get(row.metric) ?? {
+      metric: row.metric,
+      unit: row.unit,
+      count: 0,
+      sum: 0,
+      min: row.value,
+      max: row.value,
+    }
+    current.count += 1
+    current.sum += row.value
+    current.min = Math.min(current.min, row.value)
+    current.max = Math.max(current.max, row.value)
+    grouped.set(row.metric, current)
+  }
+
+  return {
+    from: from ?? null,
+    to: to ?? null,
+    metrics: [...grouped.values()].map(item => ({
+      ...item,
+      average: item.count > 0 ? item.sum / item.count : 0,
+    })),
+  }
+}
+
+export async function getCallEvaluation(orgId: string, callId: string) {
+  const call = await prisma.call.findFirst({ where: { id: callId, orgId }, select: { id: true } })
+  if (!call) return null
+  return prisma.voiceCallEvaluation.findUnique({ where: { callId } })
+}
+
+export async function getCallMetrics(orgId: string, callId: string) {
+  const call = await prisma.call.findFirst({ where: { id: callId, orgId }, select: { id: true, runtimeSnapshot: true } })
+  if (!call) return null
+  const metrics = await prisma.voiceCallMetric.findMany({ where: { callId, orgId }, orderBy: { createdAt: 'asc' } })
+  return { call, metrics }
+}
+
 export async function ingestCall(
   orgId: string,
   data: {
@@ -65,10 +195,21 @@ export async function ingestCall(
     sentimentScore?: number
     summary?: string
     outcome?: string
+    contactClassification?: string
+    contactClassificationConfidence?: number
+    amdResult?: unknown
     startedAt?: string
     endedAt?: string
   }
 ) {
+  const validContext = await validateVoiceResourceOwnership({
+    orgId,
+    leadId: data.leadId,
+    agentId: data.agentId,
+    campaignId: data.campaignId,
+  })
+  if (!validContext) throw new InvalidVoiceContextError()
+
   let created = false
   let call = data.externalCallId
     ? await prisma.call.findUnique({
@@ -94,6 +235,9 @@ export async function ingestCall(
           sentimentScore: data.sentimentScore,
           summary: data.summary,
           outcome: data.outcome ?? 'none',
+          contactClassification: data.contactClassification,
+          contactClassificationConfidence: data.contactClassificationConfidence,
+          amdResult: data.amdResult ? (data.amdResult as Prisma.InputJsonValue) : undefined,
           startedAt: data.startedAt ? new Date(data.startedAt) : undefined,
           endedAt: data.endedAt ? new Date(data.endedAt) : undefined,
         },
@@ -110,6 +254,48 @@ export async function ingestCall(
   // FND-02: se persiste aquí, junto al resultado final de la llamada, así el
   // timeline queda registrado tanto para el webhook (calls.controller.ts)
   // como para la voz en vivo (mediaStream.ts), únicos llamantes de ingestCall.
+  if (
+    call && (
+      call.leadId !== data.leadId ||
+      (data.agentId !== undefined && call.agentId !== data.agentId) ||
+      (data.campaignId !== undefined && call.campaignId !== data.campaignId)
+    )
+  ) {
+    throw new InvalidVoiceContextError('Voice call context does not match the existing call')
+  }
+
+  // A provider can retry after the Call row was committed but before the
+  // downstream work finished. Reconcile the fields supplied by the retry so
+  // a partial first attempt can be repaired without regressing a richer
+  // outcome to the provider's default "none" value.
+  if (!created) {
+    const incomingOutcome = data.outcome && data.outcome !== 'none' ? data.outcome : undefined
+    call = await prisma.call.update({
+      where: { id: call.id },
+      data: {
+        status: 'completed',
+        durationSeconds: data.duration,
+        recordingUrl: data.recordingUrl,
+        transcript: data.transcript,
+        transcriptWords: data.transcriptWords ? (data.transcriptWords as Prisma.InputJsonValue) : undefined,
+        sentiment: data.sentiment,
+        sentimentScore: data.sentimentScore,
+        summary: data.summary,
+        outcome: incomingOutcome,
+        contactClassification: data.contactClassification,
+        contactClassificationConfidence: data.contactClassificationConfidence,
+        amdResult: data.amdResult ? (data.amdResult as Prisma.InputJsonValue) : undefined,
+        startedAt: data.startedAt ? new Date(data.startedAt) : undefined,
+        endedAt: data.endedAt ? new Date(data.endedAt) : undefined,
+      },
+    })
+  }
+
+  const effectiveOutcome = data.outcome && data.outcome !== 'none'
+    ? data.outcome
+    : call.outcome
+  const effectiveCampaignId = data.campaignId ?? call.campaignId
+
   await logSalesActivity({
     orgId,
     type: 'call',
@@ -126,7 +312,8 @@ export async function ingestCall(
   const conversation = await ensureConversationForLead(orgId, data.leadId)
   const eventId = `call.completed:${data.externalCallId ?? call.id}`
   const messageBody = data.summary
-    ?? (data.outcome === 'meeting_scheduled' ? 'Llamada completada · reunión agendada' : 'Llamada completada')
+    ?? call.summary
+    ?? (effectiveOutcome === 'meeting_scheduled' ? 'Llamada completada · reunión agendada' : 'Llamada completada')
 
   await prisma.$transaction(async tx => {
     await tx.message.upsert({
@@ -142,14 +329,14 @@ export async function ingestCall(
         body: messageBody,
         status: 'recorded',
         externalEventId: eventId,
-        deliveredAt: data.endedAt ? new Date(data.endedAt) : new Date(),
+        deliveredAt: call.endedAt ?? new Date(),
         metadata: {
           callId: call.id,
           externalCallId: data.externalCallId ?? null,
-          durationSeconds: data.duration ?? null,
-          outcome: data.outcome ?? 'none',
-          recordingUrl: data.recordingUrl ?? null,
-          sentiment: data.sentiment ?? null,
+          durationSeconds: call.durationSeconds ?? null,
+          outcome: effectiveOutcome ?? 'none',
+          recordingUrl: call.recordingUrl ?? null,
+          sentiment: call.sentiment ?? null,
         },
       },
       update: {
@@ -158,10 +345,10 @@ export async function ingestCall(
         metadata: {
           callId: call.id,
           externalCallId: data.externalCallId ?? null,
-          durationSeconds: data.duration ?? null,
-          outcome: data.outcome ?? 'none',
-          recordingUrl: data.recordingUrl ?? null,
-          sentiment: data.sentiment ?? null,
+          durationSeconds: call.durationSeconds ?? null,
+          outcome: effectiveOutcome ?? 'none',
+          recordingUrl: call.recordingUrl ?? null,
+          sentiment: call.sentiment ?? null,
         },
       },
     })
@@ -169,50 +356,65 @@ export async function ingestCall(
       where: { id: conversation.id },
       data: { lastMessageAt: data.endedAt ? new Date(data.endedAt) : new Date() },
     })
-    if (created) {
-      await tx.outboxEvent.create({
-        data: {
-          orgId,
-          topic: 'call.completed',
-          aggregateType: 'Call',
-          aggregateId: call.id,
-          payload: {
-            eventId,
-            callId: call.id,
-            leadId: data.leadId,
-            conversationId: conversation.id,
-            campaignId: data.campaignId ?? null,
-            outcome: data.outcome ?? 'none',
-            durationSeconds: data.duration ?? null,
+    // Repair a missing outbox event after a crash between the Call commit and
+    // event publication. Existing installations do not yet have a business
+    // unique key for this aggregate, so we first query by aggregate and also
+    // use a deterministic primary key to make concurrent retries converge.
+    const existingOutbox = await tx.outboxEvent.findFirst({
+      where: { orgId, topic: 'call.completed', aggregateType: 'Call', aggregateId: call.id },
+      select: { id: true },
+    })
+    if (!existingOutbox) {
+      try {
+        await tx.outboxEvent.create({
+          data: {
+            id: `call-completed-${call.id}`,
+            orgId,
+            topic: 'call.completed',
+            aggregateType: 'Call',
+            aggregateId: call.id,
+            payload: {
+              eventId,
+              callId: call.id,
+              leadId: data.leadId,
+              conversationId: conversation.id,
+              campaignId: effectiveCampaignId ?? null,
+              outcome: effectiveOutcome ?? 'none',
+              durationSeconds: call.durationSeconds ?? null,
+            },
           },
-        },
-      })
+        })
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error
+        // Another retry won the deterministic insert. The domain row is
+        // already durable and the queue call below remains deduplicated.
+      }
     }
   })
 
-  if (!created) return call
-
   // Update lead status to contacted if it was new
-  await prisma.lead.updateMany({
-    where: { id: data.leadId, orgId, status: 'new' },
-    data: { status: 'contacted' },
-  })
-
-  // Update campaign stats
-  if (data.campaignId) {
-    await prisma.campaign.updateMany({
-      where: { id: data.campaignId, orgId },
-      data: { contacted: { increment: 1 } },
+  if (created) {
+    await prisma.lead.updateMany({
+      where: { id: data.leadId, orgId, status: 'new' },
+      data: { status: 'contacted' },
     })
-  }
 
-  // Auto-create meeting if outcome is meeting_scheduled
-  if (data.outcome === 'meeting_scheduled') {
-    await createAutoMeeting(orgId, data.leadId, call.id)
-
+    // Update campaign stats only once for the initial call event.
     if (data.campaignId) {
       await prisma.campaign.updateMany({
         where: { id: data.campaignId, orgId },
+        data: { contacted: { increment: 1 } },
+      })
+    }
+  }
+
+  // Auto-create meeting if outcome is meeting_scheduled
+  if (effectiveOutcome === 'meeting_scheduled') {
+    const meetingResult = await ensureAutoMeeting(orgId, data.leadId, call.id)
+
+    if (meetingResult.created && effectiveCampaignId) {
+      await prisma.campaign.updateMany({
+        where: { id: effectiveCampaignId, orgId },
         data: { meetingsScheduled: { increment: 1 } },
       })
     }
@@ -223,31 +425,49 @@ export async function ingestCall(
     callId: call.id,
     leadId: data.leadId,
     conversationId: conversation.id,
-    campaignId: data.campaignId,
-    outcome: data.outcome ?? 'none',
-    durationSeconds: data.duration,
+    campaignId: effectiveCampaignId,
+    outcome: effectiveOutcome ?? 'none',
+    durationSeconds: call.durationSeconds,
   }, eventId)
 
   return call
 }
 
 export async function createAutoMeeting(orgId: string, leadId: string, callId: string) {
+  return (await ensureAutoMeeting(orgId, leadId, callId)).meeting
+}
+
+async function ensureAutoMeeting(orgId: string, leadId: string, callId: string) {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   tomorrow.setHours(10, 0, 0, 0)
 
   const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
+  const existing = await prisma.meeting.findFirst({ where: { orgId, callId } })
+  if (existing) return { meeting: existing, created: false }
 
-  return prisma.meeting.create({
-    data: {
-      orgId,
-      leadId,
-      callId,
-      title: `Meeting with ${lead?.name ?? 'Lead'}`,
-      scheduledAt: tomorrow,
-      status: 'scheduled',
-    },
-  })
+  // The deterministic id closes the race between two provider retries even
+  // before a dedicated business unique index is present in every database.
+  const id = `auto-call-${callId}`
+  try {
+    const meeting = await prisma.meeting.create({
+      data: {
+        id,
+        orgId,
+        leadId,
+        callId,
+        title: `Meeting with ${lead?.name ?? 'Lead'}`,
+        scheduledAt: tomorrow,
+        status: 'scheduled',
+      },
+    })
+    return { meeting, created: true }
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error
+    const raced = await prisma.meeting.findFirst({ where: { orgId, callId } })
+    if (raced) return { meeting: raced, created: false }
+    throw error
+  }
 }
 
 export async function listLiveCalls(orgId: string) {

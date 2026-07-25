@@ -1,19 +1,24 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middlewares/authenticate'
-import { authorize } from '../middlewares/authorize'
+import { requireEntitlement, requirePermission } from '../access-control'
 import * as ctrl from '../controllers/automations.controller'
 
 export async function automationsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
-  app.get('/', ctrl.list)
-  app.get('/health', { preHandler: authorize(['admin']) }, ctrl.health)
-  app.post('/', { preHandler: authorize(['admin', 'agent']) }, ctrl.create as any)
-  app.get('/:id', ctrl.get)
-  app.get('/:id/runs', ctrl.listRuns as any)
-  app.get('/:id/runs/:runId', ctrl.getRunDetail)
-  app.get('/:id/versions', ctrl.listVersions as any)
-  app.post('/:id/publish', { preHandler: authorize(['admin', 'agent']) }, ctrl.publish as any)
-  app.put('/:id/toggle', { preHandler: authorize(['admin', 'agent']) }, ctrl.toggle as any)
-  app.delete('/:id', { preHandler: authorize(['admin', 'agent']) }, ctrl.remove as any)
+  const canRead = { preHandler: [requirePermission('automations.read', { scope: 'org' }), requireEntitlement('automations')] }
+  const canWrite = { preHandler: [requirePermission('automations.write', { scope: 'org' }), requireEntitlement('automations')] }
+  const canPublish = { preHandler: [requirePermission('automations.publish', { scope: 'org' }), requireEntitlement('automations')] }
+  const canCreate = { preHandler: [requirePermission('automations.write', { scope: 'org' }), requireEntitlement('automations', { limit: { resource: 'automations' } })] }
+
+  app.get('/', canRead, ctrl.list)
+  app.get('/health', canRead, ctrl.health)
+  app.post('/', canCreate, ctrl.create as any)
+  app.get('/:id', canRead, ctrl.get as any)
+  app.get('/:id/runs', canRead, ctrl.listRuns as any)
+  app.get('/:id/runs/:runId', canRead, ctrl.getRunDetail as any)
+  app.get('/:id/versions', canRead, ctrl.listVersions as any)
+  app.post('/:id/publish', canPublish, ctrl.publish as any)
+  app.put('/:id/toggle', canPublish, ctrl.toggle as any)
+  app.delete('/:id', canWrite, ctrl.remove as any)
 }

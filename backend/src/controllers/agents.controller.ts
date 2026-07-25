@@ -1,7 +1,27 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import * as agentsService from '../services/agents.service'
+import { parseRequest } from '../lib/validation'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
+
+const AGENT_TYPES = ['sales', 'receptionist', 'qualification', 'appointment', 'support', 'collections', 'handoff'] as const
+const CALL_DIRECTIONS = ['inbound', 'outbound', 'both'] as const
+
+const createAgentSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  role: z.string().trim().min(1).max(160),
+  agentType: z.enum(AGENT_TYPES).optional(),
+  callDirection: z.enum(CALL_DIRECTIONS).optional(),
+  personality: z.string().trim().max(2_000).optional(),
+  voiceId: z.string().trim().max(200).optional(),
+  systemPrompt: z.string().trim().max(12_000).optional(),
+  language: z.string().trim().max(32).optional(),
+}).strict()
+
+const updateAgentSchema = createAgentSchema.partial().extend({
+  isActive: z.boolean().optional(),
+}).strict()
 
 export async function list(request: FastifyRequest, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
@@ -14,6 +34,8 @@ export async function create(
     Body: {
       name: string
       role: string
+      agentType?: string
+      callDirection?: string
       personality?: string
       voiceId?: string
       systemPrompt?: string
@@ -23,7 +45,9 @@ export async function create(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const agent = await agentsService.createAgent(orgId, request.body)
+  const data = parseRequest(reply, createAgentSchema, request.body)
+  if (!data) return
+  const agent = await agentsService.createAgent(orgId, data)
   return reply.status(201).send(agent)
 }
 
@@ -43,6 +67,8 @@ export async function update(
     Body: {
       name?: string
       role?: string
+      agentType?: string
+      callDirection?: string
       personality?: string
       voiceId?: string
       systemPrompt?: string
@@ -53,7 +79,9 @@ export async function update(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  await agentsService.updateAgent(orgId, request.params.id, request.body)
+  const data = parseRequest(reply, updateAgentSchema, request.body)
+  if (!data) return
+  await agentsService.updateAgent(orgId, request.params.id, data)
   return reply.send({ ok: true })
 }
 

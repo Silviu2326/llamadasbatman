@@ -1,0 +1,10 @@
+{
+  "name": "Fixture Prospect",
+  "placeId": "staging-e2e-fixture-prospect-001",
+  "website": "https://staging-e2e.example.invalid/fixture",
+  "address": "Staging fixture address",
+  "rating": 5,
+  "userRatingCount": 1,
+  "photosCount": 0,
+  "mapsUri": "https://maps.example.invalid/staging-e2e-fixture-prospect-001"
+}

@@ -11,6 +11,7 @@ import {
 } from 'react-icons/ri'
 import { HiArrowUp, HiArrowDown, HiChevronDown } from 'react-icons/hi'
 import '../dashboard.css'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import NewPlaybookModal from '../modals/NewPlaybookModal'
 
 // ─── stat cards ───────────────────────────────────────────────────────────────
@@ -291,7 +292,7 @@ function PlaybookCard({ pb, selected, onClick, onUse }) {
       <div style={{ display: 'flex', gap: 0, borderTop: '1px solid #1a2235', paddingTop: 10, marginBottom: 12 }}>
         {[
           { label: 'Tasa de éxito', v: pb.tasa },
-          { label: 'Reuniones', v: pb.reuniones.toLocaleString('es-ES') },
+          { label: 'Reuniones', v: pb.reuniones.toLocaleString(localeCode(getLocale())) },
           { label: 'Usado en', v: `${pb.campanas} campañas` },
         ].map((s, i) => (
           <div key={i} style={{ flex: 1, paddingRight: i < 2 ? 10 : 0, borderRight: i < 2 ? '1px solid #1a2235' : 'none', paddingLeft: i > 0 ? 10 : 0 }}>
@@ -483,12 +484,14 @@ function DetailPanel({ onClose }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Playbooks() {
+  const { locale } = useI18n()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
   const [showNewPlaybook, setShowNewPlaybook] = useState(false)
   const [playbooks, setPlaybooks] = useState([])
   const [stats, setStats] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const localizedTabs = locale === 'en' ? ['All', 'My playbooks', 'Official', 'Shared with me'] : TABS
 
   useEffect(() => {
     apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
@@ -512,14 +515,14 @@ export default function Playbooks() {
       { ...STATS[2], value: '—', sub: 'Sin datos de tasa', noArrow: true },
       {
         ...STATS[3],
-        value: stats ? (stats.meetingsScheduled ?? 0).toLocaleString('es-ES') : '—',
+        value: stats ? (stats.meetingsScheduled ?? 0).toLocaleString(localeCode(getLocale())) : '—',
         pct: stats ? `${stats.kpiPcts?.meetings ?? 0}%` : null,
         sub: 'vs. mes anterior',
         noArrow: !stats,
       },
       {
         ...STATS[4],
-        value: stats ? `€${Math.round(stats.closedWonValue ?? 0).toLocaleString('es-ES')}` : '—',
+        value: stats ? `€${Math.round(stats.closedWonValue ?? 0).toLocaleString(localeCode(getLocale()))}` : '—',
         pct: stats ? `${stats.kpiPcts?.pipeline ?? 0}%` : null,
         sub: 'vs. mes anterior',
         noArrow: !stats,
@@ -551,7 +554,7 @@ export default function Playbooks() {
               color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>
               <RiDownloadLine style={{ width: 15, height: 15 }} />
-              Importar playbook
+              {locale === 'en' ? 'Import playbook' : 'Importar playbook'}
               <span style={{ color: '#6b7280', fontSize: 12 }}>›</span>
             </button>
             <button onClick={() => setShowNewPlaybook(true)} style={{
@@ -562,7 +565,7 @@ export default function Playbooks() {
               boxShadow: '0 0 20px #7c3aed40',
             }}>
               <RiAddLine style={{ width: 16, height: 16 }} />
-              Crear playbook
+              {locale === 'en' ? 'Create playbook' : 'Crear playbook'}
               <HiChevronDown style={{ width: 14, height: 14 }} />
             </button>
           </div>
@@ -573,7 +576,7 @@ export default function Playbooks() {
         {/* Tabs + search */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
           <div style={{ display: 'flex', gap: 2, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: 4 }}>
-            {TABS.map((t, i) => (
+            {localizedTabs.map((t, i) => (
               <button key={i} onClick={() => setActiveTab(i)} style={{
                 padding: '6px 14px', borderRadius: 9, border: 'none', cursor: 'pointer',
                 background: activeTab === i ? '#1a2235' : 'transparent',
@@ -591,7 +594,7 @@ export default function Playbooks() {
               border: '1px solid #1e2433', background: '#0d1117',
             }}>
               <RiSearchLine style={{ width: 15, height: 15, color: '#4b5563' }} />
-              <input placeholder="Buscar playbooks..." style={{
+              <input placeholder={locale === 'en' ? 'Search playbooks...' : 'Buscar playbooks...'} style={{
                 background: 'transparent', border: 'none', outline: 'none',
                 color: '#94a3b8', fontSize: 13, width: 160,
               }} />
@@ -603,7 +606,7 @@ export default function Playbooks() {
               color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>
               <RiFilterLine style={{ width: 15, height: 15 }} />
-              Filtros
+              {locale === 'en' ? 'Filters' : 'Filtros'}
             </button>
           </div>
         </div>
@@ -618,7 +621,7 @@ export default function Playbooks() {
         {/* Playbooks */}
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>
-            {playbooks.length > 0 ? 'Playbooks populares' : 'Playbooks'}
+            {playbooks.length > 0 ? (locale === 'en' ? 'Popular playbooks' : 'Playbooks populares') : 'Playbooks'}
           </h2>
           {playbooks.length === 0
             ? (
@@ -651,7 +654,7 @@ export default function Playbooks() {
               border: '1px solid #1e2433', background: '#0d1117',
               color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}>
-              Ver todos los playbooks ({playbooks.length})
+              {locale === 'en' ? 'View all playbooks' : 'Ver todos los playbooks'} ({playbooks.length})
               <HiChevronDown style={{ width: 15, height: 15 }} />
             </button>
           </div>

@@ -1,387 +1,137 @@
-import React, { useState, useEffect } from 'react'
-import {
-  ResponsiveContainer, ComposedChart, Bar, Line,
-  XAxis, YAxis, Tooltip, PieChart, Pie, Cell,
-} from 'recharts'
-import {
-  RiBarChartLine, RiCalendarLine, RiFilterLine, RiDownloadLine,
-  RiMoneyDollarBoxLine, RiGroupLine, RiLineChartLine, RiRocketLine,
-  RiPhoneLine, RiTimeLine, RiRobot2Line, RiArrowRightLine,
-  RiSparklingLine, RiCalendar2Line, RiPercentLine,
-} from 'react-icons/ri'
-import KPICard from './KPICard'
-import DataTable from './DataTable'
+import { useEffect, useMemo, useState } from 'react'
+import { ResponsiveContainer, BarChart, Bar, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ComposedChart } from 'recharts'
+import { RiArrowRightSLine, RiBarChartLine, RiCalendarLine, RiCheckLine, RiFilterLine, RiGroupLine, RiLineChartLine, RiMoneyDollarBoxLine, RiPhoneLine, RiRefreshLine, RiRocketLine, RiSparkling2Line, RiTimeLine } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { DEMO_MODE, getApiErrorMessage, isNonEmptyPayload } from '../lib/dataMode'
+import insightsHeroImage from '../assets/insights-hero.png'
 import '../dashboard.css'
+import './insights.css'
+import { localeCode, useI18n } from '../i18n'
 
-// ─── style tokens ─────────────────────────────────────────────────────────────
-const C = { background:'#0d1117', border:'1px solid #1e2433', borderRadius:13, padding:'16px 18px' }
-const tt = { contentStyle:{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:9, fontSize:11 }, labelStyle:{ color:'#94a3b8' }, itemStyle:{ color:'#e2e8f0' } }
-
-function STitle({ children }) {
-  return <p style={{ margin:'0 0 12px', fontSize:14, fontWeight:700, color:'#f1f5f9' }}>{children}</p>
-}
-function LinkBtn({ children, onClick }) {
-  return (
-    <button onClick={onClick} style={{ background:'none', border:'none', padding:0, color:'#818cf8', fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:4, marginTop:10 }}>
-      {children} <RiArrowRightLine style={{ width:12, height:12 }} />
-    </button>
-  )
-}
-function Empty({ msg = 'Sin datos' }) {
-  return <p style={{ textAlign:'center', color:'#374151', fontSize:12, padding:'24px 0', margin:0 }}>{msg}</p>
+const COLORS = ['#818cf8', '#22d3ee', '#34d399', '#fbbf24', '#fb7185', '#a78bfa']
+const tooltipProps = { contentStyle: { background: '#0d1117', border: '1px solid #273249', borderRadius: 9, fontSize: 11 }, labelStyle: { color: '#94a3b8' }, itemStyle: { color: '#e2e8f0' } }
+const DEMO_STATS = {
+  closedWonValue: 48600, pipelineValue: 128400, meetingsScheduled: 34, conversionRate: 18.7, totalCalls: 462, totalLeads: 186, activeCampaigns: 4,
+  kpiPcts: { pipeline: 22, meetings: 14, calls: 18, leads: 9 },
+  timeSeries: [{ date: 'Lun', llamadas: 42, reuniones: 4 }, { date: 'Mar', llamadas: 58, reuniones: 6 }, { date: 'Mié', llamadas: 51, reuniones: 5 }, { date: 'Jue', llamadas: 76, reuniones: 8 }, { date: 'Vie', llamadas: 64, reuniones: 7 }, { date: 'Sáb', llamadas: 36, reuniones: 2 }, { date: 'Dom', llamadas: 28, reuniones: 2 }],
+  callsByCampaign: [{ name: 'Outbound B2B', value: 164, pct: 35 }, { name: 'Reactivación Q3', value: 118, pct: 26 }, { name: 'Demo producto', value: 92, pct: 20 }, { name: 'Partners', value: 54, pct: 12 }, { name: 'Inbound', value: 34, pct: 7 }],
+  funnel: [{ label: 'Leads', value: 186 }, { label: 'Contactados', value: 132 }, { label: 'Cualificados', value: 74 }, { label: 'Propuesta', value: 41 }, { label: 'Ganados', value: 18 }],
+  agentLeaderboard: [{ name: 'Sofía', calls: 138 }, { name: 'Leo', calls: 112 }, { name: 'Clara', calls: 96 }, { name: 'Nora', calls: 71 }, { name: 'Hugo', calls: 45 }],
+  sentiment: { positive: 62, neutral: 27, negative: 11 },
+  pipelineByDay: [{ date: '05 Jul', value: 12400 }, { date: '06 Jul', value: 19800 }, { date: '07 Jul', value: 8200 }, { date: '08 Jul', value: 26400 }, { date: '09 Jul', value: 17200 }, { date: '10 Jul', value: 22100 }, { date: '11 Jul', value: 12300 }],
 }
 
-// ─── charts ───────────────────────────────────────────────────────────────────
-function TimeChart({ data, period, onPeriod }) {
-  if (!data.length) return <Empty msg="Sin datos de llamadas aún" />
-  return (
-    <>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-        <p style={{ margin:0, fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Actividad a lo largo del tiempo</p>
-        <select value={period} onChange={e=>onPeriod(e.target.value)} style={{ background:'#111827', border:'1px solid #1e2433', borderRadius:7, padding:'4px 10px', color:'#94a3b8', fontSize:11.5, cursor:'pointer', outline:'none' }}>
-          {['Diario','Semanal','Mensual'].map(p => <option key={p}>{p}</option>)}
-        </select>
-      </div>
-      <div style={{ display:'flex', gap:14, marginBottom:10 }}>
-        {[{color:'#22d3ee',label:'Llamadas'},{color:'#34d399',label:'Reuniones'}].map(l => (
-          <div key={l.label} style={{ display:'flex', alignItems:'center', gap:5 }}>
-            <span style={{ width:7, height:7, borderRadius:'50%', background:l.color }} />
-            <span style={{ fontSize:10.5, color:'#6b7280' }}>{l.label}</span>
-          </div>
-        ))}
-      </div>
-      <ResponsiveContainer width="100%" height={190}>
-        <ComposedChart data={data} margin={{ top:8, right:8, bottom:0, left:4 }}>
-          <XAxis dataKey="date" tick={{ fontSize:10, fill:'#4b5563' }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize:9, fill:'#4b5563' }} axisLine={false} tickLine={false} width={24} />
-          <Tooltip {...tt} />
-          <Bar dataKey="llamadas" fill="#22d3ee" fillOpacity={0.7} radius={[3,3,0,0]} />
-          <Line type="monotone" dataKey="reuniones" stroke="#34d399" strokeWidth={2} dot={{ r:3, fill:'#34d399' }} />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </>
-  )
+const EMPTY_STATS = {
+  closedWonValue: 0,
+  pipelineValue: 0,
+  meetingsScheduled: 0,
+  conversionRate: 0,
+  totalCalls: 0,
+  totalLeads: 0,
+  activeCampaigns: 0,
+  kpiPcts: {},
+  timeSeries: [],
+  callsByCampaign: [],
+  funnel: [],
+  agentLeaderboard: [],
+  sentiment: null,
+  pipelineByDay: [],
 }
 
-function CampaignDonut({ data }) {
-  if (!data.length) return <Empty msg="Sin campañas con llamadas aún" />
-  const COLORS = ['#6366f1','#0891b2','#2563eb','#f59e0b','#6b7280','#7c3aed','#059669']
-  const total = data.reduce((s, c) => s + c.value, 0)
-  return (
-    <div style={{ display:'flex', gap:16, alignItems:'center' }}>
-      <div style={{ position:'relative', width:130, height:130, flexShrink:0 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={data} cx="50%" cy="50%" innerRadius={40} outerRadius={62} dataKey="value" strokeWidth={0}>
-              {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
-          <p style={{ margin:0, fontSize:14, fontWeight:800, color:'#f1f5f9' }}>{total}</p>
-          <p style={{ margin:0, fontSize:9, color:'#6b7280' }}>Total llamadas</p>
-        </div>
-      </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:7, flex:1, minWidth:0 }}>
-        {data.slice(0, 5).map((c, i) => (
-          <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
-              <span style={{ width:8, height:8, borderRadius:'50%', background:COLORS[i % COLORS.length], flexShrink:0 }} />
-              <span style={{ fontSize:11, color:'#94a3b8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
-            </div>
-            <div style={{ textAlign:'right', flexShrink:0 }}>
-              <span style={{ fontSize:11.5, fontWeight:700, color:'#f1f5f9' }}>{c.value}</span>
-              <span style={{ fontSize:10, color:'#4b5563', marginLeft:4 }}>({c.pct}%)</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+function displayValue(value, empty) {
+  return empty ? '—' : value
 }
 
-function CampaignBar({ data }) {
-  if (!data.length) return <Empty msg="Sin campañas aún" />
-  const COLORS = ['#6366f1','#0891b2','#2563eb','#f59e0b','#6b7280','#7c3aed','#059669']
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-      {data.slice(0, 5).map((c, i) => (
-        <div key={i}>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-            <span style={{ fontSize:11.5, color:'#e2e8f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'60%' }}>{c.name}</span>
-            <div style={{ display:'flex', gap:8 }}>
-              <span style={{ fontSize:11.5, fontWeight:700, color:'#f1f5f9' }}>{c.value} llamadas</span>
-              <span style={{ fontSize:11, color:'#6b7280', width:28 }}>{c.pct}%</span>
-            </div>
-          </div>
-          <div style={{ height:6, borderRadius:99, background:'#1a2235' }}>
-            <div style={{ height:'100%', borderRadius:99, width:`${c.pct}%`, background:`linear-gradient(90deg,${COLORS[i % COLORS.length]},${COLORS[i % COLORS.length]}99)`, boxShadow:`0 0 6px ${COLORS[i % COLORS.length]}60` }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+function Empty({ message }) { return <div className="insights-empty"><div><RiLineChartLine /></div><strong>Aún no hay datos suficientes</strong><p>{message}</p></div> }
+
+function Metric({ Icon, label, value, detail, color }) { return <article className="insights-metric"><div className="insights-metric-icon" style={{ color, background: `${color}18`, borderColor: `${color}38` }}><Icon /></div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></article> }
+
+function ActivityChart({ data, period, setPeriod }) {
+  if (!data.length) return <Empty message="Las llamadas y reuniones aparecerán aquí cuando empiecen a registrarse." />
+  return <><div className="insights-panel-heading"><div><span className="insights-eyebrow">Ritmo comercial</span><h2>Actividad a lo largo del tiempo</h2><p>Compara volumen de llamadas con reuniones generadas.</p></div><select value={period} onChange={event => setPeriod(event.target.value)} aria-label="Periodo del gráfico">{['Diario', 'Semanal', 'Mensual'].map(item => <option key={item}>{item}</option>)}</select></div><div className="insights-legend"><span><i className="cyan" /> Llamadas</span><span><i className="green" /> Reuniones</span></div><ResponsiveContainer width="100%" height={220}><ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}><XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 9, fill: '#475569' }} axisLine={false} tickLine={false} width={30} /><Tooltip {...tooltipProps} /><Bar dataKey="llamadas" name="Llamadas" fill="#22d3ee" fillOpacity={.65} radius={[4, 4, 0, 0]} /><Line type="monotone" dataKey="reuniones" name="Reuniones" stroke="#34d399" strokeWidth={2.5} dot={{ r: 3, fill: '#34d399', strokeWidth: 0 }} /></ComposedChart></ResponsiveContainer></>
 }
 
-function PipelineFunnelChart({ data }) {
-  if (!data.length) return <Empty msg="Sin datos de pipeline" />
-  const COLORS = ['#6366f1','#4f46e5','#0891b2','#0d9488','#059669','#10b981']
+function CampaignMix({ data }) {
+  if (!data.length) return <Empty message="Cuando haya campañas con actividad podrás comparar su peso aquí." />
+  const total = data.reduce((sum, item) => sum + item.value, 0)
+  return <div className="insights-campaign-mix"><div className="insights-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="value" innerRadius={45} outerRadius={67} strokeWidth={0}>{data.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}</Pie></PieChart></ResponsiveContainer><div><strong>{total}</strong><span>llamadas</span></div></div><div className="insights-campaign-list">{data.slice(0, 5).map((item, index) => <div key={item.name}><span><i style={{ background: COLORS[index % COLORS.length] }} />{item.name}</span><strong>{item.value}<small>{item.pct}%</small></strong></div>)}</div></div>
+}
+
+function Funnel({ data }) {
+  const { locale } = useI18n()
+  if (!data.length) return <Empty message="El embudo se activará cuando existan oportunidades en el pipeline." />
   const max = data[0]?.value || 1
-  const W = 130, H = 30, GAP = 2
-  const totalH = data.length * H + (data.length - 1) * GAP
-  return (
-    <div style={{ display:'flex', gap:12 }}>
-      <svg width={W} height={totalH} style={{ flexShrink:0 }}>
-        {data.map((s, i) => {
-          const topW = (s.value / max) * W
-          const nextW = data[i+1] ? (data[i+1].value / max) * W : topW * 0.65
-          const tl = (W - topW) / 2, tr = (W + topW) / 2
-          const bl = (W - nextW) / 2, br = (W + nextW) / 2
-          const y = i * (H + GAP)
-          return (
-            <polygon key={i} points={`${tl},${y} ${tr},${y} ${br},${y+H} ${bl},${y+H}`}
-              fill={COLORS[i % COLORS.length]} opacity={0.88} />
-          )
-        })}
-      </svg>
-      <div style={{ flex:1, display:'flex', flexDirection:'column', gap:GAP }}>
-        {data.map((s, i) => (
-          <div key={i} style={{ height:H, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontSize:11, color:'#94a3b8' }}>{s.label}</span>
-            <span style={{ fontSize:12, fontWeight:700, color:'#f1f5f9' }}>{s.value.toLocaleString()}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  return <div className="insights-funnel">{data.map((item, index) => <div className="insights-funnel-row" key={item.label}><div className="insights-funnel-bar" style={{ width: `${Math.max(18, (item.value / max) * 100)}%`, background: COLORS[index % COLORS.length] }}><span>{item.label}</span><strong>{item.value.toLocaleString(localeCode(locale))}</strong></div></div>)} </div>
 }
 
-function AgentsTable({ data }) {
-  if (!data.length) return <Empty msg="Sin llamadas de agentes aún" />
-  const BG = ['#4f46e5','#059669','#be185d','#d97706','#7c3aed','#0891b2','#065f46','#312e81']
-  const renderRow = (a, i) => [
-    <div key="n" style={{ display:'flex', alignItems:'center', gap:8 }}>
-      <div style={{ width:28, height:28, borderRadius:'50%', background:BG[i % BG.length], display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, color:'#fff', flexShrink:0 }}>
-        {a.name.slice(0, 2).toUpperCase()}
-      </div>
-      <span style={{ fontSize:12, color:'#f1f5f9', fontWeight:500 }}>{a.name}</span>
-    </div>,
-    <span key="c" style={{ fontSize:13, color:'#e2e8f0', fontWeight:600 }}>{a.calls}</span>,
-  ]
-  return (
-    <DataTable
-      columns={['Agente','Llamadas totales']}
-      gridTemplate="1fr 100px"
-      rows={data.map((a, i) => ({ ...a, id: i }))}
-      rowKey="id"
-      renderRow={renderRow}
-      scrollable={false}
-      style={{ background:'transparent', border:'none', borderRadius:0 }}
-    />
-  )
+function Sentiment({ sentiment }) {
+  const { locale } = useI18n()
+  if (!sentiment) return <Empty message="Procesaremos el sentimiento cuando existan transcripciones disponibles." />
+  const data = [{ name: locale === 'en' ? 'Positive' : 'Positivo', value: sentiment.positive, color: '#34d399' }, { name: 'Neutral', value: sentiment.neutral, color: '#fbbf24' }, { name: locale === 'en' ? 'Negative' : 'Negativo', value: sentiment.negative, color: '#fb7185' }]
+  if (!data.some(item => Number(item.value) > 0)) return <Empty message="Procesaremos el sentimiento cuando existan transcripciones disponibles." />
+  return <div className="insights-sentiment"><div className="insights-sentiment-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.some(item => item.value > 0) ? data : [{ value: 1, color: '#1e293b' }]} dataKey="value" innerRadius={35} outerRadius={52} strokeWidth={0}>{(data.some(item => item.value > 0) ? data : [{ color: '#1e293b' }]).map((item, index) => <Cell key={index} fill={item.color} />)}</Pie></PieChart></ResponsiveContainer><div><strong>{sentiment.positive || '—'}%</strong><span>positivo</span></div></div><div className="insights-sentiment-list">{data.map(item => <div key={item.name}><span><i style={{ background: item.color }} />{item.name}</span><div><span className="sentiment-track"><b style={{ width: `${item.value}%`, background: item.color }} /></span><strong>{item.value}%</strong></div></div>)}</div></div>
 }
 
-function SentimentDonut({ sentiment }) {
-  const data = [
-    { name:'Positivo', value: sentiment.positive, color:'#10b981' },
-    { name:'Neutral',  value: sentiment.neutral,  color:'#f59e0b' },
-    { name:'Negativo', value: sentiment.negative, color:'#ef4444' },
-  ]
-  const hasData = data.some(d => d.value > 0)
-  return (
-    <div style={{ display:'flex', gap:14, alignItems:'center' }}>
-      <div style={{ position:'relative', width:90, height:90, flexShrink:0 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={hasData ? data : [{ name:'Sin datos', value:1, color:'#1a2235' }]} cx="50%" cy="50%" innerRadius={30} outerRadius={44} dataKey="value" strokeWidth={0}>
-              {(hasData ? data : [{ color:'#1a2235' }]).map((s,i) => <Cell key={i} fill={s.color} />)}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
-          <p style={{ margin:0, fontSize:13, fontWeight:800, color:'#10b981' }}>{sentiment.positive || '—'}%</p>
-          <p style={{ margin:0, fontSize:8, color:'#6b7280' }}>Positivo</p>
-        </div>
-      </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-        {data.map((s,i) => (
-          <div key={i} style={{ display:'flex', alignItems:'center', gap:7 }}>
-            <span style={{ width:7, height:7, borderRadius:'50%', background:s.color, flexShrink:0 }} />
-            <span style={{ fontSize:11, color:'#94a3b8', width:56 }}>{s.name}</span>
-            <div style={{ width:60, height:4, borderRadius:99, background:'#1a2235' }}>
-              <div style={{ width:`${s.value}%`, height:'100%', borderRadius:99, background:s.color }} />
-            </div>
-            <span style={{ fontSize:11, fontWeight:700, color:'#e2e8f0' }}>{s.value}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ─── main ─────────────────────────────────────────────────────────────────────
 export default function Insights() {
-  const [period, setPeriod] = useState('Diario')
+  const { t, locale } = useI18n()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState('Diario')
+  const [notice, setNotice] = useState('')
+  const [dataSource, setDataSource] = useState(DEMO_MODE ? 'demo' : 'loading')
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    apiFetch('/api/dashboard/stats')
-      .then(r => r.json())
-      .then(setStats)
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
+  async function loadStats() {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await apiFetch('/api/dashboard/stats')
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(getApiErrorMessage(body, 'No se pudieron cargar los insights.'))
+      const nextStats = body && typeof body === 'object' ? { ...EMPTY_STATS, ...body } : EMPTY_STATS
+      setStats(nextStats)
+      setDataSource(isNonEmptyPayload(nextStats) ? 'live' : 'empty')
+    } catch (loadError) {
+      setError(loadError.message || 'No se pudo cargar la lectura de rendimiento.')
+      if (DEMO_MODE) {
+        setStats(DEMO_STATS)
+        setDataSource('demo')
+      } else {
+        setStats(EMPTY_STATS)
+        setDataSource('disconnected')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(() => { loadStats() }, [])
 
-  const kpis = stats ? [
-    { Icon:RiMoneyDollarBoxLine, iconBg:'#6d28d9', label:'Pipeline\ncerrado',           value: stats.closedWonValue ? `€${Math.round(stats.closedWonValue).toLocaleString()}` : '€0',  pct: stats.kpiPcts?.pipeline ?? 0, color:'#a78bfa', data:[] },
-    { Icon:RiCalendarLine,       iconBg:'#0e7490', label:'Reuniones\nagendadas',         value: String(stats.meetingsScheduled ?? 0), pct: stats.kpiPcts?.meetings ?? 0, color:'#22d3ee', data:[] },
-    { Icon:RiPercentLine,        iconBg:'#047857', label:'Tasa de conversión\nglobal',   value: `${stats.conversionRate ?? 0}%`,      pct: 0, color:'#34d399', data:[] },
-    { Icon:RiPhoneLine,          iconBg:'#b45309', label:'Llamadas\ntotales',            value: String(stats.totalCalls ?? 0),        pct: stats.kpiPcts?.calls ?? 0, color:'#fbbf24', data:[] },
-    { Icon:RiGroupLine,          iconBg:'#4f46e5', label:'Leads\ntotales',               value: String(stats.totalLeads ?? 0),        pct: stats.kpiPcts?.leads ?? 0, color:'#818cf8', data:[] },
-  ] : []
+  const metrics = useMemo(() => stats ? [
+    { Icon: RiMoneyDollarBoxLine, label: locale === 'en' ? 'Closed pipeline' : 'Pipeline cerrado', value: `€${Math.round(stats.closedWonValue ?? 0).toLocaleString(localeCode(locale))}`, detail: `${stats.kpiPcts?.pipeline ?? 0}% ${locale === 'en' ? 'vs. previous period' : 'vs. periodo anterior'}`, color: '#a78bfa' },
+    { Icon: RiCalendarLine, label: locale === 'en' ? 'Meetings booked' : 'Reuniones agendadas', value: stats.meetingsScheduled ?? 0, detail: `${stats.kpiPcts?.meetings ?? 0}% ${locale === 'en' ? 'change' : 'de variación'}`, color: '#22d3ee' },
+    { Icon: RiLineChartLine, label: locale === 'en' ? 'Overall conversion' : 'Conversión global', value: `${stats.conversionRate ?? 0}%`, detail: locale === 'en' ? 'over the current funnel' : 'sobre el funnel actual', color: '#34d399' },
+    { Icon: RiPhoneLine, label: locale === 'en' ? 'Total calls' : 'Llamadas totales', value: stats.totalCalls ?? 0, detail: `${stats.kpiPcts?.calls ?? 0}% ${locale === 'en' ? 'change' : 'de variación'}`, color: '#fbbf24' },
+  ] : [], [stats, dataSource, locale])
+  const bestCampaign = stats?.callsByCampaign?.[0]
+  const activeCampaigns = stats?.activeCampaigns ?? 0
 
-  return (
-    <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#080c14', overflow:'hidden' }}>
+  return <div className="dark-scroll insights-page">
+    {DEMO_MODE && <div className="insights-demo-banner" role="status"><RiSparkling2Line /><div><strong>Estás viendo datos demo</strong><span>Sirven para explorar la experiencia. El modo demo se ha habilitado explícitamente.</span></div><button onClick={loadStats}><RiRefreshLine /> Intentar conexión real</button></div>}
+    <header className="insights-header"><div className="insights-heading"><div className="insights-brand-icon"><RiBarChartLine /></div><div><h1>{t('modules.insightsTitle')}</h1><p>{locale === 'en' ? 'Turn CRM activity into decisions that move the pipeline.' : 'Convierte la actividad de tu CRM en decisiones que mueven el pipeline.'}</p></div></div><div className="insights-header-actions"><button className="insights-button ghost" onClick={loadStats}><RiRefreshLine /> {t('calls.refresh')}</button><button className="insights-button secondary" onClick={() => setNotice('Los filtros avanzados estarán disponibles al conectar más fuentes de datos.')}><RiFilterLine /> {t('calls.filters')}</button></div></header>
 
-      {/* header */}
-      <div style={{ padding:'18px 24px 14px', display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexShrink:0, flexWrap:'wrap', gap:10 }}>
-        <div>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
-            <RiBarChartLine style={{ width:20, height:20, color:'#a78bfa' }} />
-            <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:'#f1f5f9' }}>Insights</h1>
-            <RiSparklingLine style={{ width:16, height:16, color:'#a78bfa' }} />
-          </div>
-          <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Descubre patrones, mide el rendimiento y obtén recomendaciones para impulsar tus resultados.</p>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <button style={{ display:'flex', alignItems:'center', gap:6, background:'#0d1117', border:'1px solid #1e2433', borderRadius:9, padding:'7px 13px', color:'#94a3b8', fontSize:12, cursor:'pointer' }}>
-            <RiFilterLine style={{ width:13, height:13 }} /> Filtros
-          </button>
-        </div>
-      </div>
+    <section className="insights-hero" aria-labelledby="insights-hero-title"><div className="insights-hero-copy"><div className="insights-hero-status"><i /> Lectura ejecutiva · datos actualizados</div><h2 id="insights-hero-title">Mira el patrón. Decide el siguiente movimiento.</h2><p>Una vista unificada de llamadas, reuniones, campañas y pipeline para entender qué está funcionando y dónde actuar ahora.</p><div className="insights-hero-actions"><button className="insights-button primary" onClick={() => document.querySelector('#insights-evidence')?.scrollIntoView({ behavior: 'smooth' })}><RiSparkling2Line /> Explorar señales</button><button className="insights-button secondary" onClick={() => document.querySelector('#insights-detail')?.scrollIntoView({ behavior: 'smooth' })}>Ver detalle <RiArrowRightSLine /></button></div><div className="insights-hero-meta"><span><RiCheckLine /> Datos agregados del CRM</span><span><RiTimeLine /> Actualización automática</span></div></div><div className="insights-hero-media"><img src={insightsHeroImage} alt="Capa visual de inteligencia sobre datos comerciales" /><div className="insights-hero-caption"><span>Revenue intelligence</span><strong>Observar · entender · actuar</strong></div></div></section>
 
-      {/* body */}
-      <div style={{ flex:1, display:'flex', gap:14, overflow:'hidden', padding:'0 24px 0' }}>
+    {loading ? <div className="insights-loading"><RiBarChartLine /><span>Preparando tu lectura de rendimiento…</span></div> : stats ? <>
+      <section className="insights-metrics" aria-label="Resumen de rendimiento">{metrics.map(metric => <Metric key={metric.label} {...metric} />)}</section>
 
-        {/* ── left main ── */}
-        <div className="dark-scroll" style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:12, paddingBottom:16, minWidth:0 }}>
+      <section className="insights-signal-band" id="insights-evidence"><div className="insights-signal-intro"><span className="insights-eyebrow">Lectura rápida</span><h2>Lo que merece tu atención.</h2><p>Señales derivadas de los datos que ya tienes en VozIA.</p></div><div className="insights-signal-grid"><article><span><RiRocketLine /> Campaña líder</span><strong>{bestCampaign?.name ?? 'Sin datos todavía'}</strong><small>{bestCampaign ? `${bestCampaign.value} llamadas · ${bestCampaign.pct}% del total` : 'Añade actividad para identificar el canal con más tracción.'}</small></article><article><span><RiGroupLine /> Base comercial</span><strong>{stats.totalLeads ?? 0} leads</strong><small>{activeCampaigns} campañas activas conectadas al análisis.</small></article><article><span><RiCalendarLine /> Próximo foco</span><strong>{stats.meetingsScheduled ?? 0} reuniones</strong><small>Revisa la conversión para saber dónde priorizar seguimiento.</small></article></div></section>
 
-          {loading ? (
-            <p style={{ textAlign:'center', color:'#4b5563', fontSize:13, padding:'60px 0' }}>Cargando insights…</p>
-          ) : (
-            <>
-              {/* KPI row */}
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:10 }}>
-                {kpis.map((k,i) => <KPICard key={i} {...k} delay={`${i*50}ms`} />)}
-              </div>
+      <section className="insights-evidence-grid"><article className="insights-panel insights-chart-panel"><ActivityChart data={stats.timeSeries ?? []} period={period} setPeriod={setPeriod} /></article><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Distribución</span><h2>Llamadas por campaña</h2><p>Cómo se reparte el esfuerzo comercial.</p></div></div><CampaignMix data={stats.callsByCampaign ?? []} /></article></section>
 
-              {/* row 2: time chart + campaign donut */}
-              <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-                <div style={{ ...C, flex:'2 1 300px', minWidth:0 }}>
-                  <TimeChart data={stats?.timeSeries ?? []} period={period} onPeriod={setPeriod} />
-                </div>
-                <div style={{ ...C, flex:'1 1 200px', minWidth:0 }}>
-                  <STitle>Llamadas por campaña</STitle>
-                  <CampaignDonut data={stats?.callsByCampaign ?? []} />
-                </div>
-              </div>
+      <section className="insights-detail-grid" id="insights-detail"><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Conversión</span><h2>Embudo comercial</h2><p>La progresión de oportunidades por etapa.</p></div></div><Funnel data={stats.funnel ?? []} /></article><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Equipo</span><h2>Agentes IA con más actividad</h2><p>Volumen de llamadas por agente.</p></div></div>{stats.agentLeaderboard?.length ? <div className="insights-agent-list">{stats.agentLeaderboard.slice(0, 5).map((agent, index) => <div key={agent.name}><span className="agent-rank">0{index + 1}</span><span className="agent-avatar">{agent.name.slice(0, 2).toUpperCase()}</span><strong>{agent.name}</strong><b>{agent.calls}</b></div>)}</div> : <Empty message="El ranking aparecerá cuando los agentes empiecen a registrar llamadas." />}</article><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Conversaciones</span><h2>Sentimiento</h2><p>Lectura de las transcripciones procesadas.</p></div></div><Sentiment sentiment={stats.sentiment} /></article></section>
 
-              {/* row 3: campaign bar + funnel + agents */}
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:12 }}>
-                <div style={{ ...C }}>
-                  <STitle>Distribución por campaña</STitle>
-                  <CampaignBar data={stats?.callsByCampaign ?? []} />
-                </div>
-                <div style={{ ...C }}>
-                  <STitle>Embudo de conversión</STitle>
-                  <PipelineFunnelChart data={stats?.funnel ?? []} />
-                </div>
-                <div style={{ ...C }}>
-                  <STitle>Llamadas por agente IA</STitle>
-                  <AgentsTable data={stats?.agentLeaderboard ?? []} />
-                </div>
-              </div>
-
-              {/* row 4: sentiment */}
-              <div style={{ ...C }}>
-                <STitle>Análisis de sentimiento en llamadas</STitle>
-                {stats?.sentiment ? (
-                  <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
-                    <SentimentDonut sentiment={stats.sentiment} />
-                    <div style={{ width:1, background:'#1e2433', flexShrink:0 }} />
-                    <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'center' }}>
-                      <div>
-                        <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:600, color:'#94a3b8' }}>Distribución de sentimiento</p>
-                        <p style={{ margin:0, fontSize:11.5, color:'#6b7280', lineHeight:1.6 }}>
-                          Los datos de sentimiento se generan automáticamente a partir de las transcripciones de llamadas procesadas por el servicio de voz.
-                        </p>
-                        {!stats.sentiment.positive && !stats.sentiment.neutral && !stats.sentiment.negative && (
-                          <p style={{ margin:'10px 0 0', fontSize:11.5, color:'#4b5563' }}>Sin llamadas procesadas aún.</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <Empty msg="Sin datos de sentimiento aún" />
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* ── right sidebar ── */}
-        <div className="dark-scroll panel-desktop" style={{ width:280, flexShrink:0, overflowY:'auto', paddingBottom:16, display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ ...C, padding:'14px 16px' }}>
-            <STitle>Resumen global</STitle>
-            {loading ? (
-              <p style={{ fontSize:12, color:'#4b5563', margin:0 }}>Cargando…</p>
-            ) : stats ? (
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {[
-                  { label:'Campañas activas', value: stats.activeCampaigns ?? 0 },
-                  { label:'Pipeline total', value: stats.pipelineValue ? `€${Math.round(stats.pipelineValue).toLocaleString()}` : '€0' },
-                  { label:'Pipeline cerrado', value: stats.closedWonValue ? `€${Math.round(stats.closedWonValue).toLocaleString()}` : '€0' },
-                  { label:'Tasa de conv.', value: `${stats.conversionRate ?? 0}%` },
-                ].map(s => (
-                  <div key={s.label} style={{ display:'flex', justifyContent:'space-between', padding:'9px 11px', background:'#111827', borderRadius:9, border:'1px solid #1a2235' }}>
-                    <span style={{ fontSize:11.5, color:'#94a3b8' }}>{s.label}</span>
-                    <span style={{ fontSize:12, fontWeight:700, color:'#f1f5f9' }}>{String(s.value)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Empty msg="Sin datos" />
-            )}
-          </div>
-
-          <div style={{ ...C, padding:'14px 16px' }}>
-            <STitle>Pipeline por día (últimos 7 días)</STitle>
-            {loading ? (
-              <p style={{ fontSize:12, color:'#4b5563', margin:0 }}>Cargando…</p>
-            ) : (stats?.pipelineByDay?.length ? (
-              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                {stats.pipelineByDay.map((d, i) => (
-                  <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:11, color:'#6b7280' }}>{d.date}</span>
-                    <span style={{ fontSize:12, fontWeight:700, color:'#f1f5f9' }}>
-                      {d.value ? `€${Math.round(d.value).toLocaleString()}` : '—'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Empty msg="Sin oportunidades esta semana" />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* bottom bar */}
-      <div style={{ padding:'9px 24px', borderTop:'1px solid #111827', flexShrink:0, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontSize:11, color:'#4b5563' }}>Los datos se actualizan en tiempo real desde tu cuenta.</span>
-      </div>
-    </div>
-  )
+      <section className="insights-bottom-grid"><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Pipeline</span><h2>Valor generado por día</h2><p>Últimos siete días registrados.</p></div></div>{stats.pipelineByDay?.length ? <div className="insights-pipeline-list">{stats.pipelineByDay.map(item => <div key={item.date}><span>{item.date}</span><div><span><b style={{ width: `${stats.pipelineValue ? Math.min(100, (item.value / stats.pipelineValue) * 100) : 0}%` }} /></span><strong>{item.value ? `€${Math.round(item.value).toLocaleString(localeCode(getLocale()))}` : '—'}</strong></div></div>)}</div> : <Empty message="No hay oportunidades registradas esta semana." />}</article><aside className="insights-panel insights-summary"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Resumen global</span><h2>Tu contexto actual</h2></div></div><div className="insights-summary-list"><div><span>Campañas activas</span><strong>{stats.activeCampaigns ?? 0}</strong></div><div><span>Pipeline total</span><strong>€{Math.round(stats.pipelineValue ?? 0).toLocaleString(localeCode(getLocale()))}</strong></div><div><span>Pipeline cerrado</span><strong>€{Math.round(stats.closedWonValue ?? 0).toLocaleString(localeCode(getLocale()))}</strong></div><div><span>Tasa de conversión</span><strong>{stats.conversionRate ?? 0}%</strong></div></div><button className="insights-link-button" onClick={() => setNotice('El detalle por fuente estará disponible próximamente.')}>Profundizar en el análisis <RiArrowRightSLine /></button></aside></section>
+    </> : <div className="insights-full-empty"><RiLineChartLine /><h2>No hemos podido cargar tus insights</h2><p>Comprueba la conexión y vuelve a intentarlo para ver el rendimiento de tu CRM.</p><button className="insights-button primary" onClick={loadStats}><RiRefreshLine /> Reintentar</button></div>}
+    <footer className="insights-footer"><span>Los datos se actualizan automáticamente desde tu cuenta.</span><span><RiCheckLine /> Lectura basada en actividad real</span></footer>{notice && <div className="insights-toast" role="status"><RiCheckLine /> {notice}</div>}
+  </div>
 }

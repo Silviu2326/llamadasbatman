@@ -2,8 +2,10 @@ import React from 'react'
 import { HiArrowUp, HiArrowDown } from 'react-icons/hi'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { card, tooltipStyle, BAR_DATA } from './dashboardData'
+import { localeCode, useI18n } from '../../i18n'
 
 export default function IngresosChart({ pipelineByDay, pipelinePct }) {
+  const { locale } = useI18n()
   const barData = pipelineByDay?.length ? pipelineByDay : BAR_DATA
   const weekTotal = barData.reduce((s, d) => s + d.value, 0)
   const maxVal = Math.max(...barData.map(d => d.value), 1)
@@ -12,13 +14,19 @@ export default function IngresosChart({ pipelineByDay, pipelinePct }) {
   const isReal = !!pipelineByDay?.length
 
   return (
-    <div style={{ ...card, display:'flex', flexDirection:'column', gap:12, height:'100%' }}>
-      <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
-        Pipeline esta semana
-      </h3>
-      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+    <div className="income-chart-card" style={{ ...card, display:'flex', flexDirection:'column', gap:12, height:'100%' }}>
+      <div className="income-chart-heading">
+        <div>
+          <span className="income-chart-eyebrow">{locale === 'en' ? 'Attributed value' : 'Valor atribuido'}</span>
+          <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
+            {locale === 'en' ? 'Pipeline this week' : 'Pipeline esta semana'}
+          </h3>
+        </div>
+        <span className="income-chart-badge">{locale === 'en' ? 'LIVE' : 'EN VIVO'}</span>
+      </div>
+      <div className="income-chart-total" style={{ display:'flex', alignItems:'center', gap:10 }}>
         <span style={{ fontSize:28, fontWeight:800, color:'#ffffff', letterSpacing:-1, textShadow:'0 0 20px rgba(255,255,255,0.25)' }}>
-          €{Math.round(weekTotal).toLocaleString('es-ES')}
+          €{Math.round(weekTotal).toLocaleString(localeCode(locale))}
         </span>
         {isReal && pipelinePct != null && (
           <>
@@ -27,14 +35,15 @@ export default function IngresosChart({ pipelineByDay, pipelinePct }) {
               : <HiArrowDown style={{ width:13, height:13, color:'#f87171' }} />
             }
             <span style={{ fontSize:12, color: pipelinePct >= 0 ? '#4ade80' : '#f87171', fontWeight:700 }}>{Math.abs(pipelinePct)}%</span>
-            <span style={{ fontSize:11, color:'#94a3b8' }}>vs. semana anterior</span>
+            <span style={{ fontSize:11, color:'#94a3b8' }}>{locale === 'en' ? 'vs. previous week' : 'vs. semana anterior'}</span>
           </>
         )}
       </div>
+      <div className="income-chart-meta"><span className="income-chart-dot" />{locale === 'en' ? 'Potential revenue linked to active opportunities' : 'Ingresos potenciales vinculados a oportunidades activas'}</div>
       <div style={{ flex:1, minHeight:180 }}>
         {!barData?.length ? (
           <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>Sin datos de pipeline</p>
+            <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>{locale === 'en' ? 'No pipeline data' : 'Sin datos de pipeline'}</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -50,7 +59,7 @@ export default function IngresosChart({ pipelineByDay, pipelinePct }) {
               <YAxis domain={[0, yMax]} ticks={yTicks}
                 tickFormatter={v => v === 0 ? '0' : `${(v/1000).toFixed(0)}k`}
                 tick={{ fill:'#94a3b8', fontSize:10 }} axisLine={false} tickLine={false} width={30} />
-              <Tooltip {...tooltipStyle} formatter={v => [`€${v.toLocaleString('es-ES')}`, 'Pipeline']} />
+              <Tooltip {...tooltipStyle} formatter={v => [`€${v.toLocaleString(localeCode(locale))}`, 'Pipeline']} />
               <Bar dataKey="value" fill="#a855f7" fillOpacity={0.25} radius={[5,5,0,0]} isAnimationActive={false} />
               <Bar dataKey="value" fill="url(#barGrad)" radius={[5,5,0,0]} />
             </BarChart>

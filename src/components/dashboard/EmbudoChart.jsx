@@ -1,7 +1,9 @@
 import React from 'react'
 import { card, FUNNEL, FUNNEL_COLORS } from './dashboardData'
+import { useI18n } from '../../i18n'
 
 export default function EmbudoChart({ funnel: funnelProp }) {
+  const { locale } = useI18n()
   const FUNNEL_DATA = funnelProp?.length
     ? funnelProp.map((f, i) => ({ ...f, value: String(f.value), color: FUNNEL_COLORS[i] ?? '#94a3b8' }))
     : FUNNEL
@@ -10,9 +12,9 @@ export default function EmbudoChart({ funnel: funnelProp }) {
     return (
       <div style={{ ...card, display:'flex', flexDirection:'column', gap:14, height:'100%' }}>
         <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
-          Embudo de conversiones
+          {locale === 'en' ? 'Conversion funnel' : 'Embudo de conversiones'}
         </h3>
-        <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>Sin datos de embudo</p>
+        <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>{locale === 'en' ? 'No funnel data' : 'Sin datos de embudo'}</p>
       </div>
     )
   }
@@ -25,7 +27,7 @@ export default function EmbudoChart({ funnel: funnelProp }) {
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', gap:14, height:'100%' }}>
       <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
-        Embudo de conversiones
+        {locale === 'en' ? 'Conversion funnel' : 'Embudo de conversiones'}
       </h3>
       <div style={{ flex:1, minHeight:0 }}>
         <svg viewBox={`0 0 ${W} ${svgH}`} width="100%" style={{ display:'block', overflow:'visible' }}>

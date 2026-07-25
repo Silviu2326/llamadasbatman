@@ -1,30 +1,38 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { clearAccessToken, getAccessToken, refreshAccessToken, revokeSession, setAccessToken } from '../lib/authSession'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('vozia_token'))
-  const [user, setUser] = useState(() => {
-    const u = localStorage.getItem('vozia_user')
-    return u ? JSON.parse(u) : null
-  })
+  const [token, setToken] = useState(() => getAccessToken())
+  const [user, setUser] = useState(null)
+  const [isRestoring, setIsRestoring] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    refreshAccessToken().then(data => {
+      if (!active || !data) return
+      setToken(data.token)
+      setUser(data.user ?? null)
+    }).finally(() => { if (active) setIsRestoring(false) })
+    return () => { active = false }
+  }, [])
 
   const login = (t, u) => {
-    localStorage.setItem('vozia_token', t)
-    localStorage.setItem('vozia_user', JSON.stringify(u))
-    setToken(t)
+    setAccessToken(t)
+    setToken(getAccessToken())
     setUser(u)
   }
 
-  const logout = () => {
-    localStorage.removeItem('vozia_token')
-    localStorage.removeItem('vozia_user')
+  const logout = async () => {
+    await revokeSession()
+    clearAccessToken()
     setToken(null)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider value={{ token, user, isRestoring, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

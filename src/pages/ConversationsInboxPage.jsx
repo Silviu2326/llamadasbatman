@@ -6,6 +6,7 @@ import {
   RiUser3Line, RiWhatsappLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import './conversations-inbox.css'
 
 const CHANNELS = [
@@ -28,7 +29,7 @@ function initials(name) {
 function dateLabel(value) {
   if (!value) return '—'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleTimeString(localeCode(getLocale()), { hour: '2-digit', minute: '2-digit' })
 }
 
 function channelIcon(channel) {
@@ -133,6 +134,7 @@ function Inspector({ conversation }) {
 }
 
 export default function ConversationsInboxPage() {
+  const { locale } = useI18n()
   const [filters, setFilters] = useState({ channel: '', status: '', search: '' })
   const [conversations, setConversations] = useState([])
   const [selected, setSelected] = useState(null)
@@ -214,7 +216,7 @@ export default function ConversationsInboxPage() {
 
   return <main className="conversations-inbox-page">
     <div className="inbox-topbar"><select value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))}><option value="">Todas las conversaciones</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><div className="topbar-actions"><button type="button" title="Buscar conversaciones" onClick={() => searchInputRef.current?.focus()}><RiSearchLine /></button></div></div>
-    <div className="inbox-heading"><div><h1>Conversaciones</h1><p>Responde en el momento correcto, por el canal correcto.</p></div></div>
+    <div className="inbox-heading"><div><h1>{locale === 'en' ? 'Conversations' : 'Conversaciones'}</h1><p>{locale === 'en' ? 'Reply at the right moment, through the right channel.' : 'Responde en el momento correcto, por el canal correcto.'}</p></div></div>
     <div className="inbox-workspace">
       <section className="conversation-queue"><div className="queue-toolbar"><label><RiSearchLine /><input ref={searchInputRef} value={filters.search} onChange={event => setFilters(current => ({ ...current, search: event.target.value }))} placeholder="Buscar conversaciones..." /></label></div><div className="channel-filters">{CHANNELS.map(({ key, label, icon: Icon }) => <button key={key} className={filters.channel === key ? 'active' : ''} onClick={() => setFilters(current => ({ ...current, channel: key }))}><Icon /> {label}</button>)}</div><div className="queue-list-head"><strong>{listState === 'ready' ? `${total} conversaciones` : 'Conversaciones'}</strong><span>Más recientes</span></div><div className="queue-list">{listState === 'loading' && <div className="queue-state"><span className="spinner" />Cargando conversaciones...</div>}{listState === 'error' && <div className="queue-state error"><RiErrorWarningLine /><strong>{listError}</strong><button onClick={loadConversations}>Reintentar</button></div>}{listState === 'empty' && <div className="queue-state"><RiMessage3Line /><strong>No hay conversaciones</strong><span>Prueba con otro canal, estado o búsqueda.</span></div>}{listState === 'ready' && conversations.map(item => <ConversationRow key={item.id} conversation={item} selected={selected?.id === item.id} onSelect={setSelected} />)}</div>{listState === 'ready' && <footer className="queue-footer">Mostrando {conversations.length} de {total} conversaciones</footer>}</section>
       <section className="conversation-thread">{!conversation && <div className="thread-placeholder"><RiMessage3Line /><h2>Selecciona una conversación</h2><p>Elige un elemento de la cola para ver el hilo y responder.</p></div>}{conversation && <><ThreadHeader conversation={{ ...conversation, onStatus: value => updateConversation({ status: value }) }} onTakeover={handleTakeover} takingOver={takingOver} />{detailState === 'loading' && <div className="thread-loading"><span className="spinner" />Cargando hilo...</div>}{detailState === 'error' && <div className="thread-error"><RiErrorWarningLine /> No se pudo completar la última acción. <button onClick={() => setSelected({ ...selected })}>Reintentar</button></div>}{detailState === 'ready' && <ConversationTimeline messages={messages} />}<Composer channel={channel} setChannel={setChannel} body={body} setBody={setBody} onSend={handleSend} sending={sending} templates={templates} templateId={templateId} setTemplateId={setTemplateId} onSuggest={handleSuggest} suggesting={suggesting} /></>}</section>

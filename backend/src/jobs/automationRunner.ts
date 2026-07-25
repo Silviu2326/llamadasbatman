@@ -1,6 +1,6 @@
-import { Worker, Job } from 'bullmq'
-import Redis from 'ioredis'
-import { runAutomationsForEvent } from '../services/automations.service'
+import { Job, Queue, Worker } from 'bullmq'
+import { connectOptionalRedis, reportQueueError } from '../lib/optionalRedis'
+import { normalizeAutomationEvent, runAutomationsForEvent } from '../services/automations.service'
 
 interface AutomationRunnerJob {
   orgId: string
@@ -9,50 +9,57 @@ interface AutomationRunnerJob {
 }
 
 let automationRunnerWorker: Worker | null = null
+let automationRunnerQueue: Queue<AutomationRunnerJob> | null = null
+const QUEUE_NAME = 'automation-runner'
+const reportAutomationError = reportQueueError('AutomationRunner')
 
-try {
-  const workerRedis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
-    maxRetriesPerRequest: null,
-    lazyConnect: true,
-  })
-  workerRedis.on('error', (err) => console.warn('[AutomationRunner] Redis error (non-fatal):', err.message))
+void (async () => {
+  const connection = await connectOptionalRedis('AutomationRunner')
+  if (!connection) return
 
-  const worker = new Worker<AutomationRunnerJob>(
-    'automation-runner',
-    async (job: Job<AutomationRunnerJob>) => {
-      const { orgId, event, payload } = job.data
-
-      console.log(`[AutomationRunner] job ${job.id} — event=${event} orgId=${orgId}`)
-
-      try {
-        const result = await runAutomationsForEvent(orgId, event, payload)
+  try {
+    automationRunnerQueue = new Queue<AutomationRunnerJob>(QUEUE_NAME, { connection: connection as any })
+    automationRunnerQueue.on('error', reportAutomationError)
+    if (process.env.BACKGROUND_WORKERS_ENABLED !== 'true') return
+    const worker = new Worker<AutomationRunnerJob>(
+      QUEUE_NAME,
+      async (job: Job<AutomationRunnerJob>) => {
+        const { orgId, event, payload } = job.data
+        const result = await runAutomationsForEvent(orgId, normalizeAutomationEvent(event) ?? event, payload)
         console.log(`[AutomationRunner] triggered ${result.triggered} automations`)
-      } catch (err) {
-        console.error(`[AutomationRunner] error running automations:`, err)
-        throw err
-      }
-    },
-    {
-      connection: workerRedis as any,
-      concurrency: 10,
-    }
-  )
+      },
+      { connection: connection as any, concurrency: 10 }
+    )
 
-  worker.on('completed', (job) => {
-    console.log(`[AutomationRunner] job ${job.id} completed`)
-  })
+    worker.on('completed', (job) => console.log(`[AutomationRunner] job ${job.id} completed`))
+    worker.on('failed', (job, error) => console.error(`[AutomationRunner] job ${job?.id} failed:`, error))
+    worker.on('error', reportAutomationError)
+    automationRunnerWorker = worker
+  } catch (error) {
+    reportAutomationError(error as Error)
+    connection.disconnect()
+  }
+})()
 
-  worker.on('failed', (job, err) => {
-    console.error(`[AutomationRunner] job ${job?.id} failed:`, err)
-  })
-
-  worker.on('error', (err) => {
-    console.warn('[AutomationRunner] Worker error (non-fatal):', err.message)
-  })
-
-  automationRunnerWorker = worker
-} catch (err) {
-  console.warn('[AutomationRunner] Worker disabled (Redis unavailable):', (err as Error).message)
+export async function enqueueAutomationEvent(
+  orgId: string,
+  event: string,
+  payload: Record<string, unknown> = {},
+  jobId?: string
+): Promise<boolean> {
+  if (!automationRunnerQueue) return false
+  const canonicalEvent = normalizeAutomationEvent(event)
+  if (!canonicalEvent) return false
+  try {
+    const id = jobId ?? String(payload.eventId ?? payload.id ?? `${orgId}:${canonicalEvent}:${JSON.stringify(payload)}`)
+    await automationRunnerQueue.add('automation-event', { orgId, event: canonicalEvent, payload }, {
+      jobId: id, removeOnComplete: 1000, removeOnFail: 1000,
+    })
+    return true
+  } catch (error) {
+    reportAutomationError(error as Error)
+    return false
+  }
 }
 
-export { automationRunnerWorker }
+export { automationRunnerQueue, automationRunnerWorker }

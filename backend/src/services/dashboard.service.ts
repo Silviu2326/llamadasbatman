@@ -16,6 +16,7 @@ export async function getStats(orgId: string) {
     pipelineThisWeek, pipelinePrev, closedWonAgg,
     callsByCampGroups, recentOpps, sentimentGroups,
     recentContactedLeads, recentConvertedLeads,
+    adSpendAgg,
   ] = await Promise.all([
     prisma.call.count({ where: { orgId } }),
     prisma.lead.count({ where: { orgId } }),
@@ -66,6 +67,8 @@ export async function getStats(orgId: string) {
       where: { orgId, status: 'converted', createdAt: { gte: sevenDaysAgo } },
       select: { createdAt: true },
     }),
+    // Mismo periodo (sin filtro de fecha) que closedWonAgg, para calcular el ROI real
+    prisma.adInsightSnapshot.aggregate({ where: { orgId }, _sum: { spendCents: true } }),
   ])
 
   const totalLeadsSum = conversionAgg._sum.totalLeads ?? 0
@@ -73,6 +76,8 @@ export async function getStats(orgId: string) {
   const conversionRate = totalLeadsSum > 0 ? Math.round((meetingsSum / totalLeadsSum) * 100) : 0
   const pipelineValue = pipelineAgg._sum.value ? Number(pipelineAgg._sum.value) : 0
   const closedWonValue = closedWonAgg._sum.value ? Number(closedWonAgg._sum.value) : 0
+  const totalAdSpend = (adSpendAgg._sum.spendCents ?? 0) / 100
+  const roi = totalAdSpend > 0 ? closedWonValue / totalAdSpend : null
   const pipelineThisWeekVal = pipelineThisWeek._sum.value ? Number(pipelineThisWeek._sum.value) : 0
   const pipelinePrevVal = pipelinePrev._sum.value ? Number(pipelinePrev._sum.value) : 0
   const callsThisWeek = recentCalls.length
@@ -169,7 +174,7 @@ export async function getStats(orgId: string) {
 
   return {
     totalCalls, totalLeads, meetingsScheduled, conversionRate, activeCampaigns,
-    pipelineValue, closedWonValue, kpiPcts,
+    pipelineValue, closedWonValue, roi, kpiPcts,
     timeSeries, funnel, agentLeaderboard,
     callsByCampaign, pipelineByDay, sentiment,
     userCount, orgPlan: org?.plan ?? 'free',

@@ -4,6 +4,7 @@ import { enqueueLeadCall } from '../jobs/leadCallDispatch'
 import { enqueueAutomationEvent } from '../jobs/automationRunner'
 import { sendEmailToLead } from './mauticSync.service'
 import { sendWhatsApp } from './whatsapp.service'
+import { getTwilioIntegrationConfig } from './twilioIntegration.service'
 import * as tasksService from './tasks.service'
 
 export type ChannelConsentInput = Partial<Record<'whatsapp' | 'voice' | 'email', boolean>> & {
@@ -185,7 +186,8 @@ export async function orchestrateNewLead(orgId: string, leadId: string, consent?
   await enqueueAutomationEvent(orgId, 'lead.created', { eventId, leadId, conversationId: conversation.id, campaignId: lead.campaignId }, eventId)
 
   const queued: string[] = []
-  const whatsappContentSid = process.env.TWILIO_WHATSAPP_WELCOME_CONTENT_SID
+  const whatsappConfig = await getTwilioIntegrationConfig(orgId)
+  const whatsappContentSid = whatsappConfig?.whatsappWelcomeContentSid
   if (lead.phone && whatsappContentSid && await consentGranted(orgId, lead.id, 'whatsapp')) {
     await sendWhatsApp({ orgId, leadId: lead.id, conversationId: conversation.id, to: lead.phone, contentSid: whatsappContentSid, contentVariables: { 1: lead.name } }).then(() => queued.push('whatsapp')).catch(() => {})
   }
@@ -293,7 +295,7 @@ export async function acceptNextBestAction(orgId: string, actorUserId: string | 
   if (!action) throw new NextBestActionNotFoundError()
   if (action.status !== 'proposed') throw new NextBestActionStateError(action.status)
 
-  const task = await tasksService.createTask(orgId, actorUserId, {
+  const task = await tasksService.createSystemTask(orgId, actorUserId, {
     type: 'next_best_action',
     title: action.reason.slice(0, 200),
     description: action.reason,

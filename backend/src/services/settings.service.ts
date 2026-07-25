@@ -1,4 +1,7 @@
 import { prisma } from '../lib/prisma'
+import * as metricool from './metricoolSync.service'
+import * as postiz from './postizSync.service'
+import * as mautic from './mauticSync.service'
 import * as authService from './auth.service'
 
 const PREFERENCE_DEFAULTS = {
@@ -103,13 +106,18 @@ export async function updateOrganization(
 export async function getIntegrations(orgId: string) {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: { plan: true, mauticEnabled: true, mauticCompanyId: true, postizEnabled: true, postizWorkspaceId: true },
+    select: { plan: true, mauticEnabled: true, mauticCompanyId: true, postizEnabled: true },
   })
   if (!org) return null
 
+  const metricoolConfigured = metricool.isConfigured(orgId)
+  const postizConfigured = postiz.isConfigured(orgId)
+  const mauticConfigured = mautic.isConfigured(orgId)
+
   return {
     plan: org.plan,
-    mautic: { enabled: org.mauticEnabled, connected: !!org.mauticCompanyId },
-    postiz: { enabled: org.postizEnabled, connected: !!org.postizWorkspaceId },
+    mautic: { enabled: org.mauticEnabled, connected: Boolean(org.mauticCompanyId) && mauticConfigured, configured: mauticConfigured },
+    metricool: { enabled: metricoolConfigured, connected: metricoolConfigured },
+    postiz: { enabled: org.postizEnabled, connected: org.postizEnabled && postizConfigured, configured: postizConfigured },
   }
 }

@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { DEMO_MODE } from '../lib/dataMode'
+import { classifyFetchError, statusMessage } from '../lib/dataStatus'
+import DataStatusBanner from './ui/DataStatusBanner'
 import {
   RiCalendar2Line, RiCalendarLine, RiGroupLine, RiMoneyDollarBoxLine,
   RiLineChartLine, RiFilterLine, RiDownloadLine, RiAddLine,
@@ -12,6 +15,7 @@ import KPICard from './KPICard'
 import DataTable from './DataTable'
 import '../dashboard.css'
 import NewReunionModal from '../modals/NewReunionModal'
+import { getLocale, localeCode, useI18n } from '../i18n'
 
 const MEETING_STATUS_OPTIONS = [
   { value: '', label: 'Cualquier estado' },
@@ -36,7 +40,7 @@ function dayBucket(scheduledAt) {
   const dMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   if (dMs === todayMs) return { label:'HOY', color:'#8b5cf6' }
   if (dMs === todayMs + 86400000) return { label:'MAÑANA', color:'#60a5fa' }
-  return { label: d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'}).toUpperCase(), color:'#94a3b8' }
+  return { label: d.toLocaleDateString(localeCode(getLocale()),{day:'2-digit',month:'short'}).toUpperCase(), color:'#94a3b8' }
 }
 
 function mapMeeting(m, i) {
@@ -44,8 +48,8 @@ function mapMeeting(m, i) {
   const dur = m.durationMinutes ?? 30
   const end = new Date(d.getTime() + dur * 60000)
   const now = new Date()
-  const time = d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
-  const endTime = end.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
+  const time = d.toLocaleTimeString(localeCode(getLocale()),{hour:'2-digit',minute:'2-digit'})
+  const endTime = end.toLocaleTimeString(localeCode(getLocale()),{hour:'2-digit',minute:'2-digit'})
   const isLive = m.status === 'scheduled' && d <= now && now <= end
   const { label: dayLabel, color: dayColor } = dayBucket(m.scheduledAt)
   return {
@@ -53,18 +57,20 @@ function mapMeeting(m, i) {
     dayLabel, dayColor, time, dur: `${dur} min`,
     lead: { name: m.lead?.name ?? '—', company: m.lead?.company ?? '—', bg: BG_POOL[i % BG_POOL.length] },
     agent: { name: m.assignee?.name ?? '—', role: '', bg: '#4f46e5' },
-    date: d.toLocaleDateString('es-ES'),
+    date: d.toLocaleDateString(localeCode(getLocale())),
     range: `${time} - ${endTime}`,
     platform: m.meetingUrl?.includes('zoom') ? 'zoom' : 'google',
     estado: STATUS_LABEL[m.status] ?? m.status,
     estadoColor: STATUS_COLOR[m.status] ?? '#10b981',
     asistencia: ATTEND_LABEL[m.status] ?? 'Pendiente',
     asistColor: ATTEND_COLOR[m.status] ?? '#6b7280',
-    value: '—', priority: 'Media', prioColor: '#60a5fa',
+    value: m.value != null ? m.value : (m.lead?.value != null ? m.lead.value : '—'),
+    priority: m.priority ?? m.lead?.priority ?? '—',
+    prioColor: m.priorityColor ?? '#94a3b8',
     hasJoin: !!m.meetingUrl && m.status === 'scheduled', isLive,
     objetivo: m.title ?? '',
     title: m.title ?? '',
-    leadStatus: 'Interesado', leadStatusColor: '#22d3ee',
+    leadStatus: m.lead?.statusLabel ?? m.lead?.status ?? '—', leadStatusColor: m.lead?.statusColor ?? '#94a3b8',
     summary: m.notes ?? '', resources: [],
     meetingUrl: m.meetingUrl,
     scheduledAt: m.scheduledAt,
@@ -98,16 +104,18 @@ function buildKPIs(raw, totalMeetings) {
   const cancelled = raw.filter(m => m.status === 'cancelled').length
   const noShow = raw.filter(m => m.status === 'no_show').length
   const denom = completed + noShow
-  const attendRate = denom > 0 ? ((completed / denom) * 100).toFixed(1) : '0'
-  const avgDur = total > 0 ? Math.round(raw.reduce((s, m) => s + (m.durationMinutes ?? 30), 0) / total) : 0
+  const attendRate = denom > 0 ? ((completed / denom) * 100).toFixed(1) : null
+  const avgDur = total > 0 ? Math.round(raw.reduce((s, m) => s + (m.durationMinutes ?? 30), 0) / total) : null
   // ponytail: flat data array — no historical series available from backend
-  const flat = (n, len = 12) => Array(len).fill(n)
+  // The endpoint does not return a historical series. A repeated value is
+  // not a trend, so leave the sparkline empty instead of inventing history.
+  const noHistory = []
   return [
-    { Icon: RiCalendar2Line, iconBg:'#6d28d9', label:'Reuniones\nagendadas',  value: String(totalMeetings ?? total), pct:0, color:'#a78bfa', data: flat(totalMeetings ?? total) },
-    { Icon: RiCalendarLine,  iconBg:'#047857', label:'Reuniones\ncompletadas', value: String(completed),   pct:0, color:'#34d399', data: flat(completed) },
-    { Icon: RiGroupLine,     iconBg:'#0e7490', label:'Tasa de\nasistencia',    value: `${attendRate}%`,    pct:0, color:'#22d3ee', data: flat(parseFloat(attendRate)) },
-    { Icon: RiMoneyDollarBoxLine, iconBg:'#b45309', label:'Canceladas',        value: String(cancelled),   pct:0, color:'#fbbf24', data: flat(cancelled) },
-    { Icon: RiLineChartLine, iconBg:'#0d9488', label:'Duración\npromedio',     value: `${avgDur} min`,     pct:0, color:'#2dd4bf', data: flat(avgDur) },
+    { Icon: RiCalendar2Line, iconBg:'#6d28d9', label:'Reuniones\nagendadas',  value: String(totalMeetings ?? total), pct:null, color:'#a78bfa', data: noHistory },
+    { Icon: RiCalendarLine,  iconBg:'#047857', label:'Reuniones\ncompletadas', value: String(completed),   pct:null, color:'#34d399', data: noHistory },
+    { Icon: RiGroupLine,     iconBg:'#0e7490', label:'Tasa de\nasistencia',    value: attendRate == null ? '—' : `${attendRate}%`, pct:null, color:'#22d3ee', data: noHistory },
+    { Icon: RiMoneyDollarBoxLine, iconBg:'#b45309', label:'Canceladas',        value: String(cancelled),   pct:null, color:'#fbbf24', data: noHistory },
+    { Icon: RiLineChartLine, iconBg:'#0d9488', label:'Duración\npromedio',     value: avgDur == null ? '—' : `${avgDur} min`, pct:null, color:'#2dd4bf', data: noHistory },
   ]
 }
 
@@ -216,6 +224,7 @@ const COLS = ['Reunión','Lead / Empresa','Agente IA','Fecha y hora','Estado','A
 
 // ─── main ─────────────────────────────────────────────────────────────────────
 export default function Reuniones() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('Todas')
   const [showNewMeeting, setShowNewMeeting] = useState(false)
@@ -225,6 +234,7 @@ export default function Reuniones() {
   const [meta, setMeta] = useState({ total: 0, totalPages: 1 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [dataStatus, setDataStatus] = useState('loading')
   const [refreshKey, setRefreshKey] = useState(0)
 
   // RE-103/RE-04: búsqueda/filtros/paginación server-side, mismo patrón que
@@ -250,6 +260,7 @@ export default function Reuniones() {
   useEffect(() => {
     let active = true
     setLoading(true); setError('')
+    setDataStatus('loading')
     const params = new URLSearchParams({ page: String(page), limit: String(limit) })
     if (debouncedSearch) params.set('search', debouncedSearch)
     if (statusFilter) params.set('status', statusFilter)
@@ -262,8 +273,14 @@ export default function Reuniones() {
         const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
         setRaw(items)
         setMeta({ total: data.total ?? items.length, totalPages: data.totalPages ?? 1 })
+        setDataStatus(DEMO_MODE ? 'demo' : items.length ? 'live' : 'empty')
       })
-      .catch(() => { if (active) setError('No se pudieron cargar las reuniones.') })
+      .catch(error => {
+        if (!active) return
+        const status = classifyFetchError(error)
+        setDataStatus(status)
+        setError(statusMessage(status, { error: 'No se pudieron cargar las reuniones.' }))
+      })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [page, limit, debouncedSearch, statusFilter, dateFrom, dateTo, refreshKey])
@@ -276,12 +293,19 @@ export default function Reuniones() {
   const filterCount = (statusFilter ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0)
 
   async function handleCancel() {
-    await apiFetch(`/api/meetings/${cancelTarget.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status: 'cancelled' }),
-    }).catch(() => {})
-    setRaw(prev => prev.map(m => m.id === cancelTarget.id ? { ...m, status: 'cancelled' } : m))
-    setCancelTarget(null)
+    try {
+      const response = await apiFetch(`/api/meetings/${cancelTarget.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'cancelled' }),
+      })
+      if (!response.ok) throw new Error(`meeting_cancel_${response.status}`)
+      setRaw(prev => prev.map(m => m.id === cancelTarget.id ? { ...m, status: 'cancelled' } : m))
+      setCancelTarget(null)
+    } catch (error) {
+      const status = classifyFetchError(error)
+      setDataStatus(status)
+      setError(statusMessage(status, { error: 'No se pudo cancelar la reunión.' }))
+    }
   }
 
   function clearFilters() {
@@ -348,9 +372,9 @@ export default function Reuniones() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
             <RiCalendar2Line style={{ width: 20, height: 20, color: '#a78bfa' }} />
-            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>Reuniones</h1>
+            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>{t('modules.meetingsTitle')}</h1>
           </div>
-          <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Gestiona todas las reuniones agendadas por tus agentes IA.</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>{t('modules.meetingsSubtitle')}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => setShowFilters(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: showFilters || filterCount ? '#8b5cf620' : '#0d1117', border: `1px solid ${showFilters || filterCount ? '#8b5cf6' : '#1e2433'}`, borderRadius: 9, padding: '7px 13px', color: showFilters || filterCount ? '#c4b5fd' : '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
@@ -360,10 +384,18 @@ export default function Reuniones() {
             <RiDownloadLine style={{ width: 13, height: 13 }} /> Exportar
           </button>
           <button onClick={() => setShowNewMeeting(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
-            <RiAddLine style={{ width: 14, height: 14 }} /> Nueva reunión
+            <RiAddLine style={{ width: 14, height: 14 }} /> {t('modal.newMeeting')}
           </button>
         </div>
       </div>
+
+      <DataStatusBanner
+        status={dataStatus}
+        message={error || statusMessage(dataStatus, { live: 'Reuniones reales sincronizadas con tu organización.', empty: 'La conexión está disponible, pero todavía no hay reuniones agendadas.', demo: 'Modo demo explícito: no se muestran reuniones ficticias.' })}
+        onRetry={dataStatus === 'error' || dataStatus === 'disconnected' ? () => setRefreshKey(key => key + 1) : undefined}
+        onAction={dataStatus === 'empty' || dataStatus === 'demo' ? () => setShowNewMeeting(true) : dataStatus === 'disconnected' ? () => navigate('/configuracion') : undefined}
+        actionLabel={dataStatus === 'disconnected' ? 'Configurar conexión' : 'Nueva reunión'}
+      />
 
       {showFilters && (
         <div style={{ margin: '0 24px 14px', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -466,6 +498,7 @@ export default function Reuniones() {
             rowKey="id"
             onSelect={m => navigate('/reuniones/' + m.id)}
             renderRow={renderMeeting}
+            emptyText={dataStatus === 'error' || dataStatus === 'disconnected' ? 'No hay datos porque la fuente no responde.' : dataStatus === 'demo' ? 'El modo demo no incluye reuniones de ejemplo.' : 'No hay reuniones para este filtro.'}
             style={{ flex: 1, minHeight: 0 }}
           />
 

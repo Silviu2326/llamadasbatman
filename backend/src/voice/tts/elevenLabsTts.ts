@@ -1,5 +1,6 @@
 import https from 'https'
 import { VoiceProfile, DEFAULT_PROFILE, getProfile, applyModifiers, preprocessText } from './voiceProfiles'
+import { normalizeForSpeech } from './prosodyController'
 
 type AudioCallback = (audio: Buffer) => Promise<void>
 
@@ -21,6 +22,7 @@ export class ElevenLabsTTS {
   private _profile: VoiceProfile = DEFAULT_PROFILE
   private _emocion = 'neutro'
   private _estadoAcustico = 'desconocido'
+  private _phraseCache = new Map<string, Buffer>()
 
   constructor(cfg: ElevenLabsTTSConfig) {
     this._cfg = {
@@ -92,7 +94,14 @@ export class ElevenLabsTTS {
   private async _generate(text: string): Promise<void> {
     if (this._cancelled || this._closed) return
     const profile = this._effectiveProfile()
-    const processed = preprocessText(text, profile)
+    const processed = preprocessText(normalizeForSpeech(text), profile)
+    const cacheable = processed.length > 0 && processed.length <= 220 && !/\b(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|\+?\d[\d\s().-]{7,}\d)\b/i.test(processed)
+    const cacheKey = JSON.stringify({ text: processed, model: this._cfg.modelId, voice: this._cfg.voiceId, profile })
+    const cached = cacheable ? this._phraseCache.get(cacheKey) : undefined
+    if (cached) {
+      await this._cfg.onAudio(Buffer.from(cached))
+      return
+    }
     const t0 = Date.now()
     console.log('[TTS] generate start', {
       text: processed.slice(0, 100),
@@ -137,18 +146,34 @@ export class ElevenLabsTTS {
         // leftover byte and prepend it to the next chunk so we always send
         // an even number of bytes (complete samples, no boundary pops).
         let leftover = Buffer.alloc(0)
+        const generated: Buffer[] = []
 
         res.on('data', (chunk: Buffer) => {
           if (this._cancelled) return
           const combined = leftover.length ? Buffer.concat([leftover, chunk]) : chunk
           const evenLen  = combined.length & ~1
           leftover       = evenLen < combined.length ? combined.slice(evenLen) : Buffer.alloc(0)
-          if (evenLen > 0) this._cfg.onAudio(combined.slice(0, evenLen)).catch(() => {})
+          if (evenLen > 0) {
+            const audio = combined.slice(0, evenLen)
+            if (cacheable) generated.push(Buffer.from(audio))
+            this._cfg.onAudio(audio).catch(() => {})
+          }
         })
         res.on('end', () => {
           if (leftover.length) {
             // Pad odd byte with a zero sample so the last frame is clean
-            this._cfg.onAudio(Buffer.concat([leftover, Buffer.alloc(1)])).catch(() => {})
+            const audio = Buffer.concat([leftover, Buffer.alloc(1)])
+            if (cacheable) generated.push(audio)
+            this._cfg.onAudio(audio).catch(() => {})
+          }
+          if (cacheable && generated.length > 0) {
+            this._phraseCache.set(cacheKey, Buffer.concat(generated))
+            const maxEntries = Math.max(1, Number.parseInt(process.env.VOICE_TTS_CACHE_MAX_ENTRIES ?? '256', 10) || 256)
+            while (this._phraseCache.size > maxEntries) {
+              const oldest = this._phraseCache.keys().next().value
+              if (!oldest) break
+              this._phraseCache.delete(oldest)
+            }
           }
           console.log('[TTS] generate done', { ms: Date.now() - t0, text: processed.slice(0, 60) })
           resolve()

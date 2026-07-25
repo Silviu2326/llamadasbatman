@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middlewares/authenticate'
-import { authorize } from '../middlewares/authorize'
+import { requirePermission } from '../access-control'
 import * as ctrl from '../controllers/adPlaybooks.controller'
 
 // Biblioteca de playbooks por vertical — no tiene orgId (es compartida entre
@@ -8,7 +8,7 @@ import * as ctrl from '../controllers/adPlaybooks.controller'
 export async function adPlaybooksRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
-  app.get('/', ctrl.list)
+  app.get('/', { preHandler: requirePermission('playbooks.read') }, ctrl.list)
   app.post<{
     Body: {
       vertical: string
@@ -18,7 +18,7 @@ export async function adPlaybooksRoutes(app: FastifyInstance) {
       landingTemplateId: string
       imagePrompt: string
     }
-  }>('/', { preHandler: authorize(['admin']) }, ctrl.create)
+  }>('/', { preHandler: requirePermission('playbooks.manage_global') }, ctrl.create)
   app.put<{
     Params: { id: string }
     Body: {
@@ -29,5 +29,5 @@ export async function adPlaybooksRoutes(app: FastifyInstance) {
       imagePrompt?: string
       isActive?: boolean
     }
-  }>('/:id', { preHandler: authorize(['admin']) }, ctrl.update)
+  }>('/:id', { preHandler: requirePermission('playbooks.manage_global') }, ctrl.update)
 }

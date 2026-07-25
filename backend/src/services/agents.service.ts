@@ -10,13 +10,25 @@ export async function listAgents(orgId: string) {
 export async function createAgent(orgId: string, data: {
   name: string
   role: string
+  agentType?: string
+  callDirection?: string
   personality?: string
   voiceId?: string
   systemPrompt?: string
   language?: string
 }) {
   return prisma.agent.create({
-    data: { orgId, ...data },
+    data: {
+      orgId,
+      name: data.name,
+      role: data.role,
+      agentType: data.agentType,
+      callDirection: data.callDirection,
+      personality: data.personality,
+      voiceId: data.voiceId,
+      systemPrompt: data.systemPrompt,
+      language: data.language,
+    },
   })
 }
 
@@ -27,6 +39,8 @@ export async function getAgent(orgId: string, id: string) {
 export async function updateAgent(orgId: string, id: string, data: {
   name?: string
   role?: string
+  agentType?: string
+  callDirection?: string
   personality?: string
   voiceId?: string
   systemPrompt?: string

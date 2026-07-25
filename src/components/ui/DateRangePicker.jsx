@@ -3,6 +3,7 @@ import { RiCalendar2Line } from 'react-icons/ri'
 import { HiChevronDown } from 'react-icons/hi'
 import useClickOutside from '../../hooks/useClickOutside'
 import { formatInputDate, formatDisplayDate, addDays } from '../../utils/dateHelpers'
+import { useI18n } from '../../i18n'
 
 const dropdownStyle = {
   position: 'absolute',
@@ -30,6 +31,7 @@ const inputStyle = {
 }
 
 export default function DateRangePicker({ onChange, defaultDays = 6 }) {
+  const { t, locale } = useI18n()
   const today = new Date()
   const start = addDays(today, -defaultDays)
   const [startDate, setStartDate] = useState(formatInputDate(start))
@@ -38,7 +40,7 @@ export default function DateRangePicker({ onChange, defaultDays = 6 }) {
   const ref = useRef(null)
   useClickOutside([ref], () => setOpen(false))
 
-  const displayRange = `${formatDisplayDate(new Date(startDate + 'T00:00:00'))} - ${formatDisplayDate(new Date(endDate + 'T00:00:00'))}`
+  const displayRange = `${formatDisplayDate(new Date(startDate + 'T00:00:00'), locale)} - ${formatDisplayDate(new Date(endDate + 'T00:00:00'), locale)}`
 
   function updateStart(val) {
     setStartDate(val)
@@ -84,7 +86,7 @@ export default function DateRangePicker({ onChange, defaultDays = 6 }) {
       </button>
       {open && (
         <div style={{ ...dropdownStyle, right: 'auto', left: 0 }}>
-          <label style={{ fontSize: 11, color: '#6b7280', padding: '4px 6px' }}>Desde</label>
+          <label style={{ fontSize: 11, color: '#6b7280', padding: '4px 6px' }}>{t('common.from')}</label>
           <input
             type="date"
             value={startDate}
@@ -92,7 +94,7 @@ export default function DateRangePicker({ onChange, defaultDays = 6 }) {
             onChange={e => updateStart(e.target.value)}
             style={{ ...inputStyle, marginBottom: 8 }}
           />
-          <label style={{ fontSize: 11, color: '#6b7280', padding: '4px 6px' }}>Hasta</label>
+          <label style={{ fontSize: 11, color: '#6b7280', padding: '4px 6px' }}>{t('common.until')}</label>
           <input
             type="date"
             value={endDate}

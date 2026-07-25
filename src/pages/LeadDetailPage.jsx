@@ -11,6 +11,7 @@ import {
   RiBriefcase4Line, RiCloseCircleLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { getLocale, localeCode, useI18n } from '../i18n'
 import { mapLead } from '../lib/leadMapping'
 import '../pages/leads.css'
 
@@ -71,13 +72,13 @@ const EMAIL_DELIVERY_STATUS_LABEL = { queued: 'En cola', accepted: 'Aceptado', d
 function formatDate(date, fallback = 'Sin fecha') {
   if (!date) return fallback
   const parsed = new Date(date)
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleString(localeCode(getLocale()), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 function formatCurrency(value) {
   if (value == null || value === '' || value === '—') return '—'
   const numeric = Number(String(value).replace(/[^0-9.-]+/g, ''))
-  return Number.isFinite(numeric) ? `€${numeric.toLocaleString('es-ES')}` : String(value)
+  return Number.isFinite(numeric) ? `€${numeric.toLocaleString(localeCode(getLocale()))}` : String(value)
 }
 
 function buildTimeline(lead) {
@@ -118,6 +119,7 @@ function ScheduleModal({ lead, onClose, onSaved }) {
 }
 
 export default function LeadDetailPage() {
+  const { locale } = useI18n()
   const { id } = useParams()
   const navigate = useNavigate()
   const [lead, setLead] = useState(null)
@@ -326,8 +328,8 @@ export default function LeadDetailPage() {
     setShowSchedule(false)
   }
 
-  if (loading) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: '#64748b', fontSize: 13 }}>Cargando ficha del lead…</div>
-  if (!lead) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: '#64748b', fontSize: 13 }}>{loadError || 'Lead no encontrado'}</div>
+  if (loading) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: '#64748b', fontSize: 13 }}>{locale === 'en' ? 'Loading lead details…' : 'Cargando ficha del lead…'}</div>
+  if (!lead) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: '#64748b', fontSize: 13 }}>{loadError || (locale === 'en' ? 'Lead not found' : 'Lead no encontrado')}</div>
 
   const nextAction = lead.nextAction
   const scoreBreakdown = lead.scoreBreakdown || []
