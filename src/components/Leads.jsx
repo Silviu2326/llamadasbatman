@@ -91,13 +91,13 @@ function FocusPanel({ leads, onOpenLead }) {
   const hotLeads = hotLeadsAll.slice(0, 3)
   const meetingsCount = leads.filter(lead => lead.status === 'Reunión agendada').length
   return <aside className="leads-focus-panel">
-    <div className="leads-panel-heading"><div><span className="leads-heading-kicker"><RiPulseLine /> Radar comercial</span><h2>Enfoque de hoy</h2></div><button className="leads-icon-button" aria-label="Actualizar foco"><RiRefreshLine /></button></div>
-    <div className="leads-priority-callout"><div className="leads-priority-glow"><RiRobot2Line /></div><div><strong>Siguiente mejor acción</strong><span>{hotLeadsAll.length} acciones recomendadas</span></div><button className="leads-link-button">Ver acciones <RiArrowRightSLine /></button></div>
+    <div className="leads-panel-heading"><div><span className="leads-heading-kicker"><RiPulseLine /> Radar comercial</span><h2>Enfoque de hoy</h2></div></div>
+    <div className="leads-priority-callout"><div className="leads-priority-glow"><RiRobot2Line /></div><div><strong>Siguiente mejor acción</strong><span>{hotLeadsAll.length} acciones recomendadas</span></div></div>
     <div className="leads-focus-list">
       <button className="leads-focus-row" onClick={() => hotLeads[0] && onOpenLead(hotLeads[0].id)}><span className="leads-focus-row-icon pink"><RiFireLine /></span><span><strong>{hotLeadsAll.length} leads Hot</strong><small>Alta intención de compra</small></span><RiArrowRightSLine /></button>
-      <button className="leads-focus-row"><span className="leads-focus-row-icon cyan"><RiPhoneLine /></span><span><strong>{leads.filter(lead => lead.nextAction?.toLowerCase().includes('llam')).length} llamadas pendientes</strong><small>Basado en las próximas acciones disponibles</small></span><RiArrowRightSLine /></button>
-      <button className="leads-focus-row"><span className="leads-focus-row-icon amber"><RiCalendar2Line /></span><span><strong>{meetingsCount} reuniones agendadas</strong><small>Revisa el contexto antes de entrar</small></span><RiArrowRightSLine /></button>
-      <button className="leads-focus-row"><span className="leads-focus-row-icon green"><RiCheckboxCircleLine /></span><span><strong>{leads.filter(lead => lead.nextAction).length} próximas acciones</strong><small>Registradas en los datos cargados</small></span><RiArrowRightSLine /></button>
+      <div className="leads-focus-row"><span className="leads-focus-row-icon cyan"><RiPhoneLine /></span><span><strong>{leads.filter(lead => lead.nextAction?.toLowerCase().includes('llam')).length} llamadas pendientes</strong><small>Basado en las próximas acciones disponibles</small></span></div>
+      <div className="leads-focus-row"><span className="leads-focus-row-icon amber"><RiCalendar2Line /></span><span><strong>{meetingsCount} reuniones agendadas</strong><small>Revisa el contexto antes de entrar</small></span></div>
+      <div className="leads-focus-row"><span className="leads-focus-row-icon green"><RiCheckboxCircleLine /></span><span><strong>{leads.filter(lead => lead.nextAction).length} próximas acciones</strong><small>Registradas en los datos cargados</small></span></div>
     </div>
     <div className="leads-priority-summary"><div className="leads-priority-line"><i style={{ width: `${Math.max(1, hotLeadsAll.length)}%`, background: '#ec4899' }} /><i style={{ width: `${Math.max(1, leads.filter(lead => lead.status === 'En seguimiento').length)}%`, background: '#22d3ee' }} /></div><div><span><i className="pink-dot" /> Hot <b>{hotLeadsAll.length}</b></span><span><i className="cyan-dot" /> En seguimiento <b>{leads.filter(lead => lead.status === 'En seguimiento').length}</b></span></div></div>
   </aside>

@@ -209,25 +209,18 @@ function buildStrategy({ vertical, objetivo, presupuesto, audience }) {
   }
 }
 
+// ponytail: sin merge de fallback — lo que el backend no devuelve se muestra
+// como '—', nunca como cifra inventada. buildStrategy solo se usa en DEMO_MODE.
 function normalizeStrategy(data) {
   if (!data) return null
-  const fallback = buildStrategy({
-    vertical: data.vertical || 'SaaS B2B',
-    objetivo: data.objetivo || 'Generar clientes potenciales',
-    presupuesto: data.presupuesto || 800,
-    audience: data.audience || '',
-  })
   const remoteRecommendations = Array.isArray(data.recommendations) ? data.recommendations : []
-
   return {
-    ...fallback,
     ...data,
-    forecast: { ...fallback.forecast, ...(data.forecast || {}) },
-    recommendations: fallback.recommendations.map((recommendation, index) => ({
+    forecast: { leads: '—', cpl: '—', conversion: '—', reach: '—', ...(data.forecast || {}) },
+    recommendations: remoteRecommendations.map((recommendation, index) => ({
+      ...DEFAULT_RECOMMENDATIONS[index % DEFAULT_RECOMMENDATIONS.length],
       ...recommendation,
-      ...(remoteRecommendations[index] || {}),
-      icon: recommendation.icon,
-      action: remoteRecommendations[index]?.action || recommendation.action,
+      icon: DEFAULT_RECOMMENDATIONS[index % DEFAULT_RECOMMENDATIONS.length].icon,
     })),
   }
 }
@@ -719,7 +712,7 @@ export default function AdsWizardPage() {
                 <div className="ads-audience-card">
                   <div className="ads-card-heading">
                     <div><RiTeamLine /><span>Audiencia recomendada</span></div>
-                    {strategy && <strong>{strategy.confidence}% afinidad</strong>}
+                    {strategy?.confidence != null && <strong>{strategy.confidence}% afinidad</strong>}
                   </div>
                   <div className="ads-audience-body">
                     <img src={audienceConstellation} alt="" />
@@ -741,12 +734,13 @@ export default function AdsWizardPage() {
                     <div><span>Conversión</span><strong>{strategy?.forecast.conversion || '—'}</strong></div>
                     <div><span>Alcance</span><strong>{strategy?.forecast.reach || '—'}</strong></div>
                   </div>
-                  <small className="ads-confidence-note"><RiInformationLine /> Proyecciones estimadas con {strategy?.confidence || 0}% de confianza</small>
+                  <small className="ads-confidence-note"><RiInformationLine /> {strategy?.confidence != null ? `Proyecciones estimadas con ${strategy.confidence}% de confianza` : 'Genera una estrategia para ver proyecciones'}</small>
                 </div>
 
                 <div className="ads-creative-card">
                   <div className="ads-card-heading">
                     <div><RiPulseLine /><span>Vista previa del anuncio</span></div>
+                    <small>Ejemplo ilustrativo — el copy final se define al publicar</small>
                     <button type="button" onClick={() => setCreativeIndex(index => (index + 1) % CREATIVE_VARIANTS.length)}>
                       Variar creativo <RiRefreshLine />
                     </button>

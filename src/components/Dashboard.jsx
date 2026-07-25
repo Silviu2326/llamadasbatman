@@ -5,15 +5,11 @@ import {
   RiMoneyDollarBoxLine, RiBriefcaseLine, RiLineChartLine,
   RiCloseLine,
 } from 'react-icons/ri'
-import { HiChevronDown } from 'react-icons/hi'
 import '../dashboard.css'
 import { apiFetch } from '../lib/api'
 import { DEMO_MODE, getApiErrorMessage, isNonEmptyPayload } from '../lib/dataMode'
-import DateRangePicker from './ui/DateRangePicker'
 import ExportDropdown from './ui/ExportDropdown'
 import DataStatusBanner from './ui/DataStatusBanner'
-import useClickOutside from '../hooks/useClickOutside'
-import { formatDisplayDate } from '../utils/dateHelpers'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
 import { ALL_WIDGET_IDS, DEFAULT_COLS, GRID_WIDGET_IDS, KPI_WIDGET_IDS, KPI_INDEX_MAP } from '../dashboardConfig'
 import KPICard from './KPICard'
@@ -44,14 +40,6 @@ const KPI_BASE = [
 
 const KPI_IMAGES = [callsIcon, leadsIcon, meetingsIcon, conversionIcon, pipelineIcon, revenueIcon]
 const KPI_LABEL_KEYS = ['callsMade', 'contactedLeads', 'meetingsBooked', 'conversionRate', 'pipelineGenerated', 'attributedRevenue', 'systemRoi']
-
-const COMPARE_OPTIONS = [
-  { key:'none',        label:'Sin comparación' },
-  { key:'prev_week',   label:'Semana anterior' },
-  { key:'prev_month',  label:'Mes anterior' },
-  { key:'prev_year',   label:'Año anterior' },
-]
-const COMPARE_LABEL_KEYS = { none: 'noComparison', prev_week: 'previousWeek', prev_month: 'previousMonth', prev_year: 'previousYear' }
 
 const MOCK_STATS = {
   totalCalls: 1248, totalLeads: 386, meetingsScheduled: 74, conversionRate: 18.6,
@@ -95,13 +83,6 @@ const MOCK_KPI = [
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { t, locale } = useI18n()
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate]     = useState('')
-  const [compare, setCompare]     = useState('prev_week')
-  const [openCompare, setOpenCompare] = useState(false)
-  const compareRef = useRef(null)
-  useClickOutside([compareRef], () => setOpenCompare(false))
-
   const [kpi, setKpi] = useState(
     DEMO_MODE
       ? KPI_BASE.map((k, i) => ({ ...k, ...MOCK_KPI[i], image: KPI_IMAGES[i] }))
@@ -178,7 +159,6 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [reloadKey, locale])
 
-  const compareLabel = t(`dashboard.${COMPARE_LABEL_KEYS[compare] || 'noComparison'}`)
   const dataStatusLabel = dataSource === 'live'
     ? t('dashboard.liveData')
     : dataSource === 'empty'
@@ -190,23 +170,6 @@ export default function Dashboard() {
         : t('dashboard.demoActive')
 
   const localizedKpi = kpi.map((item, index) => ({ ...item, label: t(`dashboard.${KPI_LABEL_KEYS[index] || 'callsMade'}`) }))
-
-  const dropdownStyle = {
-    position:'absolute', top:'calc(100% + 6px)', right:0,
-    background:'#0d1117', border:'1px solid #1e2433', borderRadius:10,
-    padding:6, minWidth:180, boxShadow:'0 10px 30px rgba(0,0,0,0.5)',
-    zIndex:20, display:'flex', flexDirection:'column', gap:2,
-  }
-  const dropdownItemStyle = {
-    background:'transparent', border:'none', borderRadius:6,
-    padding:'7px 10px', color:'#cbd5e1', fontSize:12,
-    textAlign:'left', cursor:'pointer',
-  }
-  const activeItemStyle = { ...dropdownItemStyle, background:'#1e2433', color:'#ffffff', fontWeight:600 }
-
-  const displayRange = startDate && endDate
-    ? `${formatDisplayDate(new Date(startDate+'T00:00:00'), locale)} - ${formatDisplayDate(new Date(endDate+'T00:00:00'), locale)}`
-    : ''
 
   useLayoutEffect(() => {
     const el = gridRef.current
@@ -242,32 +205,8 @@ export default function Dashboard() {
         </div>
         <div className="dashboard-welcome-art"><img src={dashboardOrbit} alt="" /><span className={`dashboard-data-status dashboard-data-status-${dataSource}`}><i /> {dataStatusLabel}</span></div><div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
 
-          <DateRangePicker onChange={({ start, end }) => { setStartDate(start); setEndDate(end) }} />
-
-          <div ref={compareRef} style={{ position:'relative' }}>
-            <button
-              onClick={() => setOpenCompare(v => !v)}
-              style={{ display:'flex', alignItems:'center', gap:6, background:'#0d1117', border:'1px solid #1e2433', borderRadius:9, padding:'7px 13px', color:'#94a3b8', fontSize:12, cursor:'pointer' }}
-            >
-              {compareLabel} <HiChevronDown style={{ width:12, height:12, transform: openCompare ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }} />
-            </button>
-            {openCompare && (
-              <div style={dropdownStyle}>
-                {COMPARE_OPTIONS.map(o => (
-                  <button
-                    key={o.key}
-                    style={compare === o.key ? activeItemStyle : dropdownItemStyle}
-                    onClick={() => { setCompare(o.key); setOpenCompare(false) }}
-                  >
-                    {t(`dashboard.${COMPARE_LABEL_KEYS[o.key] || 'noComparison'}`)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           <ExportDropdown
-            filename={`dashboard_${startDate || 'hoy'}_${endDate || 'hoy'}.csv`}
+            filename="dashboard.csv"
             data={kpi}
             columns={[
               { header:t('dashboard.metric'), getValue:k => k.label.replace('\n',' ') },
@@ -280,13 +219,6 @@ export default function Dashboard() {
 
         </div>
       </div>
-
-      {false && (dataError || dataSource === 'empty') && (
-        <div className={`dashboard-data-notice dashboard-data-notice-${dataSource}`} role="status">
-          <strong>{dataSource === 'empty' ? 'Todavía no hay actividad registrada' : 'No se pudo sincronizar el dashboard'}</strong>
-          <span>{dataError || 'Cuando existan llamadas, leads o pipeline aparecerán aquí. No mostramos cifras de ejemplo.'}</span>
-        </div>
-      )}
 
       <DataStatusBanner
         status={dataSource}

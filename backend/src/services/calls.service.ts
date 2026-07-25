@@ -8,6 +8,7 @@ interface CallFilters {
   agentId?: string
   campaignId?: string
   status?: CallStatus
+  outcome?: string
   dateFrom?: string
   dateTo?: string
   page?: number
@@ -70,13 +71,14 @@ export async function validateVoiceResourceOwnership(
 }
 
 export async function listCalls(orgId: string, filters: CallFilters = {}) {
-  const { agentId, campaignId, status, dateFrom, dateTo, page = 1, limit = 20 } = filters
+  const { agentId, campaignId, status, outcome, dateFrom, dateTo, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
 
   const where: Record<string, unknown> = { orgId }
   if (agentId) where.agentId = agentId
   if (campaignId) where.campaignId = campaignId
   if (status) where.status = status
+  if (outcome) where.outcome = outcome
   if (dateFrom || dateTo) {
     where.createdAt = {
       ...(dateFrom ? { gte: new Date(dateFrom) } : {}),

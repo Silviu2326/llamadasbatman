@@ -2,7 +2,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   RiArrowLeftLine, RiPlayLine, RiEditLine, RiBookOpenLine,
-  RiFileCopyLine, RiPhoneLine, RiCalendarLine, RiCheckLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { useI18n } from '../i18n'
@@ -16,17 +15,10 @@ const STATUS = {
   Archivado: { color: '#6b7280', bg: '#6b728012', border: '#6b728030' },
 }
 
-const TABS = ['Resumen', 'Conversaciones', 'Configuración', 'Playbooks', 'Rendimiento']
+// ponytail: solo pestañas con datos reales — Resumen/Rendimiento vuelven cuando existan endpoints de series
+const TABS = ['Conversaciones', 'Configuración', 'Playbooks']
 
-const RECENT_CALLS = [
-  { name: 'Carlos Méndez',   time: 'Hace 1h',  dur: '4:32', result: 'Éxito' },
-  { name: 'Laura Fernández', time: 'Hace 3h',  dur: '3:18', result: 'Éxito' },
-  { name: 'Ana Beltrán',     time: 'Hace 5h',  dur: '2:50', result: 'Sin respuesta' },
-  { name: 'Miguel Soto',     time: 'Ayer 16h', dur: '6:11', result: 'Éxito' },
-  { name: 'Sofía Vargas',    time: 'Ayer 14h', dur: '3:55', result: 'Interesado' },
-]
-
-const BAR_VALS = [62, 75, 68, 88, 82, 94, 100, 90, 105, 98, 112, 88, 102, 95, 118]
+const OUTCOME_LABEL = { meeting_scheduled: 'Reunión agendada', interested: 'Interesado', rejected: 'No interesado', callback: 'Seguimiento' }
 
 // Ítems del tab "Configuración". Los que corresponden a columnas propias de
 // Agent (voiceId, personality) se guardan ahí; el resto (límites operativos,
@@ -57,7 +49,7 @@ function toAgent(d, stats) {
     status: d.isActive ? 'Activo' : 'Pausado',
     personality: d.personality || '', tag: d.personality || 'Profesional amigable',
     tags: d.personality ? d.personality.split(',').map(s => s.trim()) : [],
-    energia: 7, humor: 6, objetivo: d.systemPrompt || '',
+    objetivo: d.systemPrompt || '',
     docs: [], extraDocs: 0,
     calls: stats?.calls ?? 0, conv: stats ? Math.round((stats.meetingsScheduled / (stats.calls || 1)) * 100) : 0,
     stats: [
@@ -75,20 +67,23 @@ export default function AgentDetailPage() {
   const navigate = useNavigate()
   const [agent, setAgent] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('Resumen')
+  const [tab, setTab] = useState('Conversaciones')
   const [isActive, setIsActive] = useState(false)
   const [savedConfig, setSavedConfig] = useState(false)
   const [editKey, setEditKey] = useState(null)
   const [cfgVals, setCfgVals] = useState({})
   const [agentSettings, setAgentSettings] = useState({})
   const [playbooks, setPlaybooks] = useState([])
+  const [recentCalls, setRecentCalls] = useState([])
 
   useEffect(() => {
     Promise.all([
       apiFetch(`/api/agents/${id}`).then(r => r.ok ? r.json() : null),
       apiFetch(`/api/agents/${id}/stats`).then(r => r.ok ? r.json() : null),
       apiFetch('/api/playbooks').then(r => r.ok ? r.json() : []),
-    ]).then(([data, stats, pbList]) => {
+      apiFetch(`/api/calls?agentId=${id}&limit=20`).then(r => r.ok ? r.json() : null),
+    ]).then(([data, stats, pbList, callsData]) => {
+      setRecentCalls(Array.isArray(callsData?.data) ? callsData.data : [])
       if (data) {
         const a = toAgent(data, stats)
         setAgent(a)
@@ -255,17 +250,6 @@ export default function AgentDetailPage() {
                 <span key={t} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99, background: agent.bg + '20', border: `1px solid ${agent.color}40`, color: agent.color, fontWeight: 600 }}>{t}</span>
               ))}
             </div>
-            {[{ label: 'Energía', val: agent.energia, color: agent.color }, { label: 'Humor', val: agent.humor, color: '#818cf8' }].map(({ label, val, color }) => (
-              <div key={label} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: '#6b7280' }}>{label}</span>
-                  <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{val}/10</span>
-                </div>
-                <div style={{ height: 4, background: '#1e2433', borderRadius: 99 }}>
-                  <div style={{ width: `${val * 10}%`, height: '100%', background: color, borderRadius: 99, boxShadow: `0 0 6px ${color}60` }} />
-                </div>
-              </div>
-            ))}
           </div>
 
           {/* Objetivo */}
@@ -316,104 +300,34 @@ export default function AgentDetailPage() {
           </div>
 
           <div style={{ padding: '22px 22px' }}>
-            {tab === 'Resumen' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-                {/* Bar chart */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Llamadas · últimas 2 semanas</p>
-                    <span style={{ fontSize: 11, color: '#4b5563' }}>Total: {agent.calls || 0}</span>
-                  </div>
-                  <div style={{ height: 110, background: '#111827', borderRadius: 10, display: 'flex', alignItems: 'flex-end', gap: 4, padding: '10px 14px 10px' }}>
-                    {BAR_VALS.map((h, i) => (
-                      <div key={i} style={{ flex: 1, borderRadius: '3px 3px 0 0', background: `linear-gradient(180deg, ${agent.color}cc, ${agent.bg})`, height: `${agent.calls ? h : 0}%`, minHeight: agent.calls ? 3 : 0, filter: `drop-shadow(0 0 4px ${agent.color}50)` }} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Extra metrics */}
-                <div>
-                  <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Métricas adicionales</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    {[
-                      { label: 'Duración media', value: '4:32 min' },
-                      { label: 'Tasa de rechazo', value: '18.3%' },
-                      { label: 'Leads cualificados/día', value: agent.calls ? `${Math.floor(agent.calls / 7)}` : '—' },
-                      { label: 'Satisfacción media', value: agent.calls ? '4.7 / 5.0' : '—' },
-                    ].map(m => (
-                      <div key={m.label} style={{ padding: '13px 14px', background: '#111827', border: '1px solid #1a2235', borderRadius: 10 }}>
-                        <p style={{ margin: '0 0 4px', fontSize: 10.5, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{m.label}</p>
-                        <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>{m.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Recent calls */}
-                <div>
-                  <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Últimas conversaciones</p>
-                  <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 10, overflow: 'hidden' }}>
-                    {RECENT_CALLS.map((c, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: i < RECENT_CALLS.length - 1 ? '1px solid #1e2433' : 'none' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1e2433', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>
-                          {c.name[0]}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: '0 0 2px', fontSize: 12.5, fontWeight: 600, color: '#e2e8f0' }}>{c.name}</p>
-                          <p style={{ margin: 0, fontSize: 11, color: '#4b5563' }}>{c.time} · {c.dur} min</p>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                          <RiPhoneLine style={{ width: 12, height: 12, color: '#4b5563' }} />
-                          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: c.result === 'Éxito' ? '#10b98115' : c.result === 'Interesado' ? '#3b82f615' : '#1e2433', color: c.result === 'Éxito' ? '#10b981' : c.result === 'Interesado' ? '#60a5fa' : '#6b7280', border: `1px solid ${c.result === 'Éxito' ? '#10b98130' : c.result === 'Interesado' ? '#3b82f630' : '#1e2433'}` }}>
-                            {c.result}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
             {tab === 'Conversaciones' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Historial completo</p>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {['Todas', 'Éxito', 'Sin resp.', 'No interés'].map((f, i) => (
-                      <button key={f} style={{ padding: '5px 11px', borderRadius: 7, border: '1px solid ' + (i === 0 ? agent.color : '#1e2433'), background: i === 0 ? agent.color + '20' : 'transparent', color: i === 0 ? agent.color : '#6b7280', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}>{f}</button>
-                    ))}
-                  </div>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Últimas llamadas de este agente</p>
+                  <button onClick={() => navigate('/llamadas')} style={{ background: 'transparent', border: `1px solid ${agent.color}50`, borderRadius: 8, padding: '6px 12px', color: agent.color, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Ver todas</button>
                 </div>
-                <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, overflow: 'hidden' }}>
-                  {[
-                    { name: 'Carlos Méndez',   company: 'TechSolutions',  time: 'Hoy 11:32',  dur: '4:32', result: 'Éxito', score: '+0.82' },
-                    { name: 'Laura Fernández', company: 'DataPro Iberia', time: 'Hoy 10:15',  dur: '3:18', result: 'Interesado', score: '+0.45' },
-                    { name: 'Ana Beltrán',     company: 'Innovate Corp',  time: 'Ayer 17:21', dur: '2:50', result: 'Sin resp.', score: '—' },
-                    { name: 'Miguel Soto',     company: 'MedCare Systems',time: 'Ayer 16:05', dur: '6:11', result: 'Éxito', score: '+0.91' },
-                    { name: 'Sofía Vargas',    company: 'NextGen Tech',   time: 'Ayer 14:55', dur: '3:55', result: 'No interés', score: '-0.38' },
-                    { name: 'Javier Ruiz',     company: 'Retail Group',   time: '23 may',     dur: '5:20', result: 'Éxito', score: '+0.67' },
-                    { name: 'Elena Gómez',     company: 'BuildIt Sol.',   time: '22 may',     dur: '1:50', result: 'Sin resp.', score: '—' },
-                  ].map((c, i) => {
-                    const ok = c.result === 'Éxito'
-                    const int = c.result === 'Interesado'
-                    const bad = c.result === 'No interés'
-                    const clr = ok ? '#10b981' : int ? '#60a5fa' : bad ? '#ef4444' : '#6b7280'
-                    return (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 70px 90px', gap: 0, padding: '11px 16px', borderBottom: i < 6 ? '1px solid #1e2433' : 'none', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                          <div style={{ width: 30, height: 30, borderRadius: 8, background: '#1e2433', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>{c.name[0]}</div>
-                          <div><p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: '#e2e8f0' }}>{c.name}</p><p style={{ margin: 0, fontSize: 11, color: '#4b5563' }}>{c.company}</p></div>
+                {recentCalls.length === 0
+                  ? <p style={{ textAlign: 'center', color: '#4b5563', fontSize: 13, padding: '30px 0' }}>Este agente todavía no tiene llamadas registradas.</p>
+                  : <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, overflow: 'hidden' }}>
+                    {recentCalls.map((c, i) => {
+                      const name = c.lead?.name ?? 'Sin contacto'
+                      const seconds = c.durationSeconds ?? 0
+                      const result = OUTCOME_LABEL[c.outcome] ?? 'Sin resultado'
+                      const clr = c.outcome === 'meeting_scheduled' ? '#10b981' : c.outcome === 'interested' ? '#60a5fa' : c.outcome === 'rejected' ? '#ef4444' : '#6b7280'
+                      return (
+                        <div key={c.id} role="button" tabIndex="0" onClick={() => navigate(`/llamadas/${c.id}`)} onKeyDown={e => e.key === 'Enter' && navigate(`/llamadas/${c.id}`)} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 120px', gap: 0, padding: '11px 16px', borderBottom: i < recentCalls.length - 1 ? '1px solid #1e2433' : 'none', alignItems: 'center', cursor: 'pointer' }}>
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                            <div style={{ width: 30, height: 30, borderRadius: 8, background: '#1e2433', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#6b7280', flexShrink: 0 }}>{name[0]}</div>
+                            <div><p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: '#e2e8f0' }}>{name}</p><p style={{ margin: 0, fontSize: 11, color: '#4b5563' }}>{c.lead?.company ?? 'Sin empresa'}</p></div>
+                          </div>
+                          <span style={{ fontSize: 11, color: '#4b5563' }}>{c.startedAt ? new Date(c.startedAt).toLocaleString(locale === 'en' ? 'en-US' : 'es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                          <span style={{ fontSize: 11.5, color: '#6b7280' }}>{seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : '—'}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: clr + '15', color: clr, border: `1px solid ${clr}30`, whiteSpace: 'nowrap', textAlign: 'center' }}>{result}</span>
                         </div>
-                        <span style={{ fontSize: 11, color: '#4b5563' }}>{c.time}</span>
-                        <span style={{ fontSize: 11.5, color: '#6b7280' }}>{c.dur} min</span>
-                        <span style={{ fontSize: 11.5, color: c.score.startsWith('+') ? '#4ade80' : c.score.startsWith('-') ? '#f87171' : '#4b5563', fontWeight: 600 }}>{c.score}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: clr + '15', color: clr, border: `1px solid ${clr}30`, whiteSpace: 'nowrap' }}>{c.result}</span>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                }
               </div>
             )}
 
@@ -474,46 +388,6 @@ export default function AgentDetailPage() {
               </div>
             )}
 
-            {tab === 'Rendimiento' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
-                  {[
-                    { label: 'Llamadas este mes', value: agent.calls || 0, sub: '+18.2% vs mes ant.' },
-                    { label: 'Tasa de éxito', value: `${agent.conv || 0}%`, sub: '+2.1pp vs mes ant.' },
-                    { label: 'Sentimiento medio', value: '+0.71', sub: '+0.04 vs mes ant.' },
-                    { label: 'Duración media', value: '4:32 min', sub: '-12s vs mes ant.' },
-                    { label: 'Meetings generadas', value: agent.calls ? Math.floor(agent.calls * 0.14) : 0, sub: '+22.5% vs mes ant.' },
-                    { label: 'Score promedio', value: '87/100', sub: '+3pts vs mes ant.' },
-                  ].map((m, i) => (
-                    <div key={i} style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '16px' }}>
-                      <p style={{ margin: '0 0 6px', fontSize: 11, color: '#4b5563', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>{m.label}</p>
-                      <p style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>{m.value}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: '#4ade80' }}>{m.sub}</p>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ background: '#111827', border: '1px solid #1a2235', borderRadius: 12, padding: '18px' }}>
-                  <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Evolución semanal</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(5, 1fr)', gap: 0 }}>
-                    <div />{['Sem 1','Sem 2','Sem 3','Sem 4','Sem 5'].map(s => (
-                      <span key={s} style={{ fontSize: 10, color: '#374151', textAlign: 'center' }}>{s}</span>
-                    ))}
-                    {[
-                      { label: 'Llamadas', vals: [38, 42, 51, 48, agent.calls ? Math.floor(agent.calls / 4) : 0] },
-                      { label: 'Éxitos',   vals: [12, 15, 18, 16, agent.conv ? Math.floor((agent.calls || 0) / 4 * agent.conv / 100) : 0] },
-                      { label: 'Sentiment',vals: ['+0.61','+0.65','+0.70','+0.68','+0.71'] },
-                    ].map(row => (
-                      [<span key={row.label} style={{ fontSize: 11.5, color: '#6b7280', display: 'flex', alignItems: 'center', paddingTop: 10 }}>{row.label}</span>,
-                      ...row.vals.map((v, j) => (
-                        <div key={j} style={{ textAlign: 'center', paddingTop: 10 }}>
-                          <span style={{ fontSize: 12.5, fontWeight: 700, color: agent.color }}>{v}</span>
-                        </div>
-                      ))]
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

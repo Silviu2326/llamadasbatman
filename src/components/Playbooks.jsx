@@ -2,14 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
-  RiBook2Line, RiDownloadLine, RiAddLine, RiSearchLine,
-  RiFilterLine, RiMoreLine, RiCheckLine, RiCloseLine,
-  RiPhoneLine, RiBarChartLine, RiGroupLine, RiMoneyDollarBoxLine,
-  RiCalendarLine, RiFlowChart, RiAlarmLine, RiChatVoiceLine,
-  RiArrowRightUpLine, RiShieldLine, RiRefreshLine, RiShoppingCart2Line,
-  RiUserLine, RiLightbulbLine, RiArrowUpLine, RiArrowDownLine, RiExternalLinkLine,
+  RiBook2Line, RiAddLine, RiSearchLine,
+  RiPhoneLine, RiBarChartLine, RiMoneyDollarBoxLine,
+  RiCalendarLine, RiFlowChart, RiChatVoiceLine,
+  RiShieldLine, RiRefreshLine, RiShoppingCart2Line,
+  RiUserLine, RiLightbulbLine,
 } from 'react-icons/ri'
-import { HiArrowUp, HiArrowDown, HiChevronDown } from 'react-icons/hi'
+import { HiArrowUp, HiChevronDown } from 'react-icons/hi'
 import '../dashboard.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import NewPlaybookModal from '../modals/NewPlaybookModal'
@@ -38,121 +37,6 @@ const STATS = [
   },
 ]
 
-// ─── playbooks data ────────────────────────────────────────────────────────────
-export const PLAYBOOKS = [
-  {
-    id: 1,
-    name: 'Agendar demos B2B',
-    badge: 'Oficial',
-    badgeColor: '#7c3aed',
-    desc: 'Convierte leads interesados en reuniones calificadas con tu equipo comercial.',
-    tags: [{ label: 'Ventas', bg: '#4f46e520', color: '#a78bfa' }, { label: 'B2B', bg: '#0891b220', color: '#22d3ee' }],
-    iconBg: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-    IconEl: RiPhoneLine, iconColor: '#c4b5fd',
-    tasa: '28,4%', reuniones: 624, campanas: 23,
-  },
-  {
-    id: 2,
-    name: 'Recuperar leads fríos',
-    badge: 'Oficial',
-    badgeColor: '#0891b2',
-    desc: 'Reactiva leads que no respondieron y reaviva el interés tu solución.',
-    tags: [{ label: 'Recuperación', bg: '#0891b220', color: '#22d3ee' }, { label: 'Outreach', bg: '#059669 20', color: '#34d399' }],
-    iconBg: 'linear-gradient(135deg, #0e7490 0%, #0891b2 100%)',
-    IconEl: RiRefreshLine, iconColor: '#67e8f9',
-    tasa: '17,8%', reuniones: 312, campanas: 18,
-  },
-  {
-    id: 3,
-    name: 'Cerrar ventas calientes',
-    badge: 'Oficial',
-    badgeColor: '#059669',
-    desc: 'Lleva leads calificados al cierre superando objeciones y acelerando la decisión.',
-    tags: [{ label: 'Cierre', bg: '#05966920', color: '#34d399' }, { label: 'Ventas', bg: '#4f46e520', color: '#a78bfa' }],
-    iconBg: 'linear-gradient(135deg, #065f46 0%, #059669 100%)',
-    IconEl: RiShoppingCart2Line, iconColor: '#6ee7b7',
-    tasa: '36,2%', reuniones: 489, campanas: 15,
-  },
-  {
-    id: 4,
-    name: 'Reconfirmar citas',
-    badge: 'Oficial',
-    badgeColor: '#d97706',
-    desc: 'Reduce el no-show reconfirmando citas de forma cercana y efectiva.',
-    tags: [{ label: 'Atención al cliente', bg: '#d9770620', color: '#fbbf24' }, { label: 'Recordatorios', bg: '#dc262620', color: '#f87171' }],
-    iconBg: 'linear-gradient(135deg, #b45309 0%, #d97706 100%)',
-    IconEl: RiCalendarLine, iconColor: '#fcd34d',
-    tasa: '31,6%', reuniones: 763, campanas: 31,
-  },
-  {
-    id: 5,
-    name: 'Renovaciones y upsell',
-    badge: 'Oficial',
-    badgeColor: '#7c3aed',
-    desc: 'Identifica oportunidades de upsell y renueva con propuestas de valor.',
-    tags: [{ label: 'Fidelización', bg: '#7c3aed20', color: '#c4b5fd' }, { label: 'Upsell', bg: '#0891b220', color: '#22d3ee' }],
-    iconBg: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-    IconEl: RiUserLine, iconColor: '#c4b5fd',
-    tasa: '22,1%', reuniones: 298, campanas: 11,
-  },
-  {
-    id: 6,
-    name: 'Seguimiento post demo',
-    badge: 'Personalizado',
-    badgeColor: '#0891b2',
-    desc: 'Da seguimiento a demos realizadas y empuja al siguiente paso.',
-    tags: [{ label: 'Seguimiento', bg: '#0891b220', color: '#22d3ee' }, { label: 'Ventas', bg: '#4f46e520', color: '#a78bfa' }],
-    iconBg: 'linear-gradient(135deg, #0369a1 0%, #0891b2 100%)',
-    IconEl: RiChatVoiceLine, iconColor: '#7dd3fc',
-    tasa: '26,5%', reuniones: 343, campanas: 9,
-  },
-  {
-    id: 7,
-    name: 'Cross-selling inteligente',
-    badge: 'Personalizado',
-    badgeColor: '#059669',
-    desc: 'Detecta necesidades adicionales y ofrece complementarias.',
-    tags: [{ label: 'Cross-sell', bg: '#05966920', color: '#34d399' }, { label: 'Ventas', bg: '#4f46e520', color: '#a78bfa' }],
-    iconBg: 'linear-gradient(135deg, #047857 0%, #059669 100%)',
-    IconEl: RiLightbulbLine, iconColor: '#6ee7b7',
-    tasa: '19,3%', reuniones: 215, campanas: 7,
-  },
-  {
-    id: 8,
-    name: 'Reactivación inactivos',
-    badge: 'Personalizado',
-    badgeColor: '#dc2626',
-    desc: 'Recupera clientes inactivos con mensajes personalizados.',
-    tags: [{ label: 'Recuperación', bg: '#dc262620', color: '#f87171' }, { label: 'Fidelización', bg: '#7c3aed20', color: '#c4b5fd' }],
-    iconBg: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)',
-    IconEl: RiShieldLine, iconColor: '#fca5a5',
-    tasa: '15,2%', reuniones: 174, campanas: 6,
-  },
-]
-
-// ─── detail panel ─────────────────────────────────────────────────────────────
-const DETAIL = {
-  id: 1,
-  name: 'Agendar demos B2B',
-  badge: 'Oficial',
-  desc: 'Playbook diseñado para agendar reuniones calificadas con leads interesados en tu solución. Enfocado en entender necesidades, generar valor y confirmar la reunión.',
-  idealPara: ['Leads inbound interesados', 'Empresas SaaS / Tecnología', 'Ciclos de venta de 7-30 días'],
-  incluye: [
-    { icon: RiFlowChart, label: 'Flujo conversacional', value: '15 pasos' },
-    { icon: RiAlarmLine, label: 'Manejo de objeciones', value: '8 objeciones' },
-    { icon: RiSearchLine, label: 'Preguntas de calificación', value: '12 preguntas' },
-    { icon: RiChatVoiceLine, label: 'Mensajes y momentos clave', value: '9 mensajes' },
-    { icon: RiExternalLinkLine, label: 'Integraciones sugeridas', value: null },
-  ],
-  integraciones: ['HB', 'SF', '⚡'],
-  stats: [
-    { label: 'Tasa de éxito', value: '28,4%', trend: '+3,2pp', up: true },
-    { label: 'Duración prom.', value: '6m 42s', trend: '-12s', up: false },
-    { label: 'Reuniones', value: '624', trend: '+18,1%', up: true },
-  ],
-}
-
-const TABS = ['Todos', 'Mis playbooks', 'Oficiales', 'Compartidos conmigo']
 
 // ─── Backend mapping ───────────────────────────────────────────────────────────
 const PB_ICONS   = [RiPhoneLine, RiRefreshLine, RiShoppingCart2Line, RiCalendarLine, RiUserLine, RiChatVoiceLine, RiLightbulbLine, RiShieldLine]
@@ -311,187 +195,21 @@ function PlaybookCard({ pb, selected, onClick, onUse }) {
         }}>
           Usar playbook
         </button>
-        <button style={{
-          width: 34, height: 34, borderRadius: 9, border: '1px solid #1e2433',
-          background: 'transparent', color: '#6b7280',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        }}>
-          <RiMoreLine style={{ width: 16, height: 16 }} />
-        </button>
       </div>
     </div>
   )
 }
 
-// ─── DetailPanel ──────────────────────────────────────────────────────────────
-function DetailPanel({ onClose }) {
-  const d = DETAIL
-  return (
-    <div className="dark-scroll" style={{
-      width: 300, flexShrink: 0,
-      background: '#0a0e1a',
-      borderLeft: '1px solid #1e2433',
-      display: 'flex', flexDirection: 'column',
-      overflowY: 'auto',
-    }}>
-      {/* Header */}
-      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #1e2433' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{d.name}</p>
-            <Badge label={d.badge} color="#7c3aed" />
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 26, height: 26, borderRadius: 7, border: '1px solid #1e2433',
-              background: 'transparent', color: '#6b7280', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}
-          >
-            <RiCloseLine style={{ width: 14, height: 14 }} />
-          </button>
-        </div>
-      </div>
-
-      {/* Hero image */}
-      <div style={{
-        margin: '12px 16px',
-        height: 110, borderRadius: 12,
-        background: 'linear-gradient(135deg, #1e1060 0%, #2e1065 50%, #0f172a 100%)',
-        border: '1px solid #4f46e530',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20,
-        position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at 30% 50%, #4f46e530 0%, transparent 60%)',
-        }} />
-        <div style={{
-          width: 56, height: 56, borderRadius: 14,
-          background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 30px #7c3aed60',
-        }}>
-          <RiCalendarLine style={{ width: 28, height: 28, color: '#c4b5fd' }} />
-        </div>
-        <div style={{
-          width: 48, height: 48, borderRadius: 12,
-          background: 'linear-gradient(135deg, #1e3a5f, #0891b2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 20px #0891b240',
-        }}>
-          <RiPhoneLine style={{ width: 22, height: 22, color: '#67e8f9' }} />
-        </div>
-      </div>
-
-      {/* Description */}
-      <div style={{ padding: '0 16px 14px', borderBottom: '1px solid #1a2235' }}>
-        <p style={{ margin: 0, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.6 }}>{d.desc}</p>
-      </div>
-
-      {/* Ideal para */}
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a2235' }}>
-        <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>Ideal para</p>
-        {d.idealPara.map((item, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-            <RiCheckLine style={{ width: 14, height: 14, color: '#4ade80', flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>{item}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Incluye */}
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a2235' }}>
-        <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>Incluye</p>
-        {d.incluye.map((item, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <item.icon style={{ width: 14, height: 14, color: '#6b7280', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: '#94a3b8' }}>{item.label}</span>
-            </div>
-            {item.value
-              ? <span style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600 }}>{item.value}</span>
-              : (
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  {[
-                    { label: 'HS', bg: '#ff7a59' },
-                    { label: 'SF', bg: '#00a1e0' },
-                    { label: '⚡', bg: '#ff4f00' },
-                  ].map(b => (
-                    <div key={b.label} style={{
-                      width: 20, height: 20, borderRadius: 5,
-                      background: b.bg, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff',
-                    }}>{b.label}</div>
-                  ))}
-                  <span style={{ fontSize: 11, color: '#6b7280' }}>+2</span>
-                </div>
-              )
-            }
-          </div>
-        ))}
-      </div>
-
-      {/* Estadísticas promedio */}
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a2235' }}>
-        <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>Estadísticas promedio</p>
-        <div style={{ display: 'flex', gap: 0 }}>
-          {d.stats.map((s, i) => (
-            <div key={i} style={{
-              flex: 1,
-              paddingRight: i < 2 ? 10 : 0,
-              borderRight: i < 2 ? '1px solid #1a2235' : 'none',
-              paddingLeft: i > 0 ? 10 : 0,
-            }}>
-              <p style={{ margin: '0 0 3px', fontSize: 10, color: '#6b7280', fontWeight: 500 }}>{s.label}</p>
-              <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 800, color: '#f1f5f9' }}>{s.value}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {s.up
-                  ? <HiArrowUp style={{ width: 9, height: 9, color: '#4ade80' }} />
-                  : <HiArrowDown style={{ width: 9, height: 9, color: '#f87171' }} />
-                }
-                <span style={{ fontSize: 10, color: s.up ? '#4ade80' : '#f87171', fontWeight: 700 }}>{s.trend}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* CTA buttons */}
-      <div style={{ padding: '14px 16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button style={{
-          width: '100%', padding: '11px 0', borderRadius: 10, border: 'none',
-          background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
-          color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-          boxShadow: '0 0 24px #7c3aed50',
-        }}>
-          Usar este playbook
-        </button>
-        <button style={{
-          width: '100%', padding: '9px 0', borderRadius: 10,
-          border: '1px solid #1e2433', background: 'transparent',
-          color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }}>
-          Ver detalle completo
-          <RiArrowRightUpLine style={{ width: 14, height: 14 }} />
-        </button>
-      </div>
-    </div>
-  )
-}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Playbooks() {
   const { locale } = useI18n()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState(0)
   const [showNewPlaybook, setShowNewPlaybook] = useState(false)
   const [playbooks, setPlaybooks] = useState([])
   const [stats, setStats] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
-  const localizedTabs = locale === 'en' ? ['All', 'My playbooks', 'Official', 'Shared with me'] : TABS
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
@@ -547,16 +265,6 @@ export default function Playbooks() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button onClick={() => { const i = document.createElement('input'); i.type='file'; i.accept='.json,.yaml,.txt'; i.click() }} style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '9px 16px', borderRadius: 10,
-              border: '1px solid #1e2433', background: 'transparent',
-              color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>
-              <RiDownloadLine style={{ width: 15, height: 15 }} />
-              {locale === 'en' ? 'Import playbook' : 'Importar playbook'}
-              <span style={{ color: '#6b7280', fontSize: 12 }}>›</span>
-            </button>
             <button onClick={() => setShowNewPlaybook(true)} style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '9px 16px', borderRadius: 10, border: 'none',
@@ -573,41 +281,18 @@ export default function Playbooks() {
 
         {showNewPlaybook && <NewPlaybookModal onClose={() => setShowNewPlaybook(false)} onSuccess={() => { setShowNewPlaybook(false); setRefreshKey(k => k + 1) }} />}
 
-        {/* Tabs + search */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
-          <div style={{ display: 'flex', gap: 2, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: 4 }}>
-            {localizedTabs.map((t, i) => (
-              <button key={i} onClick={() => setActiveTab(i)} style={{
-                padding: '6px 14px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                background: activeTab === i ? '#1a2235' : 'transparent',
-                color: activeTab === i ? '#f1f5f9' : '#6b7280',
-                fontSize: 13, fontWeight: activeTab === i ? 700 : 500,
-                transition: 'all .2s',
-                boxShadow: activeTab === i ? 'inset 0 0 0 1px #2a3448' : 'none',
-              }}>{t}</button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '7px 14px', borderRadius: 10,
-              border: '1px solid #1e2433', background: '#0d1117',
-            }}>
-              <RiSearchLine style={{ width: 15, height: 15, color: '#4b5563' }} />
-              <input placeholder={locale === 'en' ? 'Search playbooks...' : 'Buscar playbooks...'} style={{
-                background: 'transparent', border: 'none', outline: 'none',
-                color: '#94a3b8', fontSize: 13, width: 160,
-              }} />
-            </div>
-            <button style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '7px 14px', borderRadius: 10,
-              border: '1px solid #1e2433', background: '#0d1117',
-              color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>
-              <RiFilterLine style={{ width: 15, height: 15 }} />
-              {locale === 'en' ? 'Filters' : 'Filtros'}
-            </button>
+        {/* Search */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 20, gap: 12 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '7px 14px', borderRadius: 10,
+            border: '1px solid #1e2433', background: '#0d1117',
+          }}>
+            <RiSearchLine style={{ width: 15, height: 15, color: '#4b5563' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={locale === 'en' ? 'Search playbooks...' : 'Buscar playbooks...'} style={{
+              background: 'transparent', border: 'none', outline: 'none',
+              color: '#94a3b8', fontSize: 13, width: 160,
+            }} />
           </div>
         </div>
 
@@ -631,7 +316,7 @@ export default function Playbooks() {
             )
             : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
-                {playbooks.map(pb => (
+                {playbooks.filter(pb => !search.trim() || `${pb.name} ${pb.desc ?? ''}`.toLowerCase().includes(search.trim().toLowerCase())).map(pb => (
                   <PlaybookCard
                     key={pb.id}
                     pb={pb}
@@ -645,20 +330,6 @@ export default function Playbooks() {
           }
         </div>
 
-        {/* Ver todos */}
-        {playbooks.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-            <button style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 24px', borderRadius: 10,
-              border: '1px solid #1e2433', background: '#0d1117',
-              color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>
-              {locale === 'en' ? 'View all playbooks' : 'Ver todos los playbooks'} ({playbooks.length})
-              <HiChevronDown style={{ width: 15, height: 15 }} />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Right: detail panel */}

@@ -11,6 +11,7 @@ export async function list(
       agentId?: string
       campaignId?: string
       status?: string
+      outcome?: string
       dateFrom?: string
       dateTo?: string
       page?: string
@@ -25,6 +26,7 @@ export async function list(
     agentId: q.agentId,
     campaignId: q.campaignId,
     status: q.status as CallStatus | undefined,
+    outcome: q.outcome,
     dateFrom: q.dateFrom,
     dateTo: q.dateTo,
     page: q.page ? parseInt(q.page) : undefined,

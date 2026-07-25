@@ -561,7 +561,7 @@ export default function Configuracion() {
                     <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563' }}>Permanente e irreversible. Todos los datos serán eliminados.</p>
                   </div>
                 </div>
-                <button disabled={isViewer} style={{ background: '#ef444420', border: '1px solid #ef444445', borderRadius: 9, padding: '8px 16px', color: '#f87171', fontSize: 13, fontWeight: 600, cursor: isViewer ? 'not-allowed' : 'pointer', opacity: isViewer ? 0.5 : 1, flexShrink: 0 }}>
+                <button disabled title="Disponible próximamente — mientras tanto, solicita la eliminación a soporte@vozia.app" style={{ background: '#ef444420', border: '1px solid #ef444445', borderRadius: 9, padding: '8px 16px', color: '#f87171', fontSize: 13, fontWeight: 600, cursor: 'not-allowed', opacity: 0.5, flexShrink: 0 }}>
                   Eliminar cuenta
                 </button>
               </div>
@@ -589,8 +589,8 @@ export default function Configuracion() {
                 </div>
               </div>
             </div>
-            <button style={{ width: '100%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px #6366f145' }}>
-              Gestionar plan
+            <button disabled title="La gestión de planes estará disponible próximamente" style={{ width: '100%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'not-allowed', opacity: 0.6 }}>
+              Gestionar plan — próximamente
             </button>
           </div>
 
@@ -654,12 +654,11 @@ export default function Configuracion() {
             <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Centro de ayuda</p>
             <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, overflow: 'hidden' }}>
               {[
-                { Icon: RiFileTextLine, iconBg: '#6366f1', title: 'Documentación', sub: 'Guías y tutoriales' },
-                { Icon: RiGroupLine,    iconBg: '#10b981', title: 'Soporte',        sub: 'Contacta a nuestro equipo' },
-                { Icon: RiBellLine,     iconBg: '#f59e0b', title: 'Novedades',      sub: 'Ver últimas actualizaciones' },
+                { Icon: RiGroupLine, iconBg: '#10b981', title: 'Soporte', sub: 'soporte@vozia.app' },
               ].map((h, i, arr) => (
                 <button
                   key={i}
+                  onClick={() => { window.location.href = 'mailto:soporte@vozia.app' }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid #1e2433' : 'none', background: 'transparent', cursor: 'pointer', transition: 'background .15s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#ffffff06')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}

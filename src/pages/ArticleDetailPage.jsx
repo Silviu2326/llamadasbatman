@@ -9,25 +9,6 @@ import {
 } from 'react-icons/ri'
 import '../dashboard.css'
 
-const CONTENT_SECTIONS = [
-  {
-    heading: 'Introducción',
-    text: 'Esta guía cubre los conceptos fundamentales que todo representante de ventas necesita conocer para maximizar el valor de la plataforma en sus conversaciones con clientes potenciales.',
-  },
-  {
-    heading: 'Puntos clave',
-    text: 'La plataforma VozIA permite automatizar llamadas salientes con agentes de inteligencia artificial que se comportan de forma natural. Cada agente puede ser personalizado con playbooks específicos según el tipo de campaña y el perfil del cliente objetivo.',
-  },
-  {
-    heading: 'Ejemplos de uso',
-    text: 'Casos como TechSolutions S.L. han demostrado un incremento del 45% en reuniones calificadas en los primeros 60 días de implementación. La clave está en la correcta configuración del playbook inicial y el seguimiento de métricas de sentimiento.',
-  },
-  {
-    heading: 'Preguntas frecuentes',
-    text: '¿Cuánto tarda el onboarding? Típicamente entre 2 y 5 días laborables. ¿Se puede integrar con nuestro CRM? Sí, tenemos conectores nativos para HubSpot, Salesforce y Pipedrive.',
-  },
-]
-
 const TYPE_OPTIONS = [
   'Producto', 'Servicios', 'Precios y planes', 'Objeciones comunes',
   'Procesos internos', 'Casos de éxito', 'Integraciones', 'Recursos de ventas',
@@ -49,7 +30,9 @@ function toArticle(data) {
     IconEl: RiBook2Line,
     date: data.createdAt ? new Date(data.createdAt).toLocaleDateString(localeCode(getLocale())) : '—',
     visits: 0,
-    sections: data.content ? [{ heading: 'Contenido', text: data.content }] : CONTENT_SECTIONS,
+    sections: data.content
+      ? [{ heading: 'Contenido', text: data.content }]
+      : [{ heading: 'Sin contenido', text: 'Este artículo todavía no tiene contenido. Usa el botón Editar para añadirlo.' }],
   }
 }
 

@@ -6,7 +6,7 @@ import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import DataStatusBanner from './ui/DataStatusBanner'
 import {
   RiBookReadLine, RiAddLine, RiDownloadLine, RiSearchLine,
-  RiFilterLine, RiMoreLine, RiStarFill,
+  RiMoreLine, RiStarFill,
   RiArrowLeftSLine, RiArrowRightSLine, RiArrowRightLine,
   RiBook2Line, RiEyeLine, RiThumbUpLine, RiEdit2Line,
   RiPriceTag3Line, RiShieldLine, RiGroupLine, RiFlowChart,
@@ -79,7 +79,6 @@ const CAT_DEFS = [
   { label: 'Recursos de ventas',   IconEl: RiShoppingCart2Line, color: '#ea580c' },
 ]
 
-const TABS = ['Todos', 'Mis artículos', 'Favoritos']
 const KB_PAGE_SIZE = 8
 
 // ─── CatItem ───────────────────────────────────────────────────────────────────
@@ -267,7 +266,6 @@ function UploadPanel({ onClose, onComplete }) {
 export default function KnowledgeBase() {
   const { t } = useI18n()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState(0)
   const [activeCategory, setActiveCategory] = useState(0)
   const [activePage, setActivePage] = useState(1)
   const [showNewArticle, setShowNewArticle] = useState(false)
@@ -324,12 +322,8 @@ export default function KnowledgeBase() {
     const query = searchTerm.trim().toLowerCase()
     let list = activeCategory === 0 ? articles : articles.filter(a => a.catLabel === CAT_DEFS[activeCategory]?.label)
     if (query) list = list.filter(a => `${a.title} ${a.desc} ${a.catLabel}`.toLowerCase().includes(query))
-    // "Mis artículos" and "Favoritos" have no backend field — show all for now
-    // The current API does not expose ownership/favorite filters. Do not
-    // pretend that these tabs changed the dataset by returning all articles.
-    if (activeTab !== 0) return []
     return list
-  }, [articles, activeCategory, activeTab, searchTerm])
+  }, [articles, activeCategory, searchTerm])
 
   const totalPages = Math.ceil(filtered.length / KB_PAGE_SIZE)
   const paginated = filtered.slice((activePage - 1) * KB_PAGE_SIZE, activePage * KB_PAGE_SIZE)
@@ -474,13 +468,6 @@ export default function KnowledgeBase() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6px', marginBottom: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.5, textTransform: 'uppercase' }}>Categorías</span>
-              <button style={{
-                width: 24, height: 24, borderRadius: 6, border: '1px solid #1e2433',
-                background: 'transparent', color: '#4b5563', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <RiAddLine style={{ width: 13, height: 13 }} />
-              </button>
             </div>
             {categories.map((cat, i) => (
               <CatItem key={i} cat={cat} active={activeCategory === i} onClick={() => { setActiveCategory(i); setActivePage(1) }} />
@@ -532,45 +519,6 @@ export default function KnowledgeBase() {
           background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14,
           overflow: 'hidden',
         }}>
-          {/* Tabs + filters */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 16px', borderBottom: '1px solid #131929', flexShrink: 0,
-          }}>
-            <div style={{ display: 'flex', gap: 0 }}>
-              {TABS.map((t, i) => (
-                <button key={i} onClick={() => setActiveTab(i)} style={{
-                  padding: '7px 16px', border: 'none', cursor: 'pointer',
-                  background: 'transparent',
-                  color: activeTab === i ? '#f1f5f9' : '#6b7280',
-                  fontSize: 13, fontWeight: activeTab === i ? 700 : 500,
-                  borderBottom: `2px solid ${activeTab === i ? '#7c3aed' : 'transparent'}`,
-                  transition: 'all .18s',
-                }}>{t}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 9,
-                border: '1px solid #1e2433', background: 'transparent',
-                color: '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              }}>
-                <RiFilterLine style={{ width: 13, height: 13 }} />
-                Filtros
-              </button>
-              <button style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '6px 12px', borderRadius: 9,
-                border: '1px solid #1e2433', background: 'transparent',
-                color: '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              }}>
-                Más recientes
-                <HiChevronDown style={{ width: 13, height: 13 }} />
-              </button>
-            </div>
-          </div>
-
           {/* Column headers */}
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 160px 170px 80px 36px',
@@ -619,7 +567,7 @@ export default function KnowledgeBase() {
               ))}
               <PageBtn icon={<RiArrowRightSLine style={{ width: 14, height: 14 }} />} onClick={() => setActivePage(p => Math.min(totalPages, p + 1))} />
             </div>
-            <button type="button" onClick={() => { setActiveTab(0); setActiveCategory(0); setSearchTerm(''); setActivePage(1) }} style={{
+            <button type="button" onClick={() => { setActiveCategory(0); setSearchTerm(''); setActivePage(1) }} style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '5px 10px', borderRadius: 8,
               border: '1px solid #1e2433', background: 'transparent',
@@ -691,16 +639,6 @@ export default function KnowledgeBase() {
                 </div>
               ))}
             </div>
-            <button style={{
-              width: '100%', marginTop: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '8px 0', borderRadius: 9,
-              border: '1px solid #1e2433', background: 'transparent',
-              color: '#7c3aed', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-            }}>
-              Ver todos los artículos
-              <RiArrowRightLine style={{ width: 14, height: 14 }} />
-            </button>
           </div>
 
           {/* No encuentras */}
