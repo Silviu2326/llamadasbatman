@@ -26,8 +26,7 @@ function Avatar({ call, size = 54 }) {
 function Transcript({ call, query, onlyAgent }) {
   const { t } = useI18n()
   const messages = call.transcript.filter(item => (!onlyAgent || item.agent) && (!query || item.text.toLowerCase().includes(query.toLowerCase())))
-  if (!messages.length) return <div className="detail-empty-state"><RiSearchLine /><strong>{call.transcript.length ? t('common.noResults') : t('details.noRecordingText')}</strong><span>{call.transcript.length ? t('common.retry') : t('details.noRecordingText')}</span></div>
-  if (!messages.length) return <div className="detail-empty-state"><RiSearchLine /><strong>{call.transcript.length ? 'No hay coincidencias' : 'No hay transcripción disponible'}</strong><span>{call.transcript.length ? 'Prueba otro término.' : 'La transcripción estará disponible cuando termine de procesarse la llamada.'}</span></div>
+  if (!messages.length) return <div className="detail-empty-state"><RiSearchLine /><strong>{call.transcript.length ? t('common.noResults') : 'No hay transcripción disponible'}</strong><span>{call.transcript.length ? 'Prueba con otro término.' : 'La transcripción estará disponible cuando termine de procesarse la llamada.'}</span></div>
   return <div className="detail-transcript" data-i18n-skip>{messages.map((message, index) => <article className={`detail-message ${message.agent ? 'agent' : 'contact'}`} key={`${message.time}-${index}`}>{message.agent && <div className="detail-message-avatar">IA</div>}<div className="detail-message-body"><div className="detail-message-bubble"><p>{message.text}</p></div><span>{message.time} · {message.agent ? call.agent : call.name}</span></div>{!message.agent && <Avatar call={call} size={28} />}</article>)}</div>
 }
 
@@ -38,7 +37,6 @@ function Player({ recordingUrl }) {
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(0)
   if (!recordingUrl) return <div className="detail-empty-state"><RiPhoneLine /><strong>{t('details.noRecording')}</strong><span>{t('details.noRecordingText')}</span></div>
-  if (!recordingUrl) return <div className="detail-empty-state"><RiPhoneLine /><strong>No hay grabación disponible</strong><span>Esta llamada no tiene recordingUrl.</span></div>
   return <div className="detail-player"><audio ref={audioRef} src={recordingUrl} preload="metadata" onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onTimeUpdate={event => setCurrent(event.currentTarget.currentTime)} onEnded={() => setPlaying(false)} /><button className="detail-play" onClick={() => { const audio = audioRef.current; if (!audio) return; if (playing) audio.pause(); else audio.play(); setPlaying(!playing) }} aria-label={playing ? 'Pausar llamada' : 'Reproducir llamada'}>{playing ? <RiPauseLine /> : <RiPlayLine />}</button><span className="detail-player-time">{formatDuration(Math.floor(current))}</span><input className="detail-player-range" type="range" min="0" max={duration || 0} value={current} onChange={event => { const value = Number(event.target.value); setCurrent(value); if (audioRef.current) audioRef.current.currentTime = value }} aria-label="Posición de la grabación" /><span className="detail-player-time">{formatDuration(Math.floor(duration))}</span><a className="detail-download" href={recordingUrl} target="_blank" rel="noreferrer" aria-label="Descargar audio"><RiDownload2Line /></a></div>
 }
 

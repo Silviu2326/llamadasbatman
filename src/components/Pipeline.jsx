@@ -732,7 +732,6 @@ export default function Pipeline() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
             <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>{t('modules.pipelineTitle')}</h1>
-            <span style={{ color: '#8b5cf6', fontSize: 16 }}>✦</span>
           </div>
           <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Visualiza y gestiona tu pipeline de ventas impulsado por IA.</p>
         </div>

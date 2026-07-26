@@ -462,14 +462,14 @@ export default function Reuniones() {
           {/* filter tabs + search */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #1a2235', overflowX: 'auto', scrollbarWidth: 'none' }}>
-              {TABS.map(t => (
-                <button key={t} onClick={() => setActiveTab(t)} style={{
+              {TABS.map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   background: 'none', border: 'none', padding: '7px 13px',
-                  fontSize: 12, fontWeight: activeTab === t ? 700 : 400,
-                  color: activeTab === t ? '#f1f5f9' : '#4b5563',
-                  borderBottom: `2px solid ${activeTab === t ? '#8b5cf6' : 'transparent'}`,
+                  fontSize: 12, fontWeight: activeTab === tab ? 700 : 400,
+                  color: activeTab === tab ? '#f1f5f9' : '#4b5563',
+                  borderBottom: `2px solid ${activeTab === tab ? '#8b5cf6' : 'transparent'}`,
                   cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap', flexShrink: 0,
-                }}>{t}</button>
+                }}>{tab}</button>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

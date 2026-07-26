@@ -397,7 +397,7 @@ export default function AdsWizardPage() {
       setAiStatus('ready')
       setDraftStatus(serverStrategy.provider === 'claude'
         ? 'Estrategia IA generada y guardada'
-        : 'Estrategia generada con fallback seguro')
+        : 'Estrategia generada con la configuración por defecto')
     } catch {
       if (DEMO_MODE) {
         setStrategy(normalizeStrategy(buildStrategy({ vertical, objetivo, presupuesto, audience })))

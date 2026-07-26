@@ -14,27 +14,13 @@ import { getLocale, localeCode, useI18n } from '../i18n'
 import NewPlaybookModal from '../modals/NewPlaybookModal'
 
 // ─── stat cards ───────────────────────────────────────────────────────────────
+// Solo presentación: los valores llegan siempre de la API en statsCards.
 const STATS = [
-  {
-    IconEl: RiBook2Line, iconBg: '#4f46e5', color: '#a78bfa',
-    label: 'Total playbooks', value: '18', sub: 'Activos: 14', subColor: '#4ade80', noArrow: true,
-  },
-  {
-    IconEl: RiFlowChart, iconBg: '#0891b2', color: '#22d3ee',
-    label: 'Usados en campañas', value: '12', pct: '20%', sub: 'vs. mes anterior',
-  },
-  {
-    IconEl: RiBarChartLine, iconBg: '#059669', color: '#34d399',
-    label: 'Tasa de éxito promedio', value: '24,7%', pct: '3,4pp', sub: 'vs. mes anterior',
-  },
-  {
-    IconEl: RiCalendarLine, iconBg: '#d97706', color: '#fbbf24',
-    label: 'Reuniones generadas', value: '1.248', pct: '18,7%', sub: 'vs. mes anterior',
-  },
-  {
-    IconEl: RiMoneyDollarBoxLine, iconBg: '#16a34a', color: '#4ade80',
-    label: 'Ingresos generados', value: '€245.800', pct: '26,1%', sub: 'vs. mes anterior',
-  },
+  { IconEl: RiBook2Line, iconBg: '#4f46e5', color: '#a78bfa', label: 'Total playbooks', value: '—', sub: '', subColor: '#4ade80', noArrow: true },
+  { IconEl: RiFlowChart, iconBg: '#0891b2', color: '#22d3ee', label: 'Usados en campañas', value: '—', sub: 'vs. mes anterior' },
+  { IconEl: RiBarChartLine, iconBg: '#059669', color: '#34d399', label: 'Tasa de éxito promedio', value: '—', sub: 'vs. mes anterior' },
+  { IconEl: RiCalendarLine, iconBg: '#d97706', color: '#fbbf24', label: 'Reuniones generadas', value: '—', sub: 'vs. mes anterior' },
+  { IconEl: RiMoneyDollarBoxLine, iconBg: '#16a34a', color: '#4ade80', label: 'Ingresos generados', value: '—', sub: 'vs. mes anterior' },
 ]
 
 
@@ -258,7 +244,6 @@ export default function Playbooks() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#f1f5f9', letterSpacing: -0.5 }}>Playbooks</h1>
-              <span style={{ fontSize: 22 }}>📖</span>
             </div>
             <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
               Biblioteca de estrategias conversacionales listas para usar o personalizar.

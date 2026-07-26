@@ -48,21 +48,21 @@ const SECTIONS = [
       { icon: RiShareForwardLine, label: 'Campañas',        color: '#ec4899', to: '/campanas', moduleId: 'campaigns' },
       { icon: RiBarChartLine,     label: 'Ads',             color: '#818cf8', to: '/ads', moduleId: 'ads' },
       { icon: RiShareForwardLine, label: 'Redes sociales',  color: '#ec4899', to: '/redes-sociales', moduleId: 'social' },
-      { icon: RiCompass3Line,     label: 'Prospect Finder', color: '#22d3ee', to: '/prospectos', moduleId: 'prospect-finder' },
-      { icon: RiGlobalLine,       label: 'Landings & webs', color: '#22d3ee', to: '/landings', moduleId: 'landings' },
+      { icon: RiCompass3Line,     label: 'Buscador de prospectos', color: '#22d3ee', to: '/prospectos', moduleId: 'prospect-finder' },
+      { icon: RiGlobalLine,       label: 'Landings y webs', color: '#22d3ee', to: '/landings', moduleId: 'landings' },
       { icon: RiFlowChart,        label: 'Funnels',         color: '#a78bfa', to: '/funnels', moduleId: 'funnels' },
-      { icon: RiLeafLine,         label: 'Organic Leads',   color: '#84cc16', to: '/organic', moduleId: 'organic' },
+      { icon: RiLeafLine,         label: 'Captación orgánica',   color: '#84cc16', to: '/organic', moduleId: 'organic' },
     ],
   },
   {
     id: 'conversacion',
     label: 'Conversación',
     items: [
-      { icon: RiMessage3Line, label: 'Inbox',      color: '#38bdf8', to: '/conversacion/inbox', moduleId: 'inbox' },
+      { icon: RiMessage3Line, label: 'Bandeja de entrada',      color: '#38bdf8', to: '/conversacion/inbox', moduleId: 'inbox' },
       { icon: RiPhoneLine,  label: 'Llamadas',   color: '#10b981', to: '/llamadas', moduleId: 'calls' },
       { icon: RiRobot2Line, label: 'Agentes IA', color: '#8b5cf6', to: '/agentes', moduleId: 'agents' },
       { icon: RiBook2Line,  label: 'Playbooks',  color: '#14b8a6', to: '/playbooks', moduleId: 'playbooks' },
-      { icon: RiMicLine,    label: 'Test de Voz', color: '#f43f5e', to: '/voz/test', moduleId: 'voice-test' },
+      { icon: RiMicLine,    label: 'Probar voz', color: '#f43f5e', to: '/voz/test', moduleId: 'voice-test' },
     ],
   },
   {
@@ -95,7 +95,7 @@ const SECTIONS = [
     label: 'Sistema',
     items: [
       { icon: RiBarChartLine, label: 'Insights',       color: '#a78bfa', to: '/insights', moduleId: 'insights' },
-      { icon: RiBookReadLine, label: 'Knowledge Base', color: '#34d399', to: '/knowledge-base', moduleId: 'knowledge' },
+      { icon: RiBookReadLine, label: 'Base de conocimiento', color: '#34d399', to: '/knowledge-base', moduleId: 'knowledge' },
       { icon: RiSettings4Line, label: 'Configuración', color: '#94a3b8', to: '/configuracion', moduleId: 'settings' },
       { icon: RiSettings4Line, label: 'Gobierno empresarial', color: '#38bdf8', to: '/gobierno-empresarial', moduleId: 'governance' },
       { icon: RiSettings4Line, label: 'Control de accesos', color: '#f59e0b', to: '/access-control', moduleId: 'access-control' },
@@ -366,10 +366,10 @@ export default function Sidebar({ isOpen }) {
             <div style={styles.avatar}>{initials}</div>
             <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user?.name ?? '—'}
+                {user?.name || 'Tu cuenta'}
               </p>
               <p style={{ fontSize: 11, color: '#4b5563', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user?.email ?? ''}
+                {user?.email || 'Sesión activa'}
               </p>
             </div>
           </button>
