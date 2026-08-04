@@ -18,6 +18,8 @@ const audienceDefinitionSchema = z.object({
   status: z.array(z.enum(['new', 'contacted', 'qualified', 'unqualified', 'converted'])).max(10).optional(),
   source: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   tags: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  // EM-112: mismo formato de `purpose` que el centro de preferencias.
+  subscribedPurpose: z.string().trim().min(1).max(60).regex(/^[a-z0-9_-]+$/, 'purpose inválido').optional(),
 }).strict()
 
 const dateSchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/, 'Fecha inválida')

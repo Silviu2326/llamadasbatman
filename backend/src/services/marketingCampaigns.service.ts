@@ -43,6 +43,14 @@ export interface AudienceDefinition {
   status?: LeadStatus[]
   source?: string[]
   tags?: string[]
+  /**
+   * EM-112: categoría de suscripción (ContactConsent.purpose con channel=email).
+   * Es lo que convierte una campaña en una newsletter: la audiencia deja de ser
+   * "leads que cumplen filtros" y pasa a ser "leads que dieron permiso para
+   * esta categoría". Filtra por `status: 'granted'`, así que las bajas, los
+   * rebotes y las quejas quedan fuera por construcción.
+   */
+  subscribedPurpose?: string
 }
 
 interface CreateDraftInput {
@@ -192,6 +200,16 @@ function buildAudienceWhere(orgId: string, audienceDefinition: AudienceDefinitio
   if (audienceDefinition.status?.length) where.status = { in: audienceDefinition.status }
   if (audienceDefinition.source?.length) where.source = { in: audienceDefinition.source }
   if (audienceDefinition.tags?.length) where.tags = { hasSome: audienceDefinition.tags }
+  if (audienceDefinition.subscribedPurpose) {
+    // `some` sobre la relación: basta una fila de consentimiento concedido
+    // para esa categoría. No sustituye a la barrera de envío
+    // (lib/emailCompliance.ts), que se sigue evaluando contacto a contacto al
+    // publicar — esto solo evita construir una audiencia que ya se sabe
+    // inelegible.
+    where.contactConsents = {
+      some: { channel: 'email', purpose: audienceDefinition.subscribedPurpose, status: 'granted' },
+    }
+  }
   return where
 }
 

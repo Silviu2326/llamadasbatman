@@ -1,5 +1,15 @@
 import { clearAccessToken, getAccessToken, refreshAccessToken } from './authSession'
 
+// La cabecera JSON solo se envía cuando de verdad viaja un cuerpo JSON. Fastify
+// rechaza `Content-Type: application/json` con cuerpo vacío
+// (FST_ERR_CTP_EMPTY_JSON_BODY -> 400), y muchas acciones del producto son POST
+// sin payload: validar/publicar/pausar campañas, favoritos, duplicar, takeover…
+// Anunciarla siempre hacía que todas ellas fallasen con "Bad Request".
+function jsonContentType(body) {
+  if (typeof body !== 'string' || body.length === 0) return null
+  return { 'Content-Type': 'application/json' }
+}
+
 function request(path, options) {
   const token = getAccessToken()
   const locale = typeof window !== 'undefined'
@@ -9,7 +19,7 @@ function request(path, options) {
     ...options,
     credentials: options.credentials ?? 'same-origin',
     headers: {
-      'Content-Type': 'application/json',
+      ...jsonContentType(options.body),
       'Accept-Language': locale,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,

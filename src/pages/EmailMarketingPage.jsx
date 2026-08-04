@@ -11,9 +11,21 @@ import { BACKEND_STATUS } from '../lib/leadMapping'
 import { DEMO_MODE } from '../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
+import { DeliverabilityPanel, InboxPanel, PURPOSE_LABEL, SubscribersPanel, TrackingPanel } from './EmailAudienceSections'
 import emailHeroImage from '../assets/email-hero.png'
 import '../dashboard.css'
 import './email.css'
+
+// EM-111: la página dejó de ser un único informe para cubrir el ciclo
+// completo. Cada pestaña lee de endpoints reales distintos, así que se
+// mantienen separadas en vez de apilarlo todo en un scroll infinito.
+const TABS = [
+  { id: 'resumen', label: 'Resumen' },
+  { id: 'campanas', label: 'Campañas' },
+  { id: 'suscriptores', label: 'Suscriptores' },
+  { id: 'bandeja', label: 'Bandeja de entrada' },
+  { id: 'seguimiento', label: 'Seguimiento' },
+]
 
 const SEGMENT_COLOR = { new: 'var(--muted)', contacted: 'var(--cyan)', qualified: 'var(--warn)', unqualified: 'var(--danger-soft)', converted: 'var(--success)' }
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted']
@@ -121,9 +133,12 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   const [loading, setLoading] = useState(true)
   const [templates, setTemplates] = useState([])
   const [form, setForm] = useState({
-    objective: '', status: [], source: '', tags: '', templateBindingId: '',
+    objective: '', status: [], source: '', tags: '', subscribedPurpose: '', templateBindingId: '',
     sender: '', replyTo: '', timezone: 'Europe/Madrid', scheduledStartAt: '', scheduledEndAt: '',
   })
+  // EM-112: categorías reales de la organización, para no ofrecer una lista
+  // inventada que produzca audiencias siempre vacías.
+  const [purposes, setPurposes] = useState([])
   const [preview, setPreview] = useState(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [validation, setValidation] = useState(null)
@@ -139,6 +154,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
       status: Array.isArray(audience.status) ? audience.status : [],
       source: Array.isArray(audience.source) ? audience.source.join(', ') : '',
       tags: Array.isArray(audience.tags) ? audience.tags.join(', ') : '',
+      subscribedPurpose: audience.subscribedPurpose || '',
       templateBindingId: data.templateBindingId || '',
       sender: data.sender || '',
       replyTo: data.replyTo || '',
@@ -154,14 +170,16 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
       setLoading(true)
       setError('')
       try {
-        const [reconciled, templateList] = await Promise.all([
+        const [reconciled, templateList, audienceSummary] = await Promise.all([
           apiJson(`/api/marketing-campaigns/${campaignId}/reconcile`),
           apiFetch('/api/mautic/templates').then(res => res.ok ? res.json() : []).catch(() => []),
+          apiFetch('/api/email/subscribers/summary').then(res => res.ok ? res.json() : null).catch(() => null),
         ])
         if (cancelled) return
         setCampaign(reconciled)
         syncFormFromCampaign(reconciled)
         setTemplates(templateList || [])
+        setPurposes(audienceSummary?.purposes ?? [])
       } catch (err) {
         if (!cancelled) setError(err.message || 'No se pudo cargar la campaña.')
       } finally {
@@ -179,6 +197,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
     if (source.length) def.source = source
     const tags = splitList(form.tags)
     if (tags.length) def.tags = tags
+    if (form.subscribedPurpose) def.subscribedPurpose = form.subscribedPurpose
     return def
   }
 
@@ -308,6 +327,22 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
 
         <div className="email-tools-section">
           <div><span className="email-eyebrow">2. Audiencia</span><p>Filtros básicos sobre tus leads con email.</p></div>
+          <label className="email-field">
+            <span>Categoría de suscripción</span>
+            <select value={form.subscribedPurpose} onChange={e => setForm(prev => ({ ...prev, subscribedPurpose: e.target.value }))}>
+              <option value="">Cualquiera (no filtrar por suscripción)</option>
+              {purposes.map(item => (
+                <option key={item.purpose} value={item.purpose}>
+                  {PURPOSE_LABEL[item.purpose] || item.purpose} — {item.granted} suscrito{item.granted === 1 ? '' : 's'}
+                </option>
+              ))}
+            </select>
+            <small className="email-field-hint">
+              {form.subscribedPurpose
+                ? 'Solo se incluirán contactos que dieron permiso para esta categoría. Bajas, rebotes y quejas quedan fuera automáticamente.'
+                : 'Elige una categoría para convertir esta campaña en una newsletter dirigida solo a quien se suscribió.'}
+            </small>
+          </label>
           <div className="email-field"><span>Estado del lead</span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {LEAD_STATUSES.map(status => <label key={status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
@@ -376,6 +411,7 @@ export default function EmailMarketingPage() {
   const [campaignError, setCampaignError] = useState('')
   const [showNewCampaign, setShowNewCampaign] = useState(false)
   const [editingCampaignId, setEditingCampaignId] = useState(null)
+  const [tab, setTab] = useState('resumen')
 
   async function loadOverview() {
     setLoading(true)
@@ -442,8 +478,21 @@ export default function EmailMarketingPage() {
   const clickRate = overview?.opens ? `${Math.round(((overview.clicks ?? 0) / overview.opens) * 100)}%` : '—'
 
   return <div className="dark-scroll email-page">
-    <header className="email-header"><div className="email-heading"><div className="email-brand-icon"><RiMailLine /></div><div><h1>Email marketing</h1><p>{locale === 'en' ? 'Turn every contact into a conversation that moves forward.' : 'Convierte cada contacto en una conversación que avanza.'}</p></div></div><div className="email-header-actions"><button className="email-button ghost" onClick={loadOverview}><RiRefreshLine /> {locale === 'en' ? 'Refresh' : 'Actualizar'}</button><button className="email-button secondary" onClick={() => document.querySelector('#email-activity')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {locale === 'en' ? 'View activity' : 'Ver actividad'}</button><button className="email-button primary" onClick={() => setShowNewCampaign(true)}><RiRocketLine /> {locale === 'en' ? 'New campaign' : 'Nueva campaña'}</button></div></header>
+    <header className="email-header"><div className="email-heading"><div className="email-brand-icon"><RiMailLine /></div><div><h1>Email marketing</h1><p>{locale === 'en' ? 'Turn every contact into a conversation that moves forward.' : 'Convierte cada contacto en una conversación que avanza.'}</p></div></div><div className="email-header-actions"><button className="email-button ghost" onClick={loadOverview}><RiRefreshLine /> {locale === 'en' ? 'Refresh' : 'Actualizar'}</button><button className="email-button secondary" onClick={() => document.querySelector('#email-activity')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {locale === 'en' ? 'View activity' : 'Ver actividad'}</button><button className="email-button primary" onClick={() => { setTab('campanas'); setShowNewCampaign(true) }}><RiRocketLine /> {locale === 'en' ? 'New campaign' : 'Nueva campaña'}</button></div></header>
 
+    <nav className="email-tabs" role="tablist" aria-label="Secciones de email marketing">
+      {TABS.map(item => (
+        <button
+          key={item.id}
+          role="tab"
+          aria-selected={tab === item.id}
+          className={tab === item.id ? 'active' : ''}
+          onClick={() => setTab(item.id)}
+        >{item.label}</button>
+      ))}
+    </nav>
+
+    {tab === 'resumen' && <>
     <DataStatusBanner
       status={dataStatus}
       message={dataError || statusMessage(dataStatus, { live: 'Mautic conectado: datos reales sincronizados.', empty: 'Mautic está disponible, pero todavía no hay actividad de email para mostrar.', demo: 'Modo demo explícito: revisa la experiencia sin atribuir estos datos a actividad real.' })}
@@ -456,12 +505,9 @@ export default function EmailMarketingPage() {
 
     <section className="email-metrics" aria-label="Resumen de email marketing"><Metric Icon={RiGroupLine} color="#818cf8" label="Leads totales" value={overview ? (overview.totalLeads ?? '—') : '—'} detail="en tu CRM" /><Metric Icon={RiSendPlaneLine} color="#22d3ee" label="Con email" value={overview ? (overview.syncable ?? '—') : '—'} detail="listos para nutrir" /><Metric Icon={RiMailOpenLine} color="#34d399" label="Aperturas" value={overview ? (overview.opens ?? '—') : '—'} detail={`${openRate} sobre la base`} /><Metric Icon={RiCursorLine} color="#fb7185" label="Clics" value={overview ? (overview.clicks ?? '—') : '—'} detail={`${clickRate} sobre aperturas`} /></section>
 
-    <section className="email-flow" aria-label="Flujo de nutrición"><div className="email-flow-intro"><span>El ciclo de cada lead</span><h2>De la primera señal al siguiente paso.</h2><p>Entiende dónde está tu audiencia y actúa con contexto, no con intuición.</p></div><div className="email-flow-steps"><div><span className="is-blue"><RiUserAddLine /></span><strong>Captar</strong><small>Nuevo contacto</small></div><i /><div><span className="is-cyan"><RiMailLine /></span><strong>Nutrir</strong><small>Contenido relevante</small></div><i /><div><span className="is-coral"><RiCursorLine /></span><strong>Activar</strong><small>Señal de interés</small></div><i /><div><span className="is-green"><RiRocketLine /></span><strong>Convertir</strong><small>Oportunidad lista</small></div></div></section>
+    <DeliverabilityPanel />
 
-    <section className="email-panel email-campaigns-panel" id="email-campaigns"><div className="email-panel-heading"><div><span className="email-eyebrow">CRM</span><h2>Campañas</h2><p>Campañas de email operadas desde el CRM — audiencia, plantilla y calendario con ownership propio.</p></div><button className="email-button secondary" onClick={() => setShowNewCampaign(true)}><RiRocketLine /> Nueva campaña</button></div>
-      <DataStatusBanner compact status={campaignStatus} message={campaignError || statusMessage(campaignStatus, { live: 'Campañas reales disponibles.', empty: 'Todavía no hay campañas configuradas.', demo: 'Modo demo explícito: no se publicará nada con estos datos.' })} onRetry={campaignStatus === 'error' || campaignStatus === 'disconnected' ? loadCampaigns : undefined} />
-      {campaignsLoading ? <p className="email-campaigns-loading">Cargando campañas…</p> : campaignStatus === 'error' || campaignStatus === 'disconnected' ? <EmptyState icon={RiAlertLine} title="No se pueden mostrar las campañas" copy={campaignError || 'Revisa la conexión con el servicio de email.'} action={{ label: 'Reintentar', onClick: loadCampaigns }} /> : !campaigns.length ? <EmptyState icon={RiRocketLine} title="Todavía no hay campañas" copy="Crea tu primera campaña para empezar a nutrir a tus leads." action={{ label: 'Crear campaña', onClick: () => setShowNewCampaign(true) }} /> : <div className="email-campaigns-list">{campaigns.map(campaign => { const meta = STATUS_META[campaign.status] || { label: campaign.status, color: 'var(--muted)' }; return <div className="email-campaign-row" key={campaign.id}><div className="email-campaign-info"><strong>{campaign.name}</strong>{campaign.objective && <span>{campaign.objective}</span>}</div><span className="email-campaign-status" style={{ background: `color-mix(in srgb, ${meta.color} 13%, transparent)`, color: meta.color, borderColor: `color-mix(in srgb, ${meta.color} 33%, transparent)` }}>{meta.label}</span><div className="email-campaign-actions"><button className="email-button ghost email-campaign-manage" onClick={() => setEditingCampaignId(campaign.id)}><RiSparkling2Line /> Gestionar</button></div></div> })}</div>}
-    </section>
+    <section className="email-flow" aria-label="Flujo de nutrición"><div className="email-flow-intro"><span>El ciclo de cada lead</span><h2>De la primera señal al siguiente paso.</h2><p>Entiende dónde está tu audiencia y actúa con contexto, no con intuición.</p></div><div className="email-flow-steps"><div><span className="is-blue"><RiUserAddLine /></span><strong>Captar</strong><small>Nuevo contacto</small></div><i /><div><span className="is-cyan"><RiMailLine /></span><strong>Nutrir</strong><small>Contenido relevante</small></div><i /><div><span className="is-coral"><RiCursorLine /></span><strong>Activar</strong><small>Señal de interés</small></div><i /><div><span className="is-green"><RiRocketLine /></span><strong>Convertir</strong><small>Oportunidad lista</small></div></div></section>
 
     <div className="email-main-grid"><section className="email-panel" id="email-segments"><div className="email-panel-heading"><div><span className="email-eyebrow">Audiencia</span><h2>Mapa de segmentos</h2><p>Una lectura rápida de cómo está avanzando tu base.</p></div><span className="email-panel-count">{totalForSegments || overview?.totalLeads || 0} leads</span></div>{!bySegment.length ? <EmptyState icon={RiGroupLine} title="Aún no hay segmentos con datos" copy="Cuando Mautic reciba actividad, aquí verás el recorrido de tus leads." /> : <div className="email-segment-list">{bySegment.map(group => { const pct = totalForSegments ? Math.round((group.count / totalForSegments) * 100) : 0; const color = SEGMENT_COLOR[group.status] ?? 'var(--accent-soft)'; return <div className="email-segment" key={group.status}><div className="email-segment-label"><span><i style={{ background: color }} />{BACKEND_STATUS[group.status] ?? group.status}</span><strong>{group.count}<small>{pct}%</small></strong></div><div className="email-progress"><span style={{ width: `${pct}%`, background: color }} /></div></div> })}</div>}</section>
 
@@ -469,6 +515,18 @@ export default function EmailMarketingPage() {
     </div>
 
     <section className="email-panel email-activity-panel" id="email-activity"><div className="email-panel-heading"><div><span className="email-eyebrow">Últimas señales</span><h2>Actividad reciente</h2><p>Detecta quién está prestando atención y vuelve a abrir la conversación.</p></div><div className="email-filter"><button className={activityFilter === 'all' ? 'active' : ''} onClick={() => setActivityFilter('all')}>Todo</button><button className={activityFilter === 'open' ? 'active' : ''} onClick={() => setActivityFilter('open')}><RiMailOpenLine /> Aperturas</button><button className={activityFilter === 'click' ? 'active' : ''} onClick={() => setActivityFilter('click')}><RiCursorLine /> Clics</button></div></div>{!filteredActivity.length ? <EmptyState icon={RiTimeLine} title="Todavía no hay actividad" copy="Las aperturas y los clics aparecerán aquí cuando tus leads interactúen con un email." /> : <div className="email-activity-list">{filteredActivity.map((item, index) => <Link className="email-activity-row" key={`${item.leadId}-${index}`} to={`/leads/${item.leadId}`}><div className={`email-activity-icon ${item.type === 'open' ? 'open' : 'click'}`}>{item.type === 'open' ? <RiMailOpenLine /> : <RiCursorLine />}</div><div className="email-activity-copy"><strong>{item.name}</strong><span>{item.type === 'open' ? 'abrió un email' : 'hizo clic'}{item.detail ? ` · ${item.detail}` : ''}</span></div><time>{timeAgo(item.at)}</time><RiArrowRightSLine /></Link>)}</div>}</section>
+    </>}
+
+    {tab === 'campanas' && <>
+    <section className="email-panel email-campaigns-panel" id="email-campaigns"><div className="email-panel-heading"><div><span className="email-eyebrow">CRM</span><h2>Campañas</h2><p>Campañas de email operadas desde el CRM — audiencia, plantilla y calendario con ownership propio.</p></div><button className="email-button secondary" onClick={() => setShowNewCampaign(true)}><RiRocketLine /> Nueva campaña</button></div>
+      <DataStatusBanner compact status={campaignStatus} message={campaignError || statusMessage(campaignStatus, { live: 'Campañas reales disponibles.', empty: 'Todavía no hay campañas configuradas.', demo: 'Modo demo explícito: no se publicará nada con estos datos.' })} onRetry={campaignStatus === 'error' || campaignStatus === 'disconnected' ? loadCampaigns : undefined} />
+      {campaignsLoading ? <p className="email-campaigns-loading">Cargando campañas…</p> : campaignStatus === 'error' || campaignStatus === 'disconnected' ? <EmptyState icon={RiAlertLine} title="No se pueden mostrar las campañas" copy={campaignError || 'Revisa la conexión con el servicio de email.'} action={{ label: 'Reintentar', onClick: loadCampaigns }} /> : !campaigns.length ? <EmptyState icon={RiRocketLine} title="Todavía no hay campañas" copy="Crea tu primera campaña para empezar a nutrir a tus leads." action={{ label: 'Crear campaña', onClick: () => setShowNewCampaign(true) }} /> : <div className="email-campaigns-list">{campaigns.map(campaign => { const meta = STATUS_META[campaign.status] || { label: campaign.status, color: 'var(--muted)' }; return <div className="email-campaign-row" key={campaign.id}><div className="email-campaign-info"><strong>{campaign.name}</strong>{campaign.objective && <span>{campaign.objective}</span>}</div><span className="email-campaign-status" style={{ background: `color-mix(in srgb, ${meta.color} 13%, transparent)`, color: meta.color, borderColor: `color-mix(in srgb, ${meta.color} 33%, transparent)` }}>{meta.label}</span><div className="email-campaign-actions"><button className="email-button ghost email-campaign-manage" onClick={() => setEditingCampaignId(campaign.id)}><RiSparkling2Line /> Gestionar</button></div></div> })}</div>}
+    </section>
+    </>}
+
+    {tab === 'suscriptores' && <SubscribersPanel onNotice={showNotice} />}
+    {tab === 'bandeja' && <InboxPanel />}
+    {tab === 'seguimiento' && <TrackingPanel />}
     {notice && <div className="email-toast" role="status"><RiCheckLine /> {notice}</div>}
     {showNewCampaign && <NewCampaignModal onClose={() => setShowNewCampaign(false)} onCreate={handleCreateDraft} />}
     {editingCampaignId && <CampaignEditorModal campaignId={editingCampaignId} onClose={() => { setEditingCampaignId(null); loadCampaigns() }} onChanged={loadCampaigns} />}
