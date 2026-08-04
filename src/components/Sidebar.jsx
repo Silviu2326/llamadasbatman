@@ -37,7 +37,7 @@ function getNavLabel(item, t) {
 // Dashboard queda fijo arriba, fuera de secciones (es el "home"). El resto se
 // agrupa según el embudo del producto (ver PLATAFORMA_EXPLICACION_GENERAL.md)
 // para que una lista de 17 items no sea un solo bloque plano.
-const DASHBOARD_ITEM = { image: '/assets/sidebar-icons/dashboard.png', label: 'Dashboard', color: 'var(--accent)', to: '/dashboard', moduleId: 'dashboard' }
+const DASHBOARD_ITEM = { label: 'Dashboard', color: 'var(--accent)', to: '/dashboard', moduleId: 'dashboard' }
 const OBJECTIVE_ITEM = { icon: RiSparkling2Line, label: 'Objetivos', color: 'var(--violet)', to: '/orquestador', moduleId: 'dashboard' }
 
 const SECTIONS = [
@@ -107,26 +107,37 @@ const SECTIONS = [
 
 const STORAGE_KEY = 'vozia_sidebar_collapsed:v1'
 
-const SIDEBAR_IMAGES = {
-  '/dashboard': '/assets/sidebar-icons/dashboard.png',
-  '/funnels': '/assets/sidebar-icons/campaigns.png',
-  '/campanas': '/assets/sidebar-icons/campaigns.png',
-  '/landings': '/assets/sidebar-icons/campaigns.png',
-  '/prospectos': '/assets/sidebar-icons/prospect-finder.png',
-  '/redes-sociales': '/assets/sidebar-icons/social.png',
-  '/llamadas': '/assets/sidebar-icons/calls.png',
-  '/conversacion/inbox': '/assets/sidebar-icons/calls.png',
-  '/agentes': '/assets/sidebar-icons/agents.png',
-  '/playbooks': '/assets/sidebar-icons/playbooks.png',
-  '/voz/test': '/assets/sidebar-icons/voice-test.png',
-  '/email-marketing': '/assets/sidebar-icons/email.png',
-  '/automatizaciones': '/assets/sidebar-icons/automations.png',
-  '/leads': '/assets/sidebar-icons/leads.png',
-  '/pipeline': '/assets/sidebar-icons/pipeline.png',
-  '/reuniones': '/assets/sidebar-icons/meetings.png',
-  '/insights': '/assets/sidebar-icons/insights.png',
-  '/knowledge-base': '/assets/sidebar-icons/knowledge.png',
-  '/configuracion': '/assets/sidebar-icons/settings.png',
+// Iconos generados con Magnific (gpt-2), estilo mono-línea con acento índigo→violeta.
+// Cada slug existe en /assets/sidebar-icons/light/ y /dark/ con el mismo glifo.
+const SIDEBAR_ICONS = {
+  '/dashboard': 'dashboard',
+  '/orquestador': 'objectives',
+  '/campanas': 'campaigns',
+  '/ads': 'ads',
+  '/redes-sociales': 'social',
+  '/prospectos': 'prospect-finder',
+  '/landings': 'landings',
+  '/funnels': 'funnels',
+  '/organic': 'organic',
+  '/conversacion/inbox': 'inbox',
+  '/llamadas': 'calls',
+  '/agentes': 'agents',
+  '/playbooks': 'playbooks',
+  '/voz/test': 'voice-test',
+  '/voz/omni': 'qwen-omni',
+  '/email-marketing': 'email',
+  '/automatizaciones': 'automations',
+  '/growth': 'growth',
+  '/leads': 'leads',
+  '/pipeline': 'pipeline',
+  '/reuniones': 'meetings',
+  '/inteligencia-comercial': 'revenue-intelligence',
+  '/insights': 'insights',
+  '/knowledge-base': 'knowledge',
+  '/configuracion': 'settings',
+  '/gobierno-empresarial': 'governance',
+  '/access-control': 'access-control',
+  '/admin/ad-playbooks': 'ad-playbooks',
 }
 
 function loadCollapsed() {
@@ -149,9 +160,10 @@ function saveCollapsed(value) {
   }
 }
 
-function NavItem({ item, isHovered, onHover, onLeave, ripple, onClick, t }) {
+function NavItem({ item, isHovered, onHover, onLeave, ripple, onClick, t, theme }) {
   const Icon = item.icon
-  const image = SIDEBAR_IMAGES[item.to]
+  const slug = SIDEBAR_ICONS[item.to]
+  const image = slug ? `/assets/sidebar-icons/${theme === 'light' ? 'light' : 'dark'}/${slug}.png` : null
   return (
     <NavLink
       to={item.to}
@@ -290,6 +302,7 @@ export default function Sidebar({ isOpen }) {
             ripple={ripple?.key === DASHBOARD_ITEM.to ? ripple : null}
             onClick={e => handleClick(DASHBOARD_ITEM.to, e)}
             t={t}
+            theme={theme}
           />
         ) : null}
 
@@ -302,6 +315,7 @@ export default function Sidebar({ isOpen }) {
             ripple={ripple?.key === OBJECTIVE_ITEM.to ? ripple : null}
             onClick={e => handleClick(OBJECTIVE_ITEM.to, e)}
             t={t}
+            theme={theme}
           />
         )}
 
@@ -333,6 +347,7 @@ export default function Sidebar({ isOpen }) {
                       ripple={ripple?.key === item.to ? ripple : null}
                       onClick={e => handleClick(item.to, e)}
                       t={t}
+                      theme={theme}
                     />
                   ))}
                 </div>
