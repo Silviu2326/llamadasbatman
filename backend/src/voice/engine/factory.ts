@@ -7,6 +7,11 @@ export { configuredVoiceArchitecture } from './architecture'
 
 export type VoiceEngineMode = 'legacy' | 'remote'
 
+export interface VoicePipelineOverride {
+  stt?: 'whisper' | 'kyutai'
+  tts?: 'qwen' | 'chatterbox' | 'piper'
+}
+
 export function configuredVoiceEngineMode(): VoiceEngineMode {
   const requested = process.env.VOICE_ENGINE_MODE?.trim().toLowerCase()
   if (requested === 'legacy' && process.env.VOICE_ENGINE_ALLOW_PROPRIETARY === 'true') return 'legacy'
@@ -18,7 +23,7 @@ export function configuredVoiceEngineMode(): VoiceEngineMode {
  * Deepgram/ElevenLabs path is deliberately opt-in so an unavailable local
  * engine cannot silently route customer audio to a proprietary provider.
  */
-export async function createVoiceSession(ctx: CallContext, systemPrompt: string): Promise<VoiceSession> {
+export async function createVoiceSession(ctx: CallContext, systemPrompt: string, pipeline?: VoicePipelineOverride): Promise<VoiceSession> {
   if (configuredVoiceEngineMode() === 'legacy') {
     console.warn('[VOICE_ENGINE] proprietary legacy pipeline explicitly enabled call=%s', ctx.callSid)
     return new DeepgramElevenLabsSession(ctx, systemPrompt)
@@ -29,6 +34,7 @@ export async function createVoiceSession(ctx: CallContext, systemPrompt: string)
     architecture,
     url: voiceEngineUrl(architecture),
     token: voiceEngineToken(architecture),
+    pipeline,
   })
   try {
     await remote.connect()

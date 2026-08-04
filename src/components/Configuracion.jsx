@@ -13,6 +13,8 @@ import {
 import { HiChevronDown } from 'react-icons/hi'
 import '../dashboard.css'
 import { apiFetch } from '../lib/api'
+import { planGateMessage, readPlanGate } from '../lib/planGate'
+import DataStatusBanner from './ui/DataStatusBanner'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n'
 
@@ -51,7 +53,7 @@ const SETTINGS_ITEM_KEYS = {
 function Input({ label, value, placeholder, onChange, disabled, type = 'text' }) {
   return (
     <div>
-      {label && <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5, fontWeight: 500 }}>{label}</label>}
+      {label && <label style={{ display: 'block', fontSize: 11, color: 'var(--dim)', marginBottom: 5, fontWeight: 500 }}>{label}</label>}
       <input
         type={type}
         value={value ?? ''}
@@ -59,13 +61,13 @@ function Input({ label, value, placeholder, onChange, disabled, type = 'text' })
         disabled={disabled}
         onChange={onChange}
         style={{
-          width: '100%', boxSizing: 'border-box', background: disabled ? '#05070c' : '#080c14',
-          border: '1px solid #1e2433', borderRadius: 8, padding: '9px 12px',
-          color: disabled ? '#4b5563' : '#e2e8f0', fontSize: 13, outline: 'none', transition: 'border-color .15s',
+          width: '100%', boxSizing: 'border-box', background: disabled ? 'var(--bg)' : 'var(--bg)',
+          border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px',
+          color: disabled ? 'var(--faint)' : 'var(--text)', fontSize: 13, outline: 'none', transition: 'border-color .15s',
           cursor: disabled ? 'not-allowed' : 'text',
         }}
         onFocus={e => !disabled && (e.target.style.borderColor = '#8b5cf660')}
-        onBlur={e => (e.target.style.borderColor = '#1e2433')}
+        onBlur={e => (e.target.style.borderColor = 'var(--line)')}
       />
     </div>
   )
@@ -74,13 +76,13 @@ function Input({ label, value, placeholder, onChange, disabled, type = 'text' })
 function Select({ label, value, options = [], onChange, disabled }) {
   return (
     <div>
-      {label && <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5, fontWeight: 500 }}>{label}</label>}
+      {label && <label style={{ display: 'block', fontSize: 11, color: 'var(--dim)', marginBottom: 5, fontWeight: 500 }}>{label}</label>}
       <div style={{ position: 'relative' }}>
         <select
           value={value}
           disabled={disabled}
           onChange={onChange}
-          style={{ width: '100%', boxSizing: 'border-box', background: disabled ? '#05070c' : '#080c14', border: '1px solid #1e2433', borderRadius: 8, padding: '9px 32px 9px 12px', color: disabled ? '#4b5563' : '#e2e8f0', fontSize: 13, appearance: 'none', outline: 'none', cursor: disabled ? 'not-allowed' : 'pointer' }}
+          style={{ width: '100%', boxSizing: 'border-box', background: disabled ? 'var(--bg)' : 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '9px 32px 9px 12px', color: disabled ? 'var(--faint)' : 'var(--text)', fontSize: 13, appearance: 'none', outline: 'none', cursor: disabled ? 'not-allowed' : 'pointer' }}
         >
           {options.map(o => (
             typeof o === 'string'
@@ -88,7 +90,7 @@ function Select({ label, value, options = [], onChange, disabled }) {
               : <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <HiChevronDown style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#6b7280', width: 14, height: 14, pointerEvents: 'none' }} />
+        <HiChevronDown style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)', width: 14, height: 14, pointerEvents: 'none' }} />
       </div>
     </div>
   )
@@ -97,8 +99,8 @@ function Select({ label, value, options = [], onChange, disabled }) {
 function SectionTitle({ title, divider = true }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{title}</h3>
-      {divider && <div style={{ height: 1, background: '#1e2433', marginTop: 10 }} />}
+      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>{title}</h3>
+      {divider && <div style={{ height: 1, background: 'var(--line)', marginTop: 10 }} />}
     </div>
   )
 }
@@ -107,7 +109,7 @@ function Toggle({ active, onToggle }) {
   return (
     <div
       onClick={onToggle}
-      style={{ width: 44, height: 24, borderRadius: 12, background: active ? '#8b5cf6' : '#374151', position: 'relative', cursor: 'pointer', transition: 'background .2s', flexShrink: 0 }}
+      style={{ width: 44, height: 24, borderRadius: 12, background: active ? 'var(--violet)' : 'var(--line-2)', position: 'relative', cursor: 'pointer', transition: 'background .2s', flexShrink: 0 }}
     >
       <div style={{ width: 20, height: 20, borderRadius: 10, background: '#fff', position: 'absolute', top: 2, left: active ? 22 : 2, transition: 'left .2s', boxShadow: '0 1px 4px #0006' }} />
     </div>
@@ -119,8 +121,8 @@ function Toggle({ active, onToggle }) {
 function UsageBar({ label, value }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-      <span style={{ fontSize: 12, color: '#94a3b8' }}>{label}</span>
-      <span style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 700 }}>{value}</span>
+      <span style={{ fontSize: 12, color: 'var(--muted)' }}>{label}</span>
+      <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 700 }}>{value}</span>
     </div>
   )
 }
@@ -213,43 +215,88 @@ export default function Configuracion() {
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState(null)
 
+  // ── Estado de la carga inicial ──
+  // Sin esto, un fallo dejaba el formulario en blanco y "Guardar" machacaba
+  // los datos reales de la organización con cadenas vacías.
+  const [meLoaded, setMeLoaded] = useState(false)
+  const [orgLoaded, setOrgLoaded] = useState(false)
+  const [loadStatus, setLoadStatus] = useState('loading')
+  const [loadMessage, setLoadMessage] = useState('')
+  const [integrationsFailed, setIntegrationsFailed] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+
   useEffect(() => {
-    apiFetch('/api/dashboard/stats').then(r => r.json()).then(setStats).catch(() => {})
-    apiFetch('/api/agents').then(r => r.json()).then(d => {
+    let active = true
+    setLoadStatus('loading')
+    setLoadMessage('')
+    apiFetch('/api/dashboard/stats').then(r => (r.ok ? r.json() : null)).then(data => { if (data) setStats(data) }).catch(() => {})
+    apiFetch('/api/agents').then(r => (r.ok ? r.json() : null)).then(d => {
       setAgentCount(Array.isArray(d) ? d.length : null)
     }).catch(() => {})
 
-    apiFetch('/api/settings/me').then(r => r.ok ? r.json() : null).then(data => {
-      if (!data) return
-      setProfile({ name: data.user?.name ?? '', email: data.user?.email ?? '', role: data.user?.role ?? '' })
-      setPreference({
-        locale: data.preference?.locale === 'en' ? 'en' : locale,
-        timezone: data.preference?.timezone ?? 'Europe/Madrid',
-        theme: data.preference?.theme ?? 'system',
-      })
-      if (data.preference?.locale === 'en' || data.preference?.locale === 'es') setLocale(data.preference.locale)
-    }).catch(() => {})
+    async function loadForm() {
+      let gate = null
+      let failed = false
 
-    apiFetch('/api/settings/organization').then(r => r.ok ? r.json() : null).then(data => {
-      if (!data) return
-      setOrg({
-        name: data.name ?? '',
-        email: data.email ?? '',
-        website: data.website ?? '',
-        phone: data.phone ?? '',
-        industry: data.industry ?? '',
-        timezone: data.timezone ?? 'Europe/Madrid',
-        address: data.address ?? '',
-        currency: data.currency ?? 'EUR',
-      })
-    }).catch(() => {})
+      try {
+        const res = await apiFetch('/api/settings/me')
+        if (!res.ok) { gate = gate || await readPlanGate(res); throw new Error('me') }
+        const data = await res.json()
+        if (!active) return
+        setProfile({ name: data.user?.name ?? '', email: data.user?.email ?? '', role: data.user?.role ?? '' })
+        setPreference({
+          locale: data.preference?.locale === 'en' ? 'en' : locale,
+          timezone: data.preference?.timezone ?? 'Europe/Madrid',
+          theme: data.preference?.theme ?? 'system',
+        })
+        if (data.preference?.locale === 'en' || data.preference?.locale === 'es') setLocale(data.preference.locale)
+        setMeLoaded(true)
+      } catch { failed = true }
 
-    apiFetch('/api/settings/integrations').then(r => r.ok ? r.json() : null).then(data => {
+      try {
+        const res = await apiFetch('/api/settings/organization')
+        if (!res.ok) { gate = gate || await readPlanGate(res); throw new Error('organization') }
+        const data = await res.json()
+        if (!active) return
+        setOrg({
+          name: data.name ?? '',
+          email: data.email ?? '',
+          website: data.website ?? '',
+          phone: data.phone ?? '',
+          industry: data.industry ?? '',
+          timezone: data.timezone ?? 'Europe/Madrid',
+          address: data.address ?? '',
+          currency: data.currency ?? 'EUR',
+        })
+        setOrgLoaded(true)
+      } catch { failed = true }
+
+      if (!active) return
+      if (!failed) { setLoadStatus(''); setLoadMessage(''); return }
+      setLoadStatus(gate ? 'plan' : 'error')
+      setLoadMessage(gate
+        ? planGateMessage(gate, locale)
+        : 'No se pudieron cargar tus datos de configuración. Para no sobrescribirlos con campos vacíos, el guardado queda bloqueado hasta que la carga funcione.')
+    }
+    loadForm()
+
+    apiFetch('/api/settings/integrations').then(r => (r.ok ? r.json() : null)).then(data => {
+      if (!active) return
       if (data) setIntegrations(data)
-    }).catch(() => {})
-  }, [])
+      else setIntegrationsFailed(true)
+    }).catch(() => { if (active) setIntegrationsFailed(true) })
+    return () => { active = false }
+  }, [reloadKey])
+
+  // El formulario de empresa toca organización + preferencia del usuario, así
+  // que necesita que ambas cargas hayan ido bien.
+  const formLoaded = activeNav === 'miperfil' ? meLoaded : meLoaded && orgLoaded
 
   async function handleSave() {
+    if (!formLoaded) {
+      setSaveMessage('No se guardó nada: los datos actuales no se pudieron cargar y guardar ahora los borraría.')
+      return
+    }
     setSaving(true)
     setSaveMessage(null)
     try {
@@ -315,22 +362,50 @@ export default function Configuracion() {
       {/* ── Page Header ── */}
       <div style={{ padding: '24px 28px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#f1f5f9', letterSpacing: -0.5, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.5, display: 'flex', alignItems: 'center', gap: 8 }}>
             {t('settings.title')}
-            <RiSettings4Line style={{ width: 22, height: 22, color: '#6b7280' }} />
+            <RiSettings4Line style={{ width: 22, height: 22, color: 'var(--dim)' }} />
           </h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: '#6b7280' }}>{locale === 'en' ? 'Manage your account, personalize the platform and configure team preferences.' : 'Administra tu cuenta, personaliza la plataforma y configura las preferencias de tu equipo.'}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: 'var(--dim)' }}>{locale === 'en' ? 'Manage your account, personalize the platform and configure team preferences.' : 'Administra tu cuenta, personaliza la plataforma y configura las preferencias de tu equipo.'}</p>
         </div>
       </div>
 
+      {/* ── Nav de secciones en móvil ──
+          El nav lateral de abajo lleva .panel-desktop y vive dentro del
+          .split-pane, así que se oculta por debajo de 900px (style.css). Sin
+          este reemplazo la página quedaba sin forma de cambiar de sección. */}
+      <div className="section-tabs-mobile" role="tablist" aria-label={t('settings.title')}>
+        {NAV.flatMap(section => section.items).map(item => {
+          const active = activeNav === item.id
+          const Icon = item.Icon
+          return (
+            <button
+              key={item.id}
+              role="tab"
+              aria-selected={active}
+              onClick={() => item.to ? navigate(item.to) : setActiveNav(item.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 12px', border: 'none', background: 'transparent',
+                borderBottom: active ? '2px solid var(--violet)' : '2px solid transparent',
+                cursor: 'pointer',
+              }}
+            >
+              <Icon style={{ width: 14, height: 14, color: active ? 'var(--violet)' : 'var(--faint)', flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: active ? 'var(--violet-soft)' : 'var(--dim)', fontWeight: active ? 600 : 400 }}>{SETTINGS_ITEM_KEYS[item.id] ? t(SETTINGS_ITEM_KEYS[item.id]) : item.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* ── 3-column layout ── */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className="split-pane split-pane--fill">
 
         {/* ── Config Nav ── */}
-        <div className="dark-scroll panel-desktop" style={{ width: 195, flexShrink: 0, borderRight: '1px solid #1e2433', overflowY: 'auto', padding: '8px 0 20px' }}>
+        <div className="dark-scroll panel-desktop" style={{ width: 195, flexShrink: 0, borderRight: '1px solid var(--line)', overflowY: 'auto', padding: '8px 0 20px' }}>
           {NAV.map(section => (
             <div key={section.section} style={{ marginBottom: 4 }}>
-              <p style={{ margin: '16px 16px 6px', fontSize: 10, color: '#374151', fontWeight: 700, letterSpacing: 0.8 }}>{SETTINGS_SECTION_KEYS[section.section] ? t(SETTINGS_SECTION_KEYS[section.section]) : section.section}</p>
+              <p style={{ margin: '16px 16px 6px', fontSize: 10, color: 'var(--dim)', fontWeight: 700, letterSpacing: 0.8 }}>{SETTINGS_SECTION_KEYS[section.section] ? t(SETTINGS_SECTION_KEYS[section.section]) : section.section}</p>
               {section.items.map(item => {
                 const active = activeNav === item.id
                 const Icon = item.Icon
@@ -342,14 +417,14 @@ export default function Configuracion() {
                       width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                       padding: '7px 14px', border: 'none', cursor: 'pointer',
                       background: active ? 'linear-gradient(90deg,#8b5cf622,#8b5cf610)' : 'transparent',
-                      borderLeft: active ? '3px solid #8b5cf6' : '3px solid transparent',
+                      borderLeft: active ? '3px solid var(--violet)' : '3px solid transparent',
                       transition: 'all .15s',
                     }}
-                    onMouseEnter={e => !active && (e.currentTarget.style.background = '#ffffff08')}
+                    onMouseEnter={e => !active && (e.currentTarget.style.background = 'var(--surface-hover)')}
                     onMouseLeave={e => !active && (e.currentTarget.style.background = 'transparent')}
                   >
-                    <Icon style={{ width: 14, height: 14, color: active ? '#a78bfa' : '#4b5563', flexShrink: 0 }} />
-                    <span style={{ fontSize: 12.5, color: active ? '#c4b5fd' : '#6b7280', fontWeight: active ? 600 : 400 }}>{SETTINGS_ITEM_KEYS[item.id] ? t(SETTINGS_ITEM_KEYS[item.id]) : item.label}</span>
+                    <Icon style={{ width: 14, height: 14, color: active ? 'var(--violet)' : 'var(--faint)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12.5, color: active ? 'var(--violet-soft)' : 'var(--dim)', fontWeight: active ? 600 : 400 }}>{SETTINGS_ITEM_KEYS[item.id] ? t(SETTINGS_ITEM_KEYS[item.id]) : item.label}</span>
                   </button>
                 )
               })}
@@ -358,48 +433,50 @@ export default function Configuracion() {
         </div>
 
         {/* ── Main Form ── */}
-        <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 32px' }}>
+        <div className="dark-scroll split-main" style={{ padding: '20px 24px 32px' }}>
+          {loadStatus && <DataStatusBanner status={loadStatus} message={loadStatus === 'loading' ? 'Cargando tus datos de configuración…' : loadMessage} onRetry={loadStatus === 'error' ? () => setReloadKey(k => k + 1) : undefined} />}
           {/* Form header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-strong)' }}>
                 {activeNav === 'miperfil' ? t('settings.myProfile') : t('settings.companyProfile')}
               </h2>
-              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#6b7280' }}>
+              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--dim)' }}>
                 {activeNav === 'miperfil' ? t('settings.accountPreferences') : t('settings.companyPreferences')}
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
               <button
                 onClick={handleSave}
-                disabled={saving || (activeNav !== 'miperfil' && isViewer)}
+                disabled={saving || !formLoaded || (activeNav !== 'miperfil' && isViewer)}
+                title={!formLoaded ? 'No se pueden guardar cambios hasta que se carguen tus datos actuales.' : undefined}
                 style={{
-                  background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', borderRadius: 10, padding: '10px 20px',
-                  color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving || (activeNav !== 'miperfil' && isViewer) ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 0 20px #6366f145', opacity: saving || (activeNav !== 'miperfil' && isViewer) ? 0.6 : 1,
+                  background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', border: 'none', borderRadius: 10, padding: '10px 20px',
+                  color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving || !formLoaded || (activeNav !== 'miperfil' && isViewer) ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 0 20px #6366f145', opacity: saving || !formLoaded || (activeNav !== 'miperfil' && isViewer) ? 0.6 : 1,
                 }}
               >
                 {saving ? t('common.saving') : t('common.save')}
               </button>
-              {saveMessage && <span role="status" style={{ fontSize: 12.5, fontWeight: 600, color: '#34d399', background: '#10b98115', border: '1px solid #10b98135', borderRadius: 8, padding: '5px 10px' }}>{saveMessage}</span>}
+              {saveMessage && <span role="status" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--success)', background: '#10b98115', border: '1px solid #10b98135', borderRadius: 8, padding: '5px 10px' }}>{saveMessage}</span>}
             </div>
           </div>
 
           {/* ── Mi perfil ── */}
           {activeNav === 'miperfil' && (
             <>
-              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
                 <SectionTitle title="Información personal" />
-                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   {/* Avatar */}
                   <div style={{ flexShrink: 0, textAlign: 'center' }}>
-                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: '#fff', boxShadow: '0 0 24px #6366f145', marginBottom: 6 }}>
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: '#fff', boxShadow: '0 0 24px #6366f145', marginBottom: 6 }}>
                       {profile.name ? profile.name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase() : '?'}
                     </div>
-                    <p style={{ margin: 0, fontSize: 9.5, color: '#374151' }}>Iniciales de tu nombre</p>
+                    <p style={{ margin: 0, fontSize: 9.5, color: 'var(--dim)' }}>Iniciales de tu nombre</p>
                   </div>
                   {/* Fields */}
-                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
+                  <div style={{ flex: '1 1 220px', minWidth: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(200px,100%),1fr))', gap: 14 }}>
                     <Input label="Nombre completo" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
                     <Input label="Email" value={profile.email} disabled />
                     <Input label="Rol" value={profile.role} disabled />
@@ -412,14 +489,14 @@ export default function Configuracion() {
                   </div>
                 </div>
               </div>
-              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
                 <SectionTitle title="Seguridad" />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <Input
                     label="Contraseña actual" placeholder="••••••••" type="password"
                     value={pwd.current} onChange={e => setPwd(p => ({ ...p, current: e.target.value }))}
                   />
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(200px,100%),1fr))', gap: 14 }}>
                     <Input
                       label="Nueva contraseña" placeholder="••••••••" type="password"
                       value={pwd.next} onChange={e => setPwd(p => ({ ...p, next: e.target.value }))}
@@ -434,27 +511,27 @@ export default function Configuracion() {
                       onClick={handleChangePassword}
                       disabled={pwdSaving}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 6, background: '#111827', border: '1px solid #1e2433',
-                        borderRadius: 9, padding: '8px 14px', color: '#c4b5fd', fontSize: 12.5, fontWeight: 600,
+                        display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--line)',
+                        borderRadius: 9, padding: '8px 14px', color: 'var(--violet-soft)', fontSize: 12.5, fontWeight: 600,
                         cursor: pwdSaving ? 'not-allowed' : 'pointer', opacity: pwdSaving ? 0.6 : 1,
                       }}
                     >
                       <RiLockLine style={{ width: 13, height: 13 }} />
                       {pwdSaving ? 'Actualizando…' : 'Actualizar contraseña'}
                     </button>
-                    {pwdMessage && <span role="status" style={{ fontSize: 12.5, fontWeight: 600, color: '#34d399', background: '#10b98115', border: '1px solid #10b98135', borderRadius: 8, padding: '5px 10px' }}>{pwdMessage}</span>}
+                    {pwdMessage && <span role="status" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--success)', background: '#10b98115', border: '1px solid #10b98135', borderRadius: 8, padding: '5px 10px' }}>{pwdMessage}</span>}
                   </div>
                 </div>
               </div>
-              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px' }}>
                 <SectionTitle title="Sesión activa" />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 9, background: '#10b98120', border: '1px solid #10b98130', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <RiCheckLine style={{ width: 16, height: 16, color: '#34d399' }} />
+                    <RiCheckLine style={{ width: 16, height: 16, color: 'var(--success)' }} />
                   </div>
                   <div>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>Sesión activa</p>
-                    <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563' }}>Conectado como <strong style={{ color: '#818cf8' }}>{user?.email}</strong></p>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Sesión activa</p>
+                    <p style={{ margin: 0, fontSize: 11.5, color: 'var(--dim)' }}>Conectado como <strong style={{ color: 'var(--accent-soft)' }}>{user?.email}</strong></p>
                   </div>
                 </div>
               </div>
@@ -465,24 +542,24 @@ export default function Configuracion() {
           {activeNav !== 'miperfil' && <>
           {isViewer && (
             <div style={{ background: '#f59e0b15', border: '1px solid #f59e0b40', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <RiShieldLine style={{ width: 16, height: 16, color: '#fbbf24', flexShrink: 0 }} />
-              <p style={{ margin: 0, fontSize: 12.5, color: '#fbbf24' }}>Tu rol (viewer) es de solo lectura: no puedes modificar la organización ni las integraciones.</p>
+              <RiShieldLine style={{ width: 16, height: 16, color: 'var(--warn-soft)', flexShrink: 0 }} />
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--warn-soft)' }}>Tu rol (viewer) es de solo lectura: no puedes modificar la organización ni las integraciones.</p>
             </div>
           )}
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
             <SectionTitle title="Información de la empresa" />
-            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
               {/* Logo upload */}
               <div style={{ flexShrink: 0, textAlign: 'center' }}>
-                <div style={{ width: 80, height: 80, borderRadius: 14, background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px #6366f145', marginBottom: 6 }}>
+                <div style={{ width: 80, height: 80, borderRadius: 14, background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 24px #6366f145', marginBottom: 6 }}>
                   <svg width="54" height="36" viewBox="0 0 54 36" fill="none">
                     <polyline points="0,18 7,4 14,32 21,8 28,26 35,12 42,22 49,18" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                   </svg>
                 </div>
-                <p style={{ margin: 0, fontSize: 9.5, color: '#374151', maxWidth: 82, lineHeight: 1.4 }}>Logo de VozIA</p>
+                <p style={{ margin: 0, fontSize: 9.5, color: 'var(--dim)', maxWidth: 82, lineHeight: 1.4 }}>Logo de VozIA</p>
               </div>
               {/* Fields */}
-              <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
+              <div style={{ flex: '1 1 220px', minWidth: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(200px,100%),1fr))', gap: 14 }}>
                 <Input label="Nombre de la empresa" value={org.name} disabled={isViewer} onChange={e => setOrg(o => ({ ...o, name: e.target.value }))} />
                 <Input label="Email de la empresa" value={org.email} disabled={isViewer} onChange={e => setOrg(o => ({ ...o, email: e.target.value }))} />
                 <Input label="Sitio web" value={org.website} disabled={isViewer} onChange={e => setOrg(o => ({ ...o, website: e.target.value }))} />
@@ -497,7 +574,7 @@ export default function Configuracion() {
           </div>
 
           {/* ── Dirección ── */}
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px', marginBottom: 16 }}>
             <SectionTitle title="Dirección" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Input label="Dirección" value={org.address} disabled={isViewer} onChange={e => setOrg(o => ({ ...o, address: e.target.value }))} />
@@ -505,9 +582,9 @@ export default function Configuracion() {
           </div>
 
           {/* ── Preferencias + Moneda ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 16, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(200px,100%),1fr))', gap: 16, marginBottom: 16 }}>
             {/* Preferencias regionales */}
-            <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px' }}>
               <SectionTitle title="Preferencias regionales" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <Select
@@ -518,7 +595,7 @@ export default function Configuracion() {
             </div>
 
             {/* Moneda y números */}
-            <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px' }}>
               <SectionTitle title="Moneda y números" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <Select
@@ -530,38 +607,38 @@ export default function Configuracion() {
           </div>
 
           {/* ── Ajustes adicionales ── */}
-          <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '20px' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '20px' }}>
             <SectionTitle title="Ajustes adicionales" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
               {/* Nombre corto */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #1e2433' }}>
-                <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '14px 0', borderBottom: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 9, background: '#6366f125', border: '1px solid #6366f135', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <RiBuilding2Line style={{ width: 16, height: 16, color: '#818cf8' }} />
+                    <RiBuilding2Line style={{ width: 16, height: 16, color: 'var(--accent-soft)' }} />
                   </div>
                   <div>
-                    <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600, color: '#e2e8f0' }}>Nombre corto de la empresa</p>
-                    <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563' }}>Se mostrará en la plataforma y comunicaciones.</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Nombre corto de la empresa</p>
+                    <p style={{ margin: 0, fontSize: 11.5, color: 'var(--dim)' }}>Se mostrará en la plataforma y comunicaciones.</p>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, color: '#94a3b8' }}>{org.name || '—'}</span>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{org.name || '—'}</span>
                 </div>
               </div>
 
               {/* Eliminación de la cuenta */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }}>
-                <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '14px 0' }}>
+                <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 9, background: '#ef444420', border: '1px solid #ef444435', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <RiDeleteBinLine style={{ width: 16, height: 16, color: '#f87171' }} />
+                    <RiDeleteBinLine style={{ width: 16, height: 16, color: 'var(--danger-soft)' }} />
                   </div>
                   <div>
-                    <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600, color: '#e2e8f0' }}>Eliminación de la cuenta</p>
-                    <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563' }}>Permanente e irreversible. Todos los datos serán eliminados.</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Eliminación de la cuenta</p>
+                    <p style={{ margin: 0, fontSize: 11.5, color: 'var(--dim)' }}>Permanente e irreversible. Todos los datos serán eliminados.</p>
                   </div>
                 </div>
-                <button onClick={() => { setShowDeleteModal(true); setDeletePassword(''); setDeleteError('') }} style={{ background: '#ef444420', border: '1px solid #ef444445', borderRadius: 9, padding: '8px 16px', color: '#f87171', fontSize: 13, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+                <button onClick={() => { setShowDeleteModal(true); setDeletePassword(''); setDeleteError('') }} style={{ background: '#ef444420', border: '1px solid #ef444445', borderRadius: 9, padding: '8px 16px', color: 'var(--danger-soft)', fontSize: 13, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
                   Eliminar cuenta
                 </button>
               </div>
@@ -571,35 +648,35 @@ export default function Configuracion() {
         </div>
 
         {/* ── Right Panel ── */}
-        <div className="dark-scroll" style={{ width: 290, flexShrink: 0, borderLeft: '1px solid #1e2433', overflowY: 'auto', padding: '20px 18px' }}>
+        <div className="dark-scroll split-rail" style={{ '--rail-width': '290px', padding: '20px 18px' }}>
 
           {/* Tu plan actual */}
           <div style={{ marginBottom: 20 }}>
-            <p style={{ margin: '0 0 12px', fontSize: 13.5, fontWeight: 700, color: '#e2e8f0' }}>Tu plan actual</p>
-            <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
+            <p style={{ margin: '0 0 12px', fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>Tu plan actual</p>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, background: 'linear-gradient(135deg,#7c3aed55,#7c3aed25)', border: '1px solid #7c3aed50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <RiVipCrownLine style={{ width: 18, height: 18, color: '#a78bfa' }} />
+                  <RiVipCrownLine style={{ width: 18, height: 18, color: 'var(--violet)' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#f1f5f9', textTransform: 'capitalize' }}>{stats?.orgPlan ?? integrations?.plan ?? 'free'}</span>
-                    <span style={{ fontSize: 10.5, background: '#10b98120', color: '#10b981', border: '1px solid #10b98140', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>Activo</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', textTransform: 'capitalize' }}>{stats?.orgPlan ?? integrations?.plan ?? 'free'}</span>
+                    <span style={{ fontSize: 10.5, background: '#10b98120', color: 'var(--success)', border: '1px solid #10b98140', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>Activo</span>
                   </div>
                 </div>
               </div>
             </div>
-            <button onClick={() => setShowPlanModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px #6366f145' }}>
+            <button onClick={() => setShowPlanModal(true)} style={{ width: '100%', background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', border: 'none', borderRadius: 10, padding: '10px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px #6366f145' }}>
               Gestionar plan
             </button>
           </div>
 
           {/* Uso del plan */}
-          <div style={{ marginBottom: 20, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px' }}>
+          <div style={{ marginBottom: 20, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Uso del plan</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Uso del plan</p>
             </div>
-            <p style={{ margin: '0 0 12px', fontSize: 10.5, color: '#4b5563' }}>Acumulado total</p>
+            <p style={{ margin: '0 0 12px', fontSize: 10.5, color: 'var(--dim)' }}>Acumulado total</p>
             {[
               { label: 'Llamadas realizadas', value: stats ? String(stats.totalCalls ?? 0) : '—' },
               { label: 'Agentes IA', value: agentCount !== null ? String(agentCount) : '—' },
@@ -610,26 +687,26 @@ export default function Configuracion() {
           {/* Integraciones activas — GET /api/settings/integrations */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Integraciones</p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Integraciones</p>
             </div>
             {!integrations && (
-              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Sin integraciones conectadas todavía.</p>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 12.5, color: integrationsFailed ? 'var(--warn-soft)' : 'var(--faint)' }}>{integrationsFailed ? 'No se pudo comprobar el estado de tus integraciones.' : 'Sin integraciones conectadas todavía.'}</p>
               </div>
             )}
             {integrations && (
-              <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '4px 16px' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '4px 16px' }}>
                 {[
                   { key: 'mautic', label: 'Mautic' },
                   { key: 'metricool', label: 'Metricool' },
                 ].map(({ key, label }, i, arr) => {
                   const info = integrations[key] ?? { enabled: false, connected: false }
                   const status = !info.enabled ? 'Desactivado' : info.connected ? 'Conectado' : 'Sin conectar'
-                  const color = !info.enabled ? '#4b5563' : info.connected ? '#10b981' : '#f59e0b'
+                  const color = !info.enabled ? 'var(--faint)' : info.connected ? 'var(--success)' : 'var(--warn)'
                   return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid #1e2433' : 'none' }}>
-                      <span style={{ fontSize: 12.5, color: '#94a3b8', fontWeight: 600 }}>{label}</span>
-                      <span style={{ fontSize: 11, color, background: `${color}15`, border: `1px solid ${color}40`, borderRadius: 5, padding: '2px 8px', fontWeight: 600 }}>{status}</span>
+                    <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                      <span style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 600 }}>{label}</span>
+                      <span style={{ fontSize: 11, color, background: `color-mix(in srgb, ${color} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`, borderRadius: 5, padding: '2px 8px', fontWeight: 600 }}>{status}</span>
                     </div>
                   )
                 })}
@@ -639,26 +716,26 @@ export default function Configuracion() {
 
           {/* Centro de ayuda */}
           <div>
-            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Centro de ayuda</p>
-            <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, overflow: 'hidden' }}>
+            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Centro de ayuda</p>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
               {[
-                { Icon: RiGroupLine, iconBg: '#10b981', title: 'Soporte', sub: 'soporte@vozia.app' },
+                { Icon: RiGroupLine, iconBg: 'var(--success)', title: 'Soporte', sub: 'soporte@vozia.app' },
               ].map((h, i, arr) => (
                 <button
                   key={i}
                   onClick={() => { window.location.href = 'mailto:soporte@vozia.app' }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid #1e2433' : 'none', background: 'transparent', cursor: 'pointer', transition: 'background .15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#ffffff06')}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none', background: 'transparent', cursor: 'pointer', transition: 'background .15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: `${h.iconBg}25`, border: `1px solid ${h.iconBg}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: `color-mix(in srgb, ${h.iconBg} 15%, transparent)`, border: `1px solid color-mix(in srgb, ${h.iconBg} 25%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <h.Icon style={{ width: 14, height: 14, color: h.iconBg }} />
                   </div>
                   <div style={{ flex: 1, textAlign: 'left' }}>
-                    <p style={{ margin: '0 0 1px', fontSize: 12.5, fontWeight: 600, color: '#e2e8f0' }}>{h.title}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: '#4b5563' }}>{h.sub}</p>
+                    <p style={{ margin: '0 0 1px', fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{h.title}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--dim)' }}>{h.sub}</p>
                   </div>
-                  <RiArrowRightSLine style={{ width: 15, height: 15, color: '#4b5563' }} />
+                  <RiArrowRightSLine style={{ width: 15, height: 15, color: 'var(--dim)' }} />
                 </button>
               ))}
             </div>
@@ -668,56 +745,56 @@ export default function Configuracion() {
       </div>
 
       {showDeleteModal && (
-        <div onClick={() => !deleting && setShowDeleteModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #ef444440', borderRadius: 14, padding: '24px', width: 400, boxShadow: '0 40px 80px #0009' }}>
-            <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#f87171' }}>Eliminar cuenta</p>
-            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#94a3b8', lineHeight: 1.5 }}>
+        <div className="app-modal-backdrop" onClick={() => !deleting && setShowDeleteModal(false)} style={{ zIndex: 100, background: 'var(--scrim)' }}>
+          <div className="app-modal-card dark-scroll" onClick={e => e.stopPropagation()} style={{ '--modal-width': '400px', background: 'var(--surface)', border: '1px solid #ef444440', borderRadius: 14, padding: '24px', boxShadow: 'var(--shadow-2)' }}>
+            <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: 'var(--danger-soft)' }}>Eliminar cuenta</p>
+            <p style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>
               Esta acción es permanente: tu usuario quedará anonimizado y perderás el acceso inmediatamente.
               Confirma con tu contraseña.
             </p>
-            <input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Tu contraseña" autoFocus style={{ width: '100%', boxSizing: 'border-box', background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', marginBottom: 12 }} />
-            {deleteError && <p style={{ margin: '0 0 12px', color: '#f87171', fontSize: 12 }} role="alert">{deleteError}</p>}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowDeleteModal(false)} disabled={deleting} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={confirmDeleteAccount} disabled={!deletePassword || deleting} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #ef444445', background: '#ef444420', color: '#f87171', fontSize: 13, fontWeight: 700, cursor: !deletePassword || deleting ? 'not-allowed' : 'pointer', opacity: !deletePassword || deleting ? 0.6 : 1 }}>{deleting ? 'Eliminando…' : 'Eliminar definitivamente'}</button>
+            <input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} placeholder="Tu contraseña" autoFocus style={{ width: '100%', boxSizing: 'border-box', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', marginBottom: 12 }} />
+            {deleteError && <p style={{ margin: '0 0 12px', color: 'var(--danger-soft)', fontSize: 12 }} role="alert">{deleteError}</p>}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button onClick={() => setShowDeleteModal(false)} disabled={deleting} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={confirmDeleteAccount} disabled={!deletePassword || deleting} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #ef444445', background: '#ef444420', color: 'var(--danger-soft)', fontSize: 13, fontWeight: 700, cursor: !deletePassword || deleting ? 'not-allowed' : 'pointer', opacity: !deletePassword || deleting ? 0.6 : 1 }}>{deleting ? 'Eliminando…' : 'Eliminar definitivamente'}</button>
             </div>
           </div>
         </div>
       )}
 
       {showPlanModal && (
-        <div onClick={() => setShowPlanModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', width: 400, boxShadow: '0 40px 80px #0009' }}>
-            <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Tu plan</p>
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#94a3b8' }}>
-              Plan actual: <b style={{ color: '#f1f5f9', textTransform: 'capitalize' }}>{stats?.orgPlan ?? integrations?.plan ?? 'free'}</b>
+        <div className="app-modal-backdrop" onClick={() => setShowPlanModal(false)} style={{ zIndex: 100, background: 'var(--scrim)' }}>
+          <div className="app-modal-card dark-scroll" onClick={e => e.stopPropagation()} style={{ '--modal-width': '400px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '24px', boxShadow: 'var(--shadow-2)' }}>
+            <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>Tu plan</p>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
+              Plan actual: <b style={{ color: 'var(--text-strong)', textTransform: 'capitalize' }}>{stats?.orgPlan ?? integrations?.plan ?? 'free'}</b>
             </p>
             {billingConfig?.enabled ? (
               <>
-                <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>
+                <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
                   El pago se gestiona con Stripe. Puedes cambiar de plan o administrar tu suscripción, método de pago y facturas.
                 </p>
-                {billingError && <p style={{ margin: '0 0 12px', color: '#f87171', fontSize: 12 }} role="alert">{billingError}</p>}
+                {billingError && <p style={{ margin: '0 0 12px', color: 'var(--danger-soft)', fontSize: 12 }} role="alert">{billingError}</p>}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                   {(billingConfig.plans || []).map(plan => (
-                    <button key={plan} onClick={() => startCheckout(plan)} disabled={billingBusy || (stats?.orgPlan ?? 'free') === plan} style={{ padding: '10px 14px', borderRadius: 9, border: '1px solid #4f46e550', background: '#4f46e520', color: '#a78bfa', fontSize: 13, fontWeight: 700, cursor: billingBusy || (stats?.orgPlan ?? 'free') === plan ? 'not-allowed' : 'pointer', textTransform: 'capitalize', opacity: billingBusy ? 0.6 : 1 }}>
+                    <button key={plan} onClick={() => startCheckout(plan)} disabled={billingBusy || (stats?.orgPlan ?? 'free') === plan} style={{ padding: '10px 14px', borderRadius: 9, border: '1px solid #4f46e550', background: '#4f46e520', color: 'var(--violet)', fontSize: 13, fontWeight: 700, cursor: billingBusy || (stats?.orgPlan ?? 'free') === plan ? 'not-allowed' : 'pointer', textTransform: 'capitalize', opacity: billingBusy ? 0.6 : 1 }}>
                       {(stats?.orgPlan ?? 'free') === plan ? `Plan ${plan} (actual)` : `Cambiar a ${plan}`}
                     </button>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
-                  <button onClick={openBillingPortal} disabled={billingBusy} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: billingBusy ? 'not-allowed' : 'pointer', opacity: billingBusy ? 0.6 : 1 }}>{billingBusy ? 'Abriendo…' : 'Gestionar suscripción'}</button>
+                  <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
+                  <button onClick={openBillingPortal} disabled={billingBusy} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', color: '#fff', fontSize: 13, fontWeight: 700, cursor: billingBusy ? 'not-allowed' : 'pointer', opacity: billingBusy ? 0.6 : 1 }}>{billingBusy ? 'Abriendo…' : 'Gestionar suscripción'}</button>
                 </div>
               </>
             ) : (
               <>
-                <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#64748b', lineHeight: 1.5 }}>
+                <p style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
                   El pago autogestionado se activa al configurar Stripe en el servidor. Mientras tanto, escribe al equipo para cambiar de plan o ampliar límites.
                 </p>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
-                  <button onClick={() => { window.location.href = 'mailto:soporte@vozia.app?subject=Cambio%20de%20plan' }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Contactar para cambiar de plan</button>
+                  <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
+                  <button onClick={() => { window.location.href = 'mailto:soporte@vozia.app?subject=Cambio%20de%20plan' }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Contactar para cambiar de plan</button>
                 </div>
               </>
             )}

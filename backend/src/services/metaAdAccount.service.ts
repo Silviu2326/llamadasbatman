@@ -235,7 +235,7 @@ async function fetchMetaUser(accessToken: string): Promise<{ id: string; scopes:
     return item.status === 'granted' && typeof item.permission === 'string' ? [item.permission] : []
   })
   const missing = META_OAUTH_SCOPES.filter(scope => !scopes.includes(scope))
-  if (missing.length) throw new MetaRequestError('Meta no concediÃ³ todos los permisos requeridos', 'provider', 403)
+  if (missing.length) throw new MetaRequestError('Meta no concedió todos los permisos requeridos', 'provider', 403)
   return { id: user.id, scopes }
 }
 

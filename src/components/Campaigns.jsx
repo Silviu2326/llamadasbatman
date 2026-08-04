@@ -8,6 +8,8 @@ import {
   RiCompass3Line, RiFlowChart,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { planGateMessage, readPlanGate } from '../lib/planGate'
+import DataStatusBanner from './ui/DataStatusBanner'
 import CaptureJourney from './capture/CaptureJourney'
 import './campaigns.css'
 import './capture/campaign-command.css'
@@ -19,18 +21,18 @@ import { getLocale, localeCode, useI18n } from '../i18n'
 // metaCampaignId => la campaña vino de Meta Ads, si no es una campaña de
 // llamadas outbound estándar).
 const TYPE_META = {
-  outbound: { label: 'Llamadas', Icon: RiPhoneLine, color: '#8b5cf6' },
-  ads: { label: 'Publicidad', Icon: RiMegaphoneLine, color: '#f59e0b' },
-  social: { label: 'Redes sociales', Icon: RiShareForwardLine, color: '#22d3ee' },
-  prospecting: { label: 'Prospección', Icon: RiCompass3Line, color: '#34d399' },
-  multichannel: { label: 'Multicanal', Icon: RiFlowChart, color: '#ec4899' },
+  outbound: { label: 'Llamadas', Icon: RiPhoneLine, color: 'var(--violet)' },
+  ads: { label: 'Publicidad', Icon: RiMegaphoneLine, color: 'var(--warn)' },
+  social: { label: 'Redes sociales', Icon: RiShareForwardLine, color: 'var(--cyan)' },
+  prospecting: { label: 'Prospección', Icon: RiCompass3Line, color: 'var(--success)' },
+  multichannel: { label: 'Multicanal', Icon: RiFlowChart, color: 'var(--pink)' },
 }
 
 const STATUS_META = {
-  active: { label: 'Activa', color: '#34d399' },
-  paused: { label: 'En pausa', color: '#f59e0b' },
-  draft: { label: 'Borrador', color: '#94a3b8' },
-  done: { label: 'Finalizada', color: '#a78bfa' },
+  active: { label: 'Activa', color: 'var(--success)' },
+  paused: { label: 'En pausa', color: 'var(--warn-soft)' },
+  draft: { label: 'Borrador', color: 'var(--muted)' },
+  done: { label: 'Finalizada', color: 'var(--violet)' },
 }
 
 const LIMIT = 10
@@ -80,9 +82,9 @@ function MetricCard({ Icon, label, value, detail, color }) {
 function Funnel({ stats }) {
   const max = stats.totalLeads || 1
   const steps = [
-    { label: 'Leads', value: stats.totalLeads, width: '100%', color: '#7c3aed' },
-    { label: 'Contactados', value: stats.contacted, width: `${Math.min(100, Math.round((stats.contacted / max) * 100))}%`, color: '#22d3ee' },
-    { label: 'Reuniones agendadas', value: stats.meetingsScheduled, width: `${Math.min(100, Math.round((stats.meetingsScheduled / max) * 100))}%`, color: '#ec4899' },
+    { label: 'Leads', value: stats.totalLeads, width: '100%', color: 'var(--violet-deep)' },
+    { label: 'Contactados', value: stats.contacted, width: `${Math.min(100, Math.round((stats.contacted / max) * 100))}%`, color: 'var(--cyan)' },
+    { label: 'Reuniones agendadas', value: stats.meetingsScheduled, width: `${Math.min(100, Math.round((stats.meetingsScheduled / max) * 100))}%`, color: 'var(--pink)' },
   ]
   return <div className="campaign-funnel">
     <div className="campaign-funnel-shape">{steps.map(step => <div key={step.label} style={{ width: step.width, background: step.color }} />)}</div>
@@ -94,11 +96,11 @@ function Funnel({ stats }) {
 function ChannelMix({ stats }) {
   if (!stats.total) return <div className="campaign-empty"><RiLayoutGridLine /><strong>Sin campañas todavía</strong><span>La mezcla de canales aparecerá aquí.</span></div>
   const channels = [
-    { id: 'ads', label: 'Publicidad', color: '#f59e0b' },
-    { id: 'social', label: 'Redes sociales', color: '#22d3ee' },
-    { id: 'prospecting', label: 'Prospección', color: '#34d399' },
-    { id: 'multichannel', label: 'Multicanal', color: '#ec4899' },
-    { id: 'outbound', label: 'Llamadas outbound', color: '#8b5cf6' },
+    { id: 'ads', label: 'Publicidad', color: 'var(--warn)' },
+    { id: 'social', label: 'Redes sociales', color: 'var(--cyan)' },
+    { id: 'prospecting', label: 'Prospección', color: 'var(--success)' },
+    { id: 'multichannel', label: 'Multicanal', color: 'var(--pink)' },
+    { id: 'outbound', label: 'Llamadas outbound', color: 'var(--violet)' },
   ].map(channel => ({ ...channel, count: stats.channelCounts[channel.id] || 0 }))
     .filter(channel => channel.count > 0)
   let cursor = 0
@@ -149,7 +151,7 @@ function CreateCampaignModal({ onClose, onCreate, creating }) {
   return <div className="campaign-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <form className="campaign-create-modal" onSubmit={submit}>
       <div className="campaign-modal-head"><div><span>Nuevo workspace</span><h2>Crear campaña</h2><p>Define los datos básicos, podrás completar el resto luego.</p></div><button type="button" className="campaign-icon-button" onClick={onClose}><RiCloseLine /></button></div>
-      {formError && <p role="alert" style={{ margin: '0 0 4px', color: '#f87171', fontSize: 12.5 }}>{formError}</p>}
+      {formError && <p role="alert" style={{ margin: '0 0 4px', color: 'var(--danger-soft)', fontSize: 12.5 }}>{formError}</p>}
       <div className="campaign-form-grid">
         <label>Nombre de campaña<input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Ej. Reactivación clientes Q2" /></label>
         <label>Objetivo<textarea value={objective} onChange={event => setObjective(event.target.value)} placeholder="¿Qué quieres conseguir?" rows="3" /></label>
@@ -161,7 +163,7 @@ function CreateCampaignModal({ onClose, onCreate, creating }) {
 }
 
 export default function Campaigns() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
@@ -176,6 +178,10 @@ export default function Campaigns() {
   const [creating, setCreating] = useState(false)
   const [notice, setNotice] = useState('')
   const [allCampaigns, setAllCampaigns] = useState([])
+  // 'loading' | 'live' | 'plan' | 'error' — mientras no sea 'live' las tarjetas
+  // muestran «—» en vez de ceros que parecerían actividad real.
+  const [statsStatus, setStatsStatus] = useState('loading')
+  const [statsMessage, setStatsMessage] = useState('')
 
   useEffect(() => {
     const timeout = window.setTimeout(() => { setSearch(searchInput); setPage(1) }, 350)
@@ -206,13 +212,24 @@ export default function Campaigns() {
   }
 
   async function loadStats() {
+    setStatsStatus('loading')
+    setStatsMessage('')
     try {
       const res = await apiFetch(`/api/campaigns?page=1&limit=${STATS_LIMIT}`)
-      if (!res.ok) return
+      if (!res.ok) {
+        const gate = await readPlanGate(res)
+        setAllCampaigns([])
+        setStatsStatus(gate ? 'plan' : 'error')
+        setStatsMessage(gate ? planGateMessage(gate, locale) : 'No se pudo calcular el resumen de campañas.')
+        return
+      }
       const data = await res.json()
       setAllCampaigns((data.items || []).map(toRow))
+      setStatsStatus('live')
     } catch {
-      // silencioso: las tarjetas de resumen simplemente quedan en 0
+      setAllCampaigns([])
+      setStatsStatus('error')
+      setStatsMessage('No se pudo calcular el resumen de campañas.')
     }
   }
 
@@ -232,6 +249,9 @@ export default function Campaigns() {
     const conversionRate = totalLeads > 0 ? Math.round((meetingsScheduled / totalLeads) * 1000) / 10 : 0
     return { totalLeads, contacted, meetingsScheduled, budgetTotalCents, activeCount, channelCounts, conversionRate, total: allCampaigns.length }
   }, [allCampaigns])
+
+  // Mismo patrón que Automatizaciones: sin datos reales no se pinta un 0.
+  const metricValue = value => (statsStatus === 'live' ? value : '—')
 
   function notify(message) { setNotice(message); window.setTimeout(() => setNotice(''), 2600) }
 
@@ -266,7 +286,7 @@ export default function Campaigns() {
   }
 
   const statusTabs = [
-    { id: 'all', label: 'Todas', color: '#a78bfa' },
+    { id: 'all', label: 'Todas', color: 'var(--violet)' },
     ...Object.entries(STATUS_META).map(([id, meta]) => ({ id, label: meta.label, color: meta.color })),
   ]
 
@@ -275,11 +295,13 @@ export default function Campaigns() {
 
     <CaptureJourney active="plan" />
 
+    {statsStatus !== 'live' && statsStatus !== 'loading' && <DataStatusBanner status={statsStatus} message={statsMessage} onRetry={statsStatus === 'error' ? loadStats : undefined} />}
+
     <section className="campaign-metrics-row">
-      <MetricCard Icon={RiGroupLine} label="Leads totales" value={stats.totalLeads.toLocaleString(localeCode(getLocale()))} detail="en todas las campañas" color="#8b5cf6" />
-      <MetricCard Icon={RiPhoneLine} label="Contactados" value={stats.contacted.toLocaleString(localeCode(getLocale()))} detail="leads con contacto registrado" color="#22d3ee" />
-      <MetricCard Icon={RiBarChartGroupedLine} label="Conversión media" value={`${stats.conversionRate}%`} detail="reuniones / leads" color="#ec4899" />
-      <MetricCard Icon={RiWallet3Line} label="Presupuesto total" value={formatCents(stats.budgetTotalCents)} detail="suma de presupuestos asignados" color="#34d399" />
+      <MetricCard Icon={RiGroupLine} label="Leads totales" value={metricValue(stats.totalLeads.toLocaleString(localeCode(getLocale())))} detail="en todas las campañas" color="#8b5cf6" />
+      <MetricCard Icon={RiPhoneLine} label="Contactados" value={metricValue(stats.contacted.toLocaleString(localeCode(getLocale())))} detail="leads con contacto registrado" color="#22d3ee" />
+      <MetricCard Icon={RiBarChartGroupedLine} label="Conversión media" value={metricValue(`${stats.conversionRate}%`)} detail="reuniones / leads" color="#ec4899" />
+      <MetricCard Icon={RiWallet3Line} label="Presupuesto total" value={metricValue(formatCents(stats.budgetTotalCents))} detail="suma de presupuestos asignados" color="#34d399" />
     </section>
 
     <section className="campaigns-layout">

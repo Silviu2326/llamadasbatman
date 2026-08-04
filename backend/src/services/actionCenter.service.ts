@@ -18,8 +18,8 @@ export type ActionItemPriority = typeof ACTION_ITEM_PRIORITIES[number]
 export type ActionImpactMetric = 'leads' | 'meetings' | 'revenue' | 'cost' | 'risk' | 'operations'
 
 export type ActionCenterWarning = {
-  source: 'next_best_actions' | 'leads' | 'pipeline' | 'campaigns' | 'organic' | 'automations' | 'meetings'
-  code: 'source_unavailable'
+  source: 'next_best_actions' | 'leads' | 'pipeline' | 'campaigns' | 'organic' | 'automations' | 'meetings' | 'persistence'
+  code: 'source_unavailable' | 'persistence_unavailable'
   message: string
 }
 
@@ -478,6 +478,14 @@ async function materializeActionItems(orgId: string, sources: ActionItem[]): Pro
       })
 
       return rows
+    }, {
+      // ponytail: subir el timeout, no reescribir el bucle. Son hasta 150 upserts
+      // secuenciales y con Postgres remoto (Neon) cada ida y vuelta cuesta ~50-100 ms,
+      // asi que el limite por defecto de 5 s se agotaba siempre y el Centro de Accion
+      // respondia 503. Techo conocido: si algun dia se pasa de 150 items o la latencia
+      // sube, toca agrupar en createMany + updateMany en vez de subir mas este numero.
+      timeout: 30_000,
+      maxWait: 10_000,
     })
   } catch (error) {
     if (error instanceof ActionCenterPersistenceError) throw error
@@ -492,11 +500,29 @@ async function materializeActionItems(orgId: string, sources: ActionItem[]): Pro
  */
 export async function ensureActionItems(orgId: string) {
   const derived = await derivedItems(orgId)
-  const persisted = await materializeActionItems(orgId, derived.items)
+  const warnings = derived.warnings
+  let items: ActionItem[]
+  try {
+    items = (await materializeActionItems(orgId, derived.items)).map(toActionItem)
+  } catch (error) {
+    if (!(error instanceof ActionCenterPersistenceError)) throw error
+    // Leer el centro de acción nunca puede depender de poder escribir su
+    // caché: las señales ya están calculadas en memoria, así que se devuelven
+    // marcadas como degradadas en lugar de tumbar el dashboard entero.
+    // Ojo: sin fila persistida, el `id` es el dedupeKey derivado y los
+    // estados guardados por el usuario no se reflejan hasta que la escritura
+    // vuelva a funcionar.
+    items = derived.items
+    warnings.push({
+      source: 'persistence',
+      code: 'persistence_unavailable',
+      message: 'No se pudo guardar el estado del centro de acción; se muestran las señales calculadas ahora mismo.',
+    })
+  }
   return {
-    items: persisted.map(toActionItem),
-    degraded: derived.warnings.length > 0,
-    warnings: derived.warnings,
+    items,
+    degraded: warnings.length > 0,
+    warnings,
   }
 }
 

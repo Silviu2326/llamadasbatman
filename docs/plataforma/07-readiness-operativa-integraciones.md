@@ -1,7 +1,7 @@
 # Readiness operativa de integraciones
 
 Este documento describe la ronda de endurecimiento de Meta Ads, Google Search
-Console/Organic, Metricool, Postiz, Mautic/email y Twilio. No contiene secretos
+Console/Organic, Metricool, Mautic/email y Twilio. No contiene secretos
 ni declara una integración conectada por el mero hecho de tener variables de
 entorno.
 
@@ -14,7 +14,7 @@ El backend conserva `/health` como liveness mínimo y añade:
 - `GET /health/integrations`: devuelve el estado de configuración de cada
   proveedor sin valores sensibles.
 - `GET /health/integrations?probe=true`: además hace probes acotados por timeout
-  para Meta, Mautic, Postiz, Metricool y Twilio. Google OAuth no se marca como
+  para Meta, Mautic, Metricool y Twilio. Google OAuth no se marca como
   operativo sin un token de una organización, por lo que el probe de Google
   solo valida la configuración del cliente.
 
@@ -90,7 +90,7 @@ críticas:
 - Google: client ID/secret, `GOOGLE_OAUTH_REDIRECT_BASE_URL` y
   `ORGANIC_TOKEN_ENCRYPTION_KEY`.
 - Mautic: base URL, client credentials y `MAUTIC_WEBHOOK_SECRET`.
-- Postiz/Metricool: base URL y sus credenciales completas.
+- Metricool: base URL y sus credenciales completas.
 - Twilio: account SID, auth token, número emisor y `TWILIO_WEBHOOK_BASE_URL`.
 
 El proceso debe fallar por configuración crítica incompleta en despliegues de
@@ -118,7 +118,7 @@ proveedor:
 - aprobación y scopes de la app Meta;
 - OAuth consent screen y propiedades de Google;
 - token/`blogId` válidos de Metricool y contrato de la API habilitado;
-- versión y endpoints reales de la instancia Postiz/Mautic;
+- versión y endpoints reales de la instancia Mautic;
 - cuenta, números, firma y URLs públicas de Twilio;
 - DNS, TLS, reverse proxy, Redis y base de datos de staging/producción.
 

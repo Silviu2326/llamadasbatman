@@ -13,10 +13,10 @@ import { resolveOrganizationCredentialConfig } from './organizationCredentials.s
 /**
  * Sync de contactos CRM → Mautic. Calca la forma de metaConversions.service.ts
  * (un solo punto de salida por evento, best-effort, nunca revienta el flujo
- * que lo llama) — ver PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md sección 4.
+ * que lo llama).
  *
- * Instancia única de Mautic para todas las organizaciones (decisión 2.2 del
- * plan): el aislamiento entre organizaciones se hace con un tag `org-<orgId>`
+ * Instancia única de Mautic para todas las organizaciones: el aislamiento
+ * entre organizaciones se hace con un tag `org-<orgId>`
  * en cada contacto, no con una instancia por cliente. `crm_lead_id` es el ID
  * maestro (mismo `Lead.id` del CRM) — evita el matching por email/teléfono
  * que el plan señala como la causa más probable de duplicados.
@@ -762,8 +762,7 @@ export async function sendEmailToLead(
 
 /**
  * Campañas / plantillas de Mautic (sección 7 de BACKEND_PENDIENTE_PAGINAS.md).
- * Igual que ya advierte `postizSync.service.ts` sobre la API de Postiz: los
- * paths exactos de la REST API de Mautic no se pudieron verificar contra un
+ * Los paths exactos de la REST API de Mautic no se pudieron verificar contra un
  * despliegue real en este entorno (no hay instancia conectada). Se escriben
  * con la forma documentada típica de Mautic 4/5 — normalizar contra un
  * despliegue real antes de confiar en esto en producción.

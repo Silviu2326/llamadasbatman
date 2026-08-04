@@ -1,7 +1,11 @@
 import { CallContext, elapsedSeconds } from '../intelligence/conversation/callContext'
+import { openingGreeting } from '../compliance'
 import { GuruBrief, defaultBrief, briefToSystemPrompt } from '../intelligence/conversation/guruBrief'
 import { DeepgramSTT, TurnMeta } from '../stt/deepgram'
+import { LocalKyutaiSTT } from '../stt/localKyutai'
 import { ElevenLabsTTS } from '../tts/elevenLabsTts'
+import { ChatterboxTTS, classifySpeechEmotion } from '../tts/chatterboxTts'
+import { mirrorPolicy } from '../tts/mirroringPolicy'
 import { CerebrasAgent } from '../intelligence/llm/cerebras'
 import { GuruSupervisor, detectObjection, detectLoop, detectStall } from '../intelligence/conversation/guruSupervisor'
 import { ProsodicBuffer, AcousticState } from '../audio/prosodic'
@@ -18,8 +22,8 @@ type InterruptCallback = () => Promise<void>
 type TranscriptCallback = (role: string, text: string, meta?: Record<string, unknown>) => Promise<void>
 
 export class DeepgramElevenLabsSession {
-  private _stt: DeepgramSTT | null = null
-  private _tts: ElevenLabsTTS | null = null
+  private _stt: DeepgramSTT | LocalKyutaiSTT | null = null
+  private _tts: ElevenLabsTTS | ChatterboxTTS | null = null
   private _llm: CerebrasAgent | null = null
   private _guru: GuruSupervisor | null = null
   private _currentBrief: GuruBrief
@@ -91,31 +95,38 @@ export class DeepgramElevenLabsSession {
       this.systemPrompt,
     )
 
-    this._tts = new ElevenLabsTTS({
-      apiKey: process.env.ELEVENLABS_API_KEY!,
-      voiceId: cfg?.voice?.elevenLabsVoiceId ?? process.env.ELEVENLABS_VOICE_ID!,
-      onAudio: this._onTtsAudio.bind(this),
-      outputFormat: process.env.ELEVENLABS_TTS_FORMAT ?? 'pcm_24000',
-      modelId: process.env.ELEVENLABS_MODEL_ID ?? 'eleven_flash_v2_5',
-      latencyOptimization: parseInt(process.env.ELEVENLABS_LATENCY_OPT ?? '0'),
-    })
+    this._tts = process.env.TTS_PROVIDER === 'chatterbox'
+      ? new ChatterboxTTS({ onAudio: this._onTtsAudio.bind(this) })
+      : new ElevenLabsTTS({
+          apiKey: process.env.ELEVENLABS_API_KEY!,
+          voiceId: cfg?.voice?.elevenLabsVoiceId ?? process.env.ELEVENLABS_VOICE_ID!,
+          onAudio: this._onTtsAudio.bind(this),
+          outputFormat: process.env.ELEVENLABS_TTS_FORMAT ?? 'pcm_24000',
+          modelId: process.env.ELEVENLABS_MODEL_ID ?? 'eleven_flash_v2_5',
+          latencyOptimization: parseInt(process.env.ELEVENLABS_LATENCY_OPT ?? '0'),
+        })
     this._tts.setVoiceProfile(this._currentBrief.formato)
 
     const initStt = sttConfigForFormat(this._currentBrief.formato)
-    this._stt = new DeepgramSTT({
-      apiKey: process.env.DEEPGRAM_API_KEY!,
-      model: process.env.DEEPGRAM_MODEL ?? 'flux-general-multi',
-      language: process.env.DEEPGRAM_LANGUAGE ?? 'es',
+    const sttCallbacks = {
       eotTimeoutMs: initStt.eotTimeoutMs,
       eotThreshold: initStt.eotThreshold,
       eagerEotThreshold: initStt.eagerEotThreshold,
-      onPartial: t => { this._onTranscript?.('partial', t) },
-      onEagerEnd: (t, c, meta) => { this._onEagerEnd(t, c, meta) },
+      onPartial: (t: string) => { this._onTranscript?.('partial', t) },
+      onEagerEnd: (t: string, c: number, meta: TurnMeta) => { this._onEagerEnd(t, c, meta) },
       onTurnResumed: () => { this._cancelSpeculative() },
-      onFinal: (t, c, meta) => { this._tEot = Date.now(); this._onSttFinal(t, c, meta) },
+      onFinal: (t: string, c: number, meta: TurnMeta) => { this._tEot = Date.now(); this._onSttFinal(t, c, meta) },
       onUserStartedSpeaking: () => { this._onSpeakingStart() },
       onUserStoppedSpeaking: () => { this._prosodic.stopTurn() },
-    })
+    }
+    this._stt = process.env.STT_PROVIDER === 'kyutai'
+      ? new LocalKyutaiSTT(sttCallbacks)
+      : new DeepgramSTT({
+          apiKey: process.env.DEEPGRAM_API_KEY!,
+          model: process.env.DEEPGRAM_MODEL ?? 'flux-general-multi',
+          language: process.env.DEEPGRAM_LANGUAGE ?? 'es',
+          ...sttCallbacks,
+        })
 
     void this._onEvent?.({ type: 'session.ready', role: 'system', component: 'legacyVoiceSession', provider: 'deepgram+elevenlabs' })
 
@@ -206,6 +217,21 @@ export class DeepgramElevenLabsSession {
 
     this._tts?.setProspectSignals(emocionNow, acousticLabel)
 
+    // Mirroring (capa 2): señales del turno -> voz/ritmo/pausa para la respuesta
+    if (this._tts instanceof ChatterboxTTS) {
+      this._tts.setTurnStyle(mirrorPolicy({ emocion: emocionNow, acustico: acousticLabel, wpm }))
+      // Capa 1: emocion desde el audio crudo (SER), en paralelo al clasificador por texto
+      const turnAudio = this._prosodic.turnAudio()
+      if (turnAudio) {
+        classifySpeechEmotion(turnAudio).then(emotion => {
+          if (emotion && emotion !== 'neutro' && this.ctx.emotion === 'neutro') {
+            this.ctx.emotion = emotion
+            this._tts?.setProspectSignals(emotion, acousticLabel)
+          }
+        }).catch(() => {})
+      }
+    }
+
     // Background emotion classification
     this._llm?.classifyEmotion(text, acousticLabel).then(emotion => {
       if (emotion !== 'neutro' && this.ctx.emotion === 'neutro') {
@@ -294,8 +320,8 @@ export class DeepgramElevenLabsSession {
 
       const utype = classifyUtterance(fullResponse)
       if (utype !== 'statement') {
-        const overlay = utteranceVoiceOverlay(this._tts['_profile'], utype)
-        this._tts['_profile'] = overlay
+        const tts = this._tts as unknown as { _profile: ReturnType<typeof getProfile> }
+        tts._profile = utteranceVoiceOverlay(tts._profile, utype)
       }
 
       // latency: llm = EOT → first token; tts = first token → first audio chunk
@@ -370,9 +396,12 @@ export class DeepgramElevenLabsSession {
   // ── Opening ────────────────────────────────────────────────────────────────
 
   private async _sendOpening(): Promise<void> {
-    const name = this.ctx.agentConfig?.identity?.agentName ?? 'Alex'
-    const company = this.ctx.agentConfig?.product?.companyName ?? 'VozIA'
-    const greeting = `Hola, buenos días. Soy ${name}${company ? `, de ${company}` : ''}. ¿Está el responsable un momento?`
+    const greeting = openingGreeting({
+      agentName: this.ctx.agentConfig?.identity?.agentName,
+      companyName: this.ctx.agentConfig?.product?.companyName,
+      lang: this.ctx.agentConfig?.identity?.agentAccent ?? 'es',
+      recordingConsentPending: this.ctx.recordingConsentPending,
+    })
     this._history.push({ role: 'assistant', content: greeting })
     // audio first so logger captures chunks before the transcript flushes the turn
     await this._tts?.sendText(greeting, true)

@@ -20,6 +20,16 @@ duplex = [
   "moshi>=0.2.5",
   "torch>=2.4",
 ]
+# STT streaming Kyutai (stt-1b-en_fr): step_with_extra_heads llega en moshi 0.2.6
+stt = [
+  "huggingface-hub>=0.26",
+  "moshi>=0.2.6",
+  "torch>=2.4",
+]
+
+# ponytail: el paquete solo existe para instalar deps; no empaqueta módulos
+[tool.setuptools]
+py-modules = []
 
 [tool.ruff]
 line-length = 100

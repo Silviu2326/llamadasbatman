@@ -2,8 +2,10 @@ import { WebSocket } from 'ws'
 import { createCallContext } from '../intelligence/conversation/callContext'
 import { loadAgentConfig } from '../agentConfig'
 import { SessionLogger } from '../sessionLogger'
+import { analyzePostCall } from '../analysis/postCallAnalysis'
 import { prisma } from '../../lib/prisma'
-import { createVoiceSession } from '../engine/factory'
+import { createVoiceSession, type VoicePipelineOverride } from '../engine/factory'
+import { QwenOmniRealtimeSession, qwenOmniConfigured } from '../engine/qwenOmni'
 import type { VoiceSession } from '../engine/voiceSession'
 
 export interface VoiceSimulationPrincipal {
@@ -76,6 +78,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+// Valores que el navegador puede elegir en la página de laboratorio de voz.
+// Todo lo que no esté en la lista se ignora y se usa la config del servidor.
+const SIM_STT_OPTIONS = new Set(['whisper', 'kyutai'])
+const SIM_TTS_OPTIONS = new Set(['qwen', 'chatterbox', 'piper'])
+
+function pipelineOverride(message: Record<string, unknown>): VoicePipelineOverride | undefined {
+  const stt = typeof message.stt === 'string' && SIM_STT_OPTIONS.has(message.stt) ? message.stt as VoicePipelineOverride['stt'] : undefined
+  const tts = typeof message.tts === 'string' && SIM_TTS_OPTIONS.has(message.tts) ? message.tts as VoicePipelineOverride['tts'] : undefined
+  return stt || tts ? { stt, tts } : undefined
+}
+
 function optionalId(value: unknown): string | null {
   if (value == null || value === '') return null
   return typeof value === 'string' && value.length <= 191 ? value : null
@@ -131,6 +144,7 @@ function createRateGuard() {
  */
 export async function handleSimStream(socket: WebSocket, principal: VoiceSimulationPrincipal): Promise<void> {
   let session: VoiceSession | null = null
+  let startRequested = false
   let logger: SessionLogger | null = null
   let userSpeakingStarted = false
   let releaseSession: (() => void) | null = null
@@ -226,14 +240,27 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
     })
 
     const systemPrompt = (agentConfig?.playbook?.scripts?.base_prompt as string) || DEFAULT_PROMPT
+    const useQwenOmni = message.engine === 'qwen-omni'
+    if (useQwenOmni && !qwenOmniConfigured()) {
+      releaseSession?.()
+      releaseSession = null
+      send({ type: 'error', message: 'Qwen Omni no está configurado en el servidor (falta DASHSCOPE_API_KEY).' })
+      return closeWithPolicy(socket, 'qwen omni not configured')
+    }
     try {
-      session = await createVoiceSession(ctx, systemPrompt)
+      if (useQwenOmni) {
+        const omni = new QwenOmniRealtimeSession(ctx, systemPrompt)
+        await omni.connect()
+        session = omni
+      } else {
+        session = await createVoiceSession(ctx, systemPrompt, pipelineOverride(message))
+      }
     } catch (error) {
       releaseSession?.()
       releaseSession = null
-      send({ type: 'error', message: 'El motor de voz autoalojado no está disponible.' })
-      console.error('[SIM] self-hosted voice engine unavailable:', error)
-      return closeWithPolicy(socket, 'self-hosted voice engine unavailable')
+      send({ type: 'error', message: useQwenOmni ? 'No se pudo conectar con Qwen Omni (DashScope).' : 'El motor de voz autoalojado no está disponible.' })
+      console.error('[SIM] voice engine unavailable (%s):', useQwenOmni ? 'qwen-omni' : 'self-hosted', error)
+      return closeWithPolicy(socket, 'voice engine unavailable')
     }
     await session.attach({ onAudio, onInterrupt, onTranscript })
     session.run().catch(error => send({ type: 'error', message: error.message }))
@@ -245,18 +272,21 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
     }, maxDurationMs())
   }
 
-  socket.on('message', async (raw: Buffer | ArrayBuffer | Buffer[] | string) => {
+  socket.on('message', async (raw: Buffer | ArrayBuffer | Buffer[] | string, isBinary?: boolean) => {
     const buffer = rawToBuffer(raw)
     if (!allowMessage(buffer.length)) return closeWithPolicy(socket, 'rate limit exceeded')
 
-    const looksLikeJson = buffer[0] === 0x7b
+    // ws marca los frames de texto (control JSON) con isBinary=false. El audio
+    // PCM16 puede empezar por 0x7b ("{") por puro azar, así que el sniffing de
+    // contenido solo queda como fallback si la librería no informa del tipo.
+    const looksLikeJson = isBinary === false || (isBinary === undefined && buffer[0] === 0x7b)
     if (looksLikeJson) {
       if (buffer.length > MAX_SIM_JSON_BYTES) return closeWithPolicy(socket, 'JSON message too large')
       let message: unknown
       try { message = JSON.parse(buffer.toString()) } catch { return closeWithPolicy(socket, 'invalid JSON message') }
       if (!isRecord(message) || typeof message.type !== 'string') return closeWithPolicy(socket, 'invalid control message')
 
-      if (message.type === 'start') await startSession(message)
+      if (message.type === 'start') { startRequested = true; await startSession(message) }
       else if (message.type === 'stop') {
         await session?.close().catch(() => {})
         socket.close(1000, 'Session stopped')
@@ -267,7 +297,9 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
     }
 
     if (buffer.length > MAX_SIM_AUDIO_BYTES) return closeWithPolicy(socket, 'audio message too large')
-    if (!session) return closeWithPolicy(socket, 'audio before authenticated start')
+    // El micro empieza a emitir antes de que el handshake con el motor remoto
+    // (~1-2 s) termine: esos frames se descartan, no son un abuso de protocolo.
+    if (!session) return startRequested ? undefined : closeWithPolicy(socket, 'audio before authenticated start')
     if (userSpeakingStarted) logger?.addChunk(buffer)
     await session.sendAudio(buffer).catch(() => {})
   })
@@ -278,6 +310,7 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
     releaseSession?.()
     logger?.log({ event: 'end' })
     logger?.close()
+    if (logger) void analyzePostCall(logger.dir)
     session?.close().catch(() => {})
   })
   socket.on('error', (error: Error) => console.error('[SIM] error:', error.message))

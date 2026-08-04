@@ -151,18 +151,23 @@ export default function ConversationsInboxPage() {
   const [templateId, setTemplateId] = useState('')
   const [suggesting, setSuggesting] = useState(false)
   const searchInputRef = useRef(null)
+  const listRequestRef = useRef(0)
 
   const loadConversations = useCallback(async () => {
+    // Con el debounce de búsqueda dos cargas pueden solaparse: sólo la última
+    // lanzada puede escribir estado, o una respuesta vieja pisa a la nueva.
+    const requestId = ++listRequestRef.current
     setListState('loading'); setListError('')
     const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value))
     try {
       const response = await apiFetch(`/api/conversations?${query}`)
       if (!response.ok) throw new Error('No se pudo cargar la cola de conversaciones.')
       const data = await response.json(); const items = extractItems(data)
+      if (listRequestRef.current !== requestId) return
       setConversations(items); setTotal(Number(data.total) || items.length); setListState(items.length ? 'ready' : 'empty')
       if (items.length) setSelected(current => current && items.some(item => item.id === current.id) ? current : items[0])
       if (!items.length) { setSelected(null); setDetail(null) }
-    } catch (error) { setListState('error'); setListError(error.message || 'No se pudo cargar la cola.') }
+    } catch (error) { if (listRequestRef.current === requestId) { setListState('error'); setListError(error.message || 'No se pudo cargar la cola.') } }
   }, [filters])
 
   useEffect(() => { const timer = setTimeout(loadConversations, filters.search ? 280 : 0); return () => clearTimeout(timer) }, [loadConversations, filters.search])

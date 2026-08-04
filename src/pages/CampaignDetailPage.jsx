@@ -22,10 +22,10 @@ function campaignType(campaign) {
 }
 
 const STATUS_META = {
-  active: { label: 'Activa', color: '#34d399' },
-  paused: { label: 'En pausa', color: '#f59e0b' },
-  draft: { label: 'Borrador', color: '#94a3b8' },
-  done: { label: 'Finalizada', color: '#a78bfa' },
+  active: { label: 'Activa', color: 'var(--success)' },
+  paused: { label: 'En pausa', color: 'var(--warn)' },
+  draft: { label: 'Borrador', color: 'var(--muted)' },
+  done: { label: 'Finalizada', color: 'var(--violet)' },
 }
 
 const TABS = ['Resumen', 'Anuncio', 'Audiencia', 'Conversaciones', 'Contenido', 'Automatización', 'Configuración']
@@ -33,9 +33,9 @@ const TABS = ['Resumen', 'Anuncio', 'Audiencia', 'Conversaciones', 'Contenido', 
 const DEFAULT_SETTINGS = { scoring: true, alerts: true, organic: false, frequency: true }
 
 const ACTIVITY_META = {
-  lead: { color: '#8b5cf6', Icon: RiGroupLine },
-  call: { color: '#22d3ee', Icon: RiSendPlaneLine },
-  meeting: { color: '#ec4899', Icon: RiCalendar2Line },
+  lead: { color: 'var(--violet)', Icon: RiGroupLine },
+  call: { color: 'var(--cyan)', Icon: RiSendPlaneLine },
+  meeting: { color: 'var(--pink)', Icon: RiCalendar2Line },
 }
 
 function StatusBadge({ status }) {
@@ -49,9 +49,9 @@ function Overview({ campaign }) {
   const meetingsScheduled = campaign.meetingsScheduled || 0
   const conversionRate = totalLeads > 0 ? Math.round((meetingsScheduled / totalLeads) * 1000) / 10 : 0
   const steps = [
-    { label: 'Leads', value: totalLeads, width: '100%', color: '#7c3aed' },
-    { label: 'Contactados', value: contacted, width: `${totalLeads > 0 ? Math.min(100, Math.round((contacted / totalLeads) * 100)) : 0}%`, color: '#22d3ee' },
-    { label: 'Reuniones agendadas', value: meetingsScheduled, width: `${totalLeads > 0 ? Math.min(100, Math.round((meetingsScheduled / totalLeads) * 100)) : 0}%`, color: '#ec4899' },
+    { label: 'Leads', value: totalLeads, width: '100%', color: 'var(--violet-deep)' },
+    { label: 'Contactados', value: contacted, width: `${totalLeads > 0 ? Math.min(100, Math.round((contacted / totalLeads) * 100)) : 0}%`, color: 'var(--cyan)' },
+    { label: 'Reuniones agendadas', value: meetingsScheduled, width: `${totalLeads > 0 ? Math.min(100, Math.round((meetingsScheduled / totalLeads) * 100)) : 0}%`, color: 'var(--pink)' },
   ]
   return <>
     <div className="campaign-summary-grid">
@@ -421,7 +421,7 @@ export default function CampaignDetailPage() {
     <header className="campaign-detail-header"><div className="campaign-detail-title"><div><h1>{campaign.name} <StatusBadge status={campaign.status} /></h1><p>{campaign.objective || 'Sin objetivo definido'}</p><div className="campaign-detail-meta"><span><RiCalendar2Line />{datesLabel}</span><span><RiUserLine />{campaign.agent?.name || 'Sin agente asignado'}</span><span>{typeMeta.label}</span></div></div></div><div className="campaign-detail-actions"><button className={`campaign-button ${campaign.status === 'active' ? 'danger' : 'primary'}`} onClick={toggleStatus}><StatusIcon />{campaign.status === 'active' ? 'Pausar' : 'Activar'}</button><button className="campaign-button primary" onClick={() => setShowEdit(true)}><RiEditLine /> Editar</button><div className="campaign-more-wrap"><button className="campaign-button ghost" onClick={() => setShowMore(value => !value)}>Más <RiArrowDownSLine /></button>{showMore && <div className="campaign-more-menu"><button onClick={duplicateCampaign}><RiFileCopyLine /> Duplicar campaña</button><button onClick={exportReport}><RiExternalLinkLine /> Exportar informe</button><button onClick={shareCampaign}><RiShareForwardLine /> Compartir enlace</button></div>}</div></div></header>
 
     <section className="campaign-health-strip">
-      <div className="campaign-health-item health"><div className="campaign-health-ring" style={{ background: `conic-gradient(#34d399 0 ${conversionPct}%, #1e293b ${conversionPct}% 100%)` }}><strong>{conversionPct}%</strong></div><div><span>Tasa de conversión</span><strong>{meetingsScheduled} reuniones</strong><small>de {totalLeads} leads</small></div></div>
+      <div className="campaign-health-item health"><div className="campaign-health-ring" style={{ background: `conic-gradient(var(--success) 0 ${conversionPct}%, var(--line) ${conversionPct}% 100%)` }}><strong>{conversionPct}%</strong></div><div><span>Tasa de conversión</span><strong>{meetingsScheduled} reuniones</strong><small>de {totalLeads} leads</small></div></div>
       <div className="campaign-health-item progress"><span>Progreso de contacto</span><strong>{progressPct}%</strong><div className="campaign-health-bar"><i style={{ width: `${progressPct}%` }} /></div><small>{contacted} de {totalLeads} leads contactados</small></div>
       <div className="campaign-health-item budget"><span>Presupuesto</span><strong>{budgetLabel}</strong></div>
       <div className="campaign-health-item goal"><span>Objetivo principal</span><strong>{campaign.goal || 'Sin definir'}</strong><small>{meetingsScheduled} reuniones agendadas</small></div>

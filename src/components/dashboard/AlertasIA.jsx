@@ -54,7 +54,7 @@ export default function AlertasIA() {
     const isCall = item.type === 'call'
     return {
       Icon: isCall ? RiPhoneLine : RiCalendarLine,
-      color: isCall ? '#3b82f6' : '#10b981',
+      color: isCall ? 'var(--info-deep)' : 'var(--success)',
       text: isCall
         ? `Llamada con ${item.data?.lead?.name ?? 'Lead'} — ${item.data?.durationSeconds ? `${Math.round(item.data.durationSeconds / 60)} min` : item.data?.status ?? 'sin resultado'}`
         : `Reunión: ${item.data?.title ?? 'sin título'} con ${item.data?.lead?.name ?? 'Lead'}`,
@@ -63,7 +63,7 @@ export default function AlertasIA() {
 
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
-      <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#ffffff', textShadow: '0 0 20px rgba(255,255,255,0.15)' }}>
+      <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>
         {locale === 'en' ? 'Recent activity' : 'Actividad reciente'}
       </h3>
       <DataStatusBanner
@@ -77,19 +77,19 @@ export default function AlertasIA() {
         compact
       />
       {status === 'loading'
-        ? <p style={{ margin: '8px 0', fontSize: 12, color: '#4b5563' }}>Cargando…</p>
+        ? <p style={{ margin: '8px 0', fontSize: 12, color: 'var(--dim)' }}>Cargando…</p>
         : display.length === 0
-          ? <p style={{ margin: '8px 0', fontSize: 12, color: '#4b5563' }}>{locale === 'en' ? 'No recent activity' : 'Sin actividad reciente'}</p>
+          ? <p style={{ margin: '8px 0', fontSize: 12, color: 'var(--dim)' }}>{locale === 'en' ? 'No recent activity' : 'Sin actividad reciente'}</p>
           : display.map((activity, index) => (
-            <div key={`${activity.text}-${index}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: `${activity.color}0d`, border: `1px solid ${activity.color}40`, borderRadius: 10, padding: '10px 11px', boxShadow: `0 0 14px ${activity.color}15` }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: `${activity.color}25`, border: `1px solid ${activity.color}50`, boxShadow: `0 0 10px ${activity.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div key={`${activity.text}-${index}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: `color-mix(in srgb, ${activity.color} 5%, transparent)`, border: `1px solid color-mix(in srgb, ${activity.color} 25%, transparent)`, borderRadius: 10, padding: '10px 11px', boxShadow: `0 0 14px color-mix(in srgb, ${activity.color} 8%, transparent)` }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: `color-mix(in srgb, ${activity.color} 15%, transparent)`, border: `1px solid color-mix(in srgb, ${activity.color} 31%, transparent)`, boxShadow: `0 0 10px color-mix(in srgb, ${activity.color} 25%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <activity.Icon aria-hidden="true" style={{ width: 14, height: 14, color: activity.color }} />
               </div>
-              <p style={{ margin: 0, fontSize: 11.5, color: '#cbd5e1', lineHeight: 1.55, flex: 1 }}>{activity.text}</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-2)', lineHeight: 1.55, flex: 1 }}>{activity.text}</p>
             </div>
           ))}
-      <div style={{ borderTop: '1px solid #1a2235', paddingTop: 10, marginTop: 'auto' }}>
-        <button type="button" onClick={() => navigate('/llamadas')} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: 0, textShadow: '0 0 8px #818cf880' }}>
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10, marginTop: 'auto' }}>
+        <button type="button" onClick={() => navigate('/llamadas')} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', color: 'var(--accent-soft)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: 0, textShadow: '0 0 8px color-mix(in srgb, var(--accent-soft) 50%, transparent)' }}>
           <span>{locale === 'en' ? 'View all activity' : 'Ver toda la actividad'}</span>
           <RiArrowRightLine aria-hidden="true" style={{ width: 15, height: 15 }} />
         </button>

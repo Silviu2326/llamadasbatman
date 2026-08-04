@@ -118,14 +118,12 @@ model Organization {
   voiceServiceApiKey String?
   createdAt          DateTime @default(now())
 
-  // Mautic/Postiz: instancia única compartida (self-hosted), el aislamiento
-  // por cliente vive en la app, no en infraestructura duplicada — ver
-  // PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md sección 2.2. mauticEnabled/
-  // postizEnabled gatean el Plan Completo (sección 2.4) desde el día 1.
-  mauticEnabled     Boolean @default(false)
-  mauticCompanyId   String?
-  postizEnabled     Boolean @default(false)
-  postizWorkspaceId String?
+  // Mautic (email) y Metricool (redes sociales): el aislamiento por cliente
+  // vive en la app, no en infraestructura duplicada. mauticEnabled/
+  // metricoolEnabled gatean el Plan Completo desde el día 1.
+  mauticEnabled    Boolean @default(false)
+  mauticCompanyId  String?
+  metricoolEnabled Boolean @default(false)
 
   // Datos de empresa para /configuracion — evita un modelo OrganizationSetting
   // aparte para una relación 1:1 que nunca se consulta sin la Organization.

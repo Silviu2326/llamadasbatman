@@ -17,4 +17,16 @@ export async function metricoolRoutes(app: FastifyInstance) {
       requireEntitlement('social'),
     ],
   }, ctrl.generatePlan as any)
+  app.post('/media', {
+    // 8 MB de imagen en base64 + envoltorio JSON.
+    bodyLimit: 12 * 1024 * 1024,
+    preHandler: [requirePermission('social.write', { scope: 'org' }), requireEntitlement('social')],
+  }, ctrl.uploadImage as any)
+  app.post('/ai/image', {
+    preHandler: [
+      requirePermission('social.write', { scope: 'org' }),
+      requirePermission('costs.request', { scope: 'org' }),
+      requireEntitlement('social'),
+    ],
+  }, ctrl.generateImage as any)
 }

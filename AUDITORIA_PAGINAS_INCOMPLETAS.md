@@ -96,7 +96,7 @@ implementación eligió el MVP de menor esfuerzo (conectar + iframe embebido). C
 contra `MetaAccountPage.jsx` (su equivalente más cercano), le faltan piezas que **ya
 existen en el backend pero no están conectadas al frontend:**
 
-- **`GET /api/postiz/analytics` ya existe** (`backend/src/controllers/postiz.controller.ts`,
+- **`GET /api/metricool/analytics` ya existe** (`backend/src/controllers/metricool.controller.ts`,
   función `analytics`) **pero la página nunca lo llama.** `MetaAccountPage.jsx` sí muestra
   tarjetas de datos de la cuenta (Ad Account ID, página, estado, fecha de conexión) — acá no
   hay ninguna tarjeta de stats (posts programados, alcance, interacciones), y el dato para
@@ -105,7 +105,7 @@ existen en el backend pero no están conectadas al frontend:**
   `listIntegrations()` (usado internamente en el endpoint de status) pero el frontend no
   la muestra como texto/chips fuera del iframe — si el iframe tarda en cargar o falla, el
   usuario no tiene ninguna otra pista de qué redes están conectadas.
-- **Sin manejo de error específico si Postiz no está desplegado.** El mensaje genérico "No
+- **Sin manejo de error específico si Metricool no está configurado.** El mensaje genérico "No
   se pudo conectar" no distingue "no configurado en este entorno" de "error real" — sería
   el mismo tipo de mejora que ya tiene `MetaAccountPage.jsx` con sus mensajes diferenciados.
 
@@ -120,7 +120,7 @@ existen en el backend pero no están conectadas al frontend:**
    columnas "Conversiones"/"Ingresos" y el KPI "Ahorro de tiempo" que nunca se llenan.
 3. **Recetas de anuncios — agregar `_count.campaigns` al listado** (una línea de backend)
    y mostrarlo como "usada en N campañas" — dato real que ya existe en la relación.
-4. **Redes sociales — conectar `GET /api/postiz/analytics`** a tarjetas de stats, mismo
+4. **Redes sociales — conectar `GET /api/metricool/analytics`** a tarjetas de stats, mismo
    patrón visual que `MetaAccountPage.jsx`.
 5. **Nueva campaña (wizard) — mostrar el estado de conexión de Meta arriba del formulario**
    antes de dejar enviar, no después del error.

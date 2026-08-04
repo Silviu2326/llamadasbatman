@@ -38,7 +38,7 @@ export default function NewPlaybookModal({ onClose, onSuccess }) {
 
   return (
     <FormModal title={t('modal.newPlaybook')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createPlaybook')}>
-      {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
       <FormInput label={t('modal.name')} value={form.name} onChange={e => update('name', e.target.value)} placeholder={locale === 'en' ? 'e.g. Three-step close' : 'Ej. Cierre en 3 pasos'} required />
       <FormRow>
         <FormSelect label={t('modal.type')} value={form.type} onChange={e => update('type', e.target.value)} options={TIPOS} />

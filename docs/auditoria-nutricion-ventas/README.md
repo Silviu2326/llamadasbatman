@@ -91,7 +91,6 @@ La auditoría está respaldada por el código actual y por estas especificacione
 - [Modelo de objetos](../arquitectura-plataforma/02-modelo-de-objetos.md)
 - [Contratos API](../arquitectura-plataforma/08-contratos-api.md)
 - [Explicación general de plataforma](../../PLATAFORMA_EXPLICACION_GENERAL.md)
-- [Plan Postiz + Mautic](../../PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md)
 
 Validaciones realizadas:
 

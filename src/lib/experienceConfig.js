@@ -95,6 +95,7 @@ export const MODULES = [
   { id: 'agents', label: 'Agentes IA', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
   { id: 'playbooks', label: 'Playbooks', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
   { id: 'voice-test', label: 'Test de Voz', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
+  { id: 'qwen-omni', label: 'Qwen Omni (beta)', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
   { id: 'email', label: 'Email marketing', group: 'nutricion', basicVisible: false, minPlan: 'pro' },
   { id: 'automations', label: 'Automatizaciones', group: 'nutricion', basicVisible: true, minPlan: 'pro' },
   { id: 'growth', label: 'Growth Hub', group: 'growth', basicVisible: false, minPlan: 'agency' },

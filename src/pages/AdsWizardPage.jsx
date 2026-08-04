@@ -347,7 +347,7 @@ export default function AdsWizardPage() {
   const availablePlaybooks = useMemo(() => normalizePlaybooks(playbooks), [playbooks])
   const metaState = metaAccount === undefined ? 'loading' : metaAccount ? 'connected' : 'pending'
   const currentCreative = CREATIVE_VARIANTS[creativeIndex]
-  const recommendations = strategy?.recommendations || DEFAULT_RECOMMENDATIONS
+  const recommendations = strategy?.recommendations ?? []
   const budgetLabel = presupuesto ? formatCurrency(presupuesto) + ' / mes' : 'Según tu definición'
   const canGenerate = Boolean(vertical.trim() && objetivo.trim() && presupuesto)
 
@@ -446,7 +446,7 @@ export default function AdsWizardPage() {
 
   function applyRecommendation(recommendation) {
     if (recommendation.action === 'audience' && strategy) setAudience(strategy.audience)
-    if (recommendation.action === 'objective') setObjetivo('Agendar demos cualificadas')
+    
     if (recommendation.action === 'creative') setCreativeIndex(index => (index + 1) % CREATIVE_VARIANTS.length)
     setAppliedRecommendation(recommendation.title)
   }
@@ -772,6 +772,7 @@ export default function AdsWizardPage() {
             {strategy && <span className="ads-strategy-ready"><RiCheckLine /> Lista para aplicar</span>}
           </div>
           <div className="ads-recommendations">
+            {recommendations.length === 0 && <p className="ads-recommendations-empty">Completa el brief y genera la estrategia para ver recomendaciones.</p>}
             {recommendations.map(recommendation => {
               const Icon = recommendation.icon
               const applied = appliedRecommendation === recommendation.title

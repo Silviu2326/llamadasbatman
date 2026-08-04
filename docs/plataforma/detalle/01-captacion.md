@@ -91,7 +91,7 @@ Su utilidad no es gestionar una campaña concreta, sino detectar rápidamente si
 
 **Datos recibidos del backend:**
 
-`GET /api/dashboard/stats` devuelve totales, series de siete días, embudo de leads, llamadas por campaña, pipeline por día, ranking de agentes, sentimiento, plan de la organización y flags de Mautic/Postiz.
+`GET /api/dashboard/stats` devuelve totales, series de siete días, embudo de leads, llamadas por campaña, pipeline por día, ranking de agentes, sentimiento, plan de la organización y flags de Mautic/Metricool.
 
 El servicio calcula los datos a partir de `Call`, `Lead`, `Meeting`, `Campaign`, `Opportunity`, `AdInsightSnapshot`, `Agent` y `Organization`.
 
@@ -505,7 +505,7 @@ El objetivo funcional es pasar de “quiero publicar algo” a “tengo un borra
 
 - Ruta: `/redes-sociales`.
 - La sidebar exige `social.read`.
-- El backend además comprueba que la organización tenga plan `completo` y `postizEnabled`.
+- El backend además comprueba que la organización tenga plan `completo` y `metricoolEnabled`.
 - Para crear posts se necesita `social.write`.
 - Conectar Metricool requiere `integrations.manage`.
 - La operación de generar plan de contenido requiere `social.write` y `costs.request`.
@@ -565,7 +565,7 @@ Un post queda creado en Metricool con la campaña y la landing de destino. El ba
 ### Estados loading, empty y error
 
 - **Loading inicial:** “Cargando redes sociales…”.
-- **Gated:** si el plan o `postizEnabled` no permiten la funcionalidad, aparece una pantalla de plan completo.
+- **Gated:** si el plan o `metricoolEnabled` no permiten la funcionalidad, aparece una pantalla de plan completo.
 - **Sin conectar:** invita a configurar Metricool.
 - **Conectado sin perfiles:** el backend puede responder conectado sólo cuando encuentra perfiles; si no hay perfiles, permanece sin conexión.
 - **Sin analytics:** la página explica que aparecerán cuando Metricool reporte actividad.
@@ -581,7 +581,7 @@ Un post queda creado en Metricool con la campaña y la landing de destino. El ba
 - Analytics: `social.read`.
 - Crear posts: `social.write`.
 - Generación IA: `social.write` + `costs.request`.
-- La organización debe tener `postizEnabled` y plan `completo` según el backend comprobado.
+- La organización debe tener `metricoolEnabled` y plan `completo` según el backend comprobado.
 
 ### APIs, modelos y dependencias
 
@@ -602,7 +602,7 @@ Un post queda creado en Metricool con la campaña y la landing de destino. El ba
 
 - `Campaign` y su `settings` para atribución/canales.
 - `AcquisitionEvent` para la medición posterior.
-- `Organization` para plan y `postizEnabled`.
+- `Organization` para plan y `metricoolEnabled`.
 
 **Dependencias externas:**
 

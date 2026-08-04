@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws'
+import { openingGreeting } from '../compliance'
 import type { VoiceArchitecture } from './architecture'
 import type { VoiceSession, VoiceSessionCallbacks, VoiceSessionContext, VoiceSessionMeta, VoiceSessionEvent } from './voiceSession'
 
@@ -82,16 +83,19 @@ export class RemoteVoiceEngineSession implements VoiceSession {
       architecture?: VoiceArchitecture
       url?: string
       token?: string
+      pipeline?: { stt?: string; tts?: string }
     } = {},
   ) {
     this.architecture = options.architecture ?? 'modular'
     this.url = options.url ?? process.env.VOICE_ENGINE_URL?.trim() ?? ''
     this.token = options.token ?? process.env.VOICE_ENGINE_TOKEN?.trim() ?? ''
+    this.pipeline = options.pipeline
     this.closePromise = new Promise(resolve => { this.resolveClose = resolve })
   }
 
   private readonly url: string
   private readonly token: string
+  private readonly pipeline?: { stt?: string; tts?: string }
 
   async attach(callbacks: VoiceSessionCallbacks): Promise<void> {
     this.callbacks = callbacks
@@ -127,6 +131,11 @@ export class RemoteVoiceEngineSession implements VoiceSession {
         settled = true
         clearTimeout(timer)
         this.connected = true
+        const language = this.ctx.agentConfig?.identity.agentAccent?.trim()
+          || (this.architecture === 'duplex'
+            ? process.env.VOICE_DUPLEX_LANGUAGE?.trim()
+            : process.env.VOICE_CALL_LANGUAGE?.trim())
+          || 'es-ES'
         this.sendJson({
           type: 'session.start',
           architecture: this.architecture,
@@ -145,17 +154,23 @@ export class RemoteVoiceEngineSession implements VoiceSession {
             businessName: this.ctx.businessName,
           },
           agent: {
-            language: this.ctx.agentConfig?.identity.agentAccent?.trim()
-              || (this.architecture === 'duplex'
-                ? process.env.VOICE_DUPLEX_LANGUAGE?.trim()
-                : process.env.VOICE_CALL_LANGUAGE?.trim())
-              || 'es-ES',
+            language,
             voice: this.ctx.agentConfig?.voice?.elevenLabsVoiceId || process.env.VOICE_ENGINE_VOICE || 'default',
             agentType: this.ctx.agentConfig?.agentType || 'sales',
             callDirection: this.ctx.agentConfig?.callDirection || 'both',
             systemPrompt: this.systemPrompt,
+            // El sidecar modular habla esta apertura nada más arrancar la
+            // sesión: mismo guion y compliance que la ruta legacy. Duplex la
+            // ignora (Moshi no reproduce texto guionizado).
+            greeting: openingGreeting({
+              agentName: this.ctx.agentConfig?.identity.agentName,
+              companyName: this.ctx.agentConfig?.product?.companyName,
+              lang: language,
+              recordingConsentPending: this.ctx.recordingConsentPending,
+            }),
           },
           audio: { inputSampleRate: 16_000, outputSampleRate: 24_000, encoding: 'pcm_s16le' },
+          ...(this.pipeline ? { pipeline: this.pipeline } : {}),
         })
         this.flushAudioQueue()
         resolve()

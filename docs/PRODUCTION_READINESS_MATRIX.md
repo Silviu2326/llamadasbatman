@@ -11,7 +11,7 @@ Este documento separa lo que está implementado en el repositorio de lo que solo
 | Llamada → reunión | Endurecido | Reintento repara outbox, mensaje, reunión y automatización; meeting determinista | Probar webhook duplicado y caída entre cada commit en staging |
 | Ads Meta | Implementado en backend | OAuth PKCE, token cifrado, Graph timeout, preflight, publish paused/activate | OAuth real, scopes aprobados, página/cuenta publicitaria y evento de conversión |
 | Google / Search Console | Implementado en backend | OAuth PKCE, refresh cifrado y estados `needs_reauth` | Callback público, proyecto Google y propiedad verificada |
-| Posts orgánicos | Implementado con Metricool/Postiz | Configuración por organización, timeout, SSRF, UTM y borrador | Credenciales reales, perfiles publicables y prueba de borrador |
+| Posts orgánicos | Implementado con Metricool | Configuración por organización, timeout, SSRF, UTM y borrador | Credenciales reales, perfiles publicables y prueba de borrador |
 | Mautic / email | Implementado con barrera de consentimiento | Tokens por organización, refresh, `EmailDelivery`, leases, webhooks y redacción | Instancia Mautic real, plantilla verificada, contacto de prueba y webhook HMAC |
 | Secuencias de ventas | Implementado en esta ronda | Enrolamiento idempotente, pasos email/task/meeting, worker, backoff, lease y parada por reply/baja | Aplicar migración, consentimiento real y prueba con dominio de envío controlado |
 | Twilio / voz | Parcial | Persistencia de llamadas y reconciliación de meeting; no se completó esta ronda el aislamiento de credenciales | Validar firma, webhook público, número, grabación y consentimiento |

@@ -125,8 +125,7 @@ Los principales prefijos están registrados en `backend/src/index.ts`:
 | `/api/campaigns`, `/api/marketing-campaigns` | Campañas | `campaigns.read/write/publish` |
 | `/api/ads` | Ads | `ads.read/write` y `costs.request` |
 | `/api/meta/accounts` | Meta Ads | `integrations.read/manage`; presupuesto con `costs.request` |
-| `/api/metricool` | Posts orgánicos | `integrations.read/manage`, `social.read/write`, generación IA con `costs.request` |
-| `/api/postiz` | Redes sociales | Igual que Metricool, con workspace por organización |
+| `/api/metricool` | Redes sociales | `integrations.read/manage`, `social.read/write`, generación IA con `costs.request` |
 | `/api/mautic` | Email marketing | Campañas y plantillas con `campaigns.*` e `integrations.*` |
 | `/api/webhooks/mautic` | Webhook Mautic | Secreto de webhook, sin JWT |
 | `/api/meta/webhooks` | Webhook Meta | Verify token y firma `X-Hub-Signature-256`, sin JWT |
@@ -151,7 +150,6 @@ Controles específicos observados:
 - Leads, cuentas, campañas, pipeline, reuniones, tareas, Organic y recursos de proveedores incluyen `orgId` en las consultas.
 - Meta usa una clave única por organización y cuenta publicitaria: `orgId_metaAdAccountId`.
 - Organic tiene proyecto único por organización e integraciones únicas por `orgId`, proyecto y proveedor.
-- Postiz guarda un `postizWorkspaceId` por organización y todas las operaciones usan el workspace resuelto para esa organización.
 - Mautic es una instancia compartida: los contactos llevan el tag `org-<orgId>`, las campañas el prefijo `[org:<orgId>]` y los bindings locales exigen `orgId`.
 - La correlación Mautic usa `crmleadid` y evita asociar eventos por email o por el último envío.
 - Las plantillas Mautic se reclaman explícitamente mediante `MauticAssetBinding`; el envío comprueba que la plantilla pertenece al tenant.
@@ -220,12 +218,11 @@ La URL de callback exige HTTPS en producción. El estado OAuth de Meta es opaco,
 
 Las claves Organic no deben reutilizar `JWT_SECRET`, `OAUTH_STATE_SECRET` ni `META_TOKEN_ENCRYPTION_KEY`. El backend cifra tokens con AES-256-GCM, conserva scopes/expiración, renueva access tokens y revoca refresh tokens al desconectar.
 
-### Mautic, Postiz y Metricool
+### Mautic y Metricool
 
 | Proveedor | Variables | Modelo de credencial |
 |---|---|---|
 | Mautic | `MAUTIC_BASE_URL`, `MAUTIC_CLIENT_ID`, `MAUTIC_CLIENT_SECRET`, `MAUTIC_WEBHOOK_SECRET` | Client credentials; access token cacheado en memoria; webhook con header Bearer/header dedicado o query legacy |
-| Postiz | `POSTIZ_BASE_URL`, `POSTIZ_API_KEY` | API key global del backend; workspace separado por organización |
 | Metricool | `METRICOOL_BASE_URL`, `METRICOOL_USER_TOKEN`, `METRICOOL_USER_ID`, `METRICOOL_BLOG_ID`, `METRICOOL_TIMEZONE`, `METRICOOL_APP_URL` | Token de usuario y marca configurados en entorno; API avanzada/custom |
 
 Nunca deben registrarse tokens, client secrets, cookies, cabeceras de autorización ni cuerpos con secretos en logs o `AuditLog`.
@@ -246,7 +243,7 @@ Nunca deben registrarse tokens, client secrets, cookies, cabeceras de autorizaci
 
 **Pendientes/riesgos:** la selección automática de la primera cuenta/página no ofrece todavía selección explícita; el nombre `systemUserTokenEnc` puede inducir a pensar que es un System User aunque el flujo actual usa un token long-lived de usuario; la revocación marca la cuenta como `revoked`, pero debe verificarse la revocación remota del token.
 
-### Metricool: posts orgánicos
+### Metricool: redes sociales
 
 **Rutas:** `/api/metricool`.
 
@@ -255,23 +252,10 @@ Nunca deben registrarse tokens, client secrets, cookies, cabeceras de autorizaci
 - `GET /analytics` consulta analítica por red.
 - `POST /posts` crea borradores por plataforma, con landing atribuida y UTM `organic_social`.
 - `POST /ai/generate` genera planes con `social.write` y `costs.request`.
-- Requiere plan completo y `organization.postizEnabled` en el controlador actual, aunque el proveedor sea Metricool.
+- Requiere plan completo y `organization.metricoolEnabled`.
 - La API utiliza `X-Mc-Auth`, `userId` y `blogId`; no hay OAuth por tenant.
 
-**Pendientes/riesgos:** las credenciales son globales de entorno, no un secreto/token por organización; el endpoint de la API avanzada/custom debe verificarse contra el contrato de la cuenta; `METRICOOL_BLOG_ID` identifica una marca fija; el gating basado en `postizEnabled` es confuso y debe renombrarse o separarse.
-
-### Postiz: redes sociales
-
-**Rutas:** `/api/postiz`.
-
-- Crea un workspace por organización y devuelve una URL embebible.
-- Consulta integraciones y analítica del workspace.
-- Crea borradores con copy, media y landing/UTM por plataforma.
-- Utiliza `POSTIZ_API_KEY` como Bearer hacia `POSTIZ_BASE_URL`.
-- Requiere plan completo y `postizEnabled`.
-- Generación IA comparte permisos `social.write` y `costs.request`.
-
-**Pendientes/riesgos:** el propio servicio indica que los paths `/public/v1/...` deben confirmarse contra la versión desplegada; el API key es global; la URL se embebe y debe revisarse CSP, `frame-ancestors`, clickjacking y aislamiento de sesión en la instancia Postiz.
+**Pendientes/riesgos:** las credenciales son globales de entorno, no un secreto/token por organización; el endpoint de la API avanzada/custom debe verificarse contra el contrato de la cuenta; `METRICOOL_BLOG_ID` identifica una marca fija.
 
 ### Mautic: email marketing
 
@@ -327,7 +311,7 @@ Se debe mantener la regla de que los callbacks públicos no busquen la organizac
 
 1. Configurar secretos reales y distintos; eliminar valores de ejemplo y revisar que `backend/.env` no entre en control de versiones.
 2. Aplicar y verificar todas las migraciones de sesiones, Meta y Organic en staging.
-3. Ejecutar pruebas de aislamiento cross-tenant para cada proveedor, especialmente Mautic compartido y workspaces Postiz.
+3. Ejecutar pruebas de aislamiento cross-tenant para cada proveedor, especialmente Mautic compartido.
 4. Confirmar HTTPS, CORS allowlist, `APP_URL`, `PUBLIC_HOST` y todos los callbacks OAuth.
 5. Verificar firmas de webhook con cuerpos reales y protección contra replay/idempotencia.
 6. Definir qué eventos requieren auditoría transaccional; actualmente el logger general no bloquea la mutación si falla.
@@ -336,12 +320,10 @@ Se debe mantener la regla de que los callbacks públicos no busquen la organizac
 
 1. Sustituir `authorize()` legacy por permisos/capacidades en cualquier ruta que aún lo use.
 2. Alinear fallbacks de `src/lib/navigationPermissions.js` con `ROLE_GRANTS`; la UI puede mostrar una sección distinta del backend cuando el usuario no trae permisos explícitos.
-3. Separar claramente `postizEnabled` de Metricool o renombrar el feature flag.
-4. Implementar selección explícita de cuenta/página Meta en lugar de escoger la primera.
-5. Confirmar rutas API de Postiz contra la versión desplegada y añadir timeouts/reintentos idempotentes.
-6. Eliminar el secreto Mautic por query y usar exclusivamente header/Bearer.
-7. Añadir rotación, versionado y procedimiento de recuperación para claves de cifrado.
-8. Añadir límites, timeouts, circuit breaker y métricas por proveedor, organización y endpoint.
+3. Implementar selección explícita de cuenta/página Meta en lugar de escoger la primera.
+4. Eliminar el secreto Mautic por query y usar exclusivamente header/Bearer.
+5. Añadir rotación, versionado y procedimiento de recuperación para claves de cifrado.
+6. Añadir límites, timeouts, circuit breaker y métricas por proveedor, organización y endpoint.
 
 ### P2 — producto y gobernanza
 
@@ -349,15 +331,14 @@ Se debe mantener la regla de que los callbacks públicos no busquen la organizac
 2. Definir retención, exportación y borrado de tokens, discovery, queries y eventos importados.
 3. Exponer en Control de accesos los scopes efectivos, no solo el rol nominal.
 4. Añadir alertas de refresh token fallido, webhook inválido, discovery vacío y drift de permisos.
-5. Revisar CSP y aislamiento de iframes para Postiz.
-6. Ejecutar tests de integración con `TEST_DATABASE_URL` y pruebas contra sandbox/staging de cada proveedor.
+5. Ejecutar tests de integración con `TEST_DATABASE_URL` y pruebas contra sandbox/staging de cada proveedor.
 
 ## 12. Fuentes revisadas
 
 - `backend/src/access-control/catalog.ts`, `permissions.ts`, `requirePermission.ts` e `index.ts`.
 - `backend/src/middlewares/authenticate.ts`, `authorize.ts` y `src/lib/authSession.js`.
-- `backend/src/routes/auth.ts`, `metaAccounts.ts`, `metaWebhooks.ts`, `metricool.ts`, `postiz.ts`, `mautic.ts`, `mauticWebhooks.ts`, `organic.ts` y `accessControl.ts`.
-- Controllers y servicios de Meta, Metricool, Postiz, Mautic y Organic Google.
+- `backend/src/routes/auth.ts`, `metaAccounts.ts`, `metaWebhooks.ts`, `metricool.ts`, `mautic.ts`, `mauticWebhooks.ts`, `organic.ts` y `accessControl.ts`.
+- Controllers y servicios de Meta, Metricool, Mautic y Organic Google.
 - `backend/src/lib/audit.ts`, `securityConfig.ts`, `tokenCrypto.ts`, `organicTokenCrypto.ts`.
 - `src/lib/navigationPermissions.js`, `src/components/Sidebar.jsx`, `src/App.jsx`.
 - `backend/.env.example` y modelos relevantes de `backend/prisma/schema.prisma`.

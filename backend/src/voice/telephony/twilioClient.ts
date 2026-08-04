@@ -106,13 +106,50 @@ export async function startOutboundCall(params: {
     asyncAmd: 'true',
     asyncAmdStatusCallback: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/amd', qs),
     asyncAmdStatusCallbackMethod: 'POST',
-    record: true,
+    // 'always' records from call start; 'consent' defers recording until the
+    // prospect grants it in-call (startCallRecording); 'off' never records.
+    record: recordingPolicy() === 'always',
     recordingStatusCallback: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/recording', qs),
     recordingStatusCallbackEvent: ['completed'],
     statusCallback: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/status', qs),
     statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
   })
   return { status: 'iniciada', sid: call.sid, to: toNumber }
+}
+
+export type RecordingPolicy = 'always' | 'consent' | 'off'
+
+export function recordingPolicy(): RecordingPolicy {
+  const value = process.env.CALL_RECORDING_POLICY?.trim().toLowerCase()
+  return value === 'consent' || value === 'off' ? value : 'always'
+}
+
+/**
+ * Starts recording an in-progress call. Used with policy 'consent': the
+ * recording only exists after the prospect grants it, so the recording
+ * webhook never sees non-consented audio.
+ */
+export async function startCallRecording(params: {
+  callSid: string
+  orgId: string
+  campaignId: string
+  agentId: string
+  leadId: string
+}): Promise<boolean> {
+  const config = await getTwilioIntegrationConfig(params.orgId)
+  if (!config) return false
+  const client = createTwilioClient(config)
+  const qs = new URLSearchParams({
+    orgId: params.orgId,
+    campaignId: params.campaignId,
+    agentId: params.agentId,
+    leadId: params.leadId,
+  }).toString()
+  await client.calls(params.callSid).recordings.create({
+    recordingStatusCallback: twilioWebhookUrl(config.webhookBaseUrl, '/api/voice/webhook/recording', qs),
+    recordingStatusCallbackEvent: ['completed'],
+  })
+  return true
 }
 
 export async function transferCall(callSid: string, toNumber: string, orgId: string): Promise<void> {

@@ -43,8 +43,7 @@ export default function NewAutomatizacionModal({ onClose, onSuccess }) {
     setError(null)
     try {
       // "enviar a segmento de Mautic" como una acción más, sin construir un
-      // editor de acciones genérico — ver PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md
-      // sección 4 punto 5.
+      // editor de acciones genérico.
       const actions = []
       if (sendToMautic && segmentAlias.trim()) actions.push({ type: 'send_to_mautic_segment', params: { segmentAlias: segmentAlias.trim() } })
       if (channelAction === 'ai_reply_whatsapp') actions.push({ type: channelAction, params: { tone: 'consultivo' } })
@@ -69,16 +68,14 @@ export default function NewAutomatizacionModal({ onClose, onSuccess }) {
 
   return (
     <FormModal title={t('modal.newAutomation')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createAutomation')}>
-      {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
       <FormInput label={t('modal.name')} value={form.name} onChange={e => update('name', e.target.value)} placeholder={locale === 'en' ? 'e.g. Post-call follow-up' : 'Ej. Seguimiento post-llamada'} required />
       <FormTextarea label={t('modal.description')} value={form.description} onChange={e => update('description', e.target.value)} placeholder={locale === 'en' ? 'What does this automation do?' : '¿Qué hace esta automatización?'} />
-      <FormRow>
         <FormSelect label={t('modal.trigger')} value={form.trigger} onChange={e => update('trigger', e.target.value)} options={DISPARADORES} required />
-      </FormRow>
       <FormSelect label={t('modal.channelResponse')} value={channelAction} onChange={e => setChannelAction(e.target.value)} options={CHANNEL_ACTIONS} />
       {channelAction === 'send_whatsapp_template' && <FormInput label="Content SID aprobado en Twilio" value={contentSid} onChange={e => setContentSid(e.target.value)} placeholder="HX..." required />}
       {channelAction === 'send_email_template' && <FormInput label="ID de plantilla/email en Mautic" value={emailId} onChange={e => setEmailId(e.target.value)} placeholder="42" required />}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8', cursor: 'pointer' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--muted)', cursor: 'pointer' }}>
         <input type="checkbox" checked={sendToMautic} onChange={e => setSendToMautic(e.target.checked)} />
         {t('modal.sendToSegment')}
       </label>

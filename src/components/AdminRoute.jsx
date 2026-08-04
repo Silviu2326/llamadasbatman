@@ -46,7 +46,7 @@ export default function AdminRoute({ children, permission }) {
   }, [isRestoring, permission, token, user?.role])
 
   if (isRestoring || (token && access === 'checking')) {
-    return <main aria-busy="true" style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 32, background: '#080c14', color: '#cbd5e1' }}>{locale === 'en' ? 'Checking permissions…' : 'Comprobando permisos…'}</main>
+    return <main aria-busy="true" style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: 32, background: 'var(--bg)', color: 'var(--text-2)' }}>{locale === 'en' ? 'Checking permissions…' : 'Comprobando permisos…'}</main>
   }
   if (!token || access !== 'allowed') return <Navigate to="/dashboard" replace />
   return children

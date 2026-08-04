@@ -29,6 +29,8 @@ from typing import Any
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
+from ambience import mix_line_noise
+
 from server import (
     INPUT_RATE,
     MAX_EVENT_BYTES,
@@ -291,6 +293,7 @@ class DuplexSession:
     model_task: asyncio.Task[None] | None = None
     frame_queue: asyncio.Queue[bytes] = field(default_factory=lambda: asyncio.Queue(maxsize=64))
     assistant_audio_buffer: bytearray = field(default_factory=bytearray)
+    ambience_seed: int = 0
     stream: MoshiStream | None = None
 
     async def send(self, payload: dict[str, Any]) -> None:
@@ -421,6 +424,12 @@ class DuplexSession:
             max_audio_bytes = MAX_TURN_SECONDS * OUTPUT_RATE * 2
             if len(self.assistant_audio_buffer) > max_audio_bytes:
                 self.schedule_assistant_transcript()
+            # Versión "arriesgada": ruido de línea sobre la voz de Moshi (el
+            # STT paralelo transcribe el buffer limpio, sin ruido).
+            level = float(os.getenv("VOICE_DUPLEX_AMBIENCE_LEVEL", "0") or 0)
+            if level > 0:
+                self.ambience_seed += 1
+                audio = mix_line_noise(audio, level, self.ambience_seed)
             await self.send({"type": "tts.first_audio", "role": "assistant", "sampleRate": OUTPUT_RATE, "provider": "moshi-mimi-local"})
             for chunk in chunk_bytes(audio):
                 if self.closed:
@@ -463,6 +472,14 @@ app = FastAPI(title="Vendrava Duplex Gateway", version="0.1.0")
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "vendrava-duplex-gateway"}
+
+
+@app.on_event("startup")
+async def preload_models() -> None:
+    """Con VOICE_DUPLEX_PRELOAD=true carga Moshi al arrancar (en background)
+    para que la primera sesión no pague los ~30-60 s de carga del modelo."""
+    if os.getenv("VOICE_DUPLEX_PRELOAD", "").strip().lower() in {"1", "true", "yes"}:
+        threading.Thread(target=runtime.ensure_loaded, daemon=True, name="moshi-preload").start()
 
 
 @app.get("/capabilities")

@@ -78,7 +78,7 @@ No se debe interpretar que una entrada visible equivale a permiso de escritura. 
 ## Dependencias operativas pendientes
 
 1. Ejecutar migraciones Prisma en staging antes de probar integraciones nuevas.
-2. Configurar secretos y callbacks de Meta, Google, Metricool, Postiz, Mautic y Twilio según el módulo.
+2. Configurar secretos y callbacks de Meta, Google, Metricool, Mautic y Twilio según el módulo.
 3. Ejecutar pruebas de integración con una `TEST_DATABASE_URL` aislada.
 4. Resolver los errores TypeScript preexistentes del build global del backend.
 5. Revisar los módulos marcados como parciales en el documento frontend antes de declararlos listos para producción.

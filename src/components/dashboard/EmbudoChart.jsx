@@ -1,20 +1,27 @@
-import React from 'react'
-import { card, FUNNEL, FUNNEL_COLORS } from './dashboardData'
+import React, { useMemo } from 'react'
+import { card, FUNNEL } from './dashboardData'
+import { useThemeColors } from '../../hooks/useTheme'
 import { useI18n } from '../../i18n'
+
+// Un color por etapa del embudo. Se pinta en `fill`/`stroke` del SVG y además se
+// le concatena alfa (`+ '55'`), así que hace falta el hex ya resuelto.
+const funnelPalette = c => [c.info, c.cyan, c.success, c.warn, c.pink]
 
 export default function EmbudoChart({ funnel: funnelProp }) {
   const { locale } = useI18n()
+  const colors = useThemeColors()
+  const palette = useMemo(() => funnelPalette(colors), [colors])
   const FUNNEL_DATA = funnelProp?.length
-    ? funnelProp.map((f, i) => ({ ...f, value: String(f.value), color: FUNNEL_COLORS[i] ?? '#94a3b8' }))
+    ? funnelProp.map((f, i) => ({ ...f, value: String(f.value), color: palette[i] ?? colors.muted }))
     : FUNNEL
 
   if (!FUNNEL_DATA.length) {
     return (
       <div style={{ ...card, display:'flex', flexDirection:'column', gap:14, height:'100%' }}>
-        <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
+        <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--text-strong)' }}>
           {locale === 'en' ? 'Conversion funnel' : 'Embudo de conversiones'}
         </h3>
-        <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>{locale === 'en' ? 'No funnel data' : 'Sin datos de embudo'}</p>
+        <p style={{ margin:0, fontSize:12, color:'var(--muted)' }}>{locale === 'en' ? 'No funnel data' : 'Sin datos de embudo'}</p>
       </div>
     )
   }
@@ -26,7 +33,7 @@ export default function EmbudoChart({ funnel: funnelProp }) {
 
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', gap:14, height:'100%' }}>
-      <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>
+      <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--text-strong)' }}>
         {locale === 'en' ? 'Conversion funnel' : 'Embudo de conversiones'}
       </h3>
       <div style={{ flex:1, minHeight:0 }}>
@@ -55,8 +62,7 @@ export default function EmbudoChart({ funnel: funnelProp }) {
                   fill={step.color + '55'}
                   stroke={step.color} strokeWidth={1.5} />
                 <text x={W / 2} y={cy - 5} textAnchor="middle"
-                  fill="white" fontSize="11" fontWeight="600"
-                  style={{ filter:'drop-shadow(0 0 4px rgba(255,255,255,0.4))' }}>
+                  fill={colors.text} fontSize="11" fontWeight="600">
                   {step.label}
                 </text>
                 <text x={W / 2} y={cy + 13} textAnchor="middle"

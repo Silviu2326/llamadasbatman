@@ -7,7 +7,6 @@ import { getDecryptedToken } from './metaAdAccount.service'
 import * as metricoolSync from './metricoolSync.service'
 import * as mauticSync from './mauticSync.service'
 import * as pipelineService from './pipeline.service'
-import * as postizSync from './postizSync.service'
 import * as tasksService from './tasks.service'
 import { enrichFromWebsite } from './digitalAudit.service'
 
@@ -448,28 +447,6 @@ async function createSocialDraft(context: AdapterContext): Promise<AdapterResult
       await prisma.campaign.updateMany({ where: { id: resolvedCampaignId, orgId: context.orgId }, data: { settings: pendingSettings as Prisma.InputJsonValue } })
       const result = await metricoolSync.createDraftPost({ text, platforms, attribution, imageUrl: stringInput(context.action, 'imageUrl') || undefined, scheduledAt: stringInput(context.action, 'scheduledAt') || undefined }, context.orgId)
       if (!result) return blocked('METRICOOL_UNAVAILABLE', 'Metricool no confirmó la creación del borrador.')
-      const completedSettings = { ...pendingSettings, orchestrationSocialIntents: { ...socialIntents, [context.action.id]: { status: 'succeeded', provider, result: JSON.parse(JSON.stringify(result)) } } }
-      await prisma.campaign.updateMany({ where: { id: resolvedCampaignId, orgId: context.orgId }, data: { settings: completedSettings as Prisma.InputJsonValue } })
-      return { status: 'succeeded', output: { provider, result, campaignId: resolvedCampaignId, externalEffect: true, remoteState: 'draft', compensation: 'manual_review' } }
-    }
-    if (provider === 'postiz') {
-      const org = await prisma.organization.findUnique({ where: { id: context.orgId }, select: { postizEnabled: true, postizWorkspaceId: true } })
-      if (!org?.postizEnabled) return blocked('POSTIZ_DISABLED', 'Activa Postiz para esta organización antes de publicar contenido.')
-      if (!(await postizSync.isConfiguredForOrg(context.orgId))) return blocked('POSTIZ_NOT_CONFIGURED', 'Configura Postiz para esta organización.')
-      const workspaceId = org.postizWorkspaceId || await postizSync.ensureWorkspace(context.orgId)
-      if (!workspaceId) return blocked('POSTIZ_WORKSPACE_MISSING', 'Postiz no pudo resolver el workspace de la organización.')
-      const integrations = await postizSync.listIntegrations(workspaceId, context.orgId)
-      if (!Array.isArray(integrations) || !integrations.length) return blocked('POSTIZ_INTEGRATION_MISSING', 'Conecta al menos una red social en Postiz antes de crear el borrador.')
-      const pendingSettings = {
-        ...settings,
-        orchestrationSocialIntents: {
-          ...socialIntents,
-          [context.action.id]: { status: 'pending', provider, idempotencyKey: context.idempotencyKey, createdAt: new Date().toISOString() },
-        },
-      }
-      await prisma.campaign.updateMany({ where: { id: resolvedCampaignId, orgId: context.orgId }, data: { settings: pendingSettings as Prisma.InputJsonValue } })
-      const result = await postizSync.createDraftPost(workspaceId, { text, platforms, attribution, imageUrl: stringInput(context.action, 'imageUrl') || undefined }, context.orgId)
-      if (!result) return blocked('POSTIZ_UNAVAILABLE', 'Postiz no confirmó la creación del borrador.')
       const completedSettings = { ...pendingSettings, orchestrationSocialIntents: { ...socialIntents, [context.action.id]: { status: 'succeeded', provider, result: JSON.parse(JSON.stringify(result)) } } }
       await prisma.campaign.updateMany({ where: { id: resolvedCampaignId, orgId: context.orgId }, data: { settings: completedSettings as Prisma.InputJsonValue } })
       return { status: 'succeeded', output: { provider, result, campaignId: resolvedCampaignId, externalEffect: true, remoteState: 'draft', compensation: 'manual_review' } }

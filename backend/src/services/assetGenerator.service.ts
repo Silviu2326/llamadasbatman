@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
+import { saveGeneratedImage } from './generatedMedia.service'
 
 export interface GeneratedAdAssets {
   offer: string
@@ -19,7 +20,11 @@ function getClient(): Anthropic | null {
   return _client
 }
 
-async function generateImageUrl(prompt: string): Promise<string | undefined> {
+/**
+ * Genera la imagen con gpt-image-1 (que devuelve base64, no URL) y la guarda
+ * en disco para exponerla como URL pública descargable por Metricool/Meta.
+ */
+export async function generateImageUrl(prompt: string): Promise<string | undefined> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) return undefined
   try {
@@ -30,7 +35,10 @@ async function generateImageUrl(prompt: string): Promise<string | undefined> {
       n: 1,
       size: '1024x1024',
     })
-    return res.data?.[0]?.url ?? undefined
+    const base64 = res.data?.[0]?.b64_json
+    if (!base64) return undefined
+    const saved = await saveGeneratedImage(base64)
+    return saved?.publicUrl
   } catch (err) {
     console.warn('[AssetGenerator] image generation failed:', (err as Error).message)
     return undefined
@@ -134,7 +142,7 @@ function staticSocialPlan(params: { prompt: string; channels: string[]; tone?: s
 }
 
 /**
- * Copiloto de contenido para redes sociales (Postiz). Reemplaza el
+ * Copiloto de contenido para redes sociales (Metricool). Reemplaza el
  * `createAiPlan()` que antes corría 100% en el navegador con templates
  * hardcodeados — mismo cliente/estilo de prompt que `generateFallbackAssets`,
  * mismo fallback estático si no hay `CLAUDE_API_KEY`.

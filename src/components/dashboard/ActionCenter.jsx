@@ -366,14 +366,21 @@ export default function ActionCenter() {
         throw requestError
       }
 
-      const remoteActions = extractActions(await response.json())
+      const payload = await response.json()
+      const remoteActions = extractActions(payload)
       if (!isCurrentRequest()) return
       setActions(remoteActions)
       setDataSource('live')
       setRequestState('success')
       hasLoadedRef.current = true
       setLastUpdated(new Date())
-      setFeedback(remoteActions.length ? `${remoteActions.length} señales sincronizadas.` : 'No se han detectado señales activas.')
+      // El backend degrada a los items calculados en memoria cuando no puede
+      // persistirlos (antes eso era un 503 que rompia la tarjeta entera). Las
+      // señales son validas, pero los cambios de estado no se estan guardando.
+      const persistenceDown = payload?.degraded === true
+      setFeedback(persistenceDown
+        ? 'Señales al día, pero no se están guardando los cambios de estado. Reintenta en unos minutos.'
+        : remoteActions.length ? `${remoteActions.length} señales sincronizadas.` : 'No se han detectado señales activas.')
     } catch (requestError) {
       if (requestError?.name === 'AbortError' || !isCurrentRequest()) return
       setRequestState('error')

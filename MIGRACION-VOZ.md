@@ -165,6 +165,14 @@ VAD_PREFIX_PADDING_MS=200
 DISCLOSE_AI=true
 CALL_HOUR_START=9
 CALL_HOUR_END=20
+# Zona horaria por defecto para números no mexicanos (horario legal de llamada)
+DEFAULT_CALL_TIMEZONE=America/Mexico_City
+# Prefijo por defecto para números nacionales de 10 dígitos (52 = México, 1 = EE. UU.)
+DEFAULT_PHONE_COUNTRY_CODE=52
+# always: graba desde el inicio | consent: solo tras consentimiento en llamada | off: nunca
+CALL_RECORDING_POLICY=always
+# true: canCall() exige ContactConsent(channel=voice, status=granted) del lead
+REQUIRE_VOICE_CONSENT=false
 ```
 
 ---

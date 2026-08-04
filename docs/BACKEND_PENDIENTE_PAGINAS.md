@@ -11,7 +11,7 @@ La aplicación ya cuenta con API, autenticación JWT, Prisma/PostgreSQL y varias
 | Página | Ruta | Estado actual | Trabajo principal |
 | --- | --- | --- | --- |
 | Campañas | `/campanas` | Sin backend real | Conectar listado, creación, filtros, activación y métricas con `/api/campaigns`. |
-| Redes sociales | `/redes-sociales` | Sin backend real | Conectar cuentas, calendario, publicaciones, Postiz y generación IA. |
+| Redes sociales | `/redes-sociales` | Sin backend real | Conectar cuentas, calendario, publicaciones, Metricool y generación IA. |
 | Configuración | `/configuracion` | Solo lectura parcial | Crear persistencia de perfil, organización, preferencias e integraciones. |
 
 ### Prioridad media
@@ -85,11 +85,11 @@ Archivo frontend: `src/pages/ConectarRedesPage.jsx`
 - Usa `DEMO_ACCOUNTS` y `DEMO_EVENTS`.
 - Cuentas y publicaciones se guardan en `localStorage`.
 - El copiloto genera planes de contenido dentro del navegador.
-- El backend tiene rutas de Postiz, pero la página no las utiliza.
+- El backend tiene rutas de Metricool, pero la página no las utiliza.
 
 ### Modelos recomendados
 
-Si Postiz es la fuente principal, guardar únicamente la relación con el workspace externo:
+Si Metricool es la fuente principal, guardar únicamente la relación con la cuenta externa:
 
 ```text
 SocialConnection
@@ -132,10 +132,10 @@ Los tokens deben almacenarse cifrados, nunca en texto plano ni en el navegador.
 
 Conectar los existentes:
 
-- `GET /api/postiz`
-- `POST /api/postiz/connect`
-- `GET /api/postiz/analytics`
-- `POST /api/postiz/posts`
+- `GET /api/metricool`
+- `POST /api/metricool/connect`
+- `GET /api/metricool/analytics`
+- `POST /api/metricool/posts`
 
 Añadir rutas para la experiencia de calendario:
 
@@ -405,7 +405,7 @@ Todas las nuevas rutas deben cumplir:
 ### Fase 2 — redes y contenido
 
 1. Modelar conexiones sociales.
-2. Conectar Postiz.
+2. Conectar Metricool.
 3. Persistir calendario editorial.
 4. Mover el copiloto social al backend.
 
@@ -437,7 +437,7 @@ Una página se considera conectada cuando:
 
 ## Estado de implementación (2026-07-12)
 
-Antes de repartir trabajo se auditó el estado real del código contra este documento (algunas partes estaban desactualizadas: `Pipeline` ya tenía `PUT` funcionando, y la sección 2 recomendaba modelos propios `SocialConnection`/`SocialPost` que contradicen la arquitectura ya decidida en `PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md` — instancia Postiz/Mautic self-hosted embebida vía iframe, sin tokens propios). Lo que sigue documenta lo que se implementó realmente, no lo que este doc pedía originalmente cuando difiere.
+Antes de repartir trabajo se auditó el estado real del código contra este documento (algunas partes estaban desactualizadas: `Pipeline` ya tenía `PUT` funcionando, y la sección 2 recomendaba modelos propios `SocialConnection`/`SocialPost` que contradicen la arquitectura de integración ya decidida — Metricool como SaaS y Mautic, sin tokens propios). Lo que sigue documenta lo que se implementó realmente, no lo que este doc pedía originalmente cuando difiere.
 
 ### Cambios de schema (Prisma, aplicados con `prisma db push` + `generate` contra Neon)
 
@@ -451,7 +451,7 @@ Archivo: `backend/prisma/schema.prisma`
 - Modelo nuevo `UserPreference` (1:1 con `User`: locale, timezone, notificaciones, tema).
 - Modelo nuevo `CallTask` (checklist de seguimiento por llamada).
 - Modelo nuevo `KnowledgeFavorite` (favorito/"útil" por usuario y artículo, `type: 'favorite'|'helpful'`).
-- **Descartado a propósito:** `SocialConnection`/`SocialPost` — contradice la arquitectura de Postiz ya implementada.
+- **Descartado a propósito:** `SocialConnection`/`SocialPost` — contradice la arquitectura de Metricool ya implementada.
 
 ### 1–4. Campañas y detalle de campaña
 
@@ -466,9 +466,9 @@ Omitido/oculto (sin dato real que lo respalde, no inventado): tipo de campaña (
 
 ### 2. Redes sociales
 
-Archivos tocados: `src/pages/ConectarRedesPage.jsx`, `src/pages/social.css`, `backend/src/services/assetGenerator.service.ts`, `backend/src/controllers/postiz.controller.ts`, `backend/src/routes/postiz.ts`.
+Archivos tocados: `src/pages/ConectarRedesPage.jsx`, `src/pages/social.css`, `backend/src/services/assetGenerator.service.ts`, `backend/src/controllers/metricool.controller.ts`, `backend/src/routes/metricool.ts`.
 
-Hecho: página reescrita sobre los endpoints reales de Postiz (`GET /`, `POST /connect`, `GET /analytics`, `POST /posts`) con el mismo patrón de gating por plan que `EmailMarketingPage`; calendario propio y `localStorage` eliminados (Postiz aporta su propio calendario vía iframe embebido); nuevo `POST /api/postiz/ai/generate` (copiloto de contenido movido al backend, mismo patrón LLM que `generateFallbackAssets`).
+Hecho: página reescrita sobre los endpoints reales de Metricool (`GET /`, `POST /connect`, `GET /analytics`, `POST /posts`) con el mismo patrón de gating por plan que `EmailMarketingPage`; calendario propio y `localStorage` eliminados; nuevo `POST /api/metricool/ai/generate` (copiloto de contenido movido al backend, mismo patrón LLM que `generateFallbackAssets`).
 
 ### 3 y 8. Configuración y Pipeline (detalle de oportunidad)
 
@@ -489,7 +489,7 @@ Omitido a propósito: segmentación de `Call.transcript` en "momentos clave" rea
 
 Archivos tocados: `backend/src/services/mauticSync.service.ts`, `backend/src/controllers/mautic.controller.ts`, `backend/src/routes/mautic.ts`, `src/pages/EmailMarketingPage.jsx`, `src/pages/email.css`.
 
-Hecho: `GET/POST /api/mautic/campaigns`, `GET /api/mautic/templates`, `POST /api/mautic/campaigns/:id/send-test|schedule|pause`, `GET /api/mautic/campaigns/:id/stats` (proxies a la API de Mautic, mismo patrón defensivo que el resto del código); "Nueva campaña" ahora crea de verdad. Nota: paths exactos de Mautic sin verificar contra un despliegue real (mismo disclaimer que ya existía para Postiz).
+Hecho: `GET/POST /api/mautic/campaigns`, `GET /api/mautic/templates`, `POST /api/mautic/campaigns/:id/send-test|schedule|pause`, `GET /api/mautic/campaigns/:id/stats` (proxies a la API de Mautic, mismo patrón defensivo que el resto del código); "Nueva campaña" ahora crea de verdad. Nota: paths exactos de Mautic sin verificar contra un despliegue real.
 
 ### 9–10. Base de conocimiento, Dashboard y Calls
 
@@ -518,7 +518,7 @@ Sin cambios — ya conectaba de verdad por WebSocket, según lo confirmado en la
 - **Enlace público de campaña:** añadido `src/pages/PublicCampaignSharePage.jsx` y la ruta abierta `/campanas/compartir/:token`. Consume `GET /api/public/campaigns/:token`, muestra solo nombre, objetivo, estado y métricas agregadas, y tiene estados de carga, enlace inválido y error. No requiere sesión ni expone datos de contactos.
 - **Operación completa de Email en UI:** cada campaña de `EmailMarketingPage` puede abrir el panel **Gestionar**, que carga en paralelo plantillas de Mautic, leads con email del CRM y las estadísticas de la campaña. Desde él se envía una prueba a un lead interno ya sincronizado con Mautic y se programa la publicación.
 - **Prueba de Email utilizable:** `POST /api/mautic/campaigns/:id/send-test` acepta ahora `testLeadId`; el backend resuelve el ID de contacto de Mautic sin enviarlo al navegador. Se conserva `testContactId` para compatibilidad con consumidores existentes.
-- **Validación de entrada:** los controladores de campañas, configuración, Postiz y Mautic validan cuerpos, parámetros y filtros con Zod mediante `backend/src/lib/validation.ts`, rechazando campos inesperados y formatos inválidos antes de llegar a Prisma o a integraciones externas.
+- **Validación de entrada:** los controladores de campañas, configuración, Metricool y Mautic validan cuerpos, parámetros y filtros con Zod mediante `backend/src/lib/validation.ts`, rechazando campos inesperados y formatos inválidos antes de llegar a Prisma o a integraciones externas.
 - **Verificación:** `npm.cmd run build` pasa tanto en `backend/` como en el frontend. La verificación visual con el navegador integrado no pudo alcanzar el servidor local de Vite desde su entorno aislado (`ERR_CONNECTION_REFUSED`); no se sustituyó por un navegador externo.
 
 ### Pendiente operativo
@@ -541,10 +541,10 @@ Sin cambios — ya conectaba de verdad por WebSocket, según lo confirmado en la
 ### Captación unificada: “Te traemos clientes” (2026-07-13)
 
 - Las seis superficies de Captación comparten ahora un recorrido operativo único: **Planificar** (`/campanas`) → **Atraer** (`/ads`, `/redes-sociales`, `/prospectos`) → **Convertir** (`/landings`) → **Cerrar** (`/funnels`). Campañas funciona como centro de mando y deja de presentar cada canal como una herramienta aislada.
-- Nuevo modelo Prisma `AcquisitionEvent`, con claves idempotentes e índices por organización, campaña, lead y fecha. La migración `20260713120000_add_acquisition_events` fue aplicada sobre la base de datos Neon configurada en `backend/.env`.
+- Nuevo modelo Prisma `AcquisitionEvent`, con claves idempotentes e índices por organización, campaña, lead y fecha. Su migración original (julio 2026) fue aplicada sobre la base de datos Neon configurada en `backend/.env` y hoy está consolidada en la baseline.
 - Nuevo endpoint público `POST /api/public/landing/:slug/view`. La landing pública envía una sesión estable, UTM, `gclid`, `fbclid`, referrer y ruta; el envío del formulario conserva la misma atribución y genera un evento `landing_lead`.
 - Funnels usa `AcquisitionEvent(type = landing_view)` como fuente de visitas y mantiene `adAssets.visits` solo como compatibilidad para campañas históricas. Incluye también campañas outbound sin landing y calcula sus ratios lead → contacto → reunión sin inventar visitas.
-- Redes sociales exige una campaña con landing para crear contenido atribuido. Postiz recibe una URL con UTM por plataforma y el backend registra `organic_social` en `Campaign.settings.captureChannels` tras crear el borrador correctamente.
+- Redes sociales exige una campaña con landing para crear contenido atribuido. Metricool recibe una URL con UTM por plataforma y el backend registra `organic_social` en `Campaign.settings.captureChannels` tras crear el borrador correctamente.
 - Prospect Finder exige una campaña real, permite crearla en línea y asocia cada lead importado. Cada importación genera un evento idempotente `prospect_import` y registra `outbound_prospecting` en `Campaign.settings.captureChannels`.
 - Landings corrigió el contrato real de `GET /api/campaigns`, eliminó campañas y métricas demo, y muestra estados de carga, error, vacío y tracking pendiente de forma explícita.
 - El panel de Campañas deriva su mezcla de canales únicamente de campos reales (`adPlaybookId`, `metaCampaignId` y `settings.captureChannels`), incluyendo campañas multicanal.
@@ -557,8 +557,8 @@ Sin cambios — ya conectaba de verdad por WebSocket, según lo confirmado en la
 #### Pendiente real
 
 - Las “webs externas” añadidas manualmente en Landings siguen almacenadas en `localStorage` y están identificadas como locales. Para compartirlas entre usuarios hace falta un modelo `ExternalWeb` y CRUD autenticado.
-- La creación real en Postiz depende de que el workspace y la API self-hosted estén operativos en el entorno de despliegue; la atribución se persiste solo después de que Postiz confirme el borrador.
-- Antes de publicar en Meta o Postiz es obligatorio configurar `APP_URL` o `FRONTEND_URL` con una URL pública; el backend bloquea la operación si falta o apunta a localhost. Prospect Finder requiere además `GOOGLE_PLACES_API_KEY`, todavía ausente en el entorno revisado.
+- La creación real en Metricool depende de que las credenciales SaaS (`METRICOOL_USER_TOKEN`, `METRICOOL_USER_ID`, `METRICOOL_BLOG_ID`) estén configuradas en el entorno de despliegue; la atribución se persiste solo después de que Metricool confirme el borrador.
+- Antes de publicar en Meta o Metricool es obligatorio configurar `APP_URL` o `FRONTEND_URL` con una URL pública; el backend bloquea la operación si falta o apunta a localhost. Prospect Finder requiere además `GOOGLE_PLACES_API_KEY`, todavía ausente en el entorno revisado.
 - Falta una suite E2E autenticada para recorrer Campaña → canal → Landing → Lead → Funnel de extremo a extremo.
 
 ## Conversaciones omnicanal (2026-07-13)
@@ -578,7 +578,7 @@ Sin cambios — ya conectaba de verdad por WebSocket, según lo confirmado en la
 
 Variables necesarias, sin incluir sus valores: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_WEBHOOK_BASE_URL`, `TWILIO_WHATSAPP_WELCOME_CONTENT_SID`, `MAUTIC_WELCOME_EMAIL_ID`, credenciales existentes de Mautic, `CLAUDE_API_KEY`, `CLAUDE_MODEL` y `BACKGROUND_WORKERS_ENABLED=true`. Twilio debe apuntar a `/api/whatsapp/inbound`, `/api/whatsapp/status` y los callbacks de voz ya definidos en `/api/voice`. En producción hay que ejecutar tanto `npm start` como `npm run start:worker`; el segundo procesa llamadas, automatizaciones y el outbox durable.
 
-La migración `backend/prisma/migrations/20260713183000_add_omnichannel_conversations/migration.sql` ya fue aplicada correctamente en Neon. `prisma format`, `prisma validate`, la generación del cliente, el build TypeScript del backend y el build Vite pasan. `prisma migrate status` confirma que la base está actualizada y una lectura segura confirma que las tablas nuevas existen.
+La migración original de conversaciones omnicanal (julio 2026, hoy consolidada en la baseline) ya fue aplicada correctamente en Neon. `prisma format`, `prisma validate`, la generación del cliente, el build TypeScript del backend y el build Vite pasan. `prisma migrate status` confirma que la base está actualizada y una lectura segura confirma que las tablas nuevas existen.
 
 ### Pendiente de validación externa
 

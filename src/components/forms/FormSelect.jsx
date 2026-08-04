@@ -10,16 +10,16 @@ export default function FormSelect({ label, value, onChange, options = [], requi
           style={{
             display: 'block',
             fontSize: 11,
-            color: '#6b7280',
+            color: 'var(--dim)',
             marginBottom: 5,
             fontWeight: 500,
           }}
         >
           {label}
-          {required && <span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
+          {required && <span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
         </label>
       )}
-      <div style={{ position: 'relative' }}>
+      <div style={{ minWidth: 0, position: 'relative' }}>
         <select
           name={name}
           value={value}
@@ -28,19 +28,19 @@ export default function FormSelect({ label, value, onChange, options = [], requi
           style={{
             width: '100%',
             boxSizing: 'border-box',
-            background: '#080c14',
-            border: '1px solid #1e2433',
+            background: 'var(--bg)',
+            border: '1px solid var(--line-control)',
             borderRadius: 8,
             padding: '9px 32px 9px 12px',
-            color: '#e2e8f0',
+            color: 'var(--text)',
             fontSize: 13,
             appearance: 'none',
             outline: 'none',
             cursor: 'pointer',
             fontFamily: 'inherit',
           }}
-          onFocus={e => (e.target.style.borderColor = '#8b5cf660')}
-          onBlur={e => (e.target.style.borderColor = '#1e2433')}
+          onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+          onBlur={e => (e.target.style.borderColor = 'var(--line-control)')}
         >
           {normalized.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -52,7 +52,7 @@ export default function FormSelect({ label, value, onChange, options = [], requi
             right: 10,
             top: '50%',
             transform: 'translateY(-50%)',
-            color: '#6b7280',
+            color: 'var(--dim)',
             width: 14,
             height: 14,
             pointerEvents: 'none',

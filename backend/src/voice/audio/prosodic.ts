@@ -27,6 +27,7 @@ export class ProsodicBuffer {
   startTurn(): void { this._chunks = []; this._active = true }
   add(pcm: Buffer): void { if (this._active) this._chunks.push(pcm) }
   stopTurn(): void { this._active = false }
+  turnAudio(): Buffer | null { return this._chunks.length ? Buffer.concat(this._chunks) : null }
 
   analyze(wordCount = 0): AcousticState | null {
     if (this._chunks.length === 0) return null

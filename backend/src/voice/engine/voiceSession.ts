@@ -38,5 +38,5 @@ export interface VoiceSession {
 }
 
 export type VoiceSessionContext = Pick<CallContext,
-  'callSid' | 'orgId' | 'leadId' | 'agentId' | 'campaignId' | 'phone' | 'businessType' | 'businessName' | 'agentConfig'
+  'callSid' | 'orgId' | 'leadId' | 'agentId' | 'campaignId' | 'phone' | 'businessType' | 'businessName' | 'agentConfig' | 'recordingConsentPending'
 >

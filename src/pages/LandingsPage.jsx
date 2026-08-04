@@ -16,10 +16,10 @@ import './landings.css'
 const STORAGE_KEY = 'vozia.external-webs.v1'
 
 const TEMPLATE_META = {
-  'gym-trial-v1': { label: 'Fitness Boost', kind: 'Fitness', color: '#ec4899' },
-  'pet-grooming-v1': { label: 'Pet Care', kind: 'Mascotas', color: '#f59e0b' },
-  'legal-consult-v1': { label: 'Lex Pro', kind: 'Servicios legales', color: '#fbbf24' },
-  'generic-v1': { label: 'Clarity Pro', kind: 'General', color: '#22d3ee' },
+  'gym-trial-v1': { label: 'Fitness Boost', kind: 'Fitness', color: 'var(--pink)' },
+  'pet-grooming-v1': { label: 'Pet Care', kind: 'Mascotas', color: 'var(--warn)' },
+  'legal-consult-v1': { label: 'Lex Pro', kind: 'Servicios legales', color: 'var(--warn-soft)' },
+  'generic-v1': { label: 'Clarity Pro', kind: 'General', color: 'var(--cyan)' },
 }
 
 const FALLBACK_IMAGES = [
@@ -101,11 +101,11 @@ function getLink(item) {
 
 function StatusBadge({ status }) {
   const meta = {
-    published: { label: 'Publicada', color: '#34d399' },
-    draft: { label: 'Borrador', color: '#f59e0b' },
-    none: { label: 'Sin landing', color: '#64748b' },
-    external: { label: 'Web externa', color: '#22d3ee' },
-  }[status] || { label: 'Sin estado', color: '#64748b' }
+    published: { label: 'Publicada', color: 'var(--success)' },
+    draft: { label: 'Borrador', color: 'var(--warn)' },
+    none: { label: 'Sin landing', color: 'var(--dim)' },
+    external: { label: 'Web externa', color: 'var(--cyan)' },
+  }[status] || { label: 'Sin estado', color: 'var(--dim)' }
   return <span className="landing-status" style={{ '--status-color': meta.color }}><i />{meta.label}</span>
 }
 
@@ -231,7 +231,8 @@ export default function LandingsPage() {
     try {
       const [response, funnelsResponse] = await Promise.all([
         apiFetch('/api/campaigns?limit=100'),
-        apiFetch('/api/funnels/overview'),
+        // Las visitas son un dato accesorio: si su petición falla no debe tumbar la lista de landings.
+        apiFetch('/api/funnels/overview').catch(() => ({ ok: false })),
       ])
       if (!response.ok) throw new Error('No se pudieron cargar las campañas')
       const data = await response.json()

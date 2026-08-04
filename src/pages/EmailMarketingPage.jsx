@@ -15,20 +15,20 @@ import emailHeroImage from '../assets/email-hero.png'
 import '../dashboard.css'
 import './email.css'
 
-const SEGMENT_COLOR = { new: '#94a3b8', contacted: '#22d3ee', qualified: '#f59e0b', unqualified: '#fb7185', converted: '#34d399' }
+const SEGMENT_COLOR = { new: 'var(--muted)', contacted: 'var(--cyan)', qualified: 'var(--warn)', unqualified: 'var(--danger-soft)', converted: 'var(--success)' }
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted']
 
 // EM-105/EM-107: estado real de la campaña en el CRM — nunca optimista, se
 // reconcilia contra Mautic al abrir el detalle (ver reconcileCampaignStatus).
 const STATUS_META = {
-  draft: { label: 'Borrador', color: '#94a3b8' },
-  validating: { label: 'Validando', color: '#f59e0b' },
-  ready: { label: 'Lista para publicar', color: '#38bdf8' },
-  scheduled: { label: 'Programada', color: '#818cf8' },
-  running: { label: 'Activa', color: '#34d399' },
-  paused: { label: 'Pausada', color: '#fb923c' },
-  completed: { label: 'Completada', color: '#22c55e' },
-  error: { label: 'Error', color: '#f87171' },
+  draft: { label: 'Borrador', color: 'var(--muted)' },
+  validating: { label: 'Validando', color: 'var(--warn)' },
+  ready: { label: 'Lista para publicar', color: 'var(--cyan-soft)' },
+  scheduled: { label: 'Programada', color: 'var(--accent-soft)' },
+  running: { label: 'Activa', color: 'var(--success)' },
+  paused: { label: 'Pausada', color: 'var(--warn)' },
+  completed: { label: 'Completada', color: 'var(--success)' },
+  error: { label: 'Error', color: 'var(--danger-soft)' },
 }
 
 const MISSING_FIELD_LABEL = {
@@ -54,7 +54,7 @@ async function apiJson(path, options) {
 }
 
 function Metric({ Icon, label, value, detail, color }) {
-  return <article className="email-metric"><div className="email-metric-icon" style={{ color, background: `${color}18`, borderColor: `${color}38` }}><Icon /></div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></article>
+  return <article className="email-metric"><div className="email-metric-icon" style={{ color, background: `color-mix(in srgb, ${color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${color} 22%, transparent)` }}><Icon /></div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></article>
 }
 
 function EmptyState({ icon: Icon = RiMailLine, title, copy, action }) {
@@ -289,7 +289,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
     }
   }
 
-  const meta = campaign ? (STATUS_META[campaign.status] || { label: campaign.status, color: '#94a3b8' }) : null
+  const meta = campaign ? (STATUS_META[campaign.status] || { label: campaign.status, color: 'var(--muted)' }) : null
 
   return <div className="email-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <div className="email-modal email-tools-modal" role="dialog" aria-modal="true" aria-labelledby="email-editor-title">
@@ -299,7 +299,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
       </div>
 
       {loading ? <p className="email-campaigns-loading">Cargando configuración de la campaña…</p> : <>
-        {meta && <span className="email-campaign-status" style={{ background: `${meta.color}22`, color: meta.color, borderColor: `${meta.color}55` }}>{meta.label}</span>}
+        {meta && <span className="email-campaign-status" style={{ background: `color-mix(in srgb, ${meta.color} 13%, transparent)`, color: meta.color, borderColor: `color-mix(in srgb, ${meta.color} 33%, transparent)` }}>{meta.label}</span>}
 
         <div className="email-tools-section" style={{ marginTop: 14 }}>
           <div><span className="email-eyebrow">1. Objetivo</span></div>
@@ -460,10 +460,10 @@ export default function EmailMarketingPage() {
 
     <section className="email-panel email-campaigns-panel" id="email-campaigns"><div className="email-panel-heading"><div><span className="email-eyebrow">CRM</span><h2>Campañas</h2><p>Campañas de email operadas desde el CRM — audiencia, plantilla y calendario con ownership propio.</p></div><button className="email-button secondary" onClick={() => setShowNewCampaign(true)}><RiRocketLine /> Nueva campaña</button></div>
       <DataStatusBanner compact status={campaignStatus} message={campaignError || statusMessage(campaignStatus, { live: 'Campañas reales disponibles.', empty: 'Todavía no hay campañas configuradas.', demo: 'Modo demo explícito: no se publicará nada con estos datos.' })} onRetry={campaignStatus === 'error' || campaignStatus === 'disconnected' ? loadCampaigns : undefined} />
-      {campaignsLoading ? <p className="email-campaigns-loading">Cargando campañas…</p> : campaignStatus === 'error' || campaignStatus === 'disconnected' ? <EmptyState icon={RiAlertLine} title="No se pueden mostrar las campañas" copy={campaignError || 'Revisa la conexión con el servicio de email.'} action={{ label: 'Reintentar', onClick: loadCampaigns }} /> : !campaigns.length ? <EmptyState icon={RiRocketLine} title="Todavía no hay campañas" copy="Crea tu primera campaña para empezar a nutrir a tus leads." action={{ label: 'Crear campaña', onClick: () => setShowNewCampaign(true) }} /> : <div className="email-campaigns-list">{campaigns.map(campaign => { const meta = STATUS_META[campaign.status] || { label: campaign.status, color: '#94a3b8' }; return <div className="email-campaign-row" key={campaign.id}><div className="email-campaign-info"><strong>{campaign.name}</strong>{campaign.objective && <span>{campaign.objective}</span>}</div><span className="email-campaign-status" style={{ background: `${meta.color}22`, color: meta.color, borderColor: `${meta.color}55` }}>{meta.label}</span><div className="email-campaign-actions"><button className="email-button ghost email-campaign-manage" onClick={() => setEditingCampaignId(campaign.id)}><RiSparkling2Line /> Gestionar</button></div></div> })}</div>}
+      {campaignsLoading ? <p className="email-campaigns-loading">Cargando campañas…</p> : campaignStatus === 'error' || campaignStatus === 'disconnected' ? <EmptyState icon={RiAlertLine} title="No se pueden mostrar las campañas" copy={campaignError || 'Revisa la conexión con el servicio de email.'} action={{ label: 'Reintentar', onClick: loadCampaigns }} /> : !campaigns.length ? <EmptyState icon={RiRocketLine} title="Todavía no hay campañas" copy="Crea tu primera campaña para empezar a nutrir a tus leads." action={{ label: 'Crear campaña', onClick: () => setShowNewCampaign(true) }} /> : <div className="email-campaigns-list">{campaigns.map(campaign => { const meta = STATUS_META[campaign.status] || { label: campaign.status, color: 'var(--muted)' }; return <div className="email-campaign-row" key={campaign.id}><div className="email-campaign-info"><strong>{campaign.name}</strong>{campaign.objective && <span>{campaign.objective}</span>}</div><span className="email-campaign-status" style={{ background: `color-mix(in srgb, ${meta.color} 13%, transparent)`, color: meta.color, borderColor: `color-mix(in srgb, ${meta.color} 33%, transparent)` }}>{meta.label}</span><div className="email-campaign-actions"><button className="email-button ghost email-campaign-manage" onClick={() => setEditingCampaignId(campaign.id)}><RiSparkling2Line /> Gestionar</button></div></div> })}</div>}
     </section>
 
-    <div className="email-main-grid"><section className="email-panel" id="email-segments"><div className="email-panel-heading"><div><span className="email-eyebrow">Audiencia</span><h2>Mapa de segmentos</h2><p>Una lectura rápida de cómo está avanzando tu base.</p></div><span className="email-panel-count">{totalForSegments || overview?.totalLeads || 0} leads</span></div>{!bySegment.length ? <EmptyState icon={RiGroupLine} title="Aún no hay segmentos con datos" copy="Cuando Mautic reciba actividad, aquí verás el recorrido de tus leads." /> : <div className="email-segment-list">{bySegment.map(group => { const pct = totalForSegments ? Math.round((group.count / totalForSegments) * 100) : 0; const color = SEGMENT_COLOR[group.status] ?? '#818cf8'; return <div className="email-segment" key={group.status}><div className="email-segment-label"><span><i style={{ background: color }} />{BACKEND_STATUS[group.status] ?? group.status}</span><strong>{group.count}<small>{pct}%</small></strong></div><div className="email-progress"><span style={{ width: `${pct}%`, background: color }} /></div></div> })}</div>}</section>
+    <div className="email-main-grid"><section className="email-panel" id="email-segments"><div className="email-panel-heading"><div><span className="email-eyebrow">Audiencia</span><h2>Mapa de segmentos</h2><p>Una lectura rápida de cómo está avanzando tu base.</p></div><span className="email-panel-count">{totalForSegments || overview?.totalLeads || 0} leads</span></div>{!bySegment.length ? <EmptyState icon={RiGroupLine} title="Aún no hay segmentos con datos" copy="Cuando Mautic reciba actividad, aquí verás el recorrido de tus leads." /> : <div className="email-segment-list">{bySegment.map(group => { const pct = totalForSegments ? Math.round((group.count / totalForSegments) * 100) : 0; const color = SEGMENT_COLOR[group.status] ?? 'var(--accent-soft)'; return <div className="email-segment" key={group.status}><div className="email-segment-label"><span><i style={{ background: color }} />{BACKEND_STATUS[group.status] ?? group.status}</span><strong>{group.count}<small>{pct}%</small></strong></div><div className="email-progress"><span style={{ width: `${pct}%`, background: color }} /></div></div> })}</div>}</section>
 
       <aside className="email-panel email-signal-panel"><div className="email-panel-heading"><div><span className="email-eyebrow">Lectura rápida</span><h2>Señales de engagement</h2></div><RiSparkling2Line /></div><div className="email-signal-list"><div><span>Ratio de apertura</span><strong>{openRate}</strong><small>Interés inicial</small></div><div><span>Ratio de clic</span><strong>{clickRate}</strong><small>Intención activa</small></div></div><div className="email-signal-note"><RiCheckLine /><p>Los datos de Mautic se actualizan automáticamente en cada contacto.</p></div></aside>
     </div>

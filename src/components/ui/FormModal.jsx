@@ -103,11 +103,11 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
         style={{
           width: SIZES[size] ?? SIZES.md,
           maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 32px)',
-          background: '#0d1117',
-          border: '1px solid #1e2433',
+          maxHeight: 'calc(100dvh - 32px)',
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
           borderRadius: 14,
-          boxShadow: '0 40px 100px rgba(0,0,0,0.85)',
+          boxShadow: 'var(--shadow-2)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -119,11 +119,11 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '16px 20px',
-            borderBottom: '1px solid #1e2433',
+            borderBottom: '1px solid var(--line)',
             flexShrink: 0,
           }}
         >
-          <h3 id={titleId} style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{title}</h3>
+          <h3 id={titleId} style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>{title}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -131,9 +131,9 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#6b7280',
+              color: 'var(--dim)',
               cursor: 'pointer',
-              padding: 4,
+              padding: 12,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -164,7 +164,7 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
             justifyContent: 'flex-end',
             gap: 10,
             padding: '14px 20px',
-            borderTop: '1px solid #1e2433',
+            borderTop: '1px solid var(--line)',
             flexShrink: 0,
           }}
         >
@@ -173,10 +173,10 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
             onClick={onClose}
             style={{
               background: 'transparent',
-              border: '1px solid #1e2433',
+              border: '1px solid var(--line)',
               borderRadius: 9,
               padding: '9px 18px',
-              color: '#94a3b8',
+              color: 'var(--muted)',
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
@@ -189,7 +189,7 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
             form={formId}
             disabled={submitDisabled}
             style={{
-              background: 'linear-gradient(90deg,#4f46e5,#7c3aed)',
+              background: 'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))',
               border: 'none',
               borderRadius: 9,
               padding: '9px 20px',

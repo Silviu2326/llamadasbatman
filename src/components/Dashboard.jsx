@@ -31,13 +31,13 @@ import { localeCode, useI18n } from '../i18n'
 
 // ─── data ────────────────────────────────────────────────────────────────────
 const KPI_BASE = [
-  { Icon: RiPhoneLine,          iconBg:'#4338ca', label:'Llamadas\nrealizadas',    color:'#818cf8' },
-  { Icon: RiGroupLine,          iconBg:'#047857', label:'Leads\ncontactados',       color:'#34d399' },
-  { Icon: RiCalendarLine,       iconBg:'#6d28d9', label:'Reuniones\nagendadas',     color:'#a78bfa' },
-  { Icon: RiPercentLine,        iconBg:'#b45309', label:'Tasa de\nconversión',      color:'#fbbf24' },
-  { Icon: RiMoneyDollarBoxLine, iconBg:'#0e7490', label:'Pipeline\ngenerado',       color:'#22d3ee' },
-  { Icon: RiBriefcaseLine,      iconBg:'#0f766e', label:'Ingresos\natribuidos',     color:'#2dd4bf' },
-  { Icon: RiLineChartLine,      iconBg:'#15803d', label:'ROI del\nsistema',         color:'#4ade80' },
+  { Icon: RiPhoneLine,          iconBg:'var(--accent-deep)', label:'Llamadas\nrealizadas',    color:'var(--accent-soft)' },
+  { Icon: RiGroupLine,          iconBg:'var(--success-deep)', label:'Leads\ncontactados',       color:'var(--success)' },
+  { Icon: RiCalendarLine,       iconBg:'var(--violet-deep)', label:'Reuniones\nagendadas',     color:'var(--violet)' },
+  { Icon: RiPercentLine,        iconBg:'var(--warn-deep)', label:'Tasa de\nconversión',      color:'var(--warn-soft)' },
+  { Icon: RiMoneyDollarBoxLine, iconBg:'var(--cyan-deep)', label:'Pipeline\ngenerado',       color:'var(--cyan)' },
+  { Icon: RiBriefcaseLine,      iconBg:'var(--success-deep)', label:'Ingresos\natribuidos',     color:'var(--success)' },
+  { Icon: RiLineChartLine,      iconBg:'var(--success-deep)', label:'ROI del\nsistema',         color:'var(--success-soft)' },
 ]
 
 const KPI_IMAGES = [callsIcon, leadsIcon, meetingsIcon, conversionIcon, pipelineIcon, revenueIcon]
@@ -144,7 +144,7 @@ export default function Dashboard() {
           { value: String(source.totalLeads ?? 0),            pct: p.leads    ?? null, data: spark('contactados') },
           { value: String(source.meetingsScheduled ?? 0),     pct: p.meetings ?? null, data: spark('reuniones') },
           { value: `${source.conversionRate ?? 0}%`,          pct: null,                 data: spark('conversion') },
-          { value: `€${Math.round(s.pipelineValue ?? 0).toLocaleString(localeCode(locale))}`, pct: p.pipeline ?? null, data: pipe.map(d => d.value ?? 0) },
+          { pct: p.pipeline ?? null, data: pipe.map(d => d.value ?? 0) }, // `value` se asigna justo debajo desde `source`
           { value: fmt(source.closedWonValue),                pct: null,                 data: null },
           { value: source.roi != null ? `${source.roi.toFixed(1)}x` : '—', pct: null,     data: null },
         ]
@@ -205,14 +205,14 @@ export default function Dashboard() {
   const activeGridIds = GRID_WIDGET_IDS.filter(id => activeWidgets.has(id))
 
   return (
-    <div className="dark-scroll db-pad" style={{ flex:1, overflowY:'auto', background:'#080c14', display:'flex', flexDirection:'column', gap:16, minWidth:0, paddingRight: isEditMode ? 324 : undefined }}>
+    <div className={`dark-scroll db-pad${isEditMode ? ' fixed-side-panel-offset' : ''}`} style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column', gap:16, minWidth:0 }}>
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
         <div className="dashboard-welcome-copy">
           <span className="dashboard-overline">{t('dashboard.operationsCenter')}</span>
-          <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:'#f1f5f9' }}>{locale === 'en' ? `Hello, ${user?.name || 'Sales Team'} 👋` : `Hola, ${user?.name || 'Equipo Comercial'} 👋`}</h1>
-          <p style={{ margin:'3px 0 0', fontSize:12.5, color:'#4b5563' }}>{t('dashboard.todaySummary')}</p>
+          <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:'var(--text-strong)' }}>{locale === 'en' ? `Hello, ${user?.name || 'Sales Team'} 👋` : `Hola, ${user?.name || 'Equipo Comercial'} 👋`}</h1>
+          <p style={{ margin:'3px 0 0', fontSize:12.5, color: 'var(--dim)' }}>{t('dashboard.todaySummary')}</p>
         </div>
         <div className="dashboard-welcome-art"><img src={dashboardOrbit} alt="" /><span className={`dashboard-data-status dashboard-data-status-${dataSource}`}><i /> {dataStatusLabel}</span></div><div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
 
@@ -250,14 +250,14 @@ export default function Dashboard() {
         ]
         if (steps.every(step => step.done)) return null
         return (
-          <section aria-label="Primeros pasos" style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:14, padding:'18px 20px' }}>
-            <p style={{ margin:'0 0 3px', fontSize:14.5, fontWeight:800, color:'#f1f5f9' }}>Empieza aquí</p>
-            <p style={{ margin:'0 0 14px', fontSize:12, color:'#6b7280' }}>Tres pasos y tu agente de IA hará la primera llamada.</p>
+          <section aria-label="Primeros pasos" style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:14, padding:'18px 20px' }}>
+            <p style={{ margin:'0 0 3px', fontSize:14.5, fontWeight:800, color:'var(--text-strong)' }}>Empieza aquí</p>
+            <p style={{ margin:'0 0 14px', fontSize:12, color:'var(--dim)' }}>Tres pasos y tu agente de IA hará la primera llamada.</p>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:10 }}>
               {steps.map((step, index) => (
-                <button key={step.label} onClick={() => navigate(step.to)} style={{ display:'flex', alignItems:'center', gap:12, textAlign:'left', padding:'13px 14px', borderRadius:11, cursor:'pointer', background: step.done ? '#0b1512' : '#111827', border: `1px solid ${step.done ? '#10b98135' : '#1e2433'}`, fontFamily:'inherit' }}>
-                  <span style={{ width:28, height:28, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, background: step.done ? '#10b98120' : '#4f46e520', color: step.done ? '#10b981' : '#a78bfa', border: `1px solid ${step.done ? '#10b98140' : '#4f46e540'}` }}>{step.done ? '✓' : index + 1}</span>
-                  <span><strong style={{ display:'block', fontSize:13, color: step.done ? '#6b7280' : '#e2e8f0', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</strong><small style={{ fontSize:11.5, color:'#4b5563' }}>{step.done ? 'Completado' : step.hint}</small></span>
+                <button key={step.label} onClick={() => navigate(step.to)} style={{ display:'flex', alignItems:'center', gap:12, textAlign:'left', padding:'13px 14px', borderRadius:11, cursor:'pointer', background: step.done ? 'var(--bg)' : 'var(--surface-2)', border: `1px solid ${step.done ? '#10b98135' : 'var(--line)'}`, fontFamily:'inherit' }}>
+                  <span style={{ width:28, height:28, borderRadius:'50%', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, background: step.done ? '#10b98120' : '#4f46e520', color: step.done ? 'var(--success)' : 'var(--violet)', border: `1px solid ${step.done ? '#10b98140' : '#4f46e540'}` }}>{step.done ? '✓' : index + 1}</span>
+                  <span><strong style={{ display:'block', fontSize:13, color: step.done ? 'var(--dim)' : 'var(--text)', textDecoration: step.done ? 'line-through' : 'none' }}>{step.label}</strong><small style={{ fontSize:11.5, color: 'var(--dim)' }}>{step.done ? 'Completado' : step.hint}</small></span>
                 </button>
               ))}
             </div>
@@ -280,13 +280,20 @@ export default function Dashboard() {
 
       {/* Editable grid */}
       <div ref={gridRef} style={{ flex:1, minHeight:0, width:'100%' }}>
-        {gridWidth > 0 && (gridWidth < 600 ? (
+        {gridWidth > 0 && (gridWidth < 900 ? (
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {[...layout]
               .filter(l => activeGridIds.includes(l.i))
               .sort((a, b) => a.y - b.y || a.x - b.x)
               .map(l => (
-                <div key={l.i} style={{ height: l.h * 85 + (l.h - 1) * 12 }}>
+                <div key={l.i} style={{ position:'relative' }}>
+                  {isEditMode && (
+                    <button
+                      className="widget-remove-btn"
+                      onClick={() => removeWidget(l.i)}
+                      title="Quitar widget"
+                    >×</button>
+                  )}
                   <WidgetRenderer widgetId={l.i} kpiData={localizedKpi} stats={stats} />
                 </div>
               ))

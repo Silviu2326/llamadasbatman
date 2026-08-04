@@ -72,11 +72,22 @@ void (async () => {
         if (!lead.phone) return
         if (lead.attempts >= MAX_CALL_ATTEMPTS) return
 
+        // Los webhooks de voz saliente validan un contexto completo con
+        // campaña: despachar sin ella produce una llamada cuyos callbacks
+        // fallan. Mejor no llamar y dejarlo trazado.
+        if (!lead.campaignId) {
+          console.warn(`[LeadCallDispatch] lead ${leadId} sin campaña — llamada omitida`)
+          return
+        }
+
         const agent = lead.campaign?.agent ?? (await prisma.agent.findFirst({ where: { orgId, isActive: true } }))
         if (!agent) return
 
-        const compliance = await canCall(orgId, lead.phone)
-        if (!compliance.allowed) return
+        const compliance = await canCall(orgId, lead.phone, lead.id)
+        if (!compliance.allowed) {
+          console.warn(`[LeadCallDispatch] lead ${leadId} bloqueado por compliance: ${compliance.reason}`)
+          return
+        }
 
         await prisma.lead.update({
           where: { id: lead.id },
@@ -86,7 +97,7 @@ void (async () => {
         const result = await startOutboundCall({
           toNumber: lead.phone,
           orgId,
-          campaignId: lead.campaignId ?? '',
+          campaignId: lead.campaignId,
           agentId: agent.id,
           leadId: lead.id,
           businessName: lead.company ?? undefined,

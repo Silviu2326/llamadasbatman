@@ -1,0 +1,6 @@
+apertura_energica_1: B = chatterbox
+apertura_energica_1: A = qwen
+empatico_1: A = chatterbox
+empatico_1: B = qwen
+susurro_confidencial_1: A = chatterbox
+susurro_confidencial_1: B = qwen

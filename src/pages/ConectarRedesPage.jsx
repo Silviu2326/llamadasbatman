@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
   RiAlertLine, RiArrowRightSLine, RiBarChartLine, RiCheckLine, RiCloseLine,
-  RiExternalLinkLine, RiFacebookBoxFill, RiGlobalLine, RiInstagramLine,
-  RiLinkedinBoxFill, RiRefreshLine, RiShareForwardLine, RiSparkling2Line,
-  RiTiktokFill, RiTimeLine, RiTwitterXFill, RiYoutubeFill,
+  RiExternalLinkLine, RiFacebookBoxFill, RiGlobalLine, RiImageAddLine,
+  RiInstagramLine, RiLinkedinBoxFill, RiRefreshLine, RiShareForwardLine,
+  RiSparkling2Line, RiTiktokFill, RiTimeLine, RiTwitterXFill, RiYoutubeFill,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
@@ -25,11 +25,11 @@ const PLATFORM_META = {
   facebook: { name: 'Facebook', color: '#1877f2', Icon: RiFacebookBoxFill },
   tiktok: { name: 'TikTok', color: '#25f4ee', Icon: RiTiktokFill },
   youtube: { name: 'YouTube', color: '#ff4d67', Icon: RiYoutubeFill },
-  x: { name: 'X', color: '#e2e8f0', Icon: RiTwitterXFill },
+  x: { name: 'X', color: 'var(--text)', Icon: RiTwitterXFill },
 }
 
 function platformMeta(name) {
-  return PLATFORM_META[String(name ?? '').toLowerCase()] ?? { name: name ?? 'Canal', color: '#818cf8', Icon: RiGlobalLine }
+  return PLATFORM_META[String(name ?? '').toLowerCase()] ?? { name: name ?? 'Canal', color: 'var(--accent-soft)', Icon: RiGlobalLine }
 }
 
 function formatShortDate(value) {
@@ -58,7 +58,7 @@ function AnalyticsPanel({ data, status, onRetry }) {
   return (
     <div className="social-analytics-list">
       {entries.map(([key, value]) => (
-        <div className="social-analytics-row" key={key}><span><i style={{ background: '#818cf8' }} />{key}</span><strong>{renderAnalyticsValue(value)}</strong></div>
+        <div className="social-analytics-row" key={key}><span><i style={{ background: 'var(--accent-soft)' }} />{key}</span><strong>{renderAnalyticsValue(value)}</strong></div>
       ))}
     </div>
   )
@@ -71,7 +71,6 @@ export default function ConectarRedesPage() {
   const [connectionStatus, setConnectionStatus] = useState('loading')
   const [connectionError, setConnectionError] = useState('')
   const [connected, setConnected] = useState(false)
-  const [embedUrl, setEmbedUrl] = useState(null)
   const [providerUrl, setProviderUrl] = useState(null)
   const [integrations, setIntegrations] = useState([])
   const [connecting, setConnecting] = useState(false)
@@ -94,6 +93,8 @@ export default function ConectarRedesPage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPlan, setAiPlan] = useState(null)
   const [draftStatus, setDraftStatus] = useState({})
+  const [postImages, setPostImages] = useState({})
+  const [imageStatus, setImageStatus] = useState({})
   const selectedCampaign = campaigns.find(campaign => campaign.id === selectedCampaignId)
 
   function showNotice(message) {
@@ -131,7 +132,6 @@ export default function ConectarRedesPage() {
       if (!res.ok) throw new Error('status failed')
       const data = await res.json()
       setConnected(Boolean(data.connected))
-      setEmbedUrl(data.embedUrl ?? null)
       setProviderUrl(data.appUrl ?? null)
       setIntegrations(Array.isArray(data.integrations) ? data.integrations : [])
       setConnectionStatus(DEMO_MODE ? 'demo' : data.connected ? 'live' : 'disconnected')
@@ -179,7 +179,6 @@ export default function ConectarRedesPage() {
       setConnected(true)
       setConnectionStatus(DEMO_MODE ? 'demo' : 'live')
       setConnectionError('')
-      setEmbedUrl(data.embedUrl ?? null)
       setProviderUrl(data.appUrl ?? null)
       loadAnalytics()
     } catch {
@@ -207,10 +206,54 @@ export default function ConectarRedesPage() {
       if (!res.ok) throw new Error('generate failed')
       setAiPlan(await res.json())
       setDraftStatus({})
+      setPostImages({})
+      setImageStatus({})
     } catch {
       showNotice('No se pudo generar el plan de contenido. Intenta de nuevo.')
     } finally {
       setAiLoading(false)
+    }
+  }
+
+  async function uploadImage(file, index) {
+    if (!file) return
+    if (file.size > 8 * 1024 * 1024) {
+      showNotice('La imagen no puede superar los 8 MB.')
+      return
+    }
+    setImageStatus(previous => ({ ...previous, [index]: 'uploading' }))
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo.'))
+        reader.readAsDataURL(file)
+      })
+      const res = await apiFetch('/api/metricool/media', { method: 'POST', body: JSON.stringify({ data }) })
+      const payload = await res.json().catch(() => null)
+      if (!res.ok || !payload?.imageUrl) throw new Error(payload?.error || 'No se pudo subir la imagen.')
+      setPostImages(previous => ({ ...previous, [index]: payload.imageUrl }))
+      setImageStatus(previous => ({ ...previous, [index]: 'done' }))
+    } catch (error) {
+      setImageStatus(previous => ({ ...previous, [index]: 'error' }))
+      showNotice(error instanceof Error ? error.message : 'No se pudo subir la imagen.')
+    }
+  }
+
+  async function generateImage(post, index) {
+    setImageStatus(previous => ({ ...previous, [index]: 'generating' }))
+    try {
+      const res = await apiFetch('/api/metricool/ai/image', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: post.text }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.imageUrl) throw new Error(data?.error || 'No se pudo generar la imagen.')
+      setPostImages(previous => ({ ...previous, [index]: data.imageUrl }))
+      setImageStatus(previous => ({ ...previous, [index]: 'done' }))
+    } catch (error) {
+      setImageStatus(previous => ({ ...previous, [index]: 'error' }))
+      showNotice(error instanceof Error ? error.message : 'No se pudo generar la imagen.')
     }
   }
 
@@ -229,6 +272,7 @@ export default function ConectarRedesPage() {
         method: 'POST',
         body: JSON.stringify({
           text: post.text,
+          imageUrl: (postImages[index] ?? '').trim() || undefined,
           platforms: [post.platform],
           campaignId: selectedCampaignId,
           cta: socialCta.trim() || undefined,
@@ -323,18 +367,9 @@ export default function ConectarRedesPage() {
                 })}
               </div>
             )}
-            {embedUrl ? (
-              <div className="social-panel" style={{ padding: 0, overflow: 'hidden' }}>
-                <iframe className="social-embed-frame" src={embedUrl} title="Metricool" />
-              </div>
-            ) : (
-              <div className="social-panel"><div className="social-side-empty"><RiGlobalLine aria-hidden="true" /><p>Metricool está conectado. Abre su planificador para revisar y ajustar tus borradores.</p>{providerUrl && <a className="social-text-button" href={providerUrl} target="_blank" rel="noreferrer">Abrir Metricool <RiExternalLinkLine /></a>}</div></div>
-            )}
-            {embedUrl && (
-              <a className="social-text-button" href={embedUrl} target="_blank" rel="noreferrer">
-                Abrir Metricool en una pestaña nueva <RiExternalLinkLine />
-              </a>
-            )}
+            {/* El iframe embebido se elimino: ni GET /api/metricool ni POST /api/metricool/connect
+                devuelven `embedUrl`, asi que esta rama nunca se renderizaba. */}
+            <div className="social-panel"><div className="social-side-empty"><RiGlobalLine aria-hidden="true" /><p>Metricool está conectado. Abre su planificador para revisar y ajustar tus borradores.</p>{providerUrl && <a className="social-text-button" href={providerUrl} target="_blank" rel="noreferrer">Abrir Metricool <RiExternalLinkLine /></a>}</div></div>
           </>
         )}
       </section>
@@ -452,6 +487,37 @@ export default function ConectarRedesPage() {
                     <div className="social-ai-post-copy">
                       <div><span className="social-ai-post-type" style={{ color: meta.color }}>{meta.name}</span></div>
                       <p>{post.text}</p>
+                      <div className="social-ai-post-image">
+                        {postImages[index] && <img src={postImages[index]} alt="Imagen del post" />}
+                        <label className={`social-text-button${imageStatus[index] === 'uploading' || status === 'creating' || status === 'done' ? ' disabled' : ''}`}>
+                          <RiImageAddLine /> {imageStatus[index] === 'uploading' ? 'Subiendo…' : 'Subir imagen'}
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            hidden
+                            disabled={imageStatus[index] === 'uploading' || status === 'creating' || status === 'done'}
+                            onChange={event => { void uploadImage(event.target.files?.[0], index); event.target.value = '' }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="social-text-button"
+                          disabled={imageStatus[index] === 'generating' || imageStatus[index] === 'uploading' || status === 'creating' || status === 'done'}
+                          onClick={() => generateImage(post, index)}
+                        >
+                          <RiSparkling2Line /> {imageStatus[index] === 'generating' ? 'Generando imagen…' : 'Generar imagen con IA'}
+                        </button>
+                        {postImages[index] && status !== 'creating' && status !== 'done' && (
+                          <button
+                            type="button"
+                            className="social-text-button"
+                            aria-label="Quitar imagen"
+                            onClick={() => setPostImages(previous => ({ ...previous, [index]: undefined }))}
+                          >
+                            <RiCloseLine /> Quitar
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <button
                       type="button"

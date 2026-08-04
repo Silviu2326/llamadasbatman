@@ -23,17 +23,17 @@ import { getLocale, localeCode, useI18n } from '../i18n'
 
 // ─── type → display config ────────────────────────────────────────────────────
 const TYPE_CFG = {
-  'Producto':          { IconEl: RiBook2Line,       color: '#7c3aed', iconBg: 'linear-gradient(135deg,#4f46e5,#7c3aed)', iconColor: '#c4b5fd' },
-  'Servicios':         { IconEl: RiShieldLine,      color: '#0891b2', iconBg: 'linear-gradient(135deg,#0e7490,#0891b2)', iconColor: '#67e8f9' },
-  'Precios y planes':  { IconEl: RiPriceTag3Line,   color: '#059669', iconBg: 'linear-gradient(135deg,#047857,#059669)', iconColor: '#6ee7b7' },
-  'Objeciones comunes':{ IconEl: RiGroupLine,       color: '#d97706', iconBg: 'linear-gradient(135deg,#b45309,#d97706)', iconColor: '#fcd34d' },
-  'Procesos internos': { IconEl: RiFlowChart,       color: '#dc2626', iconBg: 'linear-gradient(135deg,#991b1b,#dc2626)', iconColor: '#fca5a5' },
-  'Casos de éxito':    { IconEl: RiTrophyLine,      color: '#0891b2', iconBg: 'linear-gradient(135deg,#065f46,#059669)', iconColor: '#6ee7b7' },
-  'Integraciones':     { IconEl: RiPlugLine,        color: '#3b82f6', iconBg: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', iconColor: '#93c5fd' },
-  'Recursos de ventas':{ IconEl: RiShoppingCart2Line,color: '#ea580c', iconBg: 'linear-gradient(135deg,#c2410c,#ea580c)', iconColor: '#fdba74' },
-  'document':          { IconEl: RiBook2Line,       color: '#7c3aed', iconBg: 'linear-gradient(135deg,#4f46e5,#7c3aed)', iconColor: '#c4b5fd' },
-  'faq':               { IconEl: RiGroupLine,       color: '#d97706', iconBg: 'linear-gradient(135deg,#b45309,#d97706)', iconColor: '#fcd34d' },
-  'url':               { IconEl: RiPlugLine,        color: '#0891b2', iconBg: 'linear-gradient(135deg,#0e7490,#0891b2)', iconColor: '#67e8f9' },
+  'Producto':          { IconEl: RiBook2Line,       color: 'var(--violet-deep)', iconBg: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', iconColor: 'var(--violet-soft)' },
+  'Servicios':         { IconEl: RiShieldLine,      color: 'var(--cyan-deep)', iconBg: 'linear-gradient(135deg,var(--cyan-deep),var(--cyan-deep))', iconColor: 'var(--cyan-soft)' },
+  'Precios y planes':  { IconEl: RiPriceTag3Line,   color: 'var(--success-deep)', iconBg: 'linear-gradient(135deg,var(--success-deep),var(--success-deep))', iconColor: 'var(--success-soft)' },
+  'Objeciones comunes':{ IconEl: RiGroupLine,       color: 'var(--warn-deep)', iconBg: 'linear-gradient(135deg,var(--warn-deep),var(--warn-deep))', iconColor: 'var(--warn-soft)' },
+  'Procesos internos': { IconEl: RiFlowChart,       color: 'var(--danger-deep)', iconBg: 'linear-gradient(135deg,var(--danger-deep),var(--danger-deep))', iconColor: 'var(--danger-faint)' },
+  'Casos de éxito':    { IconEl: RiTrophyLine,      color: 'var(--cyan-deep)', iconBg: 'linear-gradient(135deg,var(--success-deep),var(--success-deep))', iconColor: 'var(--success-soft)' },
+  'Integraciones':     { IconEl: RiPlugLine,        color: 'var(--info-deep)', iconBg: 'linear-gradient(135deg,var(--info-deep),var(--info-deep))', iconColor: 'var(--info)' },
+  'Recursos de ventas':{ IconEl: RiShoppingCart2Line,color: 'var(--warn)', iconBg: 'linear-gradient(135deg,var(--warn-deep),var(--warn))', iconColor: 'var(--warn-soft)' },
+  'document':          { IconEl: RiBook2Line,       color: 'var(--violet-deep)', iconBg: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', iconColor: 'var(--violet-soft)' },
+  'faq':               { IconEl: RiGroupLine,       color: 'var(--warn-deep)', iconBg: 'linear-gradient(135deg,var(--warn-deep),var(--warn-deep))', iconColor: 'var(--warn-soft)' },
+  'url':               { IconEl: RiPlugLine,        color: 'var(--cyan-deep)', iconBg: 'linear-gradient(135deg,var(--cyan-deep),var(--cyan-deep))', iconColor: 'var(--cyan-soft)' },
 }
 const DEFAULT_CFG = TYPE_CFG['document']
 
@@ -59,7 +59,7 @@ function mapArticle(a) {
     catColor: cfg.color,
     author: '—',
     date: new Date(a.createdAt).toLocaleDateString(localeCode(getLocale())),
-    visits: 0,
+    visits: null,
     iconBg: cfg.iconBg,
     IconEl: cfg.IconEl,
     iconColor: cfg.iconColor,
@@ -68,15 +68,15 @@ function mapArticle(a) {
 
 // ─── category sidebar defs ─────────────────────────────────────────────────────
 const CAT_DEFS = [
-  { label: 'Todas las categorías', IconEl: RiBookReadLine,      color: '#7c3aed' },
-  { label: 'Producto',             IconEl: RiBook2Line,         color: '#7c3aed' },
-  { label: 'Servicios',            IconEl: RiShieldLine,        color: '#0891b2' },
-  { label: 'Precios y planes',     IconEl: RiPriceTag3Line,     color: '#059669' },
-  { label: 'Objeciones comunes',   IconEl: RiGroupLine,         color: '#d97706' },
-  { label: 'Procesos internos',    IconEl: RiFlowChart,         color: '#dc2626' },
-  { label: 'Casos de éxito',       IconEl: RiTrophyLine,        color: '#0891b2' },
-  { label: 'Integraciones',        IconEl: RiPlugLine,          color: '#7c3aed' },
-  { label: 'Recursos de ventas',   IconEl: RiShoppingCart2Line, color: '#ea580c' },
+  { label: 'Todas las categorías', IconEl: RiBookReadLine,      color: 'var(--violet-deep)' },
+  { label: 'Producto',             IconEl: RiBook2Line,         color: 'var(--violet-deep)' },
+  { label: 'Servicios',            IconEl: RiShieldLine,        color: 'var(--cyan-deep)' },
+  { label: 'Precios y planes',     IconEl: RiPriceTag3Line,     color: 'var(--success-deep)' },
+  { label: 'Objeciones comunes',   IconEl: RiGroupLine,         color: 'var(--warn-deep)' },
+  { label: 'Procesos internos',    IconEl: RiFlowChart,         color: 'var(--danger-deep)' },
+  { label: 'Casos de éxito',       IconEl: RiTrophyLine,        color: 'var(--cyan-deep)' },
+  { label: 'Integraciones',        IconEl: RiPlugLine,          color: 'var(--violet-deep)' },
+  { label: 'Recursos de ventas',   IconEl: RiShoppingCart2Line, color: 'var(--warn)' },
 ]
 
 const KB_PAGE_SIZE = 8
@@ -92,26 +92,26 @@ function CatItem({ cat, active, onClick }) {
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: 9,
         padding: '7px 10px', borderRadius: 10, border: 'none', cursor: 'pointer',
-        background: active ? `${cat.color}18` : hov ? '#0f1520' : 'transparent',
+        background: active ? `color-mix(in srgb, ${cat.color} 9%, transparent)` : hov ? 'var(--surface)' : 'transparent',
         transition: 'all .18s', marginBottom: 2,
-        boxShadow: active ? `inset 0 0 0 1px ${cat.color}35` : 'none',
+        boxShadow: active ? `inset 0 0 0 1px color-mix(in srgb, ${cat.color} 21%, transparent)` : 'none',
       }}
     >
       <div style={{
         width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-        background: active ? `${cat.color}30` : '#1a2235',
+        background: active ? `color-mix(in srgb, ${cat.color} 19%, transparent)` : 'var(--surface-hover)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: active ? `1px solid ${cat.color}50` : '1px solid #1e2433',
+        border: active ? `1px solid color-mix(in srgb, ${cat.color} 31%, transparent)` : '1px solid var(--line)',
       }}>
-        <cat.IconEl style={{ width: 13, height: 13, color: active ? cat.color : '#6b7280' }} />
+        <cat.IconEl style={{ width: 13, height: 13, color: active ? cat.color : 'var(--dim)' }} />
       </div>
       <span style={{
         flex: 1, textAlign: 'left', fontSize: 13, fontWeight: active ? 700 : 500,
-        color: active ? '#f1f5f9' : '#9ca3af',
+        color: active ? 'var(--text-strong)' : 'var(--muted)',
       }}>{cat.label}</span>
       <span style={{
-        fontSize: 11, fontWeight: 600, color: active ? cat.color : '#4b5563',
-        background: active ? `${cat.color}20` : '#1a2235',
+        fontSize: 11, fontWeight: 600, color: active ? cat.color : 'var(--faint)',
+        background: active ? `color-mix(in srgb, ${cat.color} 13%, transparent)` : 'var(--surface-hover)',
         padding: '1px 7px', borderRadius: 20,
       }}>{cat.count}</span>
     </button>
@@ -137,11 +137,13 @@ function ArticleRow({ art, onClick, onDelete }) {
       onMouseLeave={() => setHov(false)}
       onClick={onClick}
       style={{
-        display: 'grid', gridTemplateColumns: '1fr 160px 170px 80px 36px',
+        // minmax() en vez de anchos fijos: 446px de columnas rígidas desbordaban
+        // el panel central en cuanto la ventana bajaba de ~1100px.
+        display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(84px, 160px) minmax(84px, 170px) minmax(40px, 80px) 36px',
         alignItems: 'center', gap: 12,
         padding: '12px 16px',
-        background: hov ? '#0d1420' : 'transparent',
-        borderBottom: '1px solid #131929',
+        background: hov ? 'var(--surface)' : 'transparent',
+        borderBottom: '1px solid var(--line)',
         transition: 'background .15s', cursor: 'pointer',
       }}
     >
@@ -151,18 +153,18 @@ function ArticleRow({ art, onClick, onDelete }) {
           width: 38, height: 38, borderRadius: 10, flexShrink: 0,
           background: art.iconBg,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 0 12px ${art.catColor}30`,
+          boxShadow: `0 0 12px color-mix(in srgb, ${art.catColor} 19%, transparent)`,
         }}>
           <art.IconEl style={{ width: 18, height: 18, color: art.iconColor }} />
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--text-strong)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {art.title}
             </p>
-            {art.starred && <RiStarFill style={{ width: 13, height: 13, color: '#fbbf24', flexShrink: 0 }} />}
+            {art.starred && <RiStarFill style={{ width: 13, height: 13, color: 'var(--warn-soft)', flexShrink: 0 }} />}
           </div>
-          <p style={{ margin: 0, fontSize: 11.5, color: '#4b5563', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ margin: 0, fontSize: 11.5, color: 'var(--dim)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {art.desc}
           </p>
         </div>
@@ -172,36 +174,36 @@ function ArticleRow({ art, onClick, onDelete }) {
       <div>
         <span style={{
           fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-          background: `${art.catColor}20`, color: art.catColor,
-          border: `1px solid ${art.catColor}40`, whiteSpace: 'nowrap',
+          background: `color-mix(in srgb, ${art.catColor} 13%, transparent)`, color: art.catColor,
+          border: `1px solid color-mix(in srgb, ${art.catColor} 25%, transparent)`, whiteSpace: 'nowrap',
         }}>{art.catLabel}</span>
       </div>
 
       {/* Author + date */}
       <div>
-        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: '#94a3b8' }}>{art.author}</p>
-        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#374151' }}>{art.date}</p>
+        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}>{art.author}</p>
+        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--dim)' }}>{art.date}</p>
       </div>
 
       {/* Visits */}
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#6b7280', textAlign: 'right' }}>{art.visits}</p>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--dim)', textAlign: 'right' }}>{art.visits}</p>
 
       {/* More menu */}
       <div ref={menuRef} style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
         <button
           onClick={() => setMenuOpen(o => !o)}
           style={{
-            width: 28, height: 28, borderRadius: 7, border: '1px solid #1e2433',
-            background: menuOpen ? '#1e2433' : 'transparent', color: '#4b5563', cursor: 'pointer',
+            width: 28, height: 28, borderRadius: 7, border: '1px solid var(--line)',
+            background: menuOpen ? 'var(--line)' : 'transparent', color: 'var(--dim)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
           <RiMoreLine style={{ width: 14, height: 14 }} />
         </button>
         {menuOpen && (
-          <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10, padding: 4, minWidth: 140, boxShadow: '0 8px 32px #00000060' }}>
+          <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: 4, minWidth: 140, boxShadow: 'var(--shadow-2)' }}>
             <button
               onClick={() => { setMenuOpen(false); onDelete(art.id) }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'none', border: 'none', borderRadius: 7, color: '#ef4444', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'none', border: 'none', borderRadius: 7, color: 'var(--danger)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
               onMouseEnter={e => e.currentTarget.style.background = '#ef444412'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
@@ -307,6 +309,7 @@ export default function KnowledgeBase() {
   const [dataError, setDataError] = useState('')
 
   useEffect(() => {
+    let active = true
     setDataStatus('loading')
     setDataError('')
     apiFetch('/api/knowledge')
@@ -315,11 +318,13 @@ export default function KnowledgeBase() {
         return r.json()
       })
       .then(data => {
+        if (!active) return
         const next = Array.isArray(data) ? data : []
         setRaw(DEMO_MODE ? (next.length ? next : DEMO_RAW) : next)
         setDataStatus(DEMO_MODE ? 'demo' : next.length ? 'live' : 'empty')
       })
       .catch(error => {
+        if (!active) return
         if (DEMO_MODE) {
           setRaw(DEMO_RAW)
           setDataStatus('demo')
@@ -331,6 +336,7 @@ export default function KnowledgeBase() {
         setDataStatus(status)
         setDataError(statusMessage(status, { error: 'No se pudo cargar la base de conocimiento.' }))
       })
+    return () => { active = false }
   }, [refreshKey])
 
   const articles = useMemo(() => raw.map(mapArticle), [raw])
@@ -372,7 +378,7 @@ export default function KnowledgeBase() {
     rank: i + 1,
     title: a.title,
     views: '—',
-    rankColor: ['#7c3aed','#059669','#3b82f6','#d97706','#0d9488'][i],
+    rankColor: ['var(--violet-deep)','var(--success-deep)','var(--info-deep)','var(--warn-deep)','var(--success)'][i],
   })), [articles])
 
   async function handleDelete(id) {
@@ -402,35 +408,35 @@ export default function KnowledgeBase() {
       }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#f1f5f9', letterSpacing: -0.5 }}>{t('modules.knowledgeTitle')}</h1>
+            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.5 }}>{t('modules.knowledgeTitle')}</h1>
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)' }}>
             Centraliza y organiza la información clave para tus agentes IA y tu equipo.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
           {/* Search */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '8px 14px', borderRadius: 10,
-            border: '1px solid #1e2433', background: '#0d1117',
+            border: '1px solid var(--line)', background: 'var(--surface)',
             flex: 1,
           }}>
-            <RiSearchLine style={{ width: 15, height: 15, color: '#4b5563', flexShrink: 0 }} />
+            <RiSearchLine style={{ width: 15, height: 15, color: 'var(--dim)', flexShrink: 0 }} />
             <input value={searchTerm} onChange={event => { setSearchTerm(event.target.value); setActivePage(1) }} placeholder="Buscar en la knowledge base..." style={{
               flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              color: '#94a3b8', fontSize: 13,
+              color: 'var(--muted)', fontSize: 13,
             }} />
             <kbd style={{
-              fontSize: 10, color: '#374151', background: '#131929',
-              border: '1px solid #1e2433', borderRadius: 5, padding: '2px 6px', fontFamily: 'inherit',
+              fontSize: 10, color: 'var(--dim)', background: 'var(--line)',
+              border: '1px solid var(--line)', borderRadius: 5, padding: '2px 6px', fontFamily: 'inherit',
             }}>⌘ K</kbd>
           </div>
           {/* New article */}
           <button onClick={() => setShowNewArticle(true)} style={{
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '9px 16px', borderRadius: 10, border: 'none',
-            background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+            background: 'linear-gradient(90deg, var(--accent-deep), var(--violet-deep))',
             color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
             boxShadow: '0 0 20px #7c3aed40',
           }}>
@@ -442,16 +448,16 @@ export default function KnowledgeBase() {
           <button style={{
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '9px 16px', borderRadius: 10,
-            border: '1px solid #1e2433', background: 'transparent',
-            color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            border: '1px solid var(--line)', background: 'transparent',
+            color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
           }} onClick={() => setShowUploadPanel(true)}>
-            <RiDownloadLine style={{ width: 15, height: 15 }} />
+            <RiUploadCloud2Line style={{ width: 15, height: 15 }} />
             Importar
           </button>
         </div>
       </div>
 
-      <section className="kb-knowledge-hero" aria-labelledby="kb-hero-title"><div className="kb-knowledge-hero-copy"><span className="kb-hero-overline"><RiSparklingLine /> Knowledge intelligence</span><h2 id="kb-hero-title">Todo el conocimiento<br /><b>listo para responder.</b></h2><p>Conecta documentos, procesos y respuestas en una base que tus agentes pueden consultar en segundos.</p><div className="kb-hero-actions"><button onClick={() => setShowNewArticle(true)}><RiAddLine /> Crear artículo</button><span><i /> Sincronización activa <small>· {raw.length} fuentes conectadas</small></span></div></div><div className="kb-knowledge-hero-art"><img src={knowledgeHeroImage} alt="Red visual de documentos conectados a un núcleo de conocimiento" /><div className="kb-hero-art-label"><RiBookReadLine /><span><b>Knowledge graph</b><small>Organizado y disponible</small></span></div></div></section>
+      <section className="kb-knowledge-hero" aria-labelledby="kb-hero-title"><div className="kb-knowledge-hero-copy"><span className="kb-hero-overline"><RiSparklingLine /> Knowledge intelligence</span><h2 id="kb-hero-title">Todo el conocimiento<br /><b>listo para responder.</b></h2><p>Conecta documentos, procesos y respuestas en una base que tus agentes pueden consultar en segundos.</p><div className="kb-hero-actions"><button onClick={() => setShowNewArticle(true)}><RiAddLine /> Crear artículo</button><span><i /> {dataStatus === 'live' ? 'Sincronización activa' : dataStatus === 'empty' ? 'Sin artículos todavía' : 'Sin sincronizar'} <small>· {raw.length} {raw.length === 1 ? 'fuente conectada' : 'fuentes conectadas'}</small></span></div></div><div className="kb-knowledge-hero-art"><img src={knowledgeHeroImage} alt="Red visual de documentos conectados a un núcleo de conocimiento" /><div className="kb-hero-art-label"><RiBookReadLine /><span><b>Knowledge graph</b><small>Organizado y disponible</small></span></div></div></section>
 
       <DataStatusBanner
         status={dataStatus}
@@ -466,15 +472,15 @@ export default function KnowledgeBase() {
 
       {/* Delete confirm modal */}
       {deleteTarget && (
-        <div onClick={() => setDeleteTarget(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: 24, width: 340, boxShadow: '0 40px 80px #0009' }}>
-            <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>¿Eliminar artículo?</p>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>El artículo se desactivará y no aparecerá en la base de conocimiento.</p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteTarget(null)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>
+        <div className="app-modal-backdrop" onClick={() => setDeleteTarget(null)} style={{ zIndex: 100, background: 'var(--scrim)' }}>
+          <div className="app-modal-card dark-scroll" onClick={e => e.stopPropagation()} style={{ '--modal-width': '340px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: 24, boxShadow: 'var(--shadow-2)' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>¿Eliminar artículo?</p>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--dim)' }}>El artículo se desactivará y no aparecerá en la base de conocimiento.</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
                 Cancelar
               </button>
-              <button onClick={() => { handleDelete(deleteTarget); setDeleteTarget(null) }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: '#ef4444', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => { handleDelete(deleteTarget); setDeleteTarget(null) }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 Eliminar
               </button>
             </div>
@@ -483,19 +489,17 @@ export default function KnowledgeBase() {
       )}
 
       {/* Body: 3 columns */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '16px 28px 24px', gap: 16 }}>
+      <div className="kb-body split-pane split-pane--fill" style={{ flex: 1, padding: '16px 28px 24px', gap: 16 }}>
 
         {/* ── Left: categories ── */}
-        <div className="panel-desktop" style={{
-          width: 210, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12,
-        }}>
+        <div className="split-rail" style={{ '--rail-width': '210px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Category list */}
           <div style={{
-            background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14,
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14,
             padding: '14px 10px', flex: '0 0 auto',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 6px', marginBottom: 10 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.5, textTransform: 'uppercase' }}>Categorías</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)', letterSpacing: 0.5, textTransform: 'uppercase' }}>Categorías</span>
             </div>
             {categories.map((cat, i) => (
               <CatItem key={i} cat={cat} active={activeCategory === i} onClick={() => { setActiveCategory(i); setActivePage(1) }} />
@@ -504,7 +508,7 @@ export default function KnowledgeBase() {
 
           {/* Promo card */}
           <div style={{
-            background: 'linear-gradient(135deg, #1e1060 0%, #0f172a 100%)',
+            background: 'linear-gradient(135deg, var(--accent-bg) 0%, var(--surface-2) 100%)',
             border: '1px solid #4f46e530',
             borderRadius: 14, padding: '16px',
             position: 'relative', overflow: 'hidden',
@@ -516,24 +520,24 @@ export default function KnowledgeBase() {
             }} />
             <div style={{
               width: 34, height: 34, borderRadius: 9,
-              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              background: 'linear-gradient(135deg, var(--accent-deep), var(--violet-deep))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               marginBottom: 10,
               boxShadow: '0 0 16px #7c3aed50',
             }}>
-              <RiSparklingLine style={{ width: 17, height: 17, color: '#c4b5fd' }} />
+              <RiSparklingLine style={{ width: 17, height: 17, color: 'var(--violet-soft)' }} />
             </div>
-            <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 700, color: 'var(--text-strong)' }}>
               Potencia a tus agentes IA
             </p>
-            <p style={{ margin: '0 0 12px', fontSize: 11.5, color: '#64748b', lineHeight: 1.5 }}>
+            <p style={{ margin: '0 0 12px', fontSize: 11.5, color: 'var(--dim)', lineHeight: 1.5 }}>
               Una base de conocimiento actualizada mejora las respuestas y aumenta la conversión.
             </p>
             <button type="button" onClick={() => { setActiveCategory(CAT_DEFS.findIndex(cat => cat.label === 'Recursos de ventas')); setSearchTerm(''); setActivePage(1) }} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 12px', borderRadius: 8,
               border: '1px solid #4f46e550', background: '#4f46e520',
-              color: '#a78bfa', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              color: 'var(--violet)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
             }}>
               Ver recursos de ventas
               <RiArrowRightLine style={{ width: 13, height: 13 }} />
@@ -544,18 +548,19 @@ export default function KnowledgeBase() {
         {/* ── Center: article list ── */}
         <div style={{
           flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
-          background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14,
+          background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14,
           overflow: 'hidden',
         }}>
-          {/* Column headers */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 160px 170px 80px 36px',
+          {/* Column headers — .panel-desktop los oculta por debajo de 768px,
+              donde knowledge-base.css ya colapsa cada fila a tarjeta. */}
+          <div className="panel-desktop" style={{
+            display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(84px, 160px) minmax(84px, 170px) minmax(40px, 80px) 36px',
             gap: 12, padding: '8px 16px',
-            borderBottom: '1px solid #131929', flexShrink: 0,
+            borderBottom: '1px solid var(--line)', flexShrink: 0,
           }}>
             {['Artículo', 'Categoría', 'Creado', 'Visitas', ''].map((h, i) => (
               <p key={i} style={{
-                margin: 0, fontSize: 11, fontWeight: 600, color: '#374151',
+                margin: 0, fontSize: 11, fontWeight: 600, color: 'var(--dim)',
                 textTransform: 'uppercase', letterSpacing: 0.4,
                 textAlign: i === 3 ? 'right' : 'left',
               }}>{h}</p>
@@ -563,10 +568,10 @@ export default function KnowledgeBase() {
           </div>
 
           {/* Article rows */}
-          <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
             {paginated.length === 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, color: '#4b5563', fontSize: 13 }}>
-                {dataStatus === 'loading' ? 'Cargando…' : dataStatus === 'error' || dataStatus === 'disconnected' ? 'No hay datos disponibles porque la API no responde.' : dataStatus === 'demo' ? 'El modo demo no tiene artículos para este filtro.' : 'Sin artículos en esta categoría'}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, color: 'var(--dim)', fontSize: 13 }}>
+                {dataStatus === 'loading' ? 'Cargando…' : dataStatus === 'error' || dataStatus === 'disconnected' ? 'No hay datos disponibles porque el servicio no responde.' : dataStatus === 'demo' ? 'El modo demo no tiene artículos para este filtro.' : 'Sin artículos en esta categoría'}
               </div>
             ) : (
               paginated.map(art => (
@@ -583,9 +588,9 @@ export default function KnowledgeBase() {
           {/* Pagination */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '10px 16px', borderTop: '1px solid #131929', flexShrink: 0,
+            padding: '10px 16px', borderTop: '1px solid var(--line)', flexShrink: 0,
           }}>
-            <span style={{ fontSize: 12, color: '#4b5563' }}>
+            <span style={{ fontSize: 12, color: 'var(--dim)' }}>
               Mostrando {Math.min((activePage - 1) * KB_PAGE_SIZE + 1, filtered.length)} a {Math.min(activePage * KB_PAGE_SIZE, filtered.length)} de {filtered.length} artículos
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -598,8 +603,8 @@ export default function KnowledgeBase() {
             <button type="button" onClick={() => { setActiveCategory(0); setSearchTerm(''); setActivePage(1) }} style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '5px 10px', borderRadius: 8,
-              border: '1px solid #1e2433', background: 'transparent',
-              color: '#6b7280', fontSize: 12, cursor: 'pointer',
+              border: '1px solid var(--line)', background: 'transparent',
+              color: 'var(--dim)', fontSize: 12, cursor: 'pointer',
             }}>
               {KB_PAGE_SIZE} por página
               <HiChevronDown style={{ width: 12, height: 12 }} />
@@ -608,34 +613,31 @@ export default function KnowledgeBase() {
         </div>
 
         {/* ── Right: summary panel ── */}
-        <div className="dark-scroll panel-desktop" style={{
-          width: 268, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14,
-          overflowY: 'auto',
-        }}>
+        <div className="dark-scroll split-rail" style={{ '--rail-width': '268px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
           {/* Resumen */}
           <div style={{
-            background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '16px',
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px',
           }}>
-            <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Resumen de la base</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: 'var(--text-strong)' }}>Resumen de la base</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 110px), 1fr))', gap: 10 }}>
               {[
-                { IconEl: RiBook2Line,   color: '#7c3aed', bg: '#7c3aed', val: String(raw.length),   lbl: 'Artículos' },
-                { IconEl: RiEyeLine,     color: '#22d3ee', bg: '#0891b2', val: String(uniqueTypes),   lbl: 'Categorías' },
-                { IconEl: RiThumbUpLine, color: '#4ade80', bg: '#059669', val: '—',                   lbl: 'Útiles' },
-                { IconEl: RiEdit2Line,   color: '#fbbf24', bg: '#d97706', val: String(thisMonth),     lbl: 'Nuevos este\nmes' },
+                { IconEl: RiBook2Line,   color: 'var(--violet-deep)', bg: 'var(--violet-deep)', val: String(raw.length),   lbl: 'Artículos' },
+                { IconEl: RiEyeLine,     color: 'var(--cyan)', bg: 'var(--cyan-deep)', val: String(uniqueTypes),   lbl: 'Categorías' },
+                { IconEl: RiThumbUpLine, color: 'var(--success-soft)', bg: 'var(--success-deep)', val: '—',                   lbl: 'Útiles' },
+                { IconEl: RiEdit2Line,   color: 'var(--warn-soft)', bg: 'var(--warn-deep)', val: String(thisMonth),     lbl: 'Nuevos este\nmes' },
               ].map((s, i) => (
                 <div key={i} style={{
-                  background: '#0a0e1a', border: '1px solid #1a2235', borderRadius: 10, padding: '10px 12px',
+                  background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px',
                 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: 7,
-                    background: `${s.bg}25`, border: `1px solid ${s.bg}50`,
+                    background: `color-mix(in srgb, ${s.bg} 15%, transparent)`, border: `1px solid color-mix(in srgb, ${s.bg} 31%, transparent)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 7,
                   }}>
                     <s.IconEl style={{ width: 14, height: 14, color: s.color }} />
                   </div>
-                  <p style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>{s.val}</p>
-                  <p style={{ margin: 0, fontSize: 10.5, color: '#4b5563', whiteSpace: 'pre-line', lineHeight: 1.3 }}>{s.lbl}</p>
+                  <p style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 800, color: 'var(--text-strong)' }}>{s.val}</p>
+                  <p style={{ margin: 0, fontSize: 10.5, color: 'var(--dim)', whiteSpace: 'pre-line', lineHeight: 1.3 }}>{s.lbl}</p>
                 </div>
               ))}
             </div>
@@ -643,12 +645,12 @@ export default function KnowledgeBase() {
 
           {/* Popular articles */}
           <div style={{
-            background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '16px',
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px',
           }}>
-            <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Artículos recientes</p>
+            <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: 'var(--text-strong)' }}>Artículos recientes</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {popular.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: '#4b5563' }}>Sin artículos aún</p>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--dim)' }}>Sin artículos aún</p>
               ) : popular.map((p, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 6px', borderRadius: 8,
@@ -656,13 +658,13 @@ export default function KnowledgeBase() {
                 }}>
                   <div style={{
                     width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                    background: `${p.rankColor}20`, border: `1px solid ${p.rankColor}40`,
+                    background: `color-mix(in srgb, ${p.rankColor} 13%, transparent)`, border: `1px solid color-mix(in srgb, ${p.rankColor} 25%, transparent)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 11, fontWeight: 800, color: p.rankColor, marginTop: 1,
                   }}>{p.rank}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: '0 0 2px', fontSize: 12.5, fontWeight: 600, color: '#e2e8f0', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: '#4b5563' }}>{p.views}</p>
+                    <p style={{ margin: '0 0 2px', fontSize: 12.5, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--dim)' }}>{p.views}</p>
                   </div>
                 </div>
               ))}
@@ -671,34 +673,34 @@ export default function KnowledgeBase() {
 
           {/* No encuentras */}
           <div style={{
-            background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '16px',
+            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '16px',
           }}>
-            <p style={{ margin: '0 0 6px', fontSize: 13.5, fontWeight: 700, color: '#f1f5f9' }}>¿No encuentras lo que buscas?</p>
-            <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+            <p style={{ margin: '0 0 6px', fontSize: 13.5, fontWeight: 700, color: 'var(--text-strong)' }}>¿No encuentras lo que buscas?</p>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
               Solicita un nuevo artículo para que el equipo lo cree para ti.
             </p>
             <button onClick={() => setShowRequestModal(true)} style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '7px 12px', borderRadius: 8,
-              border: '1px solid #1e2433', background: 'transparent',
-              color: '#94a3b8', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+              border: '1px solid var(--line)', background: 'transparent',
+              color: 'var(--muted)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
             }}>
-              <RiAddCircleLine style={{ width: 15, height: 15, color: '#7c3aed' }} />
+              <RiAddCircleLine style={{ width: 15, height: 15, color: 'var(--violet-deep)' }} />
               Solicitar artículo
             </button>
             {showRequestModal && (
-              <div onClick={() => setShowRequestModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', width: 380, boxShadow: '0 40px 80px #0009' }}>
-                  <p style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Solicitar artículo</p>
-                  <input value={requestTitle} onChange={e => setRequestTitle(e.target.value)} placeholder="Título del artículo..." style={{ width: '100%', boxSizing: 'border-box', background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, outline: 'none', marginBottom: 10 }} />
-                  <textarea value={requestDesc} onChange={e => setRequestDesc(e.target.value)} placeholder="Descripción breve de lo que necesitas..." style={{ width: '100%', boxSizing: 'border-box', minHeight: 68, background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#94a3b8', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
-                  <p style={{ margin: '0 0 14px', color: '#64748b', fontSize: 12, lineHeight: 1.45 }} role="note">
+              <div className="app-modal-backdrop" onClick={() => setShowRequestModal(false)} style={{ zIndex: 100, background: 'var(--scrim)' }}>
+                <div className="app-modal-card dark-scroll" onClick={e => e.stopPropagation()} style={{ '--modal-width': '380px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '24px', boxShadow: 'var(--shadow-2)' }}>
+                  <p style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>Solicitar artículo</p>
+                  <input value={requestTitle} onChange={e => setRequestTitle(e.target.value)} placeholder="Título del artículo..." style={{ width: '100%', boxSizing: 'border-box', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, padding: '9px 12px', color: 'var(--muted)', fontSize: 13, outline: 'none', marginBottom: 10 }} />
+                  <textarea value={requestDesc} onChange={e => setRequestDesc(e.target.value)} placeholder="Descripción breve de lo que necesitas..." style={{ width: '100%', boxSizing: 'border-box', minHeight: 68, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, padding: '9px 12px', color: 'var(--muted)', fontSize: 13, resize: 'none', outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+                  <p style={{ margin: '0 0 14px', color: 'var(--dim)', fontSize: 12, lineHeight: 1.45 }} role="note">
                     Se crea una tarea en el CRM para que el equipo redacte el artículo.
                   </p>
-                  {requestError && <p style={{ margin: '0 0 12px', color: '#f87171', fontSize: 12 }} role="alert">{requestError}</p>}
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                    <button onClick={() => setShowRequestModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-                    <button type="button" disabled={!requestTitle.trim() || requestSending} onClick={submitArticleRequest} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: !requestTitle.trim() || requestSending ? 'not-allowed' : 'pointer', opacity: !requestTitle.trim() || requestSending ? 0.6 : 1 }}>{requestSending ? 'Enviando…' : 'Enviar solicitud'}</button>
+                  {requestError && <p style={{ margin: '0 0 12px', color: 'var(--danger-soft)', fontSize: 12 }} role="alert">{requestError}</p>}
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    <button onClick={() => setShowRequestModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+                    <button type="button" disabled={!requestTitle.trim() || requestSending} onClick={submitArticleRequest} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))', color: '#fff', fontSize: 13, fontWeight: 700, cursor: !requestTitle.trim() || requestSending ? 'not-allowed' : 'pointer', opacity: !requestTitle.trim() || requestSending ? 0.6 : 1 }}>{requestSending ? 'Enviando…' : 'Enviar solicitud'}</button>
                   </div>
                 </div>
               </div>
@@ -720,9 +722,9 @@ function PageBtn({ label, active, onClick, icon }) {
       onMouseLeave={() => setHov(false)}
       style={{
         minWidth: 30, height: 30, borderRadius: 7,
-        border: `1px solid ${active ? '#7c3aed' : '#1e2433'}`,
-        background: active ? '#7c3aed20' : hov ? '#0f1520' : 'transparent',
-        color: active ? '#a78bfa' : '#6b7280',
+        border: `1px solid ${active ? 'var(--violet-deep)' : 'var(--line)'}`,
+        background: active ? '#7c3aed20' : hov ? 'var(--surface)' : 'transparent',
+        color: active ? 'var(--violet)' : 'var(--dim)',
         fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '0 6px', transition: 'all .15s',

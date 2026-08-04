@@ -1,7 +1,7 @@
 .funnels-visual-story {
   overflow: hidden;
-  border-top: 1px solid #20304a;
-  background: linear-gradient(135deg, #0a101b, #0d1422);
+  border-top: 1px solid var(--line-2);
+  background: linear-gradient(135deg, var(--surface), var(--surface));
 }
 
 .funnels-visual-head {
@@ -13,19 +13,19 @@
 }
 
 .funnels-visual-head > div { min-width: 0; }
-.funnels-visual-head span { display: block; color: #8b9bb6; font-size: 8px; font-weight: 820; letter-spacing: .5px; text-transform: uppercase; }
-.funnels-visual-head h2 { overflow: hidden; margin: 5px 0 0; color: #eef3ff; font-size: 12px; letter-spacing: -.2px; text-overflow: ellipsis; white-space: nowrap; }
-.funnels-visual-head p { margin: 4px 0 0; color: #71819a; font-size: 8.5px; }
-.funnels-visual-head > svg { width: 17px; height: 17px; flex: 0 0 auto; color: #c4b5fd; }
+.funnels-visual-head span { display: block; color: var(--muted); font-size: 8px; font-weight: 820; letter-spacing: .5px; text-transform: uppercase; }
+.funnels-visual-head h2 { overflow: hidden; margin: 5px 0 0; color: var(--text-strong); font-size: 12px; letter-spacing: -.2px; text-overflow: ellipsis; white-space: nowrap; }
+.funnels-visual-head p { margin: 4px 0 0; color: var(--dim); font-size: 8.5px; }
+.funnels-visual-head > svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--violet-soft); }
 
-.funnels-visual-main { position: relative; height: 154px; overflow: hidden; border-top: 1px solid #1c2a43; border-bottom: 1px solid #1c2a43; background: #050914; }
+.funnels-visual-main { position: relative; height: 154px; overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg); }
 .funnels-visual-main img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 53%; opacity: .88; animation: funnels-visual-in .35s ease both; }
-.funnels-visual-shade { position: absolute; inset: 0; background: linear-gradient(90deg, #080c1488, transparent 42%, #080c1444), linear-gradient(0deg, #080c1466, transparent 45%); pointer-events: none; }
+.funnels-visual-shade { position: absolute; inset: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--bg) 53%, transparent), transparent 42%, color-mix(in srgb, var(--bg) 27%, transparent)), linear-gradient(0deg, color-mix(in srgb, var(--bg) 40%, transparent), transparent 45%); pointer-events: none; }
 
 .funnels-visual-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 10px; }
-.funnels-visual-picker button { position: relative; display: grid; grid-template-columns: 27px minmax(0, 1fr); align-items: center; gap: 6px; min-width: 0; height: 36px; padding: 3px; border: 1px solid #263650; border-radius: 8px; color: #7586a2; background: #101827; font: inherit; font-size: 7.5px; font-weight: 800; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, color .18s ease; }
-.funnels-visual-picker button:hover { border-color: #516687; color: #dce8f8; }
-.funnels-visual-picker button.active { border-color: #818cf899; color: #e9e7ff; background: #312e8140; }
+.funnels-visual-picker button { position: relative; display: grid; grid-template-columns: 27px minmax(0, 1fr); align-items: center; gap: 6px; min-width: 0; height: 36px; padding: 3px; border: 1px solid var(--line-2); border-radius: 8px; color: var(--dim); background: var(--surface-2); font: inherit; font-size: 7.5px; font-weight: 800; text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, color .18s ease; }
+.funnels-visual-picker button:hover { border-color: var(--line-hover); color: var(--text-2); }
+.funnels-visual-picker button.active { border-color: color-mix(in srgb, var(--accent-soft) 60%, transparent); color: var(--text-strong); background: #312e8140; }
 .funnels-visual-picker img { width: 27px; height: 28px; border-radius: 5px; object-fit: cover; object-position: center; }
 .funnels-visual-picker span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

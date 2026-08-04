@@ -44,8 +44,7 @@ La frontera de datos es la organización del JWT (`orgId`). Los controladores ex
 | `metaWebhooksRoutes` | `/api/meta/webhooks` | Lead Ads webhook | [routes/metaWebhooks.ts](../../backend/src/routes/metaWebhooks.ts) |
 | `mauticWebhooksRoutes` | `/api/webhooks/mautic` | Eventos Mautic | [routes/mauticWebhooks.ts](../../backend/src/routes/mauticWebhooks.ts) |
 | `mauticRoutes` | `/api/mautic` | Email marketing Mautic | [routes/mautic.ts](../../backend/src/routes/mautic.ts) |
-| `postizRoutes` | `/api/postiz` | Social vía Postiz | [routes/postiz.ts](../../backend/src/routes/postiz.ts) |
-| `metricoolRoutes` | `/api/metricool` | Posts orgánicos vía Metricool | [routes/metricool.ts](../../backend/src/routes/metricool.ts) |
+| `metricoolRoutes` | `/api/metricool` | Redes sociales vía Metricool | [routes/metricool.ts](../../backend/src/routes/metricool.ts) |
 | `automationsRoutes` | `/api/automations` | Automatizaciones | [routes/automations.ts](../../backend/src/routes/automations.ts) |
 | `knowledgeRoutes` | `/api/knowledge` | Base de conocimiento | [routes/knowledge.ts](../../backend/src/routes/knowledge.ts) |
 | `dashboardRoutes` | `/api/dashboard` | Resumen y actividad | [routes/dashboard.ts](../../backend/src/routes/dashboard.ts) |
@@ -192,15 +191,14 @@ Los cambios de memoria, gobierno, experimentos y publicaciones tienen controles 
 
 | Prefijo | Endpoints |
 |---|---|
-| `/api/metricool` | `GET /`, `POST /connect`, `GET /analytics`, `POST /posts`, `POST /ai/generate`. Requiere plan completo con `postizEnabled`; los posts exigen Metricool configurado, URL pública y landing publicada. |
-| `/api/postiz` | `GET /`, `POST /connect`, `GET /analytics`, `POST /posts`, `POST /ai/generate`; mismo patrón de plan/permisos. |
+| `/api/metricool` | `GET /`, `POST /connect`, `GET /analytics`, `POST /posts`, `POST /ai/generate`. Requiere plan completo con `metricoolEnabled`; los posts exigen Metricool configurado, URL pública y landing publicada. |
 | `/api/mautic` | `GET /`, `GET /campaigns`, `POST /campaigns`, `GET /templates`, `GET /templates/unclaimed`, `POST /templates/:id/claim`, `POST /campaigns/:id/send-test`, `POST /campaigns/:id/schedule`, `POST /campaigns/:id/pause`, `GET /campaigns/:id/stats`. |
 | `/api/marketing-campaigns` | `GET/POST /`, `GET/PUT /:id`, `POST /:id/validate`, `POST /:id/audience-preview`, `POST /:id/publish`, `POST /:id/pause`, `GET /:id/reconcile`. `reconcile` muta estado local aunque sea GET. |
 | `/api/email` | `GET /overview`, `GET /campaigns/:campaignId/metrics`. |
 | `/api/conversations` | `GET /`, `GET /templates`, `GET /:id`, `POST /:id/messages`, `PUT /:id`, `POST /:id/takeover`, `POST /:id/suggest`, `POST /:conversationId/next-actions/:id/accept`, `POST /:conversationId/next-actions/:id/dismiss`. Mensajería/IA de pago exige `costs.request`. |
 | `/api/whatsapp` | `POST /inbound` y `POST /status` públicos con firma Twilio; `POST /send` autenticado, con permisos de conversación y coste. |
 
-Fuentes: [metricool.controller.ts](../../backend/src/controllers/metricool.controller.ts), [metricoolSync.service.ts](../../backend/src/services/metricoolSync.service.ts), [postiz.controller.ts](../../backend/src/controllers/postiz.controller.ts), [mautic.controller.ts](../../backend/src/controllers/mautic.controller.ts), [marketingCampaigns.service.ts](../../backend/src/services/marketingCampaigns.service.ts), [conversations.service.ts](../../backend/src/services/conversations.service.ts) y [whatsapp.controller.ts](../../backend/src/controllers/whatsapp.controller.ts).
+Fuentes: [metricool.controller.ts](../../backend/src/controllers/metricool.controller.ts), [metricoolSync.service.ts](../../backend/src/services/metricoolSync.service.ts), [mautic.controller.ts](../../backend/src/controllers/mautic.controller.ts), [marketingCampaigns.service.ts](../../backend/src/services/marketingCampaigns.service.ts), [conversations.service.ts](../../backend/src/services/conversations.service.ts) y [whatsapp.controller.ts](../../backend/src/controllers/whatsapp.controller.ts).
 
 ### 5.6 Organic Leads y Google
 
@@ -248,7 +246,7 @@ El patrón habitual es `route -> controller -> service -> Prisma/provider`. Los 
 - Identidad: [auth.controller.ts](../../backend/src/controllers/auth.controller.ts) + [auth.service.ts](../../backend/src/services/auth.service.ts).
 - CRM: controladores y servicios de `leads`, `accounts`, `calls`, `meetings`, `pipeline`, `tasks`, `campaigns`.
 - Ads: `adsOverview`, `adsStrategy`, `adsWizard`, `metaAdAccount`, `metaCampaignBuilder`, `metaConversions`, `metaInsights`, `adOptimizer`.
-- Integraciones: `metricoolSync`, `postizSync`, `mauticSync`, `meta*`, `organicGoogleIntegration`, `whatsapp`.
+- Integraciones: `metricoolSync`, `mauticSync`, `meta*`, `organicGoogleIntegration`, `whatsapp`.
 - Plataforma: `accessControl`, `settings`, `dashboard`, `revenueIntelligence`, `growthPrograms`, `automations`.
 - Seguridad transversal: [lib/audit.ts](../../backend/src/lib/audit.ts), [lib/correlationId.ts](../../backend/src/lib/correlationId.ts), [lib/dataScope.ts](../../backend/src/lib/dataScope.ts), [lib/securityConfig.ts](../../backend/src/lib/securityConfig.ts), [lib/validation.ts](../../backend/src/lib/validation.ts).
 
@@ -336,7 +334,7 @@ Las migraciones están en [backend/prisma/migrations](../../backend/prisma/migra
 
 Scripts backend: `npm run db:migrate`, `npm run db:push`, `npm run db:generate`, `npm run db:seed`, `npm test`, `npm run build`.
 
-Variables críticas observadas en el código: `DATABASE_URL`, `JWT_SECRET`, `OAUTH_STATE_SECRET`, `CORS_ORIGINS`/`APP_URL`, `PUBLIC_HOST`, `META_*`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_BASE_URL`, `ORGANIC_TOKEN_ENCRYPTION_KEY`, `REDIS_URL`, `BACKGROUND_WORKERS_ENABLED`, `VOICE_SERVICE_SECRET`, `TWILIO_*`, `MAUTIC_*`, `METRICOOL_*`, `POSTIZ_*` y `FRONTEND_URL`. Producción debe usar HTTPS para callbacks/orígenes y secretos aleatorios de al menos 32 caracteres.
+Variables críticas observadas en el código: `DATABASE_URL`, `JWT_SECRET`, `OAUTH_STATE_SECRET`, `CORS_ORIGINS`/`APP_URL`, `PUBLIC_HOST`, `META_*`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_BASE_URL`, `ORGANIC_TOKEN_ENCRYPTION_KEY`, `REDIS_URL`, `BACKGROUND_WORKERS_ENABLED`, `VOICE_SERVICE_SECRET`, `TWILIO_*`, `MAUTIC_*`, `METRICOOL_*` y `FRONTEND_URL`. Producción debe usar HTTPS para callbacks/orígenes y secretos aleatorios de al menos 32 caracteres.
 
 ## 11. Errores, cobertura y build conocidos
 

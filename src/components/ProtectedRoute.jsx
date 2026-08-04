@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from './Sidebar'
+import AppErrorBoundary from './AppErrorBoundary'
 import { RiMenuLine } from 'react-icons/ri'
 import { useI18n } from '../i18n'
 
@@ -38,11 +39,11 @@ export default function ProtectedRoute() {
     requestAnimationFrame(() => menuButtonRef.current?.focus())
   }
 
-  if (isRestoring) return <main aria-busy="true" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#080c14', color: '#cbd5e1' }}>{locale === 'en' ? 'Restoring session…' : 'Restaurando sesión…'}</main>
+  if (isRestoring) return <main aria-busy="true" style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--bg)', color: 'var(--text-2)' }}>{locale === 'en' ? 'Restoring session…' : 'Restaurando sesión…'}</main>
   if (!token) return <Navigate to="/login" replace />
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#080c14', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100dvh', background: 'var(--bg)', overflow: 'hidden' }}>
       <Sidebar isOpen={sidebarOpen} />
 
       <div
@@ -57,8 +58,8 @@ export default function ProtectedRoute() {
           style={{
             alignItems: 'center', gap: 14,
             height: 54, padding: '0 16px', flexShrink: 0,
-            background: '#0d1117',
-            borderBottom: '1px solid #1e2433',
+            background: 'var(--surface)',
+            borderBottom: '1px solid var(--line)',
           }}
         >
           <button
@@ -70,9 +71,9 @@ export default function ProtectedRoute() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 36, height: 36, flexShrink: 0,
-              background: sidebarOpen ? '#1e2433' : 'transparent',
-              border: '1px solid #1e2433',
-              borderRadius: 9, color: '#94a3b8', cursor: 'pointer',
+              background: sidebarOpen ? 'var(--line)' : 'transparent',
+              border: '1px solid var(--line)',
+              borderRadius: 9, color: 'var(--muted)', cursor: 'pointer',
               transition: 'background .15s',
             }}
           >
@@ -81,12 +82,16 @@ export default function ProtectedRoute() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <img src="/logo.png" alt="VozIA" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
-            <span style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', letterSpacing: -0.4 }}>VozIA</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>VozIA</span>
           </div>
         </header>
 
         <main id="main-content" style={{ flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0 }}>
-          <Outlet />
+          {/* Un fallo de render de una página no debe tumbar el shell: la navegación sigue
+              viva y cambiar de ruta (key) resetea el boundary. */}
+          <AppErrorBoundary key={location.pathname}>
+            <Outlet />
+          </AppErrorBoundary>
         </main>
       </div>
     </div>

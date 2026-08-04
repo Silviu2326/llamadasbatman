@@ -7,8 +7,8 @@ import { getLocale, localeCode } from '../i18n'
 // y AutomacionDetailPage.jsx — único lugar que asigna icono/color (no hay esos
 // campos en el modelo, así que se ciclan por índice) y lee trigger/actions reales.
 const AUTO_ICONS = [RiPhoneLine, RiMailLine, RiCalendarLine, RiShoppingCart2Line, RiRobot2Line, RiBarChartLine]
-const AUTO_BG = ['#6366f1', '#8b5cf6', '#10b981', '#f97316', '#8b5cf6', '#fb7185']
-const AUTO_COLOR = ['#818cf8', '#a78bfa', '#34d399', '#fb923c', '#a78bfa', '#fda4af']
+const AUTO_BG = ['var(--accent)', 'var(--violet)', 'var(--success)', 'var(--warn)', 'var(--violet)', 'var(--danger-soft)']
+const AUTO_COLOR = ['var(--accent-soft)', 'var(--violet)', 'var(--success)', 'var(--warn)', 'var(--violet)', 'var(--danger-soft)']
 const AUTOMATION_EVENT_LABELS = {
   'call.completed': 'Llamada completada',
   'lead.inactive.7d': 'Lead sin actividad > 7 días',

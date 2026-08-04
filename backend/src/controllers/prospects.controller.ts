@@ -20,7 +20,10 @@ export async function search(
     return reply.send({ data: prospects })
   } catch (err) {
     if (err instanceof ProspectingUnavailable) {
-      return reply.status(503).send({ error: err.message })
+      // Falta de configuración ≠ proveedor caído: 409 es accionable (hay que
+      // conectar Google Places) y 503 se reserva para el fallo real de Places.
+      const status = err.code === 'PROSPECTING_NOT_CONFIGURED' ? 409 : 503
+      return reply.status(status).send({ error: err.message, code: err.code })
     }
     throw err
   }

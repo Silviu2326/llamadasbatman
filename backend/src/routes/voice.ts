@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { FastifyInstance } from 'fastify'
 import { authenticateVoiceService } from '../middlewares/authenticateVoiceService'
 import { prisma } from '../lib/prisma'
@@ -56,10 +58,107 @@ async function requireTwilioSignature(req: any, reply: any): Promise<unknown> {
   if (!(await verifyTwilioWebhook(req))) return reply.code(403).send({ error: 'Invalid Twilio signature' })
 }
 
+// ── A/B de versiones de voz (test RunPod, docs/MODOS_VOZ_MODULAR_VS_DUPLEX.md) ──
+// Cambiar de versión reinicia el worker correspondiente en el pod (vía SSH) y
+// fija la arquitectura en process.env — configuredVoiceArchitecture() la lee por
+// sesión, así que no hace falta reiniciar el backend.
+const execFileAsync = promisify(execFile)
+
+// V1/V3 (Piper) retiradas a peticion del usuario: la voz Piper medium no da la talla.
+// La GPU no admite Moshi (17G) + vLLM (23G) + Chatterbox (5G) a la vez, asi que
+// cada cambio de version expulsa al worker del modo contrario (se recarga al volver).
+const AB_VERSIONS: Record<string, { architecture: 'modular' | 'duplex'; label: string; extras: string }> = {
+  V2: { architecture: 'duplex', label: 'Duplex', extras: '' },
+  V4: { architecture: 'duplex', label: 'Duplex realista', extras: 'export VOICE_DUPLEX_AMBIENCE_LEVEL=0.004 VOICE_DUPLEX_TEMPERATURE=0.6 VOICE_DUPLEX_TEXT_TEMPERATURE=0.5' },
+  V5: { architecture: 'modular', label: 'Chatterbox', extras: 'export VOICE_ENGINE_TTS_PROVIDER=chatterbox' },
+  V6: { architecture: 'modular', label: 'Chatterbox realista', extras: 'export VOICE_ENGINE_TTS_PROVIDER=chatterbox VOICE_ENGINE_BACKCHANNEL=true VOICE_ENGINE_AMBIENCE_LEVEL=0.004 VOICE_ENGINE_LLM_MAX_TOKENS=120' },
+}
+
+// ponytail: estado en memoria — si el backend se reinicia, vuelve a inferirse de la arquitectura
+let abCurrentVersion: string | null = null
+let abSwitching = false
+
+function abRemoteScript(version: string): string {
+  const spec = AB_VERSIONS[version]
+  if (spec.architecture === 'modular') {
+    return [
+      'source /workspace/venv/bin/activate',
+      'cd /workspace/voice-engine',
+      // libera la VRAM de Moshi para que quepa Chatterbox
+      "pkill -f 'moshi_gateway[.]py'; pkill -f 'server[.]py'; sleep 2",
+      'export HF_HOME=/workspace/hf',
+      `export VOICE_ENGINE_TOKEN=${process.env.VOICE_ENGINE_TOKEN ?? ''} VOICE_ENGINE_ARCHITECTURE=modular`,
+      'export VOICE_ENGINE_PIPER_MODEL=/workspace/models/en_US-lessac-medium.onnx',
+      'export VOICE_ENGINE_LLM_BASE_URL=http://127.0.0.1:8000/v1 VOICE_ENGINE_LLM_MODEL=Qwen/Qwen3-8B',
+      'export VOICE_ENGINE_PRELOAD=true',
+      spec.extras,
+      // el volumen esta a tope de quota: logs al disco del contenedor
+      'nohup python server.py > /tmp/server.log 2>&1 &',
+      // "activa" = el puerto responde, no solo que el proceso exista
+      'for i in $(seq 1 45); do curl -s --max-time 2 http://127.0.0.1:9100/health 2>/dev/null | grep -q ok && exit 0; pgrep -f \'server[.]py\' >/dev/null || break; sleep 2; done',
+      'echo FALLO; tail -20 /tmp/server.log; exit 1',
+    ].filter(Boolean).join('\n')
+  }
+  return [
+    'source /workspace/venv/bin/activate',
+    'cd /workspace/voice-engine',
+    // libera la VRAM del worker modular (whisper/Chatterbox) para Moshi
+    "pkill -f 'server[.]py'; pkill -f 'moshi_gateway[.]py'; sleep 2",
+    'export HF_HOME=/workspace/hf',
+    `export VOICE_DUPLEX_ENGINE_TOKEN=${process.env.VOICE_DUPLEX_ENGINE_TOKEN ?? ''} VOICE_DUPLEX_MOSHI_REPO=kyutai/moshiko-pytorch-bf16`,
+    'export VOICE_DUPLEX_MOSHI_DEVICE=cuda VOICE_DUPLEX_STT_MODEL=large-v3-turbo',
+    'export VOICE_DUPLEX_PRELOAD=true',
+    spec.extras,
+    'nohup python moshi_gateway.py > /tmp/duplex.log 2>&1 &',
+    'for i in $(seq 1 45); do curl -s --max-time 2 http://127.0.0.1:9200/health 2>/dev/null | grep -q ok && exit 0; pgrep -f \'moshi_gateway[.]py\' >/dev/null || break; sleep 2; done',
+    'echo FALLO; tail -20 /tmp/duplex.log; exit 1',
+  ].filter(Boolean).join('\n')
+}
+
 export async function voiceRoutes(app: FastifyInstance) {
   app.get('/metrics', {
     preHandler: [authenticate, requirePermission('calls.read', { scope: 'org' })],
   }, voiceMetrics as any)
+
+  // ── A/B de versiones (test RunPod) ────────────────────────────────────────
+  app.get('/ab-version', {
+    preHandler: [authenticate, requirePermission('agents.read', { scope: 'org' })],
+  }, async () => ({
+    enabled: Boolean(process.env.VOICE_POD_SSH?.trim()),
+    switching: abSwitching,
+    version: abCurrentVersion,
+    versions: Object.entries(AB_VERSIONS).map(([id, spec]) => ({ id, label: spec.label, architecture: spec.architecture })),
+  }))
+
+  app.post<{ Body: { version?: string } }>('/ab-version', {
+    preHandler: [authenticate, requirePermission('agents.read', { scope: 'org' })],
+  }, async (req, reply) => {
+    const version = req.body?.version ?? ''
+    const spec = AB_VERSIONS[version]
+    if (!spec) return reply.status(400).send({ error: 'version debe ser V1..V6' })
+    const sshHost = process.env.VOICE_POD_SSH?.trim()
+    if (!sshHost) return reply.status(503).send({ error: 'VOICE_POD_SSH no configurado (solo disponible durante el test con pod)' })
+    if (abSwitching) return reply.status(409).send({ error: 'Ya hay un cambio de versión en curso' })
+
+    abSwitching = true
+    try {
+      const script = Buffer.from(abRemoteScript(version), 'utf8').toString('base64')
+      const { stdout } = await execFileAsync('ssh', [
+        '-p', process.env.VOICE_POD_SSH_PORT?.trim() || '22',
+        '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10',
+        sshHost,
+        `echo ${script} | base64 -d | bash`,
+      ], { timeout: 150_000 })
+      process.env.VOICE_ENGINE_ARCHITECTURE = spec.architecture
+      abCurrentVersion = version
+      return reply.send({ ok: true, version, architecture: spec.architecture, log: stdout.trim().split('\n').slice(-3) })
+    } catch (error: any) {
+      const detail = [error?.stdout, error?.stderr, error?.message].filter(Boolean).join('\n').trim()
+      return reply.status(502).send({ error: 'El worker no arrancó en el pod', detail: detail.split('\n').slice(-8) })
+    } finally {
+      abSwitching = false
+    }
+  })
 
   // ── Existing: agent config (para el servicio externo) ─────────────────────
   app.get<{ Params: { agentId: string } }>(
@@ -219,7 +318,7 @@ export async function voiceRoutes(app: FastifyInstance) {
       )
       if (!validContext) return reply.status(400).send({ error: 'Invalid voice resource context' })
 
-      const compliance = await canCall(orgId, normalizedPhone)
+      const compliance = await canCall(orgId, normalizedPhone, leadId)
       if (!compliance.allowed) return reply.status(403).send({ error: compliance.reason })
 
       const result = await startOutboundCall({ toNumber: normalizedPhone, orgId, campaignId, agentId, leadId, businessType, businessName })

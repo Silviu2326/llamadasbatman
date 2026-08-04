@@ -13,6 +13,8 @@ import {
   getWorkspaceGrantsForUser,
   type WorkspaceGrant,
 } from '../services/workspaceAccess.service'
+import { prisma } from '../lib/prisma'
+import { cleanupOrgs } from './testHelpers'
 
 test('normaliza planes y mantiene las capacidades cerradas por defecto', () => {
   assert.equal(normalisePlan('premium'), 'completo')
@@ -28,7 +30,7 @@ test('normaliza planes y mantiene las capacidades cerradas por defecto', () => {
 
 function fakeDb(orgPlan: string, usage: Partial<Record<'users' | 'leads' | 'campaigns' | 'agents' | 'automations', number>> = {}) {
   return {
-    organization: { findUnique: async () => ({ id: 'org-a', plan: orgPlan, mauticEnabled: true, postizEnabled: true }) },
+    organization: { findUnique: async () => ({ id: 'org-a', plan: orgPlan, mauticEnabled: true, metricoolEnabled: true }) },
     user: { count: async () => usage.users ?? 0 },
     lead: { count: async () => usage.leads ?? 0 },
     campaign: { count: async () => usage.campaigns ?? 0 },
@@ -67,6 +69,13 @@ test('el workspace primario sigue funcionando sin claims y el secundario exige c
     user: Record<string, unknown>
     workspaceId?: string
   }
+  // `applyWorkspaceContext` consulta prisma de verdad (no admite inyección), así
+  // que la organización primaria tiene que existir: sin ella el guard corta con
+  // 404 WORKSPACE_NOT_FOUND antes de llegar a la comprobación de concesión, que
+  // es justo lo que este test debe verificar. Plan `agency` para superar el gate
+  // de `multiworkspace` y llegar de verdad al chequeo del grant.
+  await prisma.organization.create({ data: { id: 'org-a', name: 'test-org-a-workspace', plan: 'agency' } })
+  try {
   const primaryRequest: WorkspaceRequestMock = { headers: {}, user: { userId: 'u-1', orgId: 'org-a', role: 'owner' } }
   await applyWorkspaceContext(primaryRequest)
   assert.equal(primaryRequest.workspaceId, 'org-a')
@@ -77,6 +86,9 @@ test('el workspace primario sigue funcionando sin claims y el secundario exige c
     assert.equal(error.statusCode, 403)
     return true
   })
+  } finally {
+    await cleanupOrgs(['org-a'])
+  }
 })
 
 test('los grants de agencia solo se emiten para el usuario configurado', () => {

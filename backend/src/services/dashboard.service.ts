@@ -3,6 +3,13 @@ import { prisma } from '../lib/prisma'
 const pct = (curr: number, prev: number) =>
   prev > 0 ? Math.round((curr - prev) / prev * 1000) / 10 : curr > 0 ? 100 : 0
 
+/** Segundos -> "m:ss". Sin llamadas medidas devuelve null y la tarjeta pinta "—". */
+const formatDuration = (seconds: number | null | undefined) => {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return null
+  const total = Math.round(seconds)
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+}
+
 export async function getStats(orgId: string) {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
@@ -16,7 +23,7 @@ export async function getStats(orgId: string) {
     pipelineThisWeek, pipelinePrev, closedWonAgg,
     callsByCampGroups, recentOpps, sentimentGroups,
     recentContactedLeads, recentConvertedLeads,
-    adSpendAgg,
+    adSpendAgg, callDurationAgg,
   ] = await Promise.all([
     prisma.call.count({ where: { orgId } }),
     prisma.lead.count({ where: { orgId } }),
@@ -69,6 +76,8 @@ export async function getStats(orgId: string) {
     }),
     // Mismo periodo (sin filtro de fecha) que closedWonAgg, para calcular el ROI real
     prisma.adInsightSnapshot.aggregate({ where: { orgId }, _sum: { spendCents: true } }),
+    // Solo llamadas con duracion registrada: las no contestadas falsearian la media.
+    prisma.call.aggregate({ where: { orgId, durationSeconds: { not: null } }, _avg: { durationSeconds: true } }),
   ])
 
   const totalLeadsSum = conversionAgg._sum.totalLeads ?? 0
@@ -160,7 +169,7 @@ export async function getStats(orgId: string) {
 
   const [userCount, org] = await Promise.all([
     prisma.user.count({ where: { orgId } }),
-    prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true, postizEnabled: true } }),
+    prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true, metricoolEnabled: true } }),
   ])
 
   const sentimentTotals: Record<string, number> = {}
@@ -177,9 +186,14 @@ export async function getStats(orgId: string) {
     pipelineValue, closedWonValue, roi, kpiPcts,
     timeSeries, funnel, agentLeaderboard,
     callsByCampaign, pipelineByDay, sentiment,
+    // Consumidos por las tarjetas KPI de Leads.jsx y Calls.jsx, que hasta ahora
+    // los leian del payload sin que nadie los emitiera. La duracion va ya
+    // formateada m:ss porque la tarjeta la pinta tal cual, sin unidad.
+    newLeads: leadsThisWeek,
+    averageCallDuration: formatDuration(callDurationAgg._avg.durationSeconds),
     userCount, orgPlan: org?.plan ?? 'free',
     mauticEnabled: org?.mauticEnabled ?? false,
-    postizEnabled: org?.postizEnabled ?? false,
+    metricoolEnabled: org?.metricoolEnabled ?? false,
   }
 }
 

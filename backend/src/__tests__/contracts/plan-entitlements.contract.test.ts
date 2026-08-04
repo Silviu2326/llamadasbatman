@@ -23,7 +23,7 @@ function fakeDb(plan: string, usage: Usage = {}) {
     organization: {
       findUnique: async (args: unknown) => {
         orgFilters.push((args as { where?: unknown }).where)
-        return { id: 'org-contract', plan, mauticEnabled: true, postizEnabled: false }
+        return { id: 'org-contract', plan, mauticEnabled: true, metricoolEnabled: false }
       },
     },
     user: { count: count('users') },
@@ -59,11 +59,11 @@ test('el snapshot calcula uso por org y rechaza integración o cuota no disponib
   assert.equal(snapshot.orgId, 'org-contract')
   assert.equal(snapshot.plan, 'pro')
   assert.equal(snapshot.usage.agents, 5)
-  assert.equal(snapshot.integrations.postizEnabled, false)
+  assert.equal(snapshot.integrations.metricoolEnabled, false)
   assert.ok(db.orgFilters.every(value => JSON.stringify(value).includes('org-contract')))
 
   await assert.rejects(
-    () => assertCapability('org-contract', 'social', { snapshot, integration: 'postiz' }),
+    () => assertCapability('org-contract', 'social', { snapshot, integration: 'metricool' }),
     (error: { code?: string; statusCode?: number }) => error.code === 'INTEGRATION_DISABLED' && error.statusCode === 403,
   )
   await assert.rejects(
@@ -80,8 +80,11 @@ test('los incrementos inválidos no pueden saltarse la barrera de cuota', async 
     () => assertUsageLimit('org-contract', 'leads', 0, snapshot),
     (error: { code?: string; statusCode?: number }) => error.code === 'LIMIT_REACHED' && error.statusCode === 409,
   )
+  // Derivado del limite real del plan, no un numero fijo: con 100_001 escrito a
+  // mano este test dejo de comprobar nada cuando `agency` paso a 1.000.000 leads,
+  // y nadie se entero porque la suite no llegaba a ejecutarse.
   await assert.rejects(
-    () => assertUsageLimit('org-contract', 'leads', 100_001, snapshot),
+    () => assertUsageLimit('org-contract', 'leads', snapshot.limits.leads + 1, snapshot),
     (error: { code?: string; statusCode?: number }) => error.code === 'LIMIT_REACHED' && error.statusCode === 409,
   )
 })

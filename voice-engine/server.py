@@ -13,6 +13,8 @@ import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
 
+from ambience import filler_phrases, mix_line_noise
+
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("vozia.voice_engine")
 
@@ -175,7 +177,10 @@ class Qwen3TtsSynthesizer:
         import torch
         from qwen_tts import Qwen3TTSModel
 
-        model_name = os.getenv("VOICE_ENGINE_QWEN3_MODEL", "Qwen/Qwen3-TTS-0.6B-CustomVoice")
+        # Con REF_AUDIO clona la voz del banco (modelo -Base); sin el, speaker fijo (-CustomVoice).
+        self.ref_audio = os.getenv("VOICE_ENGINE_QWEN3_REF_AUDIO", "").strip()
+        default_model = "Qwen/Qwen3-TTS-12Hz-0.6B-" + ("Base" if self.ref_audio else "CustomVoice")
+        model_name = os.getenv("VOICE_ENGINE_QWEN3_MODEL", default_model)
         device = os.getenv("VOICE_ENGINE_QWEN3_DEVICE", "cuda:0")
         dtype_name = os.getenv("VOICE_ENGINE_QWEN3_DTYPE", "bfloat16")
         dtype = getattr(torch, dtype_name, torch.bfloat16)
@@ -184,14 +189,29 @@ class Qwen3TtsSynthesizer:
         self.speaker = os.getenv("VOICE_ENGINE_QWEN3_SPEAKER", "Ryan")
         self.instruct = os.getenv("VOICE_ENGINE_QWEN3_INSTRUCT", "Voz española cálida, clara y profesional, con pausas naturales")
         self.soundfile = sf
+        self.clone_prompt = None
+        if self.ref_audio:
+            # El prompt de clonado se calcula una vez, no en cada frase.
+            ref_text = os.getenv("VOICE_ENGINE_QWEN3_REF_TEXT", "").strip()
+            if not ref_text:
+                raise ValueError("VOICE_ENGINE_QWEN3_REF_TEXT es obligatorio: Qwen exige la transcripcion de la referencia")
+            logger.info("Qwen3-TTS clonando voz de %s", self.ref_audio)
+            self.clone_prompt = self.model.create_voice_clone_prompt(ref_audio=self.ref_audio, ref_text=ref_text)
 
     def _synthesize_sync(self, text: str) -> bytes:
-        wavs, sample_rate = self.model.generate_custom_voice(
-            text=text,
-            language=self.language,
-            speaker=self.speaker,
-            instruct=self.instruct,
-        )
+        if self.clone_prompt is not None:
+            wavs, sample_rate = self.model.generate_voice_clone(
+                text=text,
+                language=self.language,
+                voice_clone_prompt=self.clone_prompt,
+            )
+        else:
+            wavs, sample_rate = self.model.generate_custom_voice(
+                text=text,
+                language=self.language,
+                speaker=self.speaker,
+                instruct=self.instruct,
+            )
         import io
         output = io.BytesIO()
         self.soundfile.write(output, wavs[0], sample_rate, format="WAV", subtype="PCM_16")
@@ -201,6 +221,44 @@ class Qwen3TtsSynthesizer:
             pcm = wav.readframes(wav.getnframes())
             source_rate = wav.getframerate()
         return resample_pcm16(pcm, source_rate, OUTPUT_RATE)
+
+    async def synthesize(self, text: str) -> bytes:
+        return await asyncio.to_thread(self._synthesize_sync, text)
+
+
+class ChatterboxSynthesizer:
+    """Optional Chatterbox TTS provider selected with VOICE_ENGINE_TTS_PROVIDER=chatterbox.
+
+    Usa siempre el checkpoint multilingüe (cubre es/en con el mismo modelo).
+    """
+
+    def __init__(self) -> None:
+        import torch
+        from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+
+        device = os.getenv("VOICE_ENGINE_CHATTERBOX_DEVICE", "cuda")
+        logger.info("loading Chatterbox multilingual TTS device=%s", device)
+        self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
+        # ponytail: mismo mapeo de locale→código que STT; Chatterbox usa "es"/"en"/…
+        self.language = stt_language(os.getenv("VOICE_ENGINE_TTS_LANGUAGE", os.getenv("VOICE_ENGINE_LANGUAGE", "es-ES")))
+        self.voice_prompt = os.getenv("VOICE_ENGINE_CHATTERBOX_VOICE", "").strip() or None
+        self.exaggeration = float(os.getenv("VOICE_ENGINE_CHATTERBOX_EXAGGERATION", "0.5"))
+        self.cfg_weight = float(os.getenv("VOICE_ENGINE_CHATTERBOX_CFG_WEIGHT", "0.5"))
+        self.torch = torch
+
+    def _synthesize_sync(self, text: str) -> bytes:
+        kwargs: dict[str, Any] = {
+            "language_id": self.language,
+            "exaggeration": self.exaggeration,
+            "cfg_weight": self.cfg_weight,
+        }
+        if self.voice_prompt:
+            kwargs["audio_prompt_path"] = self.voice_prompt
+        with self.torch.inference_mode():
+            wav = self.model.generate(text, **kwargs)
+        samples = wav.squeeze().detach().cpu().numpy().astype(np.float32)
+        pcm = np.clip(samples * 32767.0, -32768, 32767).astype("<i2").tobytes()
+        return resample_pcm16(pcm, int(self.model.sr), OUTPUT_RATE)
 
     async def synthesize(self, text: str) -> bytes:
         return await asyncio.to_thread(self._synthesize_sync, text)
@@ -262,20 +320,32 @@ class EngineRuntime:
     stt: SpeechToText | None = None
     tts: Any = None
     llm: AsyncOpenAI | None = None
+    tts_cache: dict[str, Any] = field(default_factory=dict)
+
+    def get_tts(self, provider: str | None) -> Any:
+        """TTS por proveedor con caché: la página de laboratorio puede pedir
+        qwen/chatterbox/piper por sesión sin recargar el modelo cada vez."""
+        key = (provider or os.getenv("VOICE_ENGINE_TTS_PROVIDER", "piper")).strip().lower()
+        if key in {"qwen3", "qwen3-tts"}:
+            key = "qwen"
+        if key not in self.tts_cache:
+            try:
+                if key == "qwen":
+                    self.tts_cache[key] = Qwen3TtsSynthesizer()
+                elif key == "chatterbox":
+                    self.tts_cache[key] = ChatterboxSynthesizer()
+                else:
+                    self.tts_cache[key] = PiperSynthesizer()
+            except Exception as error:
+                logger.warning("TTS %s unavailable, falling back to Piper: %s", key, error)
+                self.tts_cache[key] = PiperSynthesizer()
+        return self.tts_cache[key]
 
     def ensure_models(self) -> None:
         if self.stt is None:
             self.stt = SpeechToText()
         if self.tts is None:
-            provider = os.getenv("VOICE_ENGINE_TTS_PROVIDER", "piper").strip().lower()
-            if provider in {"qwen", "qwen3", "qwen3-tts"}:
-                try:
-                    self.tts = Qwen3TtsSynthesizer()
-                except Exception as error:
-                    logger.warning("Qwen3-TTS unavailable, falling back to Piper: %s", error)
-                    self.tts = PiperSynthesizer()
-            else:
-                self.tts = PiperSynthesizer()
+            self.tts = self.get_tts(None)
         if self.llm is None:
             self.llm = AsyncOpenAI(
                 base_url=os.getenv("VOICE_ENGINE_LLM_BASE_URL", "http://127.0.0.1:8000/v1"),
@@ -286,6 +356,16 @@ class EngineRuntime:
 
 runtime = EngineRuntime()
 app = FastAPI(title="VozIA Voice Engine", version="0.1.0")
+
+
+@app.on_event("startup")
+async def preload_models() -> None:
+    """Con VOICE_ENGINE_PRELOAD=true carga STT/TTS al arrancar (en background)
+    para que la primera sesión no pague la carga de whisper/Chatterbox."""
+    if env_bool("VOICE_ENGINE_PRELOAD"):
+        import threading
+
+        threading.Thread(target=runtime.ensure_models, daemon=True, name="engine-preload").start()
 
 
 @dataclass
@@ -310,6 +390,13 @@ class Session:
     waiting_for_continuation: bool = False
     last_partial_at: float = 0.0
     last_partial_text: str = ""
+    backchannel_clips: list[bytes] = field(default_factory=list)
+    backchannel_index: int = 0
+    ambience_seed: int = 0
+    tts: Any = None
+    kyutai: Any = None
+    kyutai_turn: Any = None
+    kyutai_pending: Any = None
 
     async def send(self, payload: dict[str, Any]) -> None:
         if self.closed:
@@ -326,6 +413,10 @@ class Session:
         self.system_prompt = str(agent.get("systemPrompt") or self.system_prompt)
         self.language = str(agent.get("language") or os.getenv("VOICE_ENGINE_LANGUAGE", "es-ES"))
         self.runtime.ensure_models()
+        pipeline = payload.get("pipeline") if isinstance(payload.get("pipeline"), dict) else {}
+        self.tts = self.runtime.get_tts(str(pipeline.get("tts") or "") or None)
+        if str(pipeline.get("stt") or "") == "kyutai":
+            await self.start_kyutai_stt()
         if env_bool("VOICE_ENGINE_SMART_TURN_ENABLED"):
             model_path = os.getenv("VOICE_ENGINE_SMART_TURN_MODEL", "").strip()
             if model_path:
@@ -338,13 +429,89 @@ class Session:
             else:
                 await self.send({"type": "turn.detector.fallback", "provider": "vad", "reason": "VOICE_ENGINE_SMART_TURN_MODEL missing"})
         await self.send({"type": "session.ready", "sessionId": self.context.get("callSid")})
-        greeting = os.getenv("VOICE_ENGINE_GREETING", "").strip()
+        # El agente abre la llamada, como en una venta real: Node envía la
+        # apertura (disclosure + presentación) en agent.greeting; el env queda
+        # como fallback para pruebas sueltas del sidecar.
+        greeting = str(agent.get("greeting") or os.getenv("VOICE_ENGINE_GREETING", "")).strip()
         if greeting:
+            self.history.append({"role": "assistant", "content": greeting})
+            await self.send({"type": "transcript.final", "role": "agente", "text": greeting})
             await self.speak(greeting, self.generation_id)
+        # Versión "arriesgada": pre-sintetiza muletillas cortas que se sueltan
+        # mientras el LLM piensa. Después del saludo para no retrasar el
+        # primer audio de la llamada.
+        if env_bool("VOICE_ENGINE_BACKCHANNEL"):
+            for phrase in filler_phrases(self.language):
+                try:
+                    self.backchannel_clips.append(await self.tts.synthesize(phrase))
+                except Exception as error:
+                    logger.warning("backchannel synthesis failed: %s", error)
+                    break
+
+    async def start_kyutai_stt(self) -> None:
+        """STT streaming Kyutai por sesión (laboratorio). Si no está disponible
+        (sin extra [stt], sin GPU o stream ya activo) se sigue con whisper."""
+        try:
+            from kyutai_stt import KyutaiStream
+            from kyutai_stt import TurnState
+            from kyutai_stt import runtime as kyutai_runtime
+
+            await asyncio.to_thread(kyutai_runtime.ensure_loaded)
+            kyutai_runtime.acquire()
+            stream = KyutaiStream(kyutai_runtime)
+            await stream.open()
+            self.kyutai = stream
+            self.kyutai_turn = TurnState(eot_timeout_ms=self.eot_timeout_ms)
+            self.kyutai_pending = np.empty(0, dtype=np.float32)
+            await self.send({"type": "stt.provider", "provider": "kyutai", "model": kyutai_runtime.repo})
+        except Exception as error:
+            logger.warning("Kyutai STT unavailable, using faster-whisper: %s", error)
+            self.kyutai = None
+            await self.send({"type": "stt.provider", "provider": "faster-whisper", "reason": str(error)[:240]})
+
+    async def receive_audio_kyutai(self, audio: bytes) -> None:
+        from kyutai_stt import resample_16k_to_24k
+
+        self.kyutai_pending = np.concatenate([self.kyutai_pending, resample_16k_to_24k(audio)])
+        frame_size = self.kyutai.rt.frame_size
+        while self.kyutai_pending.size >= frame_size:
+            frame = self.kyutai_pending[:frame_size]
+            self.kyutai_pending = self.kyutai_pending[frame_size:]
+            piece, vad_prob = await self.kyutai.step(frame)
+            for kind, event in self.kyutai_turn.feed(piece, vad_prob, time.monotonic()):
+                if self.closed:
+                    return
+                if kind == "speech.started":
+                    self.generation_id += 1
+                    await self.cancel_response()
+                    await self.send({"type": "speech.started", "timestampMs": round(time.monotonic() * 1000)})
+                elif kind == "partial":
+                    await self.send({
+                        "type": "transcript.partial",
+                        "role": "prospecto",
+                        "text": event["text"],
+                        "metadata": {"language": self.language, "provider": "kyutai"},
+                    })
+                elif kind == "final":
+                    text = (event["text"] + await self.kyutai.flush()).strip()
+                    if not text:
+                        continue
+                    await self.send({"type": "turn.user_finished", "role": "user", "metadata": {"provider": "kyutai"}})
+                    await self.send({
+                        "type": "transcript.final",
+                        "role": "prospecto",
+                        "text": text,
+                        "metadata": {"language": self.language, "provider": "kyutai", "confidence": event.get("confidence")},
+                    })
+                    long_turn = float(event.get("durationSec") or 0) >= 3
+                    self.response_task = asyncio.create_task(self.respond(text, self.generation_id, long_turn))
 
     async def receive_audio(self, audio: bytes) -> None:
         if len(audio) > MAX_EVENT_BYTES:
             raise RuntimeError("audio frame is too large")
+        if self.kyutai is not None:
+            await self.receive_audio_kyutai(audio)
+            return
         now = time.monotonic()
         speaking = pcm_rms(audio) >= float(os.getenv("VOICE_ENGINE_VAD_THRESHOLD", "0.018"))
         if speaking:
@@ -469,12 +636,19 @@ class Session:
             "words": result.get("words", []),
             "metadata": {"language": result.get("language", self.language)},
         })
-        self.response_task = asyncio.create_task(self.respond(text, turn_generation))
+        long_turn = len(audio) >= 3 * INPUT_RATE * 2  # el prospecto habló ≥3 s
+        self.response_task = asyncio.create_task(self.respond(text, turn_generation, long_turn))
 
-    async def respond(self, text: str, generation_id: int) -> None:
+    async def respond(self, text: str, generation_id: int, long_turn: bool = False) -> None:
         client = self.runtime.llm
         if client is None:
             raise RuntimeError("LLM is not initialized")
+        # Muletilla inmediata solo tras intervenciones largas: enmascara la
+        # latencia STT+LLM sin sonar a coletilla en cada turno.
+        if long_turn and self.backchannel_clips:
+            clip = self.backchannel_clips[self.backchannel_index % len(self.backchannel_clips)]
+            self.backchannel_index += 1
+            await self.send_pcm(clip, generation_id)
         self.history.append({"role": "user", "content": text})
         messages: list[dict[str, str]] = [{"role": "system", "content": self.system_prompt}]
         messages.extend(self.history[-10:])
@@ -487,10 +661,14 @@ class Session:
             stream = await client.chat.completions.create(
                 model=model,
                 messages=messages,  # type: ignore[arg-type]
-                max_tokens=160,
-                temperature=0.55,
+                # Tunables en vivo: un comercial responde en 1-2 frases, no en
+                # párrafos; bajar max_tokens acorta y acelera cada turno.
+                max_tokens=env_int("VOICE_ENGINE_LLM_MAX_TOKENS", 160),
+                temperature=float(os.getenv("VOICE_ENGINE_LLM_TEMPERATURE", "0.55")),
                 stream=True,
-                extra_body={"enable_thinking": False},
+                # vLLM ignora enable_thinking a nivel raiz; hay que pasarlo al
+                # chat template (verificado contra vLLM 0.26 + Qwen3-8B).
+                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
             async for event in stream:
                 if generation_id != self.generation_id or self.closed:
@@ -522,7 +700,14 @@ class Session:
     async def speak(self, text: str, generation_id: int) -> None:
         if generation_id != self.generation_id or self.closed:
             return
-        audio = await self.runtime.tts.synthesize(text)  # type: ignore[union-attr]
+        audio = await self.tts.synthesize(text)
+        await self.send_pcm(audio, generation_id)
+
+    async def send_pcm(self, audio: bytes, generation_id: int) -> None:
+        level = float(os.getenv("VOICE_ENGINE_AMBIENCE_LEVEL", "0") or 0)
+        if level > 0:
+            self.ambience_seed += 1
+            audio = mix_line_noise(audio, level, self.ambience_seed)
         first_chunk = True
         for chunk in chunk_bytes(audio):
             if generation_id != self.generation_id or self.closed:
@@ -564,6 +749,9 @@ class Session:
                     await task
                 except asyncio.CancelledError:
                     pass
+        if self.kyutai is not None:
+            await self.kyutai.close()
+            self.kyutai = None
         await self.cancel_response()
 
 
@@ -587,6 +775,7 @@ async def capabilities() -> dict[str, Any]:
         "service": "vozia-voice-engine",
         "deployment": "self-hosted",
         "stt": {"provider": "faster-whisper", "model": os.getenv("VOICE_ENGINE_STT_MODEL", "large-v3-turbo")},
+        "sttStreaming": {"provider": "kyutai", "model": os.getenv("KYUTAI_STT_REPO", "kyutai/stt-1b-en_fr"), "endpoint": "/stt"},
         "llm": {
             "provider": "vllm-compatible-local",
             "model": os.getenv("VOICE_ENGINE_LLM_MODEL", "Qwen/Qwen3-8B"),
@@ -604,6 +793,14 @@ async def capabilities() -> dict[str, Any]:
         },
         "audio": {"inputSampleRate": INPUT_RATE, "outputSampleRate": OUTPUT_RATE, "encoding": "pcm_s16le"},
     }
+
+
+@app.websocket("/stt")
+async def stt_websocket(websocket: WebSocket) -> None:
+    """STT streaming puro (Kyutai). Import perezoso: el engine arranca sin torch."""
+    from kyutai_stt import handle_stt
+
+    await handle_stt(websocket, valid_token)
 
 
 @app.websocket("/ws")

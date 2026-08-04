@@ -4,7 +4,7 @@ import path from 'path'
 const SESSIONS_DIR = path.join(process.cwd(), 'sessions')
 
 export class SessionLogger {
-  private dir: string
+  readonly dir: string
   private startMs: number
   private stream: fs.WriteStream
   private _activeTurn: { role: string; sampleRate: number; chunks: Buffer[] } | null = null

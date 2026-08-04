@@ -24,7 +24,7 @@ Fastify + TypeScript
   ├─ Orquestación comercial, experimentos, memoria y gobierno empresarial
   ├─ JWT/cookies de sesión, RBAC y tenant context
   ├─ WebSockets de voz y Socket.IO de eventos
-  ├─ Integraciones: Twilio, Deepgram, ElevenLabs, Meta, Mautic y Postiz
+  ├─ Integraciones: Twilio, Deepgram, ElevenLabs, Meta, Mautic y Metricool
   └─ Workers de automatización, importación, campañas y outbox
 
 Prisma + PostgreSQL
@@ -109,7 +109,7 @@ Esto reduce de forma significativa el impacto de un XSS, un token robado o un re
 
 ### Permisos y efectos costosos
 
-Las mutaciones de alto impacto —campañas, agentes, Meta, Postiz, WhatsApp, Ads, prospectos e importaciones— pasan por controles de rol en backend. Este punto es esencial porque evita que un usuario de sólo lectura genere costes o altere operaciones invocando la API directamente.
+Las mutaciones de alto impacto —campañas, agentes, Meta, Metricool, WhatsApp, Ads, prospectos e importaciones— pasan por controles de rol en backend. Este punto es esencial porque evita que un usuario de sólo lectura genere costes o altere operaciones invocando la API directamente.
 
 Las automatizaciones Mautic validan que la plantilla o segmento usado esté asociado a la organización correspondiente antes de disparar un efecto externo.
 

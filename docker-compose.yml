@@ -1,10 +1,22 @@
-# Infra de Fase 1 de PLAN_IMPLEMENTACION_POSTIZ_MAUTIC.md — Mautic (email
-# marketing) y Postiz (redes sociales) desplegados tal cual, sin fork. Cada
-# uno con su propia base de datos, self-hosted junto al resto de Vendrava.
-# El backend de VozIA (backend/) sigue corriendo aparte (fuera de este
-# compose) y se conecta a estos dos por API/webhook — nunca por DB compartida.
+# Mautic (email marketing) desplegado tal cual, sin fork, con su propia base
+# de datos, self-hosted junto al resto de Vendrava. El backend de VozIA
+# (backend/) sigue corriendo aparte (fuera de este compose) y se conecta por
+# API/webhook — nunca por DB compartida. Redes sociales: Metricool (SaaS, no
+# requiere infraestructura propia).
 
 services:
+  # El backend espera REDIS_URL=redis://localhost:6379 y sin el se desactivan las
+  # colas (llamadas, automatizaciones, revision de anuncios). No estaba declarado
+  # en ningun sitio, asi que en local siempre arrancaba degradado.
+  # Levantar solo esto:  docker compose up -d redis
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
   mautic-db:
     image: mysql:8.0
     restart: unless-stopped
@@ -31,42 +43,7 @@ services:
     volumes:
       - mautic_data:/var/www/html
 
-  postiz:
-    image: ghcr.io/gitroomhq/postiz-app:latest
-    restart: unless-stopped
-    depends_on:
-      - postiz-db
-      - postiz-redis
-    environment:
-      DATABASE_URL: postgresql://postiz:${POSTIZ_DB_PASSWORD:?POSTIZ_DB_PASSWORD must be set}@postiz-db:5432/postiz
-      REDIS_URL: redis://postiz-redis:6379
-      JWT_SECRET: ${POSTIZ_JWT_SECRET:?POSTIZ_JWT_SECRET must be set}
-      MAIN_URL: ${POSTIZ_BASE_URL:-http://localhost:8101}
-      FRONTEND_URL: ${POSTIZ_BASE_URL:-http://localhost:8101}
-      NEXT_PUBLIC_BACKEND_URL: ${POSTIZ_BASE_URL:-http://localhost:8101}/api
-    ports:
-      - '8101:5000'
-    volumes:
-      - postiz_data:/uploads
-
-  postiz-db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postiz
-      POSTGRES_PASSWORD: ${POSTIZ_DB_PASSWORD:?POSTIZ_DB_PASSWORD must be set}
-      POSTGRES_DB: postiz
-    volumes:
-      - postiz_db_data:/var/lib/postgresql/data
-
-  postiz-redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - postiz_redis_data:/data
-
 volumes:
   mautic_db_data:
   mautic_data:
-  postiz_db_data:
-  postiz_redis_data:
+  redis_data:

@@ -10,13 +10,13 @@ export default function EditModeButton({ isEditMode, onClick }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 6,
         background: isEditMode
-          ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
-          : '#0d1117',
+          ? 'linear-gradient(135deg, var(--accent-deep) 0%, var(--violet-deep) 100%)'
+          : 'var(--surface)',
         border: '1px solid',
-        borderColor: isEditMode ? 'transparent' : '#1e2433',
+        borderColor: isEditMode ? 'transparent' : 'var(--line)',
         borderRadius: 9,
         padding: '7px 13px',
-        color: isEditMode ? '#ffffff' : '#94a3b8',
+        color: isEditMode ? '#ffffff' : 'var(--muted)',
         fontSize: 12,
         fontWeight: 600,
         cursor: 'pointer',

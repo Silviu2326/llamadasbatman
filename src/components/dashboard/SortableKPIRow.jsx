@@ -71,7 +71,7 @@ function SortableKpiItem({ id, kpi, isEditMode, onRemove }) {
 export default function SortableKPIRow({ kpiData, kpiOrder, activeWidgets, isEditMode, onRemove, onReorder }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 

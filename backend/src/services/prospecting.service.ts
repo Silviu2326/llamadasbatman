@@ -47,7 +47,12 @@ function computeQuickScore(p: { website: string | null; rating: number | null; u
   return Math.max(0, Math.min(100, score))
 }
 
-export class ProspectingUnavailable extends Error {}
+export class ProspectingUnavailable extends Error {
+  constructor(message: string, public readonly code: 'PROSPECTING_NOT_CONFIGURED' | 'PROSPECTING_UNAVAILABLE' = 'PROSPECTING_UNAVAILABLE') {
+    super(message)
+    this.name = 'ProspectingUnavailable'
+  }
+}
 
 export async function searchProspects(opts: {
   sector: string
@@ -56,7 +61,12 @@ export async function searchProspects(opts: {
   limit?: number
 }): Promise<Prospect[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
-  if (!apiKey) throw new ProspectingUnavailable('GOOGLE_PLACES_API_KEY no configurada')
+  if (!apiKey) {
+    throw new ProspectingUnavailable(
+      'El buscador de negocios no está conectado. Pide a tu administrador que configure Google Places.',
+      'PROSPECTING_NOT_CONFIGURED',
+    )
+  }
 
   const { sector, city, limit = 20 } = opts
   const res = await fetch(PLACES_SEARCH_URL, {
@@ -70,7 +80,10 @@ export async function searchProspects(opts: {
   })
 
   if (!res.ok) {
-    throw new ProspectingUnavailable(`Places API ${res.status}: ${await res.text().catch(() => '')}`)
+    // El detalle del proveedor va al log, no a la pantalla: el cuerpo crudo de
+    // Places es jerga interna y hasta ahora se le mostraba tal cual al usuario.
+    console.error('[Prospecting] Places API %s: %s', res.status, await res.text().catch(() => ''))
+    throw new ProspectingUnavailable('El buscador de negocios no responde ahora mismo. Inténtalo de nuevo en unos minutos.')
   }
 
   const data = (await res.json()) as { places?: any[] }

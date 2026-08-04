@@ -129,6 +129,7 @@ const NAVIGATION_REQUIREMENTS = {
   '/agentes': ['agents.read'],
   '/playbooks': ['playbooks.read'],
   '/voz/test': ['agents.read'],
+  '/voz/omni': ['agents.read'],
   '/email-marketing': ['campaigns.read'],
   '/automatizaciones': ['automations.read'],
   '/growth': ['growth.read'],

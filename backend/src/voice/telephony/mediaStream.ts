@@ -2,12 +2,12 @@ import { WebSocket } from 'ws'
 import { AudioBridge } from '../audio/bridge'
 import { rmsLevel, preprocessInbound } from '../audio/dsp'
 import { NoiseClassifier } from '../audio/noiseClassifier'
-import { detectOptout, registerOptout, detectTransferRequest } from '../compliance'
+import { detectOptout, registerOptout, detectTransferRequest, detectRecordingConsentResponse } from '../compliance'
 import { createCallContext, CallContext } from '../intelligence/conversation/callContext'
 import { loadAgentConfig } from '../agentConfig'
 import { createVoiceSession } from '../engine/factory'
 import type { VoiceSession } from '../engine/voiceSession'
-import { transferCall } from './twilioClient'
+import { recordingPolicy, startCallRecording, transferCall } from './twilioClient'
 import { getTwilioIntegrationConfig } from '../../services/twilioIntegration.service'
 import { emitToOrg } from '../../websockets/index'
 import { ingestCall as persistCall } from '../../services/calls.service'
@@ -272,6 +272,22 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
     ctx.transcript.push({ role, text })
 
     if (role === 'prospecto') {
+      if (ctx.recordingConsentPending) {
+        const consent = detectRecordingConsentResponse(text)
+        if (consent) {
+          ctx.recordingConsentPending = false
+          ctx.recordingConsented = consent === 'granted'
+          trace?.record({ type: 'compliance.recording_consent', role: 'user', payload: { consent }, component: 'compliance' })
+          if (consent === 'granted') {
+            try {
+              await startCallRecording({ callSid: ctx.callSid, orgId: ctx.orgId, campaignId: ctx.campaignId, agentId: ctx.agentId, leadId: ctx.leadId })
+            } catch (error) {
+              trace?.record({ type: 'runtime.warning', role: 'system', payload: { code: 'RECORDING_START_FAILED' }, component: 'compliance' })
+              console.warn('[MEDIA] startCallRecording failed:', error)
+            }
+          }
+        }
+      }
       if (detectOptout(text)) {
         ctx.outcome = 'optout'
         trace?.record({ type: 'compliance.opt_out', role: 'user', payload: { text: text.slice(0, 500) }, component: 'compliance' })
@@ -334,6 +350,9 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
       leadId: claims.leadId,
       agentConfig,
     })
+    // With policy 'consent' the Twilio call was created without record:true;
+    // the agent must obtain consent in-call before any recording starts.
+    if (recordingPolicy() === 'consent') ctx.recordingConsentPending = true
 
     const systemPrompt = agentConfig?.playbook?.scripts?.base_prompt as string ?? ''
     const experiment = await resolveVoiceExperiment(ctx.orgId, ctx.leadId, ctx.campaignId).catch(error => {

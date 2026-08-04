@@ -23,7 +23,7 @@ type IntegrationHealth = {
   errorCode?: string
 }
 
-const ALL_PROVIDERS = ['meta_ads', 'google_search_console', 'metricool', 'postiz', 'mautic_email', 'twilio'] as const
+const ALL_PROVIDERS = ['meta_ads', 'google_search_console', 'metricool', 'mautic_email', 'twilio'] as const
 
 function requiredProviders(): string[] {
   const configured = env('REQUIRED_INTEGRATIONS')
@@ -41,7 +41,7 @@ function activationConfigured(name: string): boolean {
   // Development defaults are intentionally not treated as an enabled provider.
   // The production gate rejects private endpoints; this keeps the bundled
   // local defaults from creating a misleading "partial integration" locally.
-  if (['METRICOOL_BASE_URL', 'POSTIZ_BASE_URL', 'MAUTIC_BASE_URL'].includes(name)) {
+  if (['METRICOOL_BASE_URL', 'MAUTIC_BASE_URL'].includes(name)) {
     try {
       const url = new URL(raw)
       if (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1') return false
@@ -124,13 +124,6 @@ function mauticHealth(): IntegrationHealth {
   return health
 }
 
-function postizHealth(): IntegrationHealth {
-  const health = providerHealth('postiz', ['POSTIZ_BASE_URL', 'POSTIZ_API_KEY'], [], ['POSTIZ_BASE_URL', 'POSTIZ_API_KEY'])
-  const invalid = validatePublicBaseUrl('POSTIZ_BASE_URL', env('POSTIZ_BASE_URL'))
-  if (health.status !== 'not_configured' && invalid) return { ...health, status: 'degraded', configured: false, invalid: [...new Set([...health.invalid, 'POSTIZ_BASE_URL'])], errorCode: 'invalid_base_url' }
-  return health
-}
-
 function metricoolHealth(): IntegrationHealth {
   const health = providerHealth('metricool', ['METRICOOL_BASE_URL', 'METRICOOL_USER_TOKEN', 'METRICOOL_USER_ID', 'METRICOOL_BLOG_ID'], [], ['METRICOOL_BASE_URL', 'METRICOOL_USER_TOKEN', 'METRICOOL_USER_ID', 'METRICOOL_BLOG_ID'])
   const invalid = validatePublicBaseUrl('METRICOOL_BASE_URL', env('METRICOOL_BASE_URL'))
@@ -152,16 +145,13 @@ function twilioHealth(): IntegrationHealth {
 }
 
 function issuesToHealth(): IntegrationHealth[] {
-  return [metaHealth(), googleHealth(), metricoolHealth(), postizHealth(), mauticHealth(), twilioHealth()]
+  return [metaHealth(), googleHealth(), metricoolHealth(), mauticHealth(), twilioHealth()]
 }
 
 async function probe(health: IntegrationHealth): Promise<IntegrationHealth> {
   if (health.status !== 'configured') return health
   try {
-    if (health.provider === 'postiz') {
-      const response = await fetchWithTimeout(`${env('POSTIZ_BASE_URL')!.replace(/\/$/, '')}/public/v1/workspaces`, { headers: { Authorization: `Bearer ${env('POSTIZ_API_KEY')}` } })
-      if (!response.ok) throw new Error(`POSTIZ_${response.status}`)
-    } else if (health.provider === 'metricool') {
+    if (health.provider === 'metricool') {
       const url = new URL(`${env('METRICOOL_BASE_URL')!.replace(/\/$/, '')}/admin/simpleProfiles`)
       url.searchParams.set('userId', env('METRICOOL_USER_ID')!)
       url.searchParams.set('blogId', env('METRICOOL_BLOG_ID')!)
@@ -236,7 +226,6 @@ export function collectRuntimeConfigIssues(): RuntimeConfigIssue[] {
     configIssue('meta_ads', ['META_APP_ID', 'META_APP_SECRET', 'META_TOKEN_ENCRYPTION_KEY', 'META_WEBHOOK_VERIFY_TOKEN']),
     configIssue('google_search_console', ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_BASE_URL', 'ORGANIC_TOKEN_ENCRYPTION_KEY']),
     configIssue('metricool', ['METRICOOL_BASE_URL', 'METRICOOL_USER_TOKEN', 'METRICOOL_USER_ID', 'METRICOOL_BLOG_ID']),
-    configIssue('postiz', ['POSTIZ_BASE_URL', 'POSTIZ_API_KEY']),
     configIssue('mautic_email', ['MAUTIC_BASE_URL', 'MAUTIC_CLIENT_ID', 'MAUTIC_CLIENT_SECRET', 'MAUTIC_WEBHOOK_SECRET']),
   ]
   return checks.filter((item): item is RuntimeConfigIssue => Boolean(item))

@@ -22,7 +22,6 @@ const ALL_PROVIDERS = [
   'meta_ads',
   'google_search_console',
   'metricool',
-  'postiz',
   'mautic_email',
   'twilio',
 ]
@@ -50,13 +49,6 @@ const PROVIDERS = {
     secrets: [['METRICOOL_USER_TOKEN', 16]],
     urls: [{ name: 'METRICOOL_BASE_URL', public: true }],
   },
-  postiz: {
-    label: 'Postiz',
-    required: ['POSTIZ_BASE_URL', 'POSTIZ_API_KEY'],
-    activation: ['POSTIZ_API_KEY'],
-    secrets: [['POSTIZ_API_KEY', 16]],
-    urls: [{ name: 'POSTIZ_BASE_URL', public: false }],
-  },
   mautic_email: {
     label: 'Mautic / email',
     required: ['MAUTIC_BASE_URL', 'MAUTIC_CLIENT_ID', 'MAUTIC_CLIENT_SECRET', 'MAUTIC_WEBHOOK_SECRET'],
@@ -83,7 +75,6 @@ const URL_ALIASES = [
   ['GOOGLE_OAUTH_REDIRECT_BASE_URL', true, true],
   ['TWILIO_WEBHOOK_BASE_URL', true, true],
   ['METRICOOL_BASE_URL', false, false],
-  ['POSTIZ_BASE_URL', false, false],
   ['MAUTIC_BASE_URL', false, false],
 ]
 

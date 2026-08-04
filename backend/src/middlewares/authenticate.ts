@@ -14,7 +14,13 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     if (user.tokenType !== 'access' || typeof user.userId !== 'string' || !user.userId || typeof user.sessionId !== 'string' || !user.sessionId) {
       return reply.status(401).send({ error: 'Unauthorized' })
     }
-    if (!getAccessPrincipal(request)) return reply.status(401).send({ error: 'Unauthorized' })
+    // El token es válido y la sesión también: si aquí no se puede construir el
+    // principal es porque el CONTENIDO de los claims no autoriza (rol fuera del
+    // catálogo, orgId con formato inválido, workspaceScope desconocido). Eso es
+    // 403, no 401. Con 401 el cliente (src/lib/api.js) borra la sesión y redirige
+    // a /login, así que un rol no reconocido dejaba al usuario en un bucle de
+    // deslogueo en vez de decirle que no tiene permiso.
+    if (!getAccessPrincipal(request)) return reply.status(403).send({ error: 'Forbidden' })
 
     // Access tokens are short-lived, but role changes and logout revoke the
     // backing session immediately. Checking it here prevents a still-valid
@@ -37,7 +43,8 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
       }
     }
     await applyWorkspaceContext(request)
-    if (!getAccessPrincipal(request)) return reply.status(401).send({ error: 'Unauthorized' })
+    // Mismo criterio tras el rebinding de workspace: es autorización, no identidad.
+    if (!getAccessPrincipal(request)) return reply.status(403).send({ error: 'Forbidden' })
   } catch (error) {
     if (error instanceof WorkspaceAccessError) {
       return reply.status(error.statusCode).send({ error: error.message, code: error.code, ...error.details })

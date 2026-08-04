@@ -7,7 +7,7 @@ export const PROVIDER_CONFIRMATION = 'I_UNDERSTAND_STAGING_PROVIDER_MUTATIONS'
 export const PROVIDER_PROBE_CONFIRMATION = 'I_UNDERSTAND_STAGING_PROVIDER_PROBES'
 export const RUN_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,79}$/i
 export const NAMESPACE_PATTERN = /^(?:staging|stage|e2e|test|qa|sandbox|preview)[-_][a-z0-9][a-z0-9_-]{2,79}$/i
-export const PROVIDER_IDS = ['meta_ads', 'google_search_console', 'metricool', 'postiz', 'mautic_email', 'twilio']
+export const PROVIDER_IDS = ['meta_ads', 'google_search_console', 'metricool', 'mautic_email', 'twilio']
 export const NON_PRODUCTION_HOST_MARKERS = [
   'staging',
   'stage',

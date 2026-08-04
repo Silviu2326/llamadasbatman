@@ -35,20 +35,22 @@ export default function FormInput({
   const describedBy = [ariaDescribedBy, hintId, errorId].filter(Boolean).join(' ') || undefined
 
   return (
-    <div>
+    // minWidth 0: sin esto el ancho mínimo del <input> ensancha la celda de la
+    // rejilla y el campo desborda dentro de un FormRow estrecho.
+    <div style={{ minWidth: 0 }}>
       {label && (
         <label
           htmlFor={inputId}
           style={{
             display: 'block',
             fontSize: 11,
-            color: '#6b7280',
+            color: 'var(--dim)',
             marginBottom: 5,
             fontWeight: 500,
           }}
         >
           {label}
-          {required && <span aria-hidden="true" style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
+          {required && <span aria-hidden="true" style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>}
           {required && <span style={visuallyHiddenStyle}> ({locale === 'en' ? 'required' : 'obligatorio'})</span>}
         </label>
       )}
@@ -66,11 +68,11 @@ export default function FormInput({
         style={{
           width: '100%',
           boxSizing: 'border-box',
-          background: '#080c14',
-          border: `1px solid ${error ? '#ef4444' : '#1e2433'}`,
+          background: 'var(--bg)',
+          border: `1px solid ${error ? 'var(--danger)' : 'var(--line-control)'}`,
           borderRadius: 8,
           padding: '9px 12px',
-          color: '#e2e8f0',
+          color: 'var(--text)',
           fontSize: 13,
           outline: 'none',
           transition: 'border-color .15s',
@@ -78,16 +80,16 @@ export default function FormInput({
           ...inputProps.style,
         }}
         onFocus={event => {
-          event.target.style.borderColor = '#8b5cf660'
+          event.target.style.borderColor = 'var(--accent)'
           inputProps.onFocus?.(event)
         }}
         onBlur={event => {
-          event.target.style.borderColor = error ? '#ef4444' : '#1e2433'
+          event.target.style.borderColor = error ? 'var(--danger)' : 'var(--line-control)'
           inputProps.onBlur?.(event)
         }}
       />
-      {hint && <small id={hintId} style={{ display: 'block', marginTop: 5, color: '#94a3b8', fontSize: 11 }}>{hint}</small>}
-      {error && <p id={errorId} role="alert" style={{ margin: '5px 0 0', color: '#fca5a5', fontSize: 11 }}>{error}</p>}
+      {hint && <small id={hintId} style={{ display: 'block', marginTop: 5, color: 'var(--muted)', fontSize: 11 }}>{hint}</small>}
+      {error && <p id={errorId} role="alert" style={{ margin: '5px 0 0', color: 'var(--danger-faint)', fontSize: 11 }}>{error}</p>}
     </div>
   )
 }

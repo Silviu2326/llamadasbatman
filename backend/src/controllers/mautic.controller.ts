@@ -31,8 +31,15 @@ const scheduleSchema = z.object({
 async function assertEmailMarketingEnabled(request: FastifyRequest, reply: FastifyReply): Promise<string | null> {
   const { orgId } = request.user as JWTUser
   const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true } })
-  if (org?.plan !== 'completo' || !org.mauticEnabled) {
-    reply.status(403).send({ error: 'Email marketing no está incluido en tu plan' })
+  // Dos condiciones distintas, antes con el mismo mensaje: a una organización en
+  // plan `completo` con la integración apagada se le pedía mejorar un plan que ya
+  // era el máximo. Los `code` son los mismos que usa requireEntitlement.
+  if (org?.plan !== 'completo') {
+    reply.status(403).send({ error: 'Email marketing es una función del plan Completo. Mejora tu plan para activarlo.', code: 'PLAN_CAPABILITY_REQUIRED' })
+    return null
+  }
+  if (!org.mauticEnabled) {
+    reply.status(403).send({ error: 'Email marketing no está habilitado en tu organización. Pide a tu administrador que lo active.', code: 'INTEGRATION_DISABLED' })
     return null
   }
   return orgId
@@ -196,6 +203,11 @@ export async function getCampaignStats(request: FastifyRequest<{ Params: { id: s
   const params = parseRequest(reply, idParamsSchema, request.params)
   if (!params) return
   const stats = await mauticSync.getCampaignStats(params.id, orgId)
-  if (!stats) return reply.status(503).send({ error: 'No se pudo obtener el detalle de la campaña' })
-  return reply.send(stats)
+  // Una lectura de detalle no puede responder 503 sólo porque el email
+  // marketing todavía no esté conectado (sin credenciales el servicio
+  // devuelve `null`). La envoltura es la MISMA en los dos caminos: devolver
+  // el objeto crudo cuando hay datos y `{configured:false}` cuando no obliga
+  // al consumidor a distinguir dos formas, y ese es el tipo de trampa que
+  // acaba en un "servicio no disponible" pintado por error.
+  return reply.send({ configured: Boolean(stats), stats: stats ?? null })
 }

@@ -335,7 +335,9 @@ export default function PublicLandingPage() {
       .catch(requestError => {
         if (requestError.name !== 'AbortError') setError(requestError.message)
       })
-      .finally(() => setLoading(false))
+      // En StrictMode el primer efecto se aborta: no apagues el spinner o la segunda
+      // petición, aún en vuelo, mostraría el error de "landing no encontrada".
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
 
     return () => controller.abort()
   }, [preview, slug])

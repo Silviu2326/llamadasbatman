@@ -60,7 +60,7 @@ const CAPABILITIES_BY_PLAN: Readonly<Record<PlanKey, readonly Capability[]>> = O
 })
 
 const PLAN_ALIASES: Readonly<Record<string, PlanKey>> = {
-  free: 'free', gratis: 'free', basic: 'free', basico: 'free', 'bÃ¡sico': 'free', starter: 'free',
+  free: 'free', gratis: 'free', basic: 'free', basico: 'free', 'básico': 'free', starter: 'free',
   pro: 'pro', profesional: 'pro',
   completo: 'completo', premium: 'completo', enterprise: 'completo',
   agencia: 'agency', agency: 'agency',
@@ -97,7 +97,7 @@ export type OrganizationAccessRow = {
   id: string
   plan: string
   mauticEnabled: boolean
-  postizEnabled: boolean
+  metricoolEnabled: boolean
 }
 
 export type EntitlementDatabase = {
@@ -116,7 +116,7 @@ export type EntitlementSnapshot = Readonly<{
   capabilities: readonly Capability[]
   limits: Readonly<Record<LimitResource, number>>
   usage: EntitlementUsage
-  integrations: Readonly<{ mauticEnabled: boolean; postizEnabled: boolean }>
+  integrations: Readonly<{ mauticEnabled: boolean; metricoolEnabled: boolean }>
 }>
 
 export class EntitlementError extends Error {
@@ -145,7 +145,7 @@ export async function getEntitlementSnapshot(orgId: string, db: EntitlementDatab
   assertOrgId(orgId)
   const organization = await db.organization.findUnique({
     where: { id: orgId },
-    select: { id: true, plan: true, mauticEnabled: true, postizEnabled: true },
+    select: { id: true, plan: true, mauticEnabled: true, metricoolEnabled: true },
   })
   if (!organization || organization.id !== orgId) {
     throw new EntitlementError('La organizacion activa no existe', 404, 'ORGANIZATION_NOT_FOUND', { orgId })
@@ -168,7 +168,7 @@ export async function getEntitlementSnapshot(orgId: string, db: EntitlementDatab
     // Secondary agency workspaces are resolved by workspaceAccess. The
     // organization itself is always the primary workspace.
     usage: Object.freeze({ users, leads, campaigns, agents, automations, workspaces: 1 }),
-    integrations: Object.freeze({ mauticEnabled: Boolean(organization.mauticEnabled), postizEnabled: Boolean(organization.postizEnabled) }),
+    integrations: Object.freeze({ mauticEnabled: Boolean(organization.mauticEnabled), metricoolEnabled: Boolean(organization.metricoolEnabled) }),
   }) as EntitlementSnapshot
   issuedSnapshots.add(snapshot)
   return snapshot
@@ -182,7 +182,7 @@ function trustedSnapshot(orgId: string, snapshot: EntitlementSnapshot | undefine
 export async function assertCapability(
   orgId: string,
   capability: Capability,
-  options: { snapshot?: EntitlementSnapshot; integration?: 'mautic' | 'postiz'; db?: EntitlementDatabase } = {},
+  options: { snapshot?: EntitlementSnapshot; integration?: 'mautic' | 'metricool'; db?: EntitlementDatabase } = {},
 ): Promise<EntitlementSnapshot> {
   const snapshot = trustedSnapshot(orgId, options.snapshot) ?? await getEntitlementSnapshot(orgId, options.db)
   if (!isCapability(capability) || !snapshot.capabilities.includes(capability)) {
@@ -196,8 +196,8 @@ export async function assertCapability(
   if (options.integration === 'mautic' && !snapshot.integrations.mauticEnabled) {
     throw new EntitlementError('La integracion Mautic no esta habilitada para esta organizacion', 403, 'INTEGRATION_DISABLED', { integration: 'mautic' })
   }
-  if (options.integration === 'postiz' && !snapshot.integrations.postizEnabled) {
-    throw new EntitlementError('La integracion social no esta habilitada para esta organizacion', 403, 'INTEGRATION_DISABLED', { integration: 'postiz' })
+  if (options.integration === 'metricool' && !snapshot.integrations.metricoolEnabled) {
+    throw new EntitlementError('La integracion social no esta habilitada para esta organizacion', 403, 'INTEGRATION_DISABLED', { integration: 'metricool' })
   }
   return snapshot
 }

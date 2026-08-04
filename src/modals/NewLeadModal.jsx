@@ -53,7 +53,7 @@ export default function NewLeadModal({ onClose, onSuccess }) {
 
   return (
     <FormModal title={t('modal.newLead')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createLead')}>
-      {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
       <FormRow>
         <FormInput label={t('modal.fullName')} value={form.name} onChange={e => update('name', e.target.value)} placeholder={locale === 'en' ? 'e.g. Carlos Mendez' : 'Ej. Carlos Méndez'} required />
         <FormInput label={t('modal.role')} value={form.role} onChange={e => update('role', e.target.value)} placeholder={locale === 'en' ? 'e.g. CEO' : 'Ej. CEO'} />
@@ -71,7 +71,7 @@ export default function NewLeadModal({ onClose, onSuccess }) {
         <FormSelect label={t('modal.source')} value={form.source} onChange={e => update('source', e.target.value)} options={FUENTES} />
         <FormInput label={t('modal.tags')} value={form.tags} onChange={e => update('tags', e.target.value)} placeholder="SaaS, Enterprise, Madrid..." />
       </FormRow>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#94a3b8', cursor: 'pointer' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)', cursor: 'pointer' }}>
         <input type="checkbox" checked={callNow} onChange={e => setCallNow(e.target.checked)} /> {t('modal.callNow')}
       </label>
     </FormModal>

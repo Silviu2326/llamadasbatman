@@ -9,12 +9,12 @@ const dropdownStyle = {
   position: 'absolute',
   top: 'calc(100% + 6px)',
   right: 0,
-  background: '#0d1117',
-  border: '1px solid #1e2433',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 10,
   padding: 6,
   minWidth: 220,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+  boxShadow: 'var(--shadow-2)',
   zIndex: 20,
   display: 'flex',
   flexDirection: 'column',
@@ -22,11 +22,11 @@ const dropdownStyle = {
 }
 
 const inputStyle = {
-  background: '#080c14',
-  border: '1px solid #1e2433',
+  background: 'var(--bg)',
+  border: '1px solid var(--line)',
   borderRadius: 6,
   padding: '6px 8px',
-  color: '#f1f5f9',
+  color: 'var(--text-strong)',
   fontSize: 12,
 }
 
@@ -64,11 +64,11 @@ export default function DateRangePicker({ onChange, defaultDays = 6 }) {
           display: 'flex',
           alignItems: 'center',
           gap: 7,
-          background: '#0d1117',
-          border: '1px solid #1e2433',
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
           borderRadius: 9,
           padding: '7px 13px',
-          color: '#94a3b8',
+          color: 'var(--muted)',
           fontSize: 12,
           cursor: 'pointer',
         }}
@@ -85,8 +85,8 @@ export default function DateRangePicker({ onChange, defaultDays = 6 }) {
         />
       </button>
       {open && (
-        <div style={{ ...dropdownStyle, right: 'auto', left: 0 }}>
-          <label style={{ fontSize: 11, color: '#6b7280', padding: '4px 6px' }}>{t('common.from')}</label>
+        <div style={{ ...dropdownStyle, right: 0, left: 'auto', maxWidth: 'calc(100vw - 24px)' }}>
+          <label style={{ fontSize: 11, color: 'var(--dim)', padding: '4px 6px' }}>{t('common.from')}</label>
           <input
             type="date"
             value={startDate}
@@ -94,7 +94,7 @@ export default function DateRangePicker({ onChange, defaultDays = 6 }) {
             onChange={e => updateStart(e.target.value)}
             style={{ ...inputStyle, marginBottom: 8 }}
           />
-          <label style={{ fontSize: 11, color: '#6b7280', padding: '4px 6px' }}>{t('common.until')}</label>
+          <label style={{ fontSize: 11, color: 'var(--dim)', padding: '4px 6px' }}>{t('common.until')}</label>
           <input
             type="date"
             value={endDate}

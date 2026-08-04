@@ -8,17 +8,18 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
   const hasRemoved = removedWidgets.length > 0
 
   return (
-    <div style={{
+    // El ancho lo controla `.fixed-side-panel` (style.css): 300px en escritorio
+    // y ancho completo en móvil, donde un panel de 300px no deja sitio al resto.
+    <div className="fixed-side-panel" style={{
       position: 'fixed',
       right: 0, top: 0, bottom: 0,
-      width: 300,
-      background: '#080c14',
-      borderLeft: '1px solid #1e2433',
-      boxShadow: '-8px 0 40px rgba(0,0,0,0.5)',
+      background: 'var(--bg)',
+      borderLeft: '1px solid var(--line)',
+      boxShadow: 'var(--shadow-2)',
       zIndex: 100,
       display: 'flex',
       flexDirection: 'column',
-      padding: '22px',
+      padding: 'clamp(14px,4vw,22px)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -29,20 +30,20 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 0 16px #4f46e545',
           }}>
-            <RiLayoutLine style={{ width: 18, height: 18, color: '#818cf8' }} />
+            <RiLayoutLine style={{ width: 18, height: 18, color: 'var(--accent-soft)' }} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>{t('dashboard.editDashboard')}</h3>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6b7280' }}>{t('dashboard.visibleWidgets', { visible: ALL_WIDGET_IDS.length - removedWidgets.length, total: ALL_WIDGET_IDS.length })}</p>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>{t('dashboard.editDashboard')}</h3>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--dim)' }}>{t('dashboard.visibleWidgets', { visible: ALL_WIDGET_IDS.length - removedWidgets.length, total: ALL_WIDGET_IDS.length })}</p>
           </div>
         </div>
         <button
           onClick={onClose}
           style={{
-            width: 30, height: 30, borderRadius: 8,
-            background: '#131b2b', border: '1px solid #1e2433',
+            width: 44, height: 44, borderRadius: 8,
+            background: 'var(--surface-3)', border: '1px solid var(--line)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#94a3b8', cursor: 'pointer',
+            color: 'var(--muted)', cursor: 'pointer',
           }}
         >
           <RiCloseLine style={{ width: 18, height: 18 }} />
@@ -50,16 +51,16 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
       </div>
 
       <div style={{
-        background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10,
+        background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10,
         padding: '12px 14px', marginBottom: 20,
       }}>
-        <p style={{ margin: 0, fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
           {t('dashboard.widgetHelp')}
         </p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <h4 style={{ margin: 0, fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        <h4 style={{ margin: 0, fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
           {hasRemoved ? t('dashboard.removedWidgets') : t('dashboard.availableWidgets')}
         </h4>
         <button
@@ -67,7 +68,7 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             background: 'transparent', border: 'none',
-            color: '#818cf8', fontSize: 11, fontWeight: 600,
+            color: 'var(--accent-soft)', fontSize: 11, fontWeight: 600,
             cursor: 'pointer', padding: 0,
           }}
         >
@@ -88,30 +89,30 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
                 onClick={() => onAddWidget(id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
-                  background: '#0d1117', border: '1px solid #1e2433',
+                  background: 'var(--surface)', border: '1px solid var(--line)',
                   borderRadius: 12, padding: '12px 14px',
-                  color: '#cbd5e1', cursor: 'pointer', fontSize: 13,
+                  color: 'var(--text-2)', cursor: 'pointer', fontSize: 13,
                   textAlign: 'left', transition: 'all .2s ease',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = '#131b2b'
+                  e.currentTarget.style.background = 'var(--surface-3)'
                   e.currentTarget.style.borderColor = '#4f46e560'
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.background = '#0d1117'
-                  e.currentTarget.style.borderColor = '#1e2433'
+                  e.currentTarget.style.background = 'var(--surface)'
+                  e.currentTarget.style.borderColor = 'var(--line)'
                 }}
               >
                 <div style={{
                   width: 28, height: 28, borderRadius: 8,
-                  background: '#131b2b', border: '1px solid #1e2433',
+                  background: 'var(--surface-3)', border: '1px solid var(--line)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   flexShrink: 0,
                 }}>
-                  {Icon && <Icon style={{ width: 14, height: 14, color: '#818cf8' }} />}
+                  {Icon && <Icon style={{ width: 14, height: 14, color: 'var(--accent-soft)' }} />}
                 </div>
                 <span style={{ flex: 1 }}>{meta?.label ?? id}</span>
-                <RiAddLine style={{ width: 18, height: 18, color: '#4ade80', flexShrink: 0 }} />
+                <RiAddLine style={{ width: 18, height: 18, color: 'var(--success-soft)', flexShrink: 0 }} />
               </button>
             )
           })
@@ -122,12 +123,12 @@ export default function EditPanel({ removedWidgets, onAddWidget, onClose, onRese
           }}>
             <div style={{
               width: 48, height: 48, borderRadius: 14,
-              background: '#0d1117', border: '1px solid #1e2433',
+              background: 'var(--surface)', border: '1px solid var(--line)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <RiLayoutLine style={{ width: 24, height: 24, color: '#4b5563' }} />
+              <RiLayoutLine style={{ width: 24, height: 24, color: 'var(--dim)' }} />
             </div>
-            <p style={{ margin: 0, fontSize: 12, color: '#6b7280', lineHeight: 1.5 }}>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
               {t('dashboard.allVisible')}
             </p>
           </div>

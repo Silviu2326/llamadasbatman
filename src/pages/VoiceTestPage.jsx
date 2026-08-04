@@ -16,6 +16,7 @@ import {
 } from 'react-icons/ri'
 import voiceOrbImage from '../assets/voice/voice-orb.png'
 import { apiFetch } from '../lib/api'
+import { planGateMessage, readPlanGate } from '../lib/planGate'
 import { useAuth } from '../contexts/AuthContext'
 import './voice-test.css'
 import { useI18n } from '../i18n'
@@ -37,13 +38,13 @@ registerProcessor('mic-proc', MicProcessor)
 `
 
 const COLORS = {
-  accent: '#6366f1',
-  green: '#10b981',
-  red: '#ef4444',
-  yellow: '#f59e0b',
-  teal: '#14b8a6',
-  muted: '#64748b',
-  text: '#e2e8f0',
+  accent: 'var(--accent)',
+  green: 'var(--success)',
+  red: 'var(--danger)',
+  yellow: 'var(--warn)',
+  teal: 'var(--success)',
+  muted: 'var(--dim)',
+  text: 'var(--text)',
 }
 
 const WAVEFORM = [16, 28, 40, 22, 56, 34, 68, 43, 78, 36, 58, 27, 48, 20, 38, 24, 52, 30, 42, 18]
@@ -147,18 +148,62 @@ function DiagnosticCard({ icon: Icon, label, value, detail, tone = 'default', ch
 }
 
 export default function VoiceTestPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const navigate = useNavigate()
   const { token } = useAuth()
   const [agentId, setAgentId] = useState('')
   const [agentOptions, setAgentOptions] = useState([])
   const [phase, setPhase] = useState('idle')
+  const [abVersions, setAbVersions] = useState([])
+  const [abVersion, setAbVersion] = useState(null)
+  const [abBusy, setAbBusy] = useState(false)
+  const [abStatus, setAbStatus] = useState('')
+  // Un desplegable vacío no puede parecer "no tienes agentes" cuando en
+  // realidad la lista no se pudo cargar.
+  const [agentsError, setAgentsError] = useState('')
 
   useEffect(() => {
-    apiFetch('/api/agents').then(r => r.ok ? r.json() : []).then(data => {
-      if (Array.isArray(data)) setAgentOptions(data.map(agent => ({ id: agent.id, name: agent.name })))
+    apiFetch('/api/agents').then(async response => {
+      if (!response.ok) {
+        const gate = await readPlanGate(response)
+        setAgentsError(gate
+          ? planGateMessage(gate, locale)
+          : 'No se pudo cargar la lista de agentes. Puedes probar con el agente por defecto o volver a entrar en unos segundos.')
+        return null
+      }
+      return response.json()
+    }).then(data => {
+      if (Array.isArray(data)) {
+        const options = data.map(agent => ({ id: agent.id, name: agent.name }))
+        setAgentOptions(options)
+        // ponytail: preseleccion para el test RunPod — quitar tras la sesion
+        const alex = options.find(option => /alex en/i.test(option.name))
+        if (alex) setAgentId(current => current || alex.id)
+      }
+    }).catch(() => setAgentsError('No se pudo cargar la lista de agentes. Puedes probar con el agente por defecto o volver a entrar en unos segundos.'))
+    apiFetch('/api/voice/ab-version').then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.enabled) { setAbVersions(data.versions); setAbVersion(data.version) }
     }).catch(() => {})
   }, [])
+
+  async function switchAbVersion(id) {
+    setAbBusy(true)
+    setAbStatus(`Activando ${id}… (reinicia el worker en el pod, ~10 s)`)
+    try {
+      const response = await apiFetch('/api/voice/ab-version', { method: 'POST', body: JSON.stringify({ version: id }) })
+      const data = await response.json().catch(() => ({}))
+      if (response.ok) {
+        setAbVersion(id)
+        setAbStatus(`${id} activa`)
+      } else {
+        setAbStatus(data.error ?? 'Error al cambiar de versión')
+      }
+    } catch {
+      setAbStatus('Error de red al cambiar de versión')
+    } finally {
+      setAbBusy(false)
+    }
+  }
   const [transcript, setTranscript] = useState([])
   const [partial, setPartial] = useState('')
   const [volume, setVolume] = useState(0)
@@ -182,9 +227,16 @@ export default function VoiceTestPage() {
   const tickRef = useRef(null)
   const transcriptEndRef = useRef(null)
   const turnCountRef = useRef(0)
+  // El diálogo de permisos del micrófono es asíncrono: si el usuario se va de
+  // la página mientras está abierto, la limpieza corre antes de que exista el
+  // stream y el micro se quedaría encendido toda la vida de la pestaña.
+  const disposedRef = useRef(false)
 
   const addLine = useCallback((role, text, meta) => {
-    setTranscript(current => [...current.slice(-120), { role, text, meta, id: Math.random(), ts: Date.now() }])
+    // El servidor puede mandar `{type:'error'}` sin `message` (rechazo que no es
+    // Error): sin normalizar aquí, `line.text` queda undefined y cualquier
+    // lectura de la transcripción revienta el render en mitad de la sesión.
+    setTranscript(current => [...current.slice(-120), { role, text: String(text ?? ''), meta, id: Math.random(), ts: Date.now() }])
   }, [])
 
   function scheduleAudio(f32) {
@@ -235,7 +287,9 @@ export default function VoiceTestPage() {
       if (!AudioContextClass || !navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite capturar audio.')
       capCtxRef.current = new AudioContextClass({ sampleRate: 16000 })
       playCtxRef.current = new AudioContextClass({ sampleRate: 24000 })
-      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+      if (disposedRef.current) { stream.getTracks().forEach(track => track.stop()); return }
+      streamRef.current = stream
 
       const blobUrl = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }))
       await capCtxRef.current.audioWorklet.addModule(blobUrl)
@@ -325,7 +379,7 @@ export default function VoiceTestPage() {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [transcript, partial])
 
-  useEffect(() => () => stop(), [])
+  useEffect(() => () => { disposedRef.current = true; stop() }, [])
 
   const isLive = phase === 'live'
   const latestUserTurn = [...transcript].reverse().find(line => line.role === 'tú' && line.meta?.confidence != null)
@@ -340,6 +394,7 @@ export default function VoiceTestPage() {
         <div><h1>{t('voiceTest.title')}</h1><p>{t('voiceTest.subtitle')}</p></div>
       </div>
       <div className="voice-header-actions">
+        <button className="voice-button ghost" onClick={() => navigate('/voz/lab')}><RiPulseLine /> Laboratorio de voz</button>
         <button className="voice-button ghost" onClick={() => navigate('/agentes')}><RiArrowLeftLine /> {t('voiceTest.back')}</button>
         <span className="voice-system-status"><i /> {t('voiceTest.systemReady')}</span>
       </div>
@@ -351,6 +406,31 @@ export default function VoiceTestPage() {
           <div className="voice-panel-heading"><div><span className="voice-panel-kicker"><RiPulseLine /> {t('voiceTest.configuration')}</span><h2>{t('voiceTest.session')}</h2></div><RiInformationLine className="voice-panel-heading-icon" /></div>
           <p className="voice-panel-intro">{t('voiceTest.intro')}</p>
           <label className="voice-field"><span>Agente <em>{t('voiceTest.optional')}</em></span><select value={agentId} onChange={event => setAgentId(event.target.value)} disabled={isLive} style={{ width: '100%' }}><option value="">Agente por defecto</option>{agentOptions.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>
+          {agentsError && <small role="status" style={{ display: 'block', marginTop: -4, marginBottom: 8, color: COLORS.yellow }}>{agentsError}</small>}
+          {abVersions.length > 0 && <div className="voice-field">
+            <span>Versión de voz</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,110px),1fr))', gap: 6, marginTop: 4 }}>
+              {abVersions.map(item => {
+                const active = item.id === abVersion
+                return <button
+                  key={item.id}
+                  onClick={() => switchAbVersion(item.id)}
+                  disabled={abBusy || isLive || active}
+                  title={`${item.label} (${item.architecture})`}
+                  style={{
+                    padding: '7px 4px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: active ? 'default' : 'pointer',
+                    fontFamily: 'inherit', lineHeight: 1.25, minWidth: 0, overflowWrap: 'anywhere',
+                    border: `1px solid ${active ? COLORS.accent : 'rgba(100,116,139,0.35)'}`,
+                    background: active ? `color-mix(in srgb, ${COLORS.accent} 15%, transparent)` : 'transparent',
+                    color: active ? COLORS.text : COLORS.muted,
+                    opacity: abBusy || isLive ? 0.55 : 1,
+                  }}>
+                  {item.id}<br /><small style={{ fontWeight: 500 }}>{item.label}</small>
+                </button>
+              })}
+            </div>
+            {abStatus && <small style={{ display: 'block', marginTop: 6, color: COLORS.muted }}>{abStatus}</small>}
+          </div>}
           <div className="voice-config-note"><RiShieldCheckLine /><span>{t('voiceTest.privateSession')}</span></div>
         </section>
 
@@ -395,6 +475,6 @@ export default function VoiceTestPage() {
       </main>
     </section>
 
-    {transcript.some(line => line.role === 'sistema' && line.text.toLowerCase().includes('error')) && <div className="voice-inline-alert" role="status"><RiCloseLine /> El servicio de voz no responde. Espera unos segundos y vuelve a intentarlo; si persiste, contacta con soporte.</div>}
+    {transcript.some(line => line.role === 'sistema' && line.text?.toLowerCase().includes('error')) && <div className="voice-inline-alert" role="status"><RiCloseLine /> El servicio de voz no responde. Espera unos segundos y vuelve a intentarlo; si persiste, contacta con soporte.</div>}
   </div>
 }

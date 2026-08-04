@@ -39,7 +39,7 @@ export default function NewArticuloModal({ onClose, onSuccess }) {
 
   return (
     <FormModal title={t('modal.newArticle')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createArticle')}>
-      {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
       <FormInput label={t('modal.title')} value={form.title} onChange={e => update('title', e.target.value)} placeholder={locale === 'en' ? 'e.g. How does voice AI work?' : 'Ej. ¿Cómo funciona la IA de voz?'} required />
       <FormSelect label={t('modal.category')} value={form.category} onChange={e => update('category', e.target.value)} options={CATEGORIAS} required />
       <FormTextarea label={t('modal.summary')} value={form.description} onChange={e => update('description', e.target.value)} placeholder={locale === 'en' ? 'Write a summary of the content…' : 'Escribe un resumen del contenido…'} />

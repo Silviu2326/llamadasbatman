@@ -31,6 +31,7 @@ import {
   syncOrganicIntegration,
 } from '../lib/organic/organicApi'
 import { DEMO_MODE } from '../lib/dataMode'
+import { planGateMessage } from '../lib/planGate'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
 import './organic-leads.css'
@@ -105,8 +106,8 @@ function hasOrganicSignals(data) {
 }
 
 function Sparkline({ tone = 'purple' }) {
-  const stroke = tone === 'green' ? '#29a85b' : tone === 'amber' ? '#f0a51a' : tone === 'red' ? '#ef5c74' : '#7b50df'
-  return <svg className="organic-sparkline" viewBox="0 0 240 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 31 C18 29 21 30 33 24 S59 26 71 20 S97 24 110 16 S134 22 147 12 S176 18 191 9 S221 15 240 8" fill="none" stroke={stroke} strokeWidth="1.5" /><path d="M0 31 C18 29 21 30 33 24 S59 26 71 20 S97 24 110 16 S134 22 147 12 S176 18 191 9 S221 15 240 8 L240 40 L0 40Z" fill={stroke} opacity=".08" /></svg>
+  const stroke = tone === 'green' ? 'var(--success)' : tone === 'amber' ? 'var(--warn)' : tone === 'red' ? 'var(--danger)' : 'var(--accent-soft)'
+  return <svg className="organic-sparkline" viewBox="0 0 240 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 31 C18 29 21 30 33 24 S59 26 71 20 S97 24 110 16 S134 22 147 12 S176 18 191 9 S221 15 240 8" fill="none" style={{ stroke }} strokeWidth="1.5" /><path d="M0 31 C18 29 21 30 33 24 S59 26 71 20 S97 24 110 16 S134 22 147 12 S176 18 191 9 S221 15 240 8 L240 40 L0 40Z" style={{ fill: stroke }} opacity=".08" /></svg>
 }
 
 function KpiCard({ item, value, currency, index }) {
@@ -231,9 +232,9 @@ export default function OrganicLeadsPage() {
     try {
       const result = await fetchOrganicOverview({ projectId, period })
       const status = result.status === 'ready' && !hasOrganicSignals(result.data) ? 'empty' : result.status
-      setView({ status, data: result.data, error: '' })
+      setView({ status, data: result.data, error: '', gate: result.gate || null })
     } catch (error) {
-      setView({ status: 'error', data: null, error: DEMO_MODE
+      setView({ status: 'error', data: null, gate: null, error: DEMO_MODE
         ? 'El modo demo está habilitado, pero Organic Leads no usa datos simulados: conecta las fuentes reales para continuar.'
         : error.message || 'Error inesperado.' })
     }
@@ -308,7 +309,7 @@ export default function OrganicLeadsPage() {
   const currency = data?.project?.currency || 'EUR'
 
   if (view.status === 'loading') return <main className="organic-page"><div className="organic-shell"><div className="organic-state"><div><div className="organic-spinner" /><p>{locale === 'en' ? 'Preparing your opportunity map…' : 'Preparando tu mapa de oportunidades…'}</p></div></div></div></main>
-  if (view.status === 'setup' || !data) return <main className="organic-page"><div className="organic-shell"><SetupState kind="setup" onConfigure={() => openModal('setup', null, 'project')} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
+  if (view.status === 'setup' || !data) return <main className="organic-page"><div className="organic-shell">{view.gate ? <DataStatusBanner status="plan" message={planGateMessage(view.gate, locale)} /> : null}<SetupState kind="setup" onConfigure={() => openModal('setup', null, 'project')} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
   if (view.status === 'error') return <main className="organic-page"><div className="organic-shell"><SetupState kind="error" error={view.error} onRetry={loadOverview} onConfigure={() => openModal('setup', null, 'project')} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
 
   return <main className="organic-page"><div className="organic-shell"><header className="organic-topbar"><div className="organic-heading"><RiLeafLine aria-hidden="true" /><h1>Organic Leads</h1></div><div className="organic-header-actions"><div className="organic-selects">{projects.length ? <label><span className="organic-screen-reader">Proyecto</span><select className="organic-control" value={projectId || projects[0]?.id || ''} onChange={event => setProjectId(event.target.value)}>{projects.map(project => <option key={project.id} value={project.id}>{project.name || project.location || 'Proyecto orgánico'}</option>)}</select></label> : null}<label><span className="organic-screen-reader">Periodo</span><select className="organic-control" value={period} onChange={event => setPeriod(event.target.value)}>{PERIODS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div><button type="button" className="organic-button secondary" onClick={() => openModal('setup', null, 'connect')}><RiLinkM /> Conectar web</button><button type="button" className="organic-button primary" onClick={() => openModal('draft')}><RiAddLine /> Crear campaña orgánica</button></div></header><OrganicInternalNav /><section id="organic-summary" className="organic-opportunity-banner"><div className="organic-score" aria-label={`Oportunidad orgánica ${data.opportunity.score ?? 'sin puntuación'} sobre 100`}><span>{data.opportunity.score ?? '—'}<small>/100</small></span></div><div className="organic-opportunity-copy"><h2>Oportunidad orgánica: <strong>{data.opportunity.score ?? '—'}/100</strong></h2><p>{data.opportunity.summary || 'Vendrava está buscando oportunidades comerciales que tu negocio todavía no está aprovechando.'}</p></div><button type="button" className="organic-button secondary" onClick={() => handleAction(data.demand.best, 'opportunity')}>Ver análisis completo <RiArrowRightLine /></button></section><section className="organic-kpi-grid">{EMPTY_KPI.map((item, index) => <KpiCard key={item.key} item={item} value={data.kpis[item.key]} currency={currency} index={index} />)}</section><OrganicIntegrationsPanel state={integrationState} projectId={data.project?.id || projectId} onAction={handleIntegrationAction} onRefresh={loadIntegrations} /><div className="organic-main-grid"><OpportunitiesPanel data={data} onAction={handleAction} /><ActionPanel actions={data.actions} onAction={handleAction} /></div><div className="organic-lower-grid"><LocalPanel data={data} onAction={handleAction} /><AiPanel data={data} onAction={handleAction} /><AssetsPanel data={data} onAction={handleAction} /><LeadsPanel data={data} onAction={handleAction} /></div><CompetitorGap data={data} onAction={handleAction} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>

@@ -5,7 +5,6 @@ import { credentialMetadata, decryptOrganizationCredential, encryptOrganizationC
 
 export const ORGANIZATION_CREDENTIAL_PROVIDERS = [
   'metricool',
-  'postiz',
   'mautic',
   'twilio',
   // Google OAuth application credentials are optional per organization. The

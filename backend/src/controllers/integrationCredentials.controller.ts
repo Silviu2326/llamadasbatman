@@ -21,7 +21,6 @@ const bodySchema = z.object({
 
 const ALLOWED_SECRET_KEYS: Record<string, readonly string[]> = {
   metricool: ['baseUrl', 'userToken', 'userId', 'blogId', 'timezone'],
-  postiz: ['baseUrl', 'apiKey'],
   mautic: ['baseUrl', 'clientId', 'clientSecret', 'webhookSecret'],
   twilio: ['accountSid', 'authToken', 'fromNumber', 'whatsappFrom', 'webhookBaseUrl', 'mxNumbers', 'voiceStreamSecret', 'humanTransferNumber', 'whatsappWelcomeContentSid'],
   google: ['clientId', 'clientSecret'],
@@ -42,13 +41,11 @@ function validateProviderSecrets(provider: string, input: Record<string, unknown
   if (baseUrl && validatePublicBaseUrl(`${provider}.baseUrl`, baseUrl)) throw new Error('INTEGRATION_BASE_URL_INVALID')
   const secretFields = provider === 'metricool'
     ? ['userToken']
-    : provider === 'postiz'
-      ? ['apiKey']
-      : provider === 'mautic'
-        ? ['clientSecret', 'webhookSecret']
-        : provider === 'twilio'
-          ? ['authToken', 'voiceStreamSecret']
-          : ['clientSecret']
+    : provider === 'mautic'
+      ? ['clientSecret', 'webhookSecret']
+      : provider === 'twilio'
+        ? ['authToken', 'voiceStreamSecret']
+        : ['clientSecret']
   for (const field of secretFields) {
     if (result[field] && validateSecretValue(field, String(result[field]), field === 'authToken' ? 16 : 32)) throw new Error('INTEGRATION_SECRET_INVALID')
   }

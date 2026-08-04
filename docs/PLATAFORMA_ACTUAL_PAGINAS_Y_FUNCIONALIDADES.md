@@ -129,7 +129,7 @@ Funciones principales:
 
 **Ruta:** `/redes-sociales`
 
-Área de conexión y operación de canales sociales mediante Postiz y Metricool.
+Área de conexión y operación de canales sociales mediante Metricool.
 
 Funciones principales:
 
@@ -484,7 +484,7 @@ Funciones principales:
 - Gestionar preferencias de idioma y formato.
 - Cambiar contraseña.
 - Consultar integraciones y su estado.
-- Acceder a la configuración de Meta Ads, Google, Metricool, Postiz, Mautic y Twilio.
+- Acceder a la configuración de Meta Ads, Google, Metricool, Mautic y Twilio.
 - Administrar opciones de seguridad y sesiones.
 - Consultar datos de uso y módulos habilitados.
 
@@ -591,8 +591,7 @@ Las páginas operativas se conectan con estos servicios y fuentes:
 - **Meta Ads:** cuentas publicitarias, campañas, anuncios, leads, insights y conversiones.
 - **Google Search Console:** propiedades, consultas, páginas, impresiones, clics, CTR y posición.
 - **Google Places:** descubrimiento y datos públicos de Prospect Finder.
-- **Metricool:** publicaciones, perfiles, programación y analítica social.
-- **Postiz:** integraciones de redes, borradores, publicaciones programadas y contenido social.
+- **Metricool:** integraciones de redes, perfiles, borradores, publicaciones programadas y analítica social.
 - **Mautic:** contactos, segmentos, campañas, envíos, respuestas, rebotes y bajas.
 - **Twilio:** llamadas, WhatsApp, callbacks, Media Streams y estados de comunicación.
 - **Base de conocimiento:** documentos y artículos consultables por agentes y procesos.

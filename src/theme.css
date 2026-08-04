@@ -1,0 +1,160 @@
+/* ── Tokens de tema ────────────────────────────────────────────────────────
+   Fuente única de verdad del color. Nadie debería escribir un hex fuera de
+   este archivo: usa var(--token).
+
+   El tema se resuelve en JS antes del primer pintado (script inline en
+   index.html) y queda en <html data-theme="dark|light">. Por defecto sigue al
+   sistema operativo; el usuario puede forzarlo desde el sidebar y se guarda en
+   localStorage('vozia:theme').
+
+   ponytail: no hay @media(prefers-color-scheme) en CSS porque el atributo ya
+   está siempre puesto — una sola fuente de verdad en vez de dos.
+   ────────────────────────────────────────────────────────────────────────── */
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Lienzo y superficies */
+  --bg: #080c14;
+  --surface: #0d1117;
+  --surface-soft: #0b111d;
+  --surface-2: #111827;
+  --surface-3: #111a2b;
+  --surface-hover: #1a2235;
+
+  /* Líneas. --line-hover es el borde de :hover/:focus-visible: tiene que
+     distinguirse de --line-2 o la regla de hover no se ve. */
+  --line: #1e2433;
+  --line-2: #2f3c56;
+  --line-hover: #4a5b78;
+  /* Borde de control (input, select, checkbox): WCAG 1.4.11 pide 3:1 y los
+     separadores decorativos de arriba no llegan. */
+  --line-control: #5b6a80;
+
+  /* Texto */
+  --text: #e2e8f0;
+  --text-strong: #f1f5f9;
+  --text-2: #cbd5e1;
+  --muted: #94a3b8;
+  --dim: #74839a;
+  --faint: #5b6a80;
+  --on-accent: #ffffff;
+
+  /* Acento de marca (indigo) */
+  --accent: #6366f1;
+  --accent-soft: #818cf8;
+  --accent-faint: #a5b4fc;
+  --accent-deep: #4f46e5;
+  --accent-bg: #312e81;
+
+  /* Secundarios */
+  --violet: #a78bfa;
+  --violet-soft: #c4b5fd;
+  --violet-deep: #7c3aed;
+  --cyan: #22d3ee;
+  --cyan-soft: #67e8f9;
+  --cyan-deep: #0891b2;
+  --cyan-bg: #083344;
+  --pink: #ec4899;
+  --lime: #a3e635;
+
+  /* Semánticos */
+  --success: #34d399;
+  --success-soft: #6ee7b7;
+  --success-deep: #059669;
+  --success-bg: #064e3b;
+  --warn: #f59e0b;
+  --warn-soft: #fbbf24;
+  --warn-faint: #fde68a;
+  --warn-deep: #b45309;
+  --warn-bg: #78350f;
+  --danger: #ef4444;
+  --danger-soft: #f87171;
+  --danger-faint: #fca5a5;
+  --danger-deep: #dc2626;
+  --danger-bg: #7f1d1d;
+  --info: #60a5fa;
+  --info-deep: #3b82f6;
+  --info-bg: #172554;
+
+  /* Sombras */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* Velo de modal. Oscuro en ambos temas a propósito: un scrim claro no
+     separa el modal del fondo. Había 10 densidades distintas. */
+  --scrim: rgba(2, 6, 23, 0.72);
+
+  /* Color de sombra. Se tokeniza el COLOR y no la sombra entera para no
+     aplanar la jerarquía de profundidad: cada regla conserva su geometría. */
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --surface-2: #f1f4f9;
+  --surface-3: #e8edf6;
+  --surface-hover: #eaeff8;
+
+  --line: #dbe1ea;
+  --line-2: #b4bfcd;
+  --line-hover: #7d8899;
+  --line-control: #7d8899;
+
+  --text: #1e293b;
+  --text-strong: #0f172a;
+  --text-2: #334155;
+  --muted: #4b5768;
+  --dim: #576274;
+  --faint: #677081;
+  --on-accent: #ffffff;
+
+  /* En oscuro, -soft y -faint son escalones MÁS CLAROS que el base (más
+     énfasis sobre fondo oscuro). En claro la dirección se invierte: son más
+     OSCUROS. Si aquí fueran más claros, los ~590 usos como color de texto
+     caerían por debajo de 4.5:1 sobre blanco. */
+  --accent: #4f46e5;
+  --accent-soft: #4338ca;
+  --accent-faint: #3730a3;
+  --accent-deep: #3730a3;
+  --accent-bg: #e0e7ff;
+
+  --violet: #7c3aed;
+  --violet-soft: #6d28d9;
+  --violet-deep: #5b21b6;
+  --cyan: #0e7490;
+  --cyan-soft: #155e75;
+  --cyan-deep: #164e63;
+  --cyan-bg: #cffafe;
+  --pink: #be185d;
+  --lime: #4d7c0f;
+
+  --success: #047857;
+  --success-soft: #065f46;
+  --success-deep: #064e3b;
+  --success-bg: #d1fae5;
+  --warn: #b45309;
+  --warn-soft: #92400e;
+  --warn-faint: #78350f;
+  --warn-deep: #78350f;
+  --warn-bg: #fef3c7;
+  --danger: #dc2626;
+  --danger-soft: #b91c1c;
+  --danger-faint: #991b1b;
+  --danger-deep: #991b1b;
+  --danger-bg: #fee2e2;
+  --info: #2563eb;
+  --info-deep: #1d4ed8;
+  --info-bg: #dbeafe;
+
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-2: 0 8px 24px rgba(16, 24, 40, 0.1);
+
+  --scrim: rgba(15, 23, 42, 0.55);
+
+  --shadow-color: rgba(16, 24, 40, 0.12);
+}

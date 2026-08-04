@@ -10,12 +10,11 @@ export type ProviderRuntimeStatus = 'not_configured' | 'configured' | 'healthy' 
  * credential table exists, these overrides may be supplied as a secret-managed
  * JSON map keyed by organization id. Values are never returned by health APIs.
  */
-export type IntegrationProvider = 'metricool' | 'postiz' | 'mautic' | 'twilio'
+export type IntegrationProvider = 'metricool' | 'mautic' | 'twilio'
 export type OrganizationIntegrationOverride = Record<string, unknown>
 
 const ORGANIZATION_CONFIG_ENV: Record<IntegrationProvider, string> = {
   metricool: 'METRICOOL_ORG_CONFIG_JSON',
-  postiz: 'POSTIZ_ORG_CONFIG_JSON',
   mautic: 'MAUTIC_ORG_CONFIG_JSON',
   twilio: 'TWILIO_ORG_CONFIG_JSON',
 }
@@ -35,12 +34,10 @@ const SENSITIVE_ENV_NAMES = [
   'GOOGLE_OAUTH_CLIENT_SECRET',
   'ORGANIC_TOKEN_ENCRYPTION_KEY',
   'METRICOOL_USER_TOKEN',
-  'POSTIZ_API_KEY',
   'MAUTIC_CLIENT_SECRET',
   'MAUTIC_WEBHOOK_SECRET',
   'TWILIO_AUTH_TOKEN',
   'METRICOOL_ORG_CONFIG_JSON',
-  'POSTIZ_ORG_CONFIG_JSON',
   'MAUTIC_ORG_CONFIG_JSON',
   'TWILIO_ORG_CONFIG_JSON',
   'DATABASE_URL',
@@ -182,7 +179,7 @@ export function validatePublicBaseUrl(name: string, value: string | undefined): 
   const result = validateUrlShape(name, value, { httpsInProduction: true })
   if (typeof result === 'string') return result
   if (!privateNetworkOptIn() && (privateHostname(result.hostname) || privateAddress(result.hostname))) {
-    return `${name} debe apuntar a un host pÃºblico`
+    return `${name} debe apuntar a un host público`
   }
   return null
 }

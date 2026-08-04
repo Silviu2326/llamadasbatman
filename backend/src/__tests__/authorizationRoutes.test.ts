@@ -5,7 +5,7 @@ import jwt from '@fastify/jwt'
 import { agentsRoutes } from '../routes/agents'
 import { campaignsRoutes } from '../routes/campaigns'
 import { metaAccountsRoutes } from '../routes/metaAccounts'
-import { postizRoutes } from '../routes/postiz'
+import { metricoolRoutes } from '../routes/metricool'
 import { whatsappRoutes } from '../routes/whatsapp'
 import { prospectsRoutes } from '../routes/prospects'
 import { adsRoutes } from '../routes/ads'
@@ -29,7 +29,7 @@ async function buildViewerApp() {
   await app.register(agentsRoutes, { prefix: '/agents' })
   await app.register(campaignsRoutes, { prefix: '/campaigns' })
   await app.register(metaAccountsRoutes, { prefix: '/meta/accounts' })
-  await app.register(postizRoutes, { prefix: '/postiz' })
+  await app.register(metricoolRoutes, { prefix: '/metricool' })
   await app.register(whatsappRoutes, { prefix: '/whatsapp' })
   await app.register(prospectsRoutes, { prefix: '/prospects' })
   await app.register(adsRoutes, { prefix: '/ads' })
@@ -61,8 +61,8 @@ test('un viewer no puede mutar ni iniciar operaciones que generan coste', async 
       { method: 'POST' as const, url: '/campaigns' },
       { method: 'GET' as const, url: '/meta/accounts/oauth/start-url' },
       { method: 'PUT' as const, url: '/meta/accounts/account-id/budget-cap' },
-      { method: 'POST' as const, url: '/postiz/connect' },
-      { method: 'POST' as const, url: '/postiz/ai/generate' },
+      { method: 'POST' as const, url: '/metricool/connect' },
+      { method: 'POST' as const, url: '/metricool/ai/generate' },
       { method: 'POST' as const, url: '/whatsapp/send' },
       { method: 'POST' as const, url: '/prospects/search' },
       { method: 'POST' as const, url: '/prospects/import' },

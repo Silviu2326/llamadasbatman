@@ -24,11 +24,11 @@ export default function FilterDropdown({ filters, activeFilters, onChange, badge
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          background: '#0d1117',
-          border: '1px solid #1e2433',
+          background: 'var(--surface)',
+          border: '1px solid var(--line)',
           borderRadius: 9,
           padding: '7px 13px',
-          color: '#94a3b8',
+          color: 'var(--muted)',
           fontSize: 12,
           cursor: 'pointer',
         }}
@@ -38,8 +38,8 @@ export default function FilterDropdown({ filters, activeFilters, onChange, badge
         {badgeCount > 0 && (
           <span
             style={{
-              background: '#6366f1',
-              color: '#fff',
+              background: 'var(--accent-deep)',
+              color: 'var(--on-accent)',
               borderRadius: 99,
               padding: '0 5px',
               fontSize: 10,
@@ -56,12 +56,15 @@ export default function FilterDropdown({ filters, activeFilters, onChange, badge
             position: 'absolute',
             top: 'calc(100% + 6px)',
             right: 0,
-            background: '#0d1117',
-            border: '1px solid #1e2433',
+            background: 'var(--surface)',
+            border: '1px solid var(--line)',
             borderRadius: 10,
             padding: '8px 6px',
             minWidth: 180,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            maxWidth: 'calc(100vw - 24px)',
+            maxHeight: 'min(60vh, 320px)',
+            overflowY: 'auto',
+            boxShadow: 'var(--shadow-2)',
             zIndex: 20,
             display: 'flex',
             flexDirection: 'column',
@@ -78,7 +81,7 @@ export default function FilterDropdown({ filters, activeFilters, onChange, badge
                 padding: '7px 10px',
                 borderRadius: 6,
                 cursor: 'pointer',
-                color: '#cbd5e1',
+                color: 'var(--text-2)',
                 fontSize: 12,
               }}
             >
@@ -86,7 +89,7 @@ export default function FilterDropdown({ filters, activeFilters, onChange, badge
                 type="checkbox"
                 checked={activeFilters.includes(key)}
                 onChange={() => toggleFilter(key)}
-                style={{ accentColor: '#6366f1', width: 14, height: 14 }}
+                style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
               />
               {label}
             </label>

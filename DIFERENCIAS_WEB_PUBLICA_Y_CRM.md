@@ -6,7 +6,7 @@ Repositorios revisados:
 - `vendrava-public/`: web pública en Next.js 15, exportada como sitio estático, bilingüe (ES/EN).
 - raíz del repositorio: CRM React y API Fastify/Prisma.
 
-Este documento describe el estado que se puede verificar en el código. Que una integración exista en el código no garantiza que esté operativa en producción: Meta, Twilio, Mautic y Postiz también requieren credenciales, webhooks y configuración de cada organización.
+Este documento describe el estado que se puede verificar en el código. Que una integración exista en el código no garantiza que esté operativa en producción: Meta, Twilio, Mautic y Metricool también requieren credenciales, webhooks y configuración de cada organización.
 
 ## Resumen ejecutivo
 
@@ -15,7 +15,7 @@ Hay dos desajustes de prioridad máxima:
 1. Los formularios de demo, contacto y newsletter de la web pública **no llegan al CRM**. `LeadCaptureForm` simula el éxito con un temporizador; no crea lead, conversación, consentimiento ni atribución.
 2. La web comercializa un módulo completo de **propuestas comerciales** que el CRM todavía no tiene: no hay modelo `Proposal`, endpoints ni interfaz para generar, enviar, aprobar, versionar o registrar aperturas.
 
-El CRM también contiene capacidades potentes que hoy se comunican poco en la web: creación de campañas Meta con IA, generación de creatividades, redes sociales con Postiz, auditoría digital de prospectos, atribución de captación, playbooks y base de conocimiento para agentes.
+El CRM también contiene capacidades potentes que hoy se comunican poco en la web: creación de campañas Meta con IA, generación de creatividades, redes sociales con Metricool, auditoría digital de prospectos, atribución de captación, playbooks y base de conocimiento para agentes.
 
 La idea de producto que mejor une ambos proyectos es: **generar demanda → responder en todos los canales → convertir y aprender**. La web ya explica bien el segundo tramo; debería hacer visible que Vendrava también genera la demanda y mide su recorrido hasta ventas.
 
@@ -55,13 +55,13 @@ La idea de producto que mejor une ambos proyectos es: **generar demanda → resp
 | Capacidad del software | Evidencia en CRM | Tratamiento actual en la web | Oportunidad de comunicación |
 | --- | --- | --- | --- |
 | Generación de campañas Meta con IA | Wizard de Ads, playbooks por vertical, estrategia, creatividades y publicación/snapshots de Meta. | Se menciona marketing y captación, pero no se posiciona con fuerza como creación operativa de demanda. | Página/hero: de brief a campaña, creativo, landing y seguimiento de resultados. |
-| Redes sociales con IA y Postiz | Conexión de workspace, calendario/publicación, borradores IA, UTMs y métricas. | No hay un producto público dedicado a redes sociales. | Añadir módulo de social selling y contenidos conectados a campañas. |
+| Redes sociales con IA y Metricool | Conexión de cuenta, calendario/publicación, borradores IA, UTMs y métricas. | No hay un producto público dedicado a redes sociales. | Añadir módulo de social selling y contenidos conectados a campañas. |
 | Auditoría digital de prospectos | Auditoría SEO/presencia/madurez, oportunidades y pitch comercial dentro de la ficha de lead. | Prospect Finder menciona auditoría opcional, pero no tiene una propuesta de valor propia y visible. | Vender “encuentra, audita y prioriza” antes de contactar. |
 | Atribución de captación y funnels | Eventos de adquisición, campañas, visitas, leads, contacto y reuniones; landings públicas. | La web habla de CRM de crecimiento, pero el circuito de atribución hasta venta queda difuso. | Mostrar un diagrama real de origen → conversación → reunión → pipeline. |
 | Inbox omnicanal con IA | Conversaciones, mensajes, estados de entrega, consentimiento, takeover humano y respuesta IA. | WhatsApp está bien cubierto, pero la vista operativa omnicanal no tiene protagonismo. | Comunicar que el equipo trabaja desde una cola de conversaciones, no desde teléfonos aislados. |
 | Base de conocimiento y playbooks | Knowledge Base, documentos y playbooks asignables a agentes; playbooks también para Ads. | La web habla de agentes entrenados por nicho, pero no explica cómo el cliente controla ese conocimiento. | Añadir “tu conocimiento, tus reglas y tus playbooks”, con control humano. |
 | Operación comercial posterior a la captación | Leads, pipeline, reuniones, grabaciones, transcripciones, notas y siguientes acciones. | Varias capacidades aparecen repartidas en páginas de producto. | Un caso de uso completo demostraría la continuidad de la plataforma. |
-| Integraciones concretas | Conectores de Meta, Twilio, Mautic y Postiz; webhooks de Meta/Mautic/WhatsApp. | La web describe canales, pero no destaca el mapa de integraciones. | Crear página de integraciones y aclarar qué aporta cada conector. |
+| Integraciones concretas | Conectores de Meta, Twilio, Mautic y Metricool; webhooks de Meta/Mautic/WhatsApp. | La web describe canales, pero no destaca el mapa de integraciones. | Crear página de integraciones y aclarar qué aporta cada conector. |
 | Compartición de resultados de campaña | API pública de campañas mediante token. | No se presenta como función comercial. | Ofrecer reporting compartible para dirección o clientes de agencia. |
 
 ## Capacidades exclusivas de la web pública
@@ -99,7 +99,7 @@ Estas diferencias son esperables: son necesarias para captar tráfico y explicar
 ### P2 — elevar el posicionamiento de la web
 
 1. Crear una narrativa y página de “Captación” que conecte Ads, redes sociales, Prospect Finder, auditoría, landings, funnels y CRM.
-2. Añadir una página de integraciones (Meta, WhatsApp/Twilio, Mautic, Postiz) con prerequisitos y límites transparentes.
+2. Añadir una página de integraciones (Meta, WhatsApp/Twilio, Mautic, Metricool) con prerequisitos y límites transparentes.
 3. Hacer visible el método de entrenamiento de agentes: Knowledge Base, playbooks, aprobaciones humanas y auditoría.
 4. Si se mantienen precios por uso, implementar y exponer el sistema de plan, consumo y facturación; si no, evitar dar a entender que ya se gestiona dentro del producto.
 

@@ -130,7 +130,7 @@ async function runMetaAction(
     const message = (error as Error).message
     const status = message === 'Campaign not found' ? 404 : 502
     console.error(`[Ads] action failed for ${orgId}/${request.params.id}:`, message)
-    return reply.status(status).send({ error: status === 404 ? 'CampaÃ±a no encontrada' : 'Meta no pudo completar la operaciÃ³n' })
+    return reply.status(status).send({ error: status === 404 ? 'Campaña no encontrada' : 'Meta no pudo completar la operación' })
   }
 }
 

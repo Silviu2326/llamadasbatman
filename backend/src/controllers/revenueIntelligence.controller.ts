@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { parseRequest } from '../lib/validation'
+import { hasPermission } from '../access-control'
 import * as service from '../services/revenueIntelligence.service'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
@@ -223,8 +224,12 @@ export async function reviewMemoryProposal(request: FastifyRequest<{ Params: { i
 }
 
 export async function governanceOverview(request: FastifyRequest, reply: FastifyReply) {
-  const { orgId } = request.user as JWTUser
-  return reply.send(await service.governanceOverview(orgId))
+  const { orgId, role } = request.user as JWTUser
+  const overview = await service.governanceOverview(orgId)
+  // La pantalla de gobierno pinta su boton de edicion segun este flag. Sin el,
+  // la accion principal quedaba muerta para todos los roles. La decision es del
+  // servidor: se calcula con el mismo permiso que guarda PUT /governance/policies/:key.
+  return reply.send({ ...overview, canManagePolicies: hasPermission(role, 'governance.write', 'org') })
 }
 
 export async function listGovernancePolicies(request: FastifyRequest, reply: FastifyReply) {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { planGateMessage, readPlanGate } from '../lib/planGate'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import {
   RiArrowLeftLine, RiMapPinLine, RiMoneyDollarBoxLine,
@@ -19,7 +20,7 @@ const ALL_STAGES = [
   { id:'ganado',      label:'Ganado' },
 ]
 
-const STAGE_COLOR = { lead:'#6366f1', contactado:'#0891b2', interesado:'#f59e0b', reunion:'#059669', propuesta:'#8b5cf6', negociacion:'#ea580c', ganado:'#10b981' }
+const STAGE_COLOR = { lead:'var(--accent)', contactado:'var(--cyan-deep)', interesado:'var(--warn)', reunion:'var(--success-deep)', propuesta:'var(--violet)', negociacion:'var(--warn)', ganado:'var(--success)' }
 
 // Opciones del formulario de edición: usan directamente el valor del enum
 // OpportunityStage del backend (no el stageMap de arriba, que es solo para
@@ -75,9 +76,9 @@ function Avatar({ text, bg, size = 48 }) {
   return (
     <div style={{
       width:size, height:size, borderRadius:Math.round(size*0.28), flexShrink:0,
-      background:`linear-gradient(135deg, ${bg}, ${bg}bb)`,
+      background:`linear-gradient(135deg, ${bg}, color-mix(in srgb, ${bg} 73%, transparent))`,
       display:'flex', alignItems:'center', justifyContent:'center',
-      fontSize:size*0.3, fontWeight:700, color:'#fff', boxShadow:`0 0 18px ${bg}55`,
+      fontSize:size*0.3, fontWeight:700, color:'#fff', boxShadow:`0 0 18px color-mix(in srgb, ${bg} 33%, transparent)`,
     }}>{letters}</div>
   )
 }
@@ -148,7 +149,7 @@ export default function OpportunityDetailPage() {
           stage: stageMap[data.stage] ?? 'lead',
           value: data.value ? `€${Number(data.value).toLocaleString(localeCode(getLocale()))}` : '—',
           score: data.probability ?? 0,
-          bg: '#6366f1',
+          bg: 'var(--accent)',
           activities: [],
         })
       }
@@ -220,11 +221,22 @@ export default function OpportunityDetailPage() {
     }
   }
 
+  // Solo se quita de la lista si el backend lo borró de verdad: si no, la fila
+  // desaparecía de la pantalla y reaparecía al recargar.
   async function handleRemoveContact(leadId) {
+    setContactError(null)
     try {
-      await apiFetch(`/api/pipeline/${id}/contacts/${leadId}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/pipeline/${id}/contacts/${leadId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const gate = await readPlanGate(res)
+        const body = await res.json().catch(() => ({}))
+        setContactError(gate ? planGateMessage(gate, locale) : (body.error || 'No se pudo quitar el contacto.'))
+        return
+      }
       setContacts(prev => prev.filter(c => c.leadId !== leadId))
-    } catch { /* el usuario puede reintentar */ }
+    } catch {
+      setContactError('No se pudo quitar el contacto. Revisa tu conexión.')
+    }
   }
 
   // OP-109: líneas de producto de la oportunidad.
@@ -266,11 +278,22 @@ export default function OpportunityDetailPage() {
     }
   }
 
+  // Igual que con los contactos: sin comprobar la respuesta, la línea se iba de
+  // la tabla (y de la suma) aunque el borrado hubiera fallado.
   async function handleRemoveLineItem(lineItemId) {
+    setLineItemError(null)
     try {
-      await apiFetch(`/api/pipeline/${id}/line-items/${lineItemId}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/pipeline/${id}/line-items/${lineItemId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const gate = await readPlanGate(res)
+        const body = await res.json().catch(() => ({}))
+        setLineItemError(gate ? planGateMessage(gate, locale) : (body.error || 'No se pudo quitar la línea.'))
+        return
+      }
       setLineItems(prev => prev.filter(li => li.id !== lineItemId))
-    } catch { /* el usuario puede reintentar */ }
+    } catch {
+      setLineItemError('No se pudo quitar la línea. Revisa tu conexión.')
+    }
   }
 
   // OP-107: fija manualmente la categoría de forecast desde el detalle.
@@ -410,19 +433,19 @@ export default function OpportunityDetailPage() {
   }
 
   if (loading) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
       {locale === 'en' ? 'Loading…' : 'Cargando…'}
     </div>
   )
 
   if (!opp) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'#6b7280', fontSize:16 }}>
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
       {locale === 'en' ? 'Opportunity not found' : 'Oportunidad no encontrada'}
     </div>
   )
 
   const stageIdx = ALL_STAGES.findIndex(s => s.id === opp.stage)
-  const stageColor = STAGE_COLOR[opp.stage] || '#6366f1'
+  const stageColor = STAGE_COLOR[opp.stage] || 'var(--accent)'
   const isClosed = raw?.stage === 'closed_won' || raw?.stage === 'closed_lost'
 
   // OP-109: total de líneas agrupado por moneda (sin convertir divisas, igual
@@ -434,13 +457,13 @@ export default function OpportunityDetailPage() {
   }, {})
 
   return (
-    <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'#080c14', display:'flex', flexDirection:'column' }}>
+    <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
 
       {/* Back */}
-      <div style={{ padding:'20px 28px 0', flexShrink:0 }}>
+      <div style={{ padding:'20px clamp(12px,4vw,28px) 0', flexShrink:0 }}>
         <button onClick={() => navigate('/pipeline')} style={{
           display:'flex', alignItems:'center', gap:6,
-          background:'none', border:'none', color:'#6b7280', fontSize:13, cursor:'pointer', padding:0,
+          background:'none', border:'none', color:'var(--dim)', fontSize:13, cursor:'pointer', padding:0,
         }}>
           <RiArrowLeftLine style={{ width:15, height:15 }} />
           Volver a Pipeline
@@ -448,38 +471,41 @@ export default function OpportunityDetailPage() {
       </div>
 
       {/* Hero */}
-      <div style={{ padding:'20px 28px', flexShrink:0 }}>
+      <div style={{ padding:'20px clamp(12px,4vw,28px)', flexShrink:0 }}>
         <div style={{
-          background:'linear-gradient(135deg, #0d1117, #111827)',
-          border:'1px solid #1e2433', borderRadius:16, padding:'22px 24px',
-          display:'flex', gap:18, alignItems:'flex-start',
+          background:'linear-gradient(135deg, var(--surface), var(--surface-2))',
+          border:'1px solid var(--line)', borderRadius:16, padding:'22px clamp(14px,3vw,24px)',
+          display:'flex', gap:18, alignItems:'flex-start', flexWrap:'wrap',
         }}>
           <Avatar text={opp.company} bg={opp.bg} size={52} />
 
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:5 }}>
-              <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:'#f1f5f9' }}>{opp.company}</h1>
-              <span style={{ fontSize:12, fontWeight:700, background:`${stageColor}20`, color:stageColor, border:`1px solid ${stageColor}40`, borderRadius:99, padding:'2px 10px' }}>{opp.badge}</span>
+          <div style={{ flex:'1 1 220px', minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:5, flexWrap:'wrap' }}>
+              <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:'var(--text-strong)', minWidth:0, overflowWrap:'anywhere' }}>{opp.company}</h1>
+              <span style={{ fontSize:12, fontWeight:700, background:`color-mix(in srgb, ${stageColor} 13%, transparent)`, color:stageColor, border:`1px solid color-mix(in srgb, ${stageColor} 25%, transparent)`, borderRadius:99, padding:'2px 10px' }}>{opp.badge}</span>
             </div>
-            <div style={{ display:'flex', gap:16, marginBottom:12 }}>
-              <span style={{ fontSize:12, color:'#4b5563', display:'flex', alignItems:'center', gap:5 }}>
+            <div style={{ display:'flex', gap:16, marginBottom:12, flexWrap:'wrap' }}>
+              <span style={{ fontSize:12, color: 'var(--dim)', display:'flex', alignItems:'center', gap:5 }}>
                 <RiMapPinLine style={{ width:12, height:12 }} /> {opp.city}
               </span>
-              <span style={{ fontSize:12, color:'#4b5563', display:'flex', alignItems:'center', gap:5 }}>
+              <span style={{ fontSize:12, color: 'var(--dim)', display:'flex', alignItems:'center', gap:5 }}>
                 <RiCalendarLine style={{ width:12, height:12 }} /> {opp.date}
               </span>
-              <span style={{ fontSize:13, fontWeight:800, color:'#f1f5f9', display:'flex', alignItems:'center', gap:5 }}>
+              <span style={{ fontSize:13, fontWeight:800, color:'var(--text-strong)', display:'flex', alignItems:'center', gap:5 }}>
                 <RiMoneyDollarBoxLine style={{ width:13, height:13, color:stageColor }} /> {opp.value}
               </span>
               {opp.score !== null && (
-                <span style={{ fontSize:12, color:opp.score >= 70 ? '#10b981' : '#f59e0b', fontWeight:600 }}>
+                <span style={{ fontSize:12, color:opp.score >= 70 ? 'var(--success)' : 'var(--warn)', fontWeight:600 }}>
                   Lead Score: {opp.score}/100
                 </span>
               )}
             </div>
 
-            {/* Stage progress */}
-            <div style={{ display:'flex', gap:0, alignItems:'center' }}>
+            {/* Stage progress: las 7 etapas con su etiqueta no bajan de ~460px,
+                así que se desplazan en horizontal. El padding/margen negativo
+                deja sitio al halo de la etapa activa sin mover el layout. */}
+            <div className="scroll-x" style={{ padding:'10px 0', margin:'-10px 0' }}>
+              <div style={{ display:'flex', gap:0, alignItems:'center', minWidth:460 }}>
               {ALL_STAGES.map((s, i) => {
                 const done = i <= stageIdx
                 const active = i === stageIdx
@@ -489,34 +515,35 @@ export default function OpportunityDetailPage() {
                     <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
                       <div style={{
                         width:20, height:20, borderRadius:'50%', flexShrink:0,
-                        background: done ? c : '#1e2433',
-                        border:`2px solid ${done ? c : '#2a3245'}`,
+                        background: done ? c : 'var(--line)',
+                        border:`2px solid ${done ? c : 'var(--line-2)'}`,
                         display:'flex', alignItems:'center', justifyContent:'center',
-                        boxShadow: active ? `0 0 10px ${c}80` : 'none',
+                        boxShadow: active ? `0 0 10px color-mix(in srgb, ${c} 50%, transparent)` : 'none',
                       }}>
                         {done && <RiCheckLine style={{ width:10, height:10, color:'#fff' }} />}
                       </div>
-                      <span style={{ fontSize:9, color: done ? c : '#374151', fontWeight: active ? 700 : 400, whiteSpace:'nowrap' }}>{s.label}</span>
+                      <span style={{ fontSize:9, color: done ? c : 'var(--line-2)', fontWeight: active ? 700 : 400, whiteSpace:'nowrap' }}>{s.label}</span>
                     </div>
                     {i < ALL_STAGES.length - 1 && (
-                      <div style={{ height:2, flex:1, background: i < stageIdx ? stageColor : '#1e2433', marginBottom:14 }} />
+                      <div style={{ height:2, flex:1, background: i < stageIdx ? stageColor : 'var(--line)', marginBottom:14 }} />
                     )}
                   </div>
                 )
               })}
+              </div>
             </div>
           </div>
 
-          <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+          <div style={{ display:'flex', gap:8, flexShrink:0, flexWrap:'wrap' }}>
             <button onClick={() => navigate('/llamadas')} style={{
-              display:'flex', alignItems:'center', gap:6, background:'linear-gradient(90deg,#4f46e5,#7c3aed)', border:'none',
+              display:'flex', alignItems:'center', gap:6, background:'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))', border:'none',
               borderRadius:9, padding:'8px 14px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer',
             }}>
               <RiPhoneLine style={{ width:13, height:13 }} /> Llamar
             </button>
             <button onClick={openEdit} style={{
-              display:'flex', alignItems:'center', gap:6, background:'#111827', border:'1px solid #1e2433',
-              borderRadius:9, padding:'8px 12px', color:'#94a3b8', fontSize:13, cursor:'pointer',
+              display:'flex', alignItems:'center', gap:6, background:'var(--surface-2)', border:'1px solid var(--line)',
+              borderRadius:9, padding:'8px 12px', color:'var(--muted)', fontSize:13, cursor:'pointer',
             }}>
               <RiEditLine style={{ width:13, height:13 }} /> Editar
             </button>
@@ -524,14 +551,14 @@ export default function OpportunityDetailPage() {
               <>
                 <button onClick={handleMarkWon} disabled={actioning} style={{
                   display:'flex', alignItems:'center', gap:6, background:'#065f4620', border:'1px solid #10b98150',
-                  borderRadius:9, padding:'8px 12px', color:'#10b981', fontSize:13, fontWeight:600,
+                  borderRadius:9, padding:'8px 12px', color:'var(--success)', fontSize:13, fontWeight:600,
                   cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
                 }}>
                   <RiCheckLine style={{ width:13, height:13 }} /> Marcar como ganada
                 </button>
                 <button onClick={() => { setActionError(null); setShowLostForm(true) }} disabled={actioning} style={{
                   display:'flex', alignItems:'center', gap:6, background:'#7f1d1d20', border:'1px solid #ef444450',
-                  borderRadius:9, padding:'8px 12px', color:'#f87171', fontSize:13, fontWeight:600,
+                  borderRadius:9, padding:'8px 12px', color:'var(--danger-soft)', fontSize:13, fontWeight:600,
                   cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
                 }}>
                   <RiCloseLine style={{ width:13, height:13 }} /> Marcar como perdida
@@ -540,8 +567,8 @@ export default function OpportunityDetailPage() {
             )}
             {isClosed && (
               <button onClick={handleReopen} disabled={actioning} style={{
-                display:'flex', alignItems:'center', gap:6, background:'#111827', border:'1px solid #1e2433',
-                borderRadius:9, padding:'8px 12px', color:'#94a3b8', fontSize:13,
+                display:'flex', alignItems:'center', gap:6, background:'var(--surface-2)', border:'1px solid var(--line)',
+                borderRadius:9, padding:'8px 12px', color:'var(--muted)', fontSize:13,
                 cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
               }}>
                 Reabrir
@@ -550,22 +577,22 @@ export default function OpportunityDetailPage() {
           </div>
         </div>
         {actionError && (
-          <p style={{ margin:'10px 0 0', fontSize:12.5, color:'#f87171' }}>{actionError}</p>
+          <p style={{ margin:'10px 0 0', fontSize:12.5, color:'var(--danger-soft)' }}>{actionError}</p>
         )}
       </div>
 
       {/* Body */}
-      <div style={{ flex:1, display:'flex', gap:14, padding:'0 28px 28px', minHeight:0 }}>
+      <div className="split-pane" style={{ flex:1, display:'flex', gap:14, padding:'0 clamp(12px,4vw,28px) 28px', minHeight:0 }}>
 
         {/* Main */}
         <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:12 }}>
 
           {/* Tabs */}
-          <div style={{ display:'flex', gap:0, borderBottom:'1px solid #1e2433' }}>
+          <div className="tabs-scroll" style={{ display:'flex', gap:0, borderBottom:'1px solid var(--line)' }}>
             {TABS.map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
                 background:'none', border:'none', padding:'8px 16px', fontSize:13,
-                color: tab===t ? '#f1f5f9' : '#4b5563',
+                color: tab===t ? 'var(--text-strong)' : 'var(--faint)',
                 borderBottom:`2px solid ${tab===t ? stageColor : 'transparent'}`,
                 cursor:'pointer', fontWeight: tab===t ? 700 : 400, transition:'all .15s', marginBottom:-1,
               }}>{t}</button>
@@ -574,8 +601,8 @@ export default function OpportunityDetailPage() {
 
           {tab === 'Resumen' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Información de la oportunidad</p>
+              <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Información de la oportunidad</p>
                 {[
                   { label:'Empresa', value:opp.company },
                   { label:'Ciudad', value:opp.city },
@@ -584,20 +611,20 @@ export default function OpportunityDetailPage() {
                   { label:'Última actividad', value:opp.date },
                   { label:'Lead Score', value: opp.score !== null ? `${opp.score}/100` : '—' },
                 ].map(m => (
-                  <div key={m.label} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid #111827' }}>
-                    <span style={{ fontSize:12.5, color:'#4b5563' }}>{m.label}</span>
-                    <span style={{ fontSize:12.5, fontWeight:600, color:'#e2e8f0' }}>{m.value}</span>
+                  <div key={m.label} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid var(--surface-2)' }}>
+                    <span style={{ fontSize:12.5, color: 'var(--dim)' }}>{m.label}</span>
+                    <span style={{ fontSize:12.5, fontWeight:600, color:'var(--text)' }}>{m.value}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Próximas acciones recomendadas</p>
+              <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Próximas acciones recomendadas</p>
                 {['Enviar propuesta actualizada', 'Agendar reunión de seguimiento', 'Consultar decision-maker'].map((a, i) => (
                   <div key={i} style={{ display:'flex', gap:9, marginBottom:9 }}>
-                    <div style={{ width:16, height:16, borderRadius:5, background:`${stageColor}15`, border:`1px solid ${stageColor}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
+                    <div style={{ width:16, height:16, borderRadius:5, background:`color-mix(in srgb, ${stageColor} 8%, transparent)`, border:`1px solid color-mix(in srgb, ${stageColor} 19%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
                       <RiCheckLine style={{ width:10, height:10, color:stageColor }} />
                     </div>
-                    <p style={{ margin:0, fontSize:12.5, color:'#94a3b8' }}>{a}</p>
+                    <p style={{ margin:0, fontSize:12.5, color:'var(--muted)' }}>{a}</p>
                   </div>
                 ))}
               </div>
@@ -606,29 +633,29 @@ export default function OpportunityDetailPage() {
 
           {tab === 'Contactos' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Contactos y roles de compra</p>
+              <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Contactos y roles de compra</p>
 
                 {contactsLoading && contacts.length === 0 ? (
-                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Cargando…</p>
+                  <p style={{ margin:0, fontSize:12.5, color: 'var(--dim)' }}>Cargando…</p>
                 ) : contacts.length === 0 ? (
-                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Todavía no hay contactos asociados a esta oportunidad.</p>
+                  <p style={{ margin:0, fontSize:12.5, color: 'var(--dim)' }}>Todavía no hay contactos asociados a esta oportunidad.</p>
                 ) : (
                   <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                     {contacts.map(c => (
-                      <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom:'1px solid #111827' }}>
+                      <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom:'1px solid var(--surface-2)' }}>
                         <Avatar text={c.lead?.name || '?'} bg="#4f46e5" size={30} />
                         <div style={{ flex:1, minWidth:0 }}>
-                          <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'#e2e8f0', display:'flex', alignItems:'center', gap:6 }}>
+                          <p style={{ margin:0, fontSize:12.5, fontWeight:600, color:'var(--text)', display:'flex', alignItems:'center', gap:6 }}>
                             {c.lead?.name || 'Sin nombre'}
-                            {c.isPrimary && <span style={{ fontSize:9.5, fontWeight:700, color:'#f59e0b', background:'#f59e0b18', border:'1px solid #f59e0b40', borderRadius:99, padding:'1px 7px' }}>Principal</span>}
+                            {c.isPrimary && <span style={{ fontSize:9.5, fontWeight:700, color:'var(--warn)', background:'#f59e0b18', border:'1px solid #f59e0b40', borderRadius:99, padding:'1px 7px' }}>Principal</span>}
                           </p>
-                          <p style={{ margin:0, fontSize:11, color:'#6b7280' }}>{[c.lead?.phone, c.lead?.email].filter(Boolean).join(' · ') || '—'}</p>
+                          <p style={{ margin:0, fontSize:11, color:'var(--dim)' }}>{[c.lead?.phone, c.lead?.email].filter(Boolean).join(' · ') || '—'}</p>
                         </div>
-                        <span style={{ fontSize:10.5, fontWeight:700, color:'#818cf8', background:'#6366f118', border:'1px solid #6366f140', borderRadius:99, padding:'2px 9px', whiteSpace:'nowrap' }}>
+                        <span style={{ fontSize:10.5, fontWeight:700, color:'var(--accent-soft)', background:'#6366f118', border:'1px solid #6366f140', borderRadius:99, padding:'2px 9px', whiteSpace:'nowrap' }}>
                           {CONTACT_ROLE_LABEL[c.role] || c.role}
                         </span>
-                        <button onClick={() => handleRemoveContact(c.leadId)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4, display:'flex' }} title="Quitar contacto">
+                        <button onClick={() => handleRemoveContact(c.leadId)} style={{ background:'none', border:'none', color:'var(--dim)', cursor:'pointer', padding:4, display:'flex' }} title="Quitar contacto">
                           <RiCloseLine style={{ width:14, height:14 }} />
                         </button>
                       </div>
@@ -637,136 +664,143 @@ export default function OpportunityDetailPage() {
                 )}
               </div>
 
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Añadir contacto</p>
+              <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Añadir contacto</p>
                 <div style={{ position:'relative', marginBottom:10 }}>
                   <input
                     value={contactSearch}
                     onChange={e => { setContactSearch(e.target.value); setSelectedContactLead(null) }}
                     placeholder="Buscar lead por nombre, teléfono o email…"
-                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                   />
                   {!selectedContactLead && contactResults.length > 0 && (
-                    <div style={{ marginTop:6, border:'1px solid #1e2433', borderRadius:8, overflow:'hidden', maxHeight:160, overflowY:'auto' }}>
+                    <div style={{ marginTop:6, border:'1px solid var(--line)', borderRadius:8, overflow:'hidden', maxHeight:160, overflowY:'auto' }}>
                       {contactResults.map(lead => (
                         <button
                           type="button"
                           key={lead.id}
                           onClick={() => pickContactLead(lead)}
-                          style={{ display:'block', width:'100%', textAlign:'left', background:'#0d1117', border:'none', borderBottom:'1px solid #1e2433', padding:'8px 10px', cursor:'pointer', color:'#e2e8f0', fontSize:12.5 }}
+                          style={{ display:'block', width:'100%', textAlign:'left', background:'var(--surface)', border:'none', borderBottom:'1px solid var(--line)', padding:'8px 10px', cursor:'pointer', color:'var(--text)', fontSize:12.5 }}
                         >
                           <div style={{ fontWeight:600 }}>{lead.name || 'Sin nombre'}</div>
-                          <div style={{ color:'#6b7280', fontSize:11 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ') || '—'}</div>
+                          <div style={{ color:'var(--dim)', fontSize:11 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ') || '—'}</div>
                         </button>
                       ))}
                     </div>
                   )}
                   {selectedContactLead && (
-                    <p style={{ margin:'6px 0 0', fontSize:11.5, color:'#10b981' }}>Lead seleccionado: {selectedContactLead.name || selectedContactLead.id}</p>
+                    <p style={{ margin:'6px 0 0', fontSize:11.5, color:'var(--success)' }}>Lead seleccionado: {selectedContactLead.name || selectedContactLead.id}</p>
                   )}
                 </div>
 
                 <div style={{ display:'flex', gap:10, alignItems:'flex-end', flexWrap:'wrap' }}>
                   <div style={{ flex:1, minWidth:160 }}>
-                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Rol</label>
+                    <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Rol</label>
                     <select
                       value={contactRole}
                       onChange={e => setContactRole(e.target.value)}
-                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                      style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none', cursor:'pointer' }}
                     >
                       {CONTACT_ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
-                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'#94a3b8', paddingBottom:9 }}>
+                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--muted)', paddingBottom:9 }}>
                     <input type="checkbox" checked={contactPrimary} onChange={e => setContactPrimary(e.target.checked)} />
                     Contacto principal
                   </label>
                   <button
                     onClick={handleAddContact}
                     disabled={savingContact}
-                    style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:12.5, fontWeight:700, cursor: savingContact ? 'not-allowed' : 'pointer', opacity: savingContact ? 0.6 : 1 }}
+                    style={{ background:'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', border:'none', borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:12.5, fontWeight:700, cursor: savingContact ? 'not-allowed' : 'pointer', opacity: savingContact ? 0.6 : 1 }}
                   >
                     {savingContact ? 'Añadiendo…' : 'Añadir'}
                   </button>
                 </div>
-                {contactError && <p style={{ margin:'10px 0 0', fontSize:12, color:'#f87171' }}>{contactError}</p>}
+                {contactError && <p style={{ margin:'10px 0 0', fontSize:12, color:'var(--danger-soft)' }}>{contactError}</p>}
               </div>
             </div>
           )}
 
           {tab === 'Productos' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Líneas de producto</p>
+              <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Líneas de producto</p>
 
                 {lineItemsLoading && lineItems.length === 0 ? (
-                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Cargando…</p>
+                  <p style={{ margin:0, fontSize:12.5, color: 'var(--dim)' }}>Cargando…</p>
                 ) : lineItems.length === 0 ? (
-                  <p style={{ margin:0, fontSize:12.5, color:'#4b5563' }}>Todavía no hay líneas de producto en esta oportunidad.</p>
+                  <p style={{ margin:0, fontSize:12.5, color: 'var(--dim)' }}>Todavía no hay líneas de producto en esta oportunidad.</p>
                 ) : (
                   <>
-                    <div style={{ display:'grid', gridTemplateColumns:'1.6fr 0.7fr 0.9fr 0.9fr 32px', gap:8, padding:'0 0 8px', borderBottom:'1px solid #1e2433', marginBottom:4 }}>
-                      {['Producto','Cantidad','Precio unitario','Subtotal',''].map(h => (
-                        <span key={h} style={{ fontSize:10, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:0.3 }}>{h}</span>
-                      ))}
-                    </div>
-                    {lineItems.map(li => (
-                      <div key={li.id} style={{ display:'grid', gridTemplateColumns:'1.6fr 0.7fr 0.9fr 0.9fr 32px', gap:8, alignItems:'center', padding:'8px 0', borderBottom:'1px solid #111827' }}>
-                        <span style={{ fontSize:12.5, color:'#e2e8f0', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{li.name}</span>
-                        <span style={{ fontSize:12, color:'#94a3b8' }}>{li.quantity}</span>
-                        <span style={{ fontSize:12, color:'#94a3b8' }}>{li.currency} {Number(li.unitPrice).toLocaleString(localeCode(getLocale()))}</span>
-                        <span style={{ fontSize:12.5, color:'#f1f5f9', fontWeight:700 }}>{li.currency} {(Number(li.quantity) * Number(li.unitPrice)).toLocaleString(localeCode(getLocale()))}</span>
-                        <button onClick={() => handleRemoveLineItem(li.id)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4, display:'flex' }} title="Quitar línea">
-                          <RiCloseLine style={{ width:14, height:14 }} />
-                        </button>
+                    {/* La fila tiene 5 columnas: por debajo de ~420px se
+                        desplaza en horizontal dentro de la tarjeta en vez de
+                        desbordar la página. */}
+                    <div className="scroll-x">
+                      <div style={{ minWidth:420 }}>
+                        <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1.6fr) minmax(0,0.7fr) minmax(0,0.9fr) minmax(0,0.9fr) 32px', gap:8, padding:'0 0 8px', borderBottom:'1px solid var(--line)', marginBottom:4 }}>
+                          {['Producto','Cantidad','Precio unitario','Subtotal',''].map(h => (
+                            <span key={h} style={{ fontSize:10, fontWeight:700, color: 'var(--dim)', textTransform:'uppercase', letterSpacing:0.3 }}>{h}</span>
+                          ))}
+                        </div>
+                        {lineItems.map(li => (
+                          <div key={li.id} style={{ display:'grid', gridTemplateColumns:'minmax(0,1.6fr) minmax(0,0.7fr) minmax(0,0.9fr) minmax(0,0.9fr) 32px', gap:8, alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--surface-2)' }}>
+                            <span style={{ fontSize:12.5, color:'var(--text)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{li.name}</span>
+                            <span style={{ fontSize:12, color:'var(--muted)' }}>{li.quantity}</span>
+                            <span style={{ fontSize:12, color:'var(--muted)' }}>{li.currency} {Number(li.unitPrice).toLocaleString(localeCode(getLocale()))}</span>
+                            <span style={{ fontSize:12.5, color:'var(--text-strong)', fontWeight:700 }}>{li.currency} {(Number(li.quantity) * Number(li.unitPrice)).toLocaleString(localeCode(getLocale()))}</span>
+                            <button onClick={() => handleRemoveLineItem(li.id)} style={{ background:'none', border:'none', color:'var(--dim)', cursor:'pointer', padding:4, display:'flex' }} title="Quitar línea">
+                              <RiCloseLine style={{ width:14, height:14 }} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                    <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #1e2433' }}>
+                    </div>
+                    <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--line)' }}>
                       {Object.entries(lineItemTotals).map(([cur, total]) => (
-                        <p key={cur} style={{ margin:'0 0 2px', fontSize:12.5, fontWeight:700, color:'#f1f5f9' }}>Suma de líneas ({cur}): {cur} {total.toLocaleString(localeCode(getLocale()))}</p>
+                        <p key={cur} style={{ margin:'0 0 2px', fontSize:12.5, fontWeight:700, color:'var(--text-strong)' }}>Suma de líneas ({cur}): {cur} {total.toLocaleString(localeCode(getLocale()))}</p>
                       ))}
-                      <p style={{ margin:0, fontSize:11, color:'#6b7280' }}>Puede diferir del valor de la oportunidad ({opp.value}) — no se recalcula automáticamente.</p>
+                      <p style={{ margin:0, fontSize:11, color:'var(--dim)' }}>Puede diferir del valor de la oportunidad ({opp.value}) — no se recalcula automáticamente.</p>
                     </div>
                   </>
                 )}
               </div>
 
-              <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Añadir línea</p>
+              <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Añadir línea</p>
                 <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
                   <div style={{ flex:'2 1 160px' }}>
-                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Nombre</label>
+                    <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Nombre</label>
                     <input
                       value={lineForm.name}
                       onChange={e => setLineForm(f => ({ ...f, name:e.target.value }))}
                       placeholder="Ej. Licencia anual"
-                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                      style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                     />
                   </div>
                   <div style={{ flex:'0 1 80px' }}>
-                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Cantidad</label>
+                    <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Cantidad</label>
                     <input
                       type="number" min="1"
                       value={lineForm.quantity}
                       onChange={e => setLineForm(f => ({ ...f, quantity:e.target.value }))}
-                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                      style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                     />
                   </div>
                   <div style={{ flex:'0 1 120px' }}>
-                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Precio unitario</label>
+                    <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Precio unitario</label>
                     <input
                       type="number" min="0" step="0.01"
                       value={lineForm.unitPrice}
                       onChange={e => setLineForm(f => ({ ...f, unitPrice:e.target.value }))}
-                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                      style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                     />
                   </div>
                   <div style={{ flex:'0 1 90px' }}>
-                    <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Moneda</label>
+                    <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Moneda</label>
                     <select
                       value={lineForm.currency}
                       onChange={e => setLineForm(f => ({ ...f, currency:e.target.value }))}
-                      style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                      style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none', cursor:'pointer' }}
                     >
                       {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -774,35 +808,35 @@ export default function OpportunityDetailPage() {
                   <button
                     onClick={handleAddLineItem}
                     disabled={savingLineItem}
-                    style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:12.5, fontWeight:700, cursor: savingLineItem ? 'not-allowed' : 'pointer', opacity: savingLineItem ? 0.6 : 1 }}
+                    style={{ background:'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', border:'none', borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:12.5, fontWeight:700, cursor: savingLineItem ? 'not-allowed' : 'pointer', opacity: savingLineItem ? 0.6 : 1 }}
                   >
                     {savingLineItem ? 'Añadiendo…' : 'Añadir'}
                   </button>
                 </div>
-                {lineItemError && <p style={{ margin:'10px 0 0', fontSize:12, color:'#f87171' }}>{lineItemError}</p>}
+                {lineItemError && <p style={{ margin:'10px 0 0', fontSize:12, color:'var(--danger-soft)' }}>{lineItemError}</p>}
               </div>
             </div>
           )}
 
           {tab === 'Actividad' && (
-            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
-              <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#e2e8f0' }}>Historial de actividad</p>
+            <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+              <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Historial de actividad</p>
               {[
-                { type:'Llamada', desc:'Llamada de presentación realizada', date:opp.date, color:'#6366f1' },
-                { type:'Email', desc:'Email de seguimiento enviado', date:'Hace 2 días', color:'#0891b2' },
-                { type:'Lead', desc:'Lead creado en el sistema', date:'Hace 5 días', color:'#10b981' },
+                { type:'Llamada', desc:'Llamada de presentación realizada', date:opp.date, color:'var(--accent)' },
+                { type:'Email', desc:'Email de seguimiento enviado', date:'Hace 2 días', color:'var(--cyan-deep)' },
+                { type:'Lead', desc:'Lead creado en el sistema', date:'Hace 5 días', color:'var(--success)' },
               ].map((a, i) => (
                 <div key={i} style={{ display:'flex', gap:12, marginBottom:14 }}>
                   <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:0 }}>
-                    <div style={{ width:8, height:8, borderRadius:'50%', background:a.color, boxShadow:`0 0 5px ${a.color}80`, flexShrink:0 }} />
-                    {i < 2 && <div style={{ width:1, height:30, background:'#1e2433', margin:'4px 0' }} />}
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:a.color, boxShadow:`0 0 5px color-mix(in srgb, ${a.color} 50%, transparent)`, flexShrink:0 }} />
+                    {i < 2 && <div style={{ width:1, height:30, background:'var(--line)', margin:'4px 0' }} />}
                   </div>
                   <div style={{ flex:1, paddingTop:0 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                       <span style={{ fontSize:12, fontWeight:600, color:a.color }}>{a.type}</span>
-                      <span style={{ fontSize:11, color:'#374151' }}>{a.date}</span>
+                      <span style={{ fontSize:11, color: 'var(--dim)' }}>{a.date}</span>
                     </div>
-                    <p style={{ margin:0, fontSize:12.5, color:'#94a3b8' }}>{a.desc}</p>
+                    <p style={{ margin:0, fontSize:12.5, color:'var(--muted)' }}>{a.desc}</p>
                   </div>
                 </div>
               ))}
@@ -810,85 +844,85 @@ export default function OpportunityDetailPage() {
           )}
 
           {tab === 'Notas' && (
-            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'16px' }}>
+            <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
               <textarea
                 placeholder="Escribe tus notas aquí..."
                 value={notesText}
                 onChange={e => setNotesText(e.target.value)}
                 style={{
                   width:'100%', minHeight:180, background:'transparent', border:'none',
-                  color:'#94a3b8', fontSize:13, outline:'none', resize:'vertical', lineHeight:1.6,
+                  color:'var(--muted)', fontSize:13, outline:'none', resize:'vertical', lineHeight:1.6,
                   fontFamily:'inherit',
                 }}
               />
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:8, paddingTop:8, borderTop:'1px solid #1e2433' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:8, paddingTop:8, borderTop:'1px solid var(--line)' }}>
                 <button
                   onClick={handleSaveNotes}
                   disabled={savingNotes}
                   style={{
-                    background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8,
+                    background:'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', border:'none', borderRadius:8,
                     padding:'7px 14px', color:'#fff', fontSize:12.5, fontWeight:600,
                     cursor: savingNotes ? 'not-allowed' : 'pointer', opacity: savingNotes ? 0.6 : 1,
                   }}
                 >
                   {savingNotes ? 'Guardando…' : 'Guardar notas'}
                 </button>
-                {notesMessage && <span style={{ fontSize:11.5, color:'#94a3b8' }}>{notesMessage}</span>}
+                {notesMessage && <span style={{ fontSize:11.5, color:'var(--muted)' }}>{notesMessage}</span>}
               </div>
             </div>
           )}
         </div>
 
         {/* Right */}
-        <div style={{ width:220, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
+        <div className="split-rail" style={{ display:'flex', flexDirection:'column', gap:12 }}>
           {!isClosed && (
-            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-              <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Categoría de forecast</p>
+            <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'14px' }}>
+              <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:700, color:'var(--text)' }}>Categoría de forecast</p>
               <select
                 value={raw?.forecastCategory ?? 'pipeline'}
                 onChange={e => handleForecastCategoryChange(e.target.value)}
                 disabled={savingForecastCategory}
-                style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'8px 10px', color:'#e2e8f0', fontSize:12.5, outline:'none', cursor: savingForecastCategory ? 'not-allowed' : 'pointer' }}
+                style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'8px 10px', color:'var(--text)', fontSize:12.5, outline:'none', cursor: savingForecastCategory ? 'not-allowed' : 'pointer' }}
               >
                 {FORECAST_CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
           )}
           {nextTask && (
-            <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-              <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Siguiente paso</p>
-              <p style={{ margin:'0 0 6px', fontSize:12.5, color:'#e2e8f0', fontWeight:600, lineHeight:1.4 }}>{nextTask.title}</p>
+            <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'14px' }}>
+              <p style={{ margin:'0 0 8px', fontSize:12, fontWeight:700, color:'var(--text)' }}>Siguiente paso</p>
+              <p style={{ margin:'0 0 6px', fontSize:12.5, color:'var(--text)', fontWeight:600, lineHeight:1.4 }}>{nextTask.title}</p>
               <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                 <span style={{
                   fontSize:10.5, fontWeight:700, borderRadius:99, padding:'2px 8px',
                   background: nextTask.status === 'in_progress' ? '#f59e0b20' : '#6366f120',
-                  color: nextTask.status === 'in_progress' ? '#f59e0b' : '#818cf8',
+                  color: nextTask.status === 'in_progress' ? 'var(--warn)' : 'var(--accent-soft)',
                   border: `1px solid ${nextTask.status === 'in_progress' ? '#f59e0b40' : '#6366f140'}`,
                 }}>
                   {nextTask.status === 'in_progress' ? 'En curso' : 'Pendiente'}
                 </span>
                 {fmtDateLabel(nextTask.dueAt) && (
-                  <span style={{ fontSize:11, color:'#6b7280', display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ fontSize:11, color:'var(--dim)', display:'flex', alignItems:'center', gap:4 }}>
                     <RiCalendarLine style={{ width:11, height:11 }} /> {fmtDateLabel(nextTask.dueAt)}
                   </span>
                 )}
               </div>
             </div>
           )}
-          <div style={{ background:'#0d1117', border:'1px solid #1e2433', borderRadius:12, padding:'14px' }}>
-            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'#e2e8f0' }}>Acciones rápidas</p>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'14px' }}>
+            <p style={{ margin:'0 0 10px', fontSize:12, fontWeight:700, color:'var(--text)' }}>Acciones rápidas</p>
             {[
-              { Icon:RiPhoneLine, label:'Nueva llamada', color:'#6366f1', action:() => navigate('/llamadas') },
-              { Icon:RiCalendarLine, label:'Agendar reunión', color:'#8b5cf6', action:() => navigate('/reuniones') },
-              { Icon:RiAddLine, label:'Añadir nota', color:'#10b981', action:() => setTab('Notas') },
-              { Icon:RiEditLine, label:'Editar oportunidad', color:'#0891b2', action:openEdit },
+              { Icon:RiPhoneLine, label:'Nueva llamada', color:'var(--accent)', action:() => navigate('/llamadas') },
+              { Icon:RiCalendarLine, label:'Agendar reunión', color:'var(--violet)', action:() => navigate('/reuniones') },
+              { Icon:RiAddLine, label:'Añadir nota', color:'var(--success)', action:() => setTab('Notas') },
+              { Icon:RiEditLine, label:'Editar oportunidad', color:'var(--cyan-deep)', action:openEdit },
             ].map(({ Icon, label, color, action }) => (
               <button key={label} onClick={action} style={{
                 display:'flex', alignItems:'center', gap:9, width:'100%', background:'transparent',
-                border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', cursor:'pointer',
-                color:'#94a3b8', fontSize:12.5, marginBottom:6, transition:'all .15s',
+                border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', cursor:'pointer',
+                color:'var(--muted)', fontSize:12.5, marginBottom:6, transition:'all .15s',
               }}
-                onMouseEnter={e => e.currentTarget.style.background = '#111827'}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <Icon style={{ width:14, height:14, color, flexShrink:0 }} />
@@ -902,113 +936,113 @@ export default function OpportunityDetailPage() {
       {/* Edit modal */}
       {showEdit && form && (
         <div style={{
-          position:'fixed', inset:0, background:'#000000a0', zIndex:100,
+          position:'fixed', inset:0, background:'var(--scrim)', zIndex:100,
           display:'flex', alignItems:'center', justifyContent:'center', padding:20,
         }} onClick={() => !savingEdit && setShowEdit(false)}>
           <div
             onClick={e => e.stopPropagation()}
             style={{
               width:'100%', maxWidth:480, maxHeight:'86vh', overflowY:'auto',
-              background:'#0d1117', border:'1px solid #1e2433', borderRadius:16, padding:'20px 22px',
+              background:'var(--surface)', border:'1px solid var(--line)', borderRadius:16, padding:'20px 22px',
             }}
           >
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-              <p style={{ margin:0, fontSize:15, fontWeight:700, color:'#f1f5f9' }}>Editar oportunidad</p>
-              <button onClick={() => setShowEdit(false)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4 }}>
+              <p style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--text-strong)' }}>Editar oportunidad</p>
+              <button onClick={() => setShowEdit(false)} style={{ background:'none', border:'none', color:'var(--dim)', cursor:'pointer', padding:4 }}>
                 <RiCloseLine style={{ width:18, height:18 }} />
               </button>
             </div>
 
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div>
-                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Nombre</label>
+                <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Nombre</label>
                 <input
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name:e.target.value }))}
-                  style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                  style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                 />
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="form-row-grid">
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Etapa</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Etapa</label>
                   <select
                     value={form.stage}
                     onChange={e => setForm(f => ({ ...f, stage:e.target.value }))}
-                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none', cursor:'pointer' }}
                   >
                     {STAGE_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Probabilidad (%)</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Probabilidad (%)</label>
                   <input
                     type="number" min={0} max={100}
                     value={form.probability}
                     onChange={e => setForm(f => ({ ...f, probability:e.target.value }))}
-                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                   />
                 </div>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="form-row-grid">
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Valor</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Valor</label>
                   <input
                     type="number" min={0}
                     value={form.value}
                     onChange={e => setForm(f => ({ ...f, value:e.target.value }))}
-                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Moneda</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Moneda</label>
                   <select
                     value={form.currency}
                     onChange={e => setForm(f => ({ ...f, currency:e.target.value }))}
-                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', cursor:'pointer' }}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none', cursor:'pointer' }}
                   >
                     {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="form-row-grid">
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Fecha de cierre estimada</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Fecha de cierre estimada</label>
                   <input
                     type="date"
                     value={form.expectedCloseDate}
                     onChange={e => setForm(f => ({ ...f, expectedCloseDate:e.target.value }))}
-                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Asignado a (ID usuario)</label>
+                  <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Asignado a (ID usuario)</label>
                   <input
                     value={form.assignedTo}
                     onChange={e => setForm(f => ({ ...f, assignedTo:e.target.value }))}
-                    style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                    style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Notas</label>
+                <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Notas</label>
                 <textarea
                   value={form.notes}
                   onChange={e => setForm(f => ({ ...f, notes:e.target.value }))}
-                  style={{ width:'100%', minHeight:90, boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', resize:'vertical', fontFamily:'inherit' }}
+                  style={{ width:'100%', minHeight:90, boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none', resize:'vertical', fontFamily:'inherit' }}
                 />
               </div>
 
-              {editError && <p style={{ margin:0, fontSize:12, color:'#f87171' }}>{editError}</p>}
+              {editError && <p style={{ margin:0, fontSize:12, color:'var(--danger-soft)' }}>{editError}</p>}
 
               <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4 }}>
                 <button
                   onClick={() => setShowEdit(false)}
                   disabled={savingEdit}
-                  style={{ background:'transparent', border:'1px solid #1e2433', borderRadius:9, padding:'8px 16px', color:'#94a3b8', fontSize:13, cursor:'pointer' }}
+                  style={{ background:'transparent', border:'1px solid var(--line)', borderRadius:9, padding:'8px 16px', color:'var(--muted)', fontSize:13, cursor:'pointer' }}
                 >
                   Cancelar
                 </button>
@@ -1016,7 +1050,7 @@ export default function OpportunityDetailPage() {
                   onClick={handleSaveEdit}
                   disabled={savingEdit}
                   style={{
-                    background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:9,
+                    background:'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', border:'none', borderRadius:9,
                     padding:'8px 18px', color:'#fff', fontSize:13, fontWeight:700,
                     cursor: savingEdit ? 'not-allowed' : 'pointer', opacity: savingEdit ? 0.6 : 1,
                   }}
@@ -1032,49 +1066,49 @@ export default function OpportunityDetailPage() {
       {/* Mark as lost modal */}
       {showLostForm && (
         <div style={{
-          position:'fixed', inset:0, background:'#000000a0', zIndex:100,
+          position:'fixed', inset:0, background:'var(--scrim)', zIndex:100,
           display:'flex', alignItems:'center', justifyContent:'center', padding:20,
         }} onClick={() => !actioning && setShowLostForm(false)}>
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width:'100%', maxWidth:420, background:'#0d1117', border:'1px solid #1e2433',
+              width:'100%', maxWidth:420, background:'var(--surface)', border:'1px solid var(--line)',
               borderRadius:16, padding:'20px 22px',
             }}
           >
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-              <p style={{ margin:0, fontSize:15, fontWeight:700, color:'#f1f5f9' }}>Marcar oportunidad como perdida</p>
-              <button onClick={() => setShowLostForm(false)} style={{ background:'none', border:'none', color:'#6b7280', cursor:'pointer', padding:4 }}>
+              <p style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--text-strong)' }}>Marcar oportunidad como perdida</p>
+              <button onClick={() => setShowLostForm(false)} style={{ background:'none', border:'none', color:'var(--dim)', cursor:'pointer', padding:4 }}>
                 <RiCloseLine style={{ width:18, height:18 }} />
               </button>
             </div>
 
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div>
-                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Motivo *</label>
+                <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Motivo *</label>
                 <input
                   value={lostReason}
                   onChange={e => setLostReason(e.target.value)}
                   placeholder="Ej. Presupuesto insuficiente"
-                  style={{ width:'100%', boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none' }}
+                  style={{ width:'100%', boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none' }}
                 />
               </div>
               <div>
-                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:5 }}>Notas adicionales</label>
+                <label style={{ display:'block', fontSize:11, color:'var(--dim)', marginBottom:5 }}>Notas adicionales</label>
                 <textarea
                   value={lostNotes}
                   onChange={e => setLostNotes(e.target.value)}
-                  style={{ width:'100%', minHeight:70, boxSizing:'border-box', background:'#080c14', border:'1px solid #1e2433', borderRadius:8, padding:'9px 12px', color:'#e2e8f0', fontSize:13, outline:'none', resize:'vertical', fontFamily:'inherit' }}
+                  style={{ width:'100%', minHeight:70, boxSizing:'border-box', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:8, padding:'9px 12px', color:'var(--text)', fontSize:13, outline:'none', resize:'vertical', fontFamily:'inherit' }}
                 />
               </div>
 
-              {actionError && <p style={{ margin:0, fontSize:12, color:'#f87171' }}>{actionError}</p>}
+              {actionError && <p style={{ margin:0, fontSize:12, color:'var(--danger-soft)' }}>{actionError}</p>}
 
               <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4 }}>
                 <button
                   onClick={() => setShowLostForm(false)}
                   disabled={actioning}
-                  style={{ background:'transparent', border:'1px solid #1e2433', borderRadius:9, padding:'8px 16px', color:'#94a3b8', fontSize:13, cursor:'pointer' }}
+                  style={{ background:'transparent', border:'1px solid var(--line)', borderRadius:9, padding:'8px 16px', color:'var(--muted)', fontSize:13, cursor:'pointer' }}
                 >
                   Cancelar
                 </button>
@@ -1082,7 +1116,7 @@ export default function OpportunityDetailPage() {
                   onClick={handleMarkLost}
                   disabled={actioning}
                   style={{
-                    background:'#dc2626', border:'none', borderRadius:9,
+                    background:'var(--danger-deep)', border:'none', borderRadius:9,
                     padding:'8px 18px', color:'#fff', fontSize:13, fontWeight:700,
                     cursor: actioning ? 'not-allowed' : 'pointer', opacity: actioning ? 0.6 : 1,
                   }}

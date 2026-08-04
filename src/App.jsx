@@ -26,6 +26,7 @@ const ArticleDetailPage = lazy(() => import('./pages/ArticleDetailPage'))
 const PlaybookDetailPage = lazy(() => import('./pages/PlaybookDetailPage'))
 const OpportunityDetailPage = lazy(() => import('./pages/OpportunityDetailPage'))
 const VoiceTestPage = lazy(() => import('./pages/VoiceTestPage'))
+const VoiceLabPage = lazy(() => import('./pages/VoiceLabPage'))
 const ProspectFinderPage = lazy(() => import('./pages/ProspectFinderPage'))
 const PublicLandingPage = lazy(() => import('./pages/PublicLandingPage'))
 const PublicCampaignSharePage = lazy(() => import('./pages/PublicCampaignSharePage'))
@@ -43,7 +44,8 @@ const RevenueIntelligencePage = lazy(() => import('./pages/RevenueIntelligencePa
 const EnterpriseGovernancePage = lazy(() => import('./pages/EnterpriseGovernancePage'))
 const AccessControlPage = lazy(() => import('./pages/AccessControlPage'))
 import NotFoundPage from './pages/NotFoundPage'
-const OrganicLeadsPage = lazy(() => import('./lib/organicPage').then(module => ({ default: module.OrganicLeadsPage })))
+// Si la página no está en este checkout, `organicPage` resuelve a null: la ruta cae al 404 en vez de romper el render.
+const OrganicLeadsPage = lazy(() => import('./lib/organicPage').then(module => ({ default: module.OrganicLeadsPage || NotFoundPage })))
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import AdminRoute from './components/AdminRoute'
@@ -93,8 +95,10 @@ export default function App() {
             <Route path="/playbooks/:id" element={<PlaybookDetailPage />} />
             <Route path="/pipeline/:id" element={<OpportunityDetailPage />} />
             <Route path="/voz/test" element={<VoiceTestPage />} />
+            <Route path="/voz/lab" element={<VoiceLabPage />} />
+            <Route path="/voz/omni" element={<VoiceLabPage />} />
             <Route path="/prospectos" element={<ProspectFinderPage />} />
-            <Route path="/organic" element={OrganicLeadsPage ? <OrganicLeadsPage /> : <NotFoundPage />} />
+            <Route path="/organic" element={<OrganicLeadsPage />} />
             <Route path="/captacion/conectar" element={<MetaAccountPage />} />
             <Route path="/redes-sociales" element={<ConectarRedesPage />} />
             <Route path="/email-marketing" element={<EmailMarketingPage />} />

@@ -1,6 +1,9 @@
 # Session recordings (conversations)
 backend/sessions/
 
+# Imágenes generadas con IA servidas en /api/public/media
+backend/uploads/
+
 # Local secrets and runtime environment files. Keep only the examples tracked.
 backend/.env
 .env
@@ -29,7 +32,20 @@ dist-ssr
 # Python voice-engine runtime artifacts
 voice-engine/.venv/
 voice-engine/__pycache__/
+tts-chatterbox/.venv/
+tts-qwen/.venv/
+.venv-qwen3-tts/
+__pycache__/
 *.py[cod]
+
+# Audio de experimentos de voz (clones, bancos, A/B): pesa y no es código
+*.wav
+*.ogg
+*.mp3
+*.zip
+*.pt
+*.onnx
+*.safetensors
 
 # Editor directories and files
 .vscode/*

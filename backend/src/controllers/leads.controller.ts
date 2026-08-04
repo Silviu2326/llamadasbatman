@@ -370,7 +370,11 @@ export async function callNow(
   if (!params) return
   const lead = await leadsService.getLead(orgId, { userId, role }, params.id)
   if (!lead) return reply.status(404).send({ error: 'Not found' })
+  // Fail fast with a stable error code: the worker would silently drop these.
+  if (!lead.phone) return reply.status(422).send({ ok: false, queued: false, error: 'lead_without_phone' })
+  if (!lead.campaignId) return reply.status(422).send({ ok: false, queued: false, error: 'lead_without_campaign' })
   const queued = await enqueueLeadCall(orgId, lead.id)
+  if (!queued) return reply.status(503).send({ ok: false, queued: false, error: 'call_queue_unavailable' })
   return reply.send({ ok: true, queued })
 }
 
@@ -496,8 +500,12 @@ export async function sendEmail(
   if (!params || !body) return
 
   const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true } })
-  if (org?.plan !== 'completo' || !org.mauticEnabled) {
-    return reply.status(403).send({ error: 'Email marketing no está incluido en tu plan' })
+  // Plan e integración son cosas distintas: ver mautic.controller.ts.
+  if (org?.plan !== 'completo') {
+    return reply.status(403).send({ error: 'Email marketing es una función del plan Completo. Mejora tu plan para activarlo.', code: 'PLAN_CAPABILITY_REQUIRED' })
+  }
+  if (!org.mauticEnabled) {
+    return reply.status(403).send({ error: 'Email marketing no está habilitado en tu organización. Pide a tu administrador que lo active.', code: 'INTEGRATION_DISABLED' })
   }
 
   const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true, email: true } })

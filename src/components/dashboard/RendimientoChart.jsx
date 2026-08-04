@@ -1,21 +1,36 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useMemo } from 'react'
 import {
   ResponsiveContainer, ComposedChart, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
 import { HiChevronDown } from 'react-icons/hi'
 import useClickOutside from '../../hooks/useClickOutside'
-import { card, tooltipStyle, dot, activeDot, VIEW_OPTIONS_DEFAULT, REND_SERIES, getChartDomain } from './dashboardData'
+import { card, tooltipStyle, VIEW_OPTIONS_DEFAULT, getChartDomain } from './dashboardData'
+import { useThemeColors } from '../../hooks/useTheme'
 import { useI18n } from '../../i18n'
+
+// Series del gráfico. `stroke`/`stopColor`/`fill` son atributos SVG, así que los
+// colores tienen que llegar ya resueltos a hex desde useThemeColors().
+const rendSeries = c => [
+  { key:'llamadas',    name:'Llamadas',    color:c.info,    yId:'L', grad:'gradL' },
+  { key:'contactados', name:'Contactados', color:c.success, yId:'L', grad:'gradC' },
+  { key:'reuniones',   name:'Reuniones',   color:c.violet,  yId:'L', grad:'gradR' },
+]
 
 export default function RendimientoChart({ dayData }) {
   const { locale } = useI18n()
+  const colors = useThemeColors()
   const [view, setView] = useState('day')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useClickOutside([ref], () => setOpen(false))
 
-  const localizedSeries = REND_SERIES.map((series, index) => ({
+  // El punto se recorta contra el lienzo, por eso el borde usa el color de fondo.
+  const dot = fill => ({ r:3.5, fill, stroke:colors.bg, strokeWidth:2 })
+  const activeDot = fill => ({ r:5.5, fill, stroke:colors.bg, strokeWidth:2 })
+  const conversionColor = colors.warn
+
+  const localizedSeries = useMemo(() => rendSeries(colors), [colors]).map((series, index) => ({
     ...series,
     name: locale === 'en' ? ['Calls', 'Contacted', 'Meetings'][index] : series.name,
   }))
@@ -31,25 +46,25 @@ export default function RendimientoChart({ dayData }) {
 
   const dropdownStyle = {
     position:'absolute', top:'calc(100% + 6px)', right:0,
-    background:'#0d1117', border:'1px solid #1e2433', borderRadius:10,
-    padding:6, minWidth:140, boxShadow:'0 10px 30px rgba(0,0,0,0.5)',
+    background:'var(--surface)', border:'1px solid var(--line)', borderRadius:10,
+    padding:6, minWidth:140, boxShadow:'var(--shadow-2)',
     zIndex:20, display:'flex', flexDirection:'column', gap:2,
   }
   const itemStyle = {
     background:'transparent', border:'none', borderRadius:6,
-    padding:'7px 10px', color:'#cbd5e1', fontSize:12,
+    padding:'7px 10px', color:'var(--text-2)', fontSize:12,
     textAlign:'left', cursor:'pointer',
   }
-  const activeItemStyle = { ...itemStyle, background:'#1e2433', color:'#ffffff', fontWeight:600 }
+  const activeItemStyle = { ...itemStyle, background:'var(--surface-hover)', color:'var(--text-strong)', fontWeight:600 }
 
   return (
     <div style={{ ...card, display:'flex', flexDirection:'column', gap:12, height:'100%' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'#ffffff', textShadow:'0 0 20px rgba(255,255,255,0.15)' }}>{locale === 'en' ? 'Overall performance' : 'Rendimiento general'}</h3>
+        <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:'var(--text-strong)' }}>{locale === 'en' ? 'Overall performance' : 'Rendimiento general'}</h3>
         <div ref={ref} style={{ position:'relative' }}>
           <button
             onClick={() => setOpen(v => !v)}
-            style={{ display:'flex', alignItems:'center', gap:5, background:'#131b2b', border:'1px solid #1e2433', borderRadius:8, padding:'5px 10px', color:'#94a3b8', fontSize:12, cursor:'pointer' }}
+            style={{ display:'flex', alignItems:'center', gap:5, background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius:8, padding:'5px 10px', color:'var(--muted)', fontSize:12, cursor:'pointer' }}
           >
             {current.label} <HiChevronDown style={{ width:12, height:12, transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }} />
           </button>
@@ -70,10 +85,10 @@ export default function RendimientoChart({ dayData }) {
       </div>
 
       <div style={{ display:'flex', gap:18, flexWrap:'wrap' }}>
-        {[['#60a5fa', locale === 'en' ? 'Calls' : 'Llamadas'],['#34d399', locale === 'en' ? 'Contacted' : 'Contactados'],['#a78bfa', locale === 'en' ? 'Meetings' : 'Reuniones'],['#fb923c', locale === 'en' ? 'Conversion (%)' : 'Conversión (%)']].map(([c,l]) => (
+        {[[colors.info, locale === 'en' ? 'Calls' : 'Llamadas'],[colors.success, locale === 'en' ? 'Contacted' : 'Contactados'],[colors.violet, locale === 'en' ? 'Meetings' : 'Reuniones'],[conversionColor, locale === 'en' ? 'Conversion (%)' : 'Conversión (%)']].map(([c,l]) => (
           <div key={l} style={{ display:'flex', alignItems:'center', gap:6 }}>
             <div style={{ width:8, height:8, borderRadius:'50%', background:c, boxShadow:`0 0 6px ${c}` }} />
-            <span style={{ fontSize:11.5, color:'#cbd5e1' }}>{l}</span>
+            <span style={{ fontSize:11.5, color:'var(--text-2)' }}>{l}</span>
           </div>
         ))}
       </div>
@@ -81,7 +96,7 @@ export default function RendimientoChart({ dayData }) {
       <div style={{ flex:1, minHeight:180 }}>
         {!current.data?.length ? (
           <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <p style={{ margin:0, fontSize:12, color:'#4b5563' }}>{locale === 'en' ? 'No performance data' : 'Sin datos de rendimiento'}</p>
+            <p style={{ margin:0, fontSize:12, color:'var(--muted)' }}>{locale === 'en' ? 'No performance data' : 'Sin datos de rendimiento'}</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -94,15 +109,17 @@ export default function RendimientoChart({ dayData }) {
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid stroke="#1a2235" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill:'#94a3b8', fontSize:10 }} axisLine={false} tickLine={false} />
+              <CartesianGrid stroke={colors.line} vertical={false} />
+              <XAxis dataKey="date" tick={{ fill:colors.dim, fontSize:10 }} axisLine={false} tickLine={false} />
               <YAxis yAxisId="L" domain={[0, leftMax]}
                 tickFormatter={v => v>=1000 ? `${v/1000}K` : `${v}`}
-                tick={{ fill:'#94a3b8', fontSize:10 }} axisLine={false} tickLine={false} width={38} />
+                tick={{ fill:colors.dim, fontSize:10 }} axisLine={false} tickLine={false} width={38} />
               <YAxis yAxisId="R" orientation="right" domain={[0, rightMax]}
                 tickFormatter={v => `${v}%`}
-                tick={{ fill:'#94a3b8', fontSize:10 }} axisLine={false} tickLine={false} width={30} />
-              <Tooltip {...tooltipStyle} />
+                tick={{ fill:colors.dim, fontSize:10 }} axisLine={false} tickLine={false} width={30} />
+              <Tooltip {...tooltipStyle}
+                contentStyle={{ ...tooltipStyle.contentStyle, background:'var(--surface-2)', border:'1px solid var(--line-2)' }}
+                cursor={{ ...tooltipStyle.cursor, stroke:colors.line2 }} />
 
               {localizedSeries.map(({ key, color, yId }) => (
                 <Area key={`glow-${key}`} yAxisId={yId} type="monotone" dataKey={key}
@@ -116,10 +133,10 @@ export default function RendimientoChart({ dayData }) {
                   dot={dot(color)} activeDot={activeDot(color)} />
               ))}
 
-              <Line yAxisId="R" type="monotone" dataKey="conversion" stroke="#fb923c"
+              <Line yAxisId="R" type="monotone" dataKey="conversion" stroke={conversionColor}
                 strokeWidth={10} strokeOpacity={0.25} dot={false} isAnimationActive={false} legendType="none" />
               <Line yAxisId="R" type="monotone" dataKey="conversion" name={locale === 'en' ? 'Conversion %' : 'Conversión %'}
-                stroke="#fb923c" strokeWidth={2.5} dot={dot('#fb923c')} activeDot={activeDot('#fb923c')} />
+                stroke={conversionColor} strokeWidth={2.5} dot={dot(conversionColor)} activeDot={activeDot(conversionColor)} />
             </ComposedChart>
           </ResponsiveContainer>
         )}

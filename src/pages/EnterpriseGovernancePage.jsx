@@ -14,7 +14,9 @@ import {
   RiTimeLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { planGateMessage, readPlanGate } from '../lib/planGate'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import DataStatusBanner from '../components/ui/DataStatusBanner'
 import './enterprise-governance.css'
 
 const POLICY_META = {
@@ -173,6 +175,7 @@ export default function EnterpriseGovernancePage() {
   const [overview, setOverview] = useState(() => normalizeOverview(null))
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [planGate, setPlanGate] = useState(null)
   const [saveError, setSaveError] = useState('')
   const [savingKey, setSavingKey] = useState('')
   const [notice, setNotice] = useState('')
@@ -180,8 +183,12 @@ export default function EnterpriseGovernancePage() {
   async function loadOverview() {
     setLoading(true)
     setLoadError('')
+    setPlanGate(null)
     try {
       const response = await apiFetch('/api/revenue-intelligence/governance/overview')
+      // Se comprueba antes de leer el cuerpo: readPlanGate necesita clonar la respuesta intacta.
+      const gate = response.ok ? null : await readPlanGate(response)
+      if (gate) { setOverview(normalizeOverview(null)); setPlanGate(gate); return }
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error || 'No se pudo cargar la configuración de gobierno.')
       setOverview(normalizeOverview(payload))
@@ -237,6 +244,8 @@ export default function EnterpriseGovernancePage() {
       <div><span className="governance-eyebrow">Decisiones con trazabilidad</span><h2>La automatización avanza dentro de límites revisables.</h2><p>Las políticas no sustituyen la revisión humana: documentan qué se permite, quién puede cambiarlo y qué ocurrió después.</p></div>
       <div className="governance-command-icons" aria-hidden="true"><RiShieldCheckLine /><i /><RiScales3Line /><i /><RiFileShield2Line /></div>
     </section>
+
+    {planGate ? <DataStatusBanner status="plan" message={planGateMessage(planGate, locale)} /> : null}
 
     {saveError ? <div className="governance-page-error" role="alert"><RiAlertLine aria-hidden="true" /><div><strong>No se guardó el cambio</strong><span>{saveError}</span></div><button type="button" onClick={() => setSaveError('')} aria-label="Cerrar aviso">×</button></div> : null}
 

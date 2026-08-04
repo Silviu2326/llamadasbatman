@@ -29,8 +29,8 @@ import { metaAccountsRoutes } from './routes/metaAccounts'
 import { metaWebhooksRoutes } from './routes/metaWebhooks'
 import { mauticWebhooksRoutes } from './routes/mauticWebhooks'
 import { mauticRoutes } from './routes/mautic'
-import { postizRoutes } from './routes/postiz'
 import { metricoolRoutes } from './routes/metricool'
+import { publicMediaRoutes } from './routes/publicMedia'
 import { automationsRoutes } from './routes/automations'
 import { knowledgeRoutes } from './routes/knowledge'
 import { dashboardRoutes } from './routes/dashboard'
@@ -178,8 +178,8 @@ async function build() {
   await app.register(metaWebhooksRoutes,{ prefix: '/api/meta/webhooks' })
   await app.register(mauticWebhooksRoutes,{ prefix: '/api/webhooks/mautic' })
   await app.register(mauticRoutes,     { prefix: '/api/mautic' })
-  await app.register(postizRoutes,     { prefix: '/api/postiz' })
   await app.register(metricoolRoutes,  { prefix: '/api/metricool' })
+  await app.register(publicMediaRoutes,{ prefix: '/api/public/media' })
   await app.register(automationsRoutes,{ prefix: '/api/automations' })
   await app.register(knowledgeRoutes,  { prefix: '/api/knowledge' })
   await app.register(dashboardRoutes,  { prefix: '/api/dashboard' })

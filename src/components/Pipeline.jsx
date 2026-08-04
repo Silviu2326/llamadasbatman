@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { DEMO_MODE } from '../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
+import { planGateMessage, readPlanGate } from '../lib/planGate'
 import DataStatusBanner from './ui/DataStatusBanner'
 import ConfirmDialog from './ui/ConfirmDialog'
 import {
@@ -19,45 +20,56 @@ import {
 } from 'react-icons/ri'
 import KPICard from './KPICard'
 import DataTable from './DataTable'
+import { useThemeColors } from '../hooks/useTheme'
 import '../dashboard.css'
 import NewOportunidadModal from '../modals/NewOportunidadModal'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
 // ─── shared ──────────────────────────────────────────────────────────────────
-const card = { background: '#0d1117', border: '1px solid #1e2433', borderRadius: 13 }
+const card = { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 13 }
 
 const tooltipStyle = {
-  contentStyle: { background: 'rgba(10,14,26,0.97)', border: '1px solid #1e2433', borderRadius: 10, fontSize: 12 },
-  labelStyle:   { color: '#94a3b8', marginBottom: 4 },
-  itemStyle:    { color: '#f1f5f9' },
+  contentStyle: { background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 10, fontSize: 12, boxShadow: 'var(--shadow-2)' },
+  labelStyle:   { color: 'var(--muted)', marginBottom: 4 },
+  itemStyle:    { color: 'var(--text-strong)' },
 }
 
-const BG_CYCLE = ['#4f46e5','#0891b2','#7c3aed','#059669','#2563eb','#0d9488']
+const BG_CYCLE = ['var(--accent-deep)','var(--cyan-deep)','var(--violet-deep)','var(--success-deep)','var(--info-deep)','var(--success)']
 
 // ─── static display config (no live data) ────────────────────────────────────
 const STAGE_CONFIG = [
-  { id:'lead',        label:'Lead',        color:'#7c3aed', Icon:null },
-  { id:'qualified',   label:'Calificado',  color:'#2563eb', Icon:RiPhoneLine },
-  { id:'proposal',    label:'Propuesta',   color:'#d97706', Icon:null },
-  { id:'negotiation', label:'Negociación', color:'#ea580c', Icon:null },
-  { id:'closed_won',  label:'Ganado',      color:'#10b981', Icon:null },
-  { id:'closed_lost', label:'Perdido',     color:'#6b7280', Icon:null },
+  { id:'lead',        label:'Lead',        color:'var(--violet-deep)', Icon:null },
+  { id:'qualified',   label:'Calificado',  color:'var(--info-deep)', Icon:RiPhoneLine },
+  { id:'proposal',    label:'Propuesta',   color:'var(--warn-deep)', Icon:null },
+  { id:'negotiation', label:'Negociación', color:'var(--warn)', Icon:null },
+  { id:'closed_won',  label:'Ganado',      color:'var(--success)', Icon:null },
+  { id:'closed_lost', label:'Perdido',     color:'var(--dim)', Icon:null },
 ]
 
 // KPI_DECO trae solo config visual (icono/color); value y pct salen siempre
 // de datos reales del backend (P0-09: sin series ni deltas decorativos).
 const KPI_DECO = [
-  { Icon: RiMoneyDollarBoxLine, iconBg:'#6d28d9', label:'Valor total del\npipeline',  color:'#a78bfa' },
-  { Icon: RiBriefcaseLine,      iconBg:'#0e7490', label:'Oportunidades',              color:'#22d3ee' },
-  { Icon: RiLineChartLine,      iconBg:'#1e40af', label:'Valor\nponderado',           color:'#60a5fa' },
-  { Icon: RiPercentLine,        iconBg:'#b45309', label:'Tasa de conversión\nglobal', color:'#fbbf24' },
+  { Icon: RiMoneyDollarBoxLine, iconBg:'var(--violet-deep)', label:'Valor total del\npipeline',  color:'var(--violet)' },
+  { Icon: RiBriefcaseLine,      iconBg:'var(--cyan-deep)', label:'Oportunidades',              color:'var(--cyan)' },
+  { Icon: RiLineChartLine,      iconBg:'var(--info-deep)', label:'Valor\nponderado',           color:'var(--info)' },
+  { Icon: RiPercentLine,        iconBg:'var(--warn-deep)', label:'Tasa de conversión\nglobal', color:'var(--warn-soft)' },
 ]
 
 const ACTION_DECO = [
-  { Icon:RiAlertLine,    color:'#f59e0b', bg:'#f59e0b0c', border:'#f59e0b25' },
-  { Icon:RiRocketLine,   color:'#8b5cf6', bg:'#8b5cf60c', border:'#8b5cf625' },
-  { Icon:RiCalendarLine, color:'#10b981', bg:'#10b9810c', border:'#10b98125' },
+  { Icon:RiAlertLine,    color:'var(--warn)', bg:'#f59e0b0c', border:'#f59e0b25' },
+  { Icon:RiRocketLine,   color:'var(--violet)', bg:'#8b5cf60c', border:'#8b5cf625' },
+  { Icon:RiCalendarLine, color:'var(--success)', bg:'#10b9810c', border:'#10b98125' },
 ]
+
+// Los atributos de presentación SVG (fill/stroke, y los que Recharts genera a
+// partir de sus props) no resuelven var(): necesitan el hex ya calculado. Para
+// los tokens fijos se usa useThemeColors(); esta función cubre los colores que
+// llegan como dato (las etapas de STAGE_CONFIG, que son cadenas var(--token)).
+function resolveColor(value) {
+  const token = /^var\((--[a-z0-9-]+)\)$/i.exec(String(value ?? ''))
+  if (!token) return value
+  return getComputedStyle(document.documentElement).getPropertyValue(token[1]).trim() || value
+}
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 function CompanyLogo({ name, bg }) {
@@ -67,7 +79,7 @@ function CompanyLogo({ name, bg }) {
     <div style={{
       width: 30, height: 30, borderRadius: 8, background: bg, flexShrink: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 10, fontWeight: 700, color: '#fff', boxShadow: `0 0 8px ${bg}40`,
+      fontSize: 10, fontWeight: 700, color: '#fff', boxShadow: `0 0 8px color-mix(in srgb, ${bg} 25%, transparent)`,
     }}>{initials.toUpperCase()}</div>
   )
 }
@@ -79,13 +91,13 @@ function ScoreGauge({ score, color }) {
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size}>
-        <circle cx={c} cy={c} r={r} fill="none" stroke="#1a2235" strokeWidth={sw} />
-        <circle cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth={sw}
+        <circle cx={c} cy={c} r={r} fill="none" stroke={resolveColor('var(--surface-hover)')} strokeWidth={sw} />
+        <circle cx={c} cy={c} r={r} fill="none" stroke={resolveColor(color)} strokeWidth={sw}
           strokeDasharray={`${filled} ${circ - filled}`} strokeLinecap="round"
           transform={`rotate(-90 ${c} ${c})`} />
       </svg>
       <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <span style={{ fontSize: 9.5, fontWeight: 700, color: '#f1f5f9' }}>{score}</span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-strong)' }}>{score}</span>
       </div>
     </div>
   )
@@ -99,22 +111,22 @@ function OppCard({ opp, stageColor, onClick, onDragStart, onDragEnd, isDragging 
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       style={{
-        background: '#0a0e18', border: '1px solid #1e2433', borderRadius: 10,
+        background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10,
         padding: '9px 9px', display: 'flex', flexDirection: 'column', gap: 7, cursor: 'grab',
         opacity: isDragging ? 0.4 : 1,
       }}>
       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         <CompanyLogo name={opp.company} bg={opp.bg} />
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#f1f5f9', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.company}</p>
-          <p style={{ margin: 0, fontSize: 9.5, color: '#4b5563' }}>{opp.city}</p>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: 'var(--text-strong)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.company}</p>
+          <p style={{ margin: 0, fontSize: 9.5, color: 'var(--dim)' }}>{opp.city}</p>
         </div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#f1f5f9', letterSpacing: -0.3 }}>{opp.value}</p>
-          <p style={{ margin: 0, fontSize: 8.5, color: '#4b5563', textTransform: 'uppercase', letterSpacing: 0.3 }}>Lead Score</p>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>{opp.value}</p>
+          <p style={{ margin: 0, fontSize: 8.5, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 0.3 }}>Valor</p>
         </div>
         {opp.score !== null && <ScoreGauge score={opp.score} color={stageColor} />}
       </div>
@@ -122,10 +134,10 @@ function OppCard({ opp, stageColor, onClick, onDragStart, onDragEnd, isDragging 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{
           fontSize: 9.5, padding: '2px 7px', borderRadius: 20, fontWeight: 700,
-          background: `${stageColor}15`, border: `1px solid ${stageColor}28`, color: stageColor,
+          background: `color-mix(in srgb, ${stageColor} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${stageColor} 16%, transparent)`, color: stageColor,
           whiteSpace: 'nowrap',
         }}>{opp.badge}</span>
-        <span style={{ fontSize: 9.5, color: '#4b5563', whiteSpace: 'nowrap' }}>{opp.date}</span>
+        <span style={{ fontSize: 9.5, color: 'var(--dim)', whiteSpace: 'nowrap' }}>{opp.date}</span>
       </div>
     </div>
   )
@@ -144,19 +156,19 @@ function KanbanColumn({ stage, opps, onSelect, draggingId, onDragStartCard, onDr
       onDrop={(e) => { e.preventDefault(); setDragOver(false); onDropCard?.(stage.id, e) }}
       style={{
         minWidth: 163, width: 163, display: 'flex', flexDirection: 'column',
-        background: dragOver ? '#0d1424' : '#090d18',
-        border: dragOver ? `1px solid ${stage.color}` : '1px solid #1a2235',
+        background: dragOver ? 'var(--surface-2)' : 'var(--bg)',
+        border: dragOver ? `1px solid ${stage.color}` : '1px solid var(--surface-hover)',
         borderRadius: 13,
         borderTop: `3px solid ${stage.color}`, flexShrink: 0,
         transition: 'background 0.12s, border-color 0.12s',
       }}>
       <div style={{ padding: '11px 11px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{stage.label}</span>
-          <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: `${stage.color}20`, color: stage.color }}>{stage.count}</span>
-          {stage.Icon && <stage.Icon style={{ width: 11, height: 11, color: '#4b5563', marginLeft: 'auto' }} />}
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-strong)' }}>{stage.label}</span>
+          <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: `color-mix(in srgb, ${stage.color} 13%, transparent)`, color: stage.color }}>{stage.count}</span>
+          {stage.Icon && <stage.Icon style={{ width: 11, height: 11, color: 'var(--dim)', marginLeft: 'auto' }} />}
         </div>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#e2e8f0' }}>{stage.value}</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{stage.value}</span>
       </div>
 
       <div style={{ padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -173,11 +185,13 @@ function KanbanColumn({ stage, opps, onSelect, draggingId, onDragStartCard, onDr
         ))}
       </div>
 
-      <div style={{ padding: '8px 11px 11px', marginTop: 6, borderTop: '1px solid #1a2235' }}>
+      {allOpps.length > VISIBLE && (
+      <div style={{ padding: '8px 11px 11px', marginTop: 6, borderTop: '1px solid var(--line)' }}>
         <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', color: stage.color, fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-          {expanded ? 'Ver menos' : `+ ${Math.max(0, allOpps.length - VISIBLE)} más`}
+          {expanded ? 'Ver menos' : `+ ${allOpps.length - VISIBLE} más`}
         </button>
       </div>
+      )}
     </div>
   )
 }
@@ -186,16 +200,16 @@ function KanbanColumn({ stage, opps, onSelect, draggingId, onDragStartCard, onDr
 function ConversionFunnel({ funnelData }) {
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
-      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: '#fff' }}>Conversión por etapa</h3>
+      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Conversión por etapa</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {funnelData.map(({ label, pct, count, color }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 88, height: 10, borderRadius: 3, background: '#1a2235', overflow: 'hidden', flexShrink: 0 }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, boxShadow: `0 0 6px ${color}40` }} />
+            <div style={{ width: 88, height: 10, borderRadius: 3, background: 'var(--surface-hover)', overflow: 'hidden', flexShrink: 0 }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3, boxShadow: `0 0 6px color-mix(in srgb, ${color} 25%, transparent)` }} />
             </div>
-            <span style={{ fontSize: 9.5, color: '#94a3b8', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-            <span style={{ fontSize: 9.5, color: '#f1f5f9', fontWeight: 600 }}>{pct}%</span>
-            <span style={{ fontSize: 9.5, color: '#4b5563' }}>({count})</span>
+            <span style={{ fontSize: 9.5, color: 'var(--muted)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+            <span style={{ fontSize: 9.5, color: 'var(--text-strong)', fontWeight: 600 }}>{pct}%</span>
+            <span style={{ fontSize: 9.5, color: 'var(--dim)' }}>({count})</span>
           </div>
         ))}
       </div>
@@ -207,29 +221,29 @@ function DonutPanel({ donutData, totalValue }) {
   const D = 148
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
-      <h3 style={{ margin: '0 0 8px', fontSize: 12.5, fontWeight: 700, color: '#fff' }}>Valor del pipeline por etapa</h3>
+      <h3 style={{ margin: '0 0 8px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Valor del pipeline por etapa</h3>
       <div style={{ position: 'relative', width: D, height: D, margin: '0 auto 8px' }}>
         <PieChart width={D} height={D}>
           <Pie data={donutData} cx={D/2} cy={D/2} innerRadius={44} outerRadius={66}
             dataKey="value" paddingAngle={2} startAngle={90} endAngle={-270}>
-            {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
+            {donutData.map((d, i) => <Cell key={i} fill={resolveColor(d.color)} />)}
           </Pie>
           <Tooltip contentStyle={tooltipStyle.contentStyle} itemStyle={tooltipStyle.itemStyle}
             formatter={(v, n, p) => [`€${(v/1000).toFixed(1)}k`, p.payload.name]} />
         </PieChart>
         <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', textAlign:'center', pointerEvents:'none' }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-strong)', lineHeight: 1.2 }}>
             {totalValue > 0 ? `€${(totalValue/1000).toFixed(0)}k` : '—'}
           </div>
-          <div style={{ fontSize: 9, color: '#6b7280', marginTop: 2 }}>Total</div>
+          <div style={{ fontSize: 9, color: 'var(--dim)', marginTop: 2 }}>Total</div>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {donutData.map(d => (
           <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: d.color, flexShrink: 0, boxShadow: `0 0 5px ${d.color}` }} />
-            <span style={{ flex: 1, fontSize: 10, color: '#94a3b8' }}>{d.name}</span>
-            <span style={{ fontSize: 10, color: '#e2e8f0', fontWeight: 600 }}>€{(d.value/1000).toFixed(1)}k</span>
+            <span style={{ flex: 1, fontSize: 10, color: 'var(--muted)' }}>{d.name}</span>
+            <span style={{ fontSize: 10, color: 'var(--text)', fontWeight: 600 }}>€{(d.value/1000).toFixed(1)}k</span>
           </div>
         ))}
       </div>
@@ -237,7 +251,7 @@ function DonutPanel({ donutData, totalValue }) {
   )
 }
 
-function PredictionPanel({ prediction }) {
+function PredictionPanel({ prediction, colors }) {
   const totalFmt = prediction.total > 0
     ? `€${prediction.total.toLocaleString(localeCode(getLocale()))}`
     : '—'
@@ -246,31 +260,31 @@ function PredictionPanel({ prediction }) {
   const domain = [0, Math.ceil(maxVal * 1.2)]
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
-      <h3 style={{ margin: '0 0 6px', fontSize: 12.5, fontWeight: 700, color: '#fff' }}>Predicción de cierre (próx. 30 días)</h3>
-      <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: -0.5, marginBottom: 2 }}>{totalFmt}</div>
+      <h3 style={{ margin: '0 0 6px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Predicción de cierre (próx. 30 días)</h3>
+      <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.5, marginBottom: 2 }}>{totalFmt}</div>
       <div style={{ marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: '#6b7280' }}>Valor ponderado por probabilidad</span>
+        <span style={{ fontSize: 10, color: 'var(--dim)' }}>Valor ponderado por probabilidad</span>
       </div>
       {weeks.length > 0 ? (
         <ResponsiveContainer width="100%" height={85}>
           <AreaChart data={weeks} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="predGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                <stop offset="5%"  stopColor={colors.violet} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={colors.violet} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#1a2235" vertical={false} />
-            <XAxis dataKey="date" tick={{ fill:'#6b7280', fontSize:8 }} axisLine={false} tickLine={false} />
+            <CartesianGrid stroke={colors.surfaceHover} vertical={false} />
+            <XAxis dataKey="date" tick={{ fill: colors.dim, fontSize:8 }} axisLine={false} tickLine={false} />
             <YAxis domain={domain} tickFormatter={v => `€${v}k`}
-              tick={{ fill:'#6b7280', fontSize:8 }} axisLine={false} tickLine={false} width={34} />
+              tick={{ fill: colors.dim, fontSize:8 }} axisLine={false} tickLine={false} width={34} />
             <Tooltip contentStyle={tooltipStyle.contentStyle} formatter={v => [`€${v}k`, 'Predicción']} />
-            <Area type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2.5}
-              fill="url(#predGrad)" dot={{ r:3, fill:'#8b5cf6', stroke:'#080c14', strokeWidth:2 }} />
+            <Area type="monotone" dataKey="value" stroke={colors.violet} strokeWidth={2.5}
+              fill="url(#predGrad)" dot={{ r:3, fill: colors.violet, stroke: colors.bg, strokeWidth:2 }} />
           </AreaChart>
         </ResponsiveContainer>
       ) : (
-        <p style={{ fontSize: 10.5, color: '#4b5563', margin: 0 }}>Añade fechas de cierre esperadas a tus oportunidades para ver la predicción.</p>
+        <p style={{ fontSize: 10.5, color: 'var(--dim)', margin: 0 }}>Añade fechas de cierre esperadas a tus oportunidades para ver la predicción.</p>
       )}
     </div>
   )
@@ -285,32 +299,32 @@ function ForecastPanel({ forecast }) {
 
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
-      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: '#fff' }}>Forecast</h3>
+      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Previsión</h3>
       {currencies.length === 0 ? (
-        <p style={{ fontSize: 10.5, color: '#4b5563', margin: 0 }}>No hay oportunidades abiertas para calcular el forecast.</p>
+        <p style={{ fontSize: 10.5, color: 'var(--dim)', margin: 0 }}>No hay oportunidades abiertas para calcular la previsión.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {currencies.map(cur => {
             const f = forecast[cur]
             const rows = [
-              { label: 'Pipeline total',    value: f.pipeline,         color: '#7c3aed' },
-              { label: 'Pipeline ponderado', value: f.weightedPipeline, color: '#2563eb' },
-              { label: 'Best case',         value: f.bestCase,         color: '#f59e0b' },
-              { label: 'Commit',            value: f.commit,           color: '#10b981' },
+              { label: 'Pipeline total',    value: f.pipeline,         color: 'var(--violet-deep)' },
+              { label: 'Pipeline ponderado', value: f.weightedPipeline, color: 'var(--info-deep)' },
+              { label: 'Escenario optimista',         value: f.bestCase,         color: 'var(--warn)' },
+              { label: 'Comprometido',            value: f.commit,           color: 'var(--success)' },
             ]
             return (
               <div key={cur}>
                 {currencies.length > 1 && (
-                  <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4 }}>{cur}</p>
+                  <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{cur}</p>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {rows.map(r => (
                     <div key={r.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: '#94a3b8' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: 'var(--muted)' }}>
                         <i style={{ width: 6, height: 6, borderRadius: '50%', background: r.color, flexShrink: 0, boxShadow: `0 0 5px ${r.color}` }} />
                         {r.label}
                       </span>
-                      <span style={{ fontSize: 11.5, fontWeight: 700, color: '#f1f5f9' }}>{fmt(cur, r.value)}</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-strong)' }}>{fmt(cur, r.value)}</span>
                     </div>
                   ))}
                 </div>
@@ -326,14 +340,15 @@ function ForecastPanel({ forecast }) {
 function InsightsPanel({ insights }) {
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
-      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: '#fff' }}>Insights IA</h3>
+      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Insights IA</h3>
+      {insights.length === 0 && <p style={{ fontSize: 10.5, color: 'var(--dim)', margin: 0 }}>Cuando haya suficientes oportunidades, aquí verás señales para priorizar.</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {insights.map((ins, i) => (
           <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-            <div style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: `${ins.color}15`, border: `1px solid ${ins.color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: `color-mix(in srgb, ${ins.color} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${ins.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <RiInformationLine style={{ width: 13, height: 13, color: ins.color }} />
             </div>
-            <p style={{ margin: 0, fontSize: 10.5, color: '#94a3b8', lineHeight: 1.5 }}>{ins.text}</p>
+            <p style={{ margin: 0, fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.5 }}>{ins.text}</p>
           </div>
         ))}
       </div>
@@ -344,10 +359,10 @@ function InsightsPanel({ insights }) {
 // ─── main ─────────────────────────────────────────────────────────────────────
 function OppDetailPanel({ opp, onClose }) {
   return (
-    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 'min(320px,100vw)', background: '#0d1117', borderLeft: '1px solid #1e2433', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: '-20px 0 60px #0009' }}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e2433', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <p style={{ margin: 0, fontWeight: 700, color: '#f1f5f9', fontSize: 14 }}>Oportunidad</p>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
+    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 'min(320px,100vw)', background: 'var(--surface)', borderLeft: '1px solid var(--line)', zIndex: 50, display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-2)' }}>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-strong)', fontSize: 14 }}>Oportunidad</p>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
       </div>
       <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -355,8 +370,8 @@ function OppDetailPanel({ opp, onClose }) {
             {opp.company.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
           </div>
           <div>
-            <p style={{ margin: '0 0 2px', fontSize: 15, fontWeight: 800, color: '#f1f5f9' }}>{opp.company}</p>
-            <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>{opp.city}</p>
+            <p style={{ margin: '0 0 2px', fontSize: 15, fontWeight: 800, color: 'var(--text-strong)' }}>{opp.company}</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--dim)' }}>{opp.city}</p>
           </div>
         </div>
         {[
@@ -365,9 +380,9 @@ function OppDetailPanel({ opp, onClose }) {
           { label: 'Fecha', value: opp.date },
           { label: 'Lead Score', value: opp.score !== null ? `${opp.score} / 100` : '—' },
         ].map(({ label, value }) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #111827' }}>
-            <span style={{ fontSize: 12, color: '#4b5563' }}>{label}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#e2e8f0' }}>{value}</span>
+          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--surface-2)' }}>
+            <span style={{ fontSize: 12, color: 'var(--dim)' }}>{label}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{value}</span>
           </div>
         ))}
       </div>
@@ -387,7 +402,10 @@ const LIST_SORT_OPTIONS = [
 const STAGE_LABEL = Object.fromEntries(STAGE_CONFIG.map(s => [s.id, s.label]))
 const STAGE_COLOR = Object.fromEntries(STAGE_CONFIG.map(s => [s.id, s.color]))
 
-const LIST_GRID = '1.7fr 1fr 0.9fr 0.9fr 1fr 1fr'
+// minmax() en vez de fr a secas: por debajo de ~730px la tabla se desplaza en
+// horizontal dentro de su caja (DataTable ya envuelve en overflow-x:auto) en
+// lugar de aplastar las seis columnas hasta hacerlas ilegibles.
+const LIST_GRID = 'minmax(190px, 1.7fr) minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(120px, 1fr)'
 const LIST_COLS = ['Oportunidad', 'Etapa', 'Valor', 'Probabilidad', 'Propietario', 'Cierre estimado']
 
 function PipelineListView({ onSelect }) {
@@ -449,21 +467,21 @@ function PipelineListView({ onSelect }) {
   }
 
   const renderRow = (opp) => {
-    const stageColor = STAGE_COLOR[opp.stage] || '#6366f1'
+    const stageColor = STAGE_COLOR[opp.stage] || 'var(--accent)'
     return [
       <div key="n" style={{ minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.name}</p>
-        <p style={{ margin: 0, fontSize: 10.5, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.lead?.name ?? '—'}{opp.account?.name ? ` · ${opp.account.name}` : ''}</p>
+        <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.name}</p>
+        <p style={{ margin: 0, fontSize: 10.5, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.lead?.name ?? '—'}{opp.account?.name ? ` · ${opp.account.name}` : ''}</p>
       </div>,
-      <span key="s" style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, background: `${stageColor}15`, border: `1px solid ${stageColor}28`, color: stageColor, whiteSpace: 'nowrap' }}>
+      <span key="s" style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, background: `color-mix(in srgb, ${stageColor} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${stageColor} 16%, transparent)`, color: stageColor, whiteSpace: 'nowrap' }}>
         {STAGE_LABEL[opp.stage] ?? opp.stage}
       </span>,
-      <span key="v" style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>
+      <span key="v" style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-strong)' }}>
         {opp.value != null ? `${opp.currency ?? 'EUR'} ${Number(opp.value).toLocaleString(localeCode(getLocale()))}` : '—'}
       </span>,
-      <span key="p" style={{ fontSize: 11.5, color: '#94a3b8' }}>{opp.probability ?? 0}%</span>,
-      <span key="o" style={{ fontSize: 11.5, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.assignee?.name ?? '—'}</span>,
-      <span key="c" style={{ fontSize: 11.5, color: '#94a3b8' }}>
+      <span key="p" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{opp.probability ?? 0}%</span>,
+      <span key="o" style={{ fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opp.assignee?.name ?? '—'}</span>,
+      <span key="c" style={{ fontSize: 11.5, color: 'var(--muted)' }}>
         {opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toLocaleDateString(localeCode(getLocale())) : '—'}
       </span>,
     ]
@@ -472,48 +490,48 @@ function PipelineListView({ onSelect }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0, flex: 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '6px 11px' }}>
-          <RiSearchLine style={{ width: 12, height: 12, color: '#6b7280' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar oportunidades…" style={{ background: 'none', border: 'none', outline: 'none', color: '#94a3b8', fontSize: 11.5, width: 160 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 9, padding: '6px 11px' }}>
+          <RiSearchLine style={{ width: 12, height: 12, color: 'var(--dim)' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar oportunidades…" style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--muted)', fontSize: 11.5, width: 160 }} />
         </div>
-        <button onClick={() => setShowFilters(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: showFilters || filterCount ? '#8b5cf620' : '#0d1117', border: `1px solid ${showFilters || filterCount ? '#8b5cf6' : '#1e2433'}`, borderRadius: 9, padding: '7px 13px', color: showFilters || filterCount ? '#c4b5fd' : '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+        <button onClick={() => setShowFilters(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: showFilters || filterCount ? '#8b5cf620' : 'var(--surface)', border: `1px solid ${showFilters || filterCount ? 'var(--violet)' : 'var(--line)'}`, borderRadius: 9, padding: '7px 13px', color: showFilters || filterCount ? 'var(--violet-soft)' : 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
           <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros{filterCount > 0 && ` (${filterCount})`}
         </button>
-        <select value={sort} onChange={e => setSort(e.target.value)} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 10px', color: '#94a3b8', fontSize: 12, cursor: 'pointer', outline: 'none', marginLeft: 'auto' }}>
+        <select value={sort} onChange={e => setSort(e.target.value)} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 9, padding: '7px 10px', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', outline: 'none', marginLeft: 'auto' }}>
           {LIST_SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
       {showFilters && (
-        <div style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Etapa
-            <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }}>
+            <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
               <option value="">Cualquier etapa</option>
               {STAGE_CONFIG.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Propietario
-            <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }}>
+            <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
               <option value="">Cualquier propietario</option>
               {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Origen del lead
-            <input value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} placeholder="Ej. meta_ads" style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none', width: 120 }} />
+            <input value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} placeholder="Ej. meta_ads" style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none', width: 120 }} />
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Cierre desde
-            <input type="date" value={closeFrom} onChange={e => setCloseFrom(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+            <input type="date" value={closeFrom} onChange={e => setCloseFrom(e.target.value)} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Cierre hasta
-            <input type="date" value={closeTo} onChange={e => setCloseTo(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+            <input type="date" value={closeTo} onChange={e => setCloseTo(e.target.value)} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
           </label>
           {filterCount > 0 && (
-            <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 0' }}>
+            <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 0' }}>
               <RiCloseLine style={{ width: 13, height: 13 }} /> Limpiar filtros
             </button>
           )}
@@ -521,7 +539,7 @@ function PipelineListView({ onSelect }) {
       )}
 
       {error && (
-        <div style={{ background: '#ef444412', border: '1px solid #ef444430', borderRadius: 9, padding: '9px 13px', color: '#ef4444', fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ background: '#ef444412', border: '1px solid #ef444430', borderRadius: 9, padding: '9px 13px', color: 'var(--danger)', fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span>{error}</span>
         </div>
       )}
@@ -537,18 +555,18 @@ function PipelineListView({ onSelect }) {
         style={{ flex: 1, minHeight: 0 }}
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 12, color: '#6b7280' }}>{loading ? 'Cargando…' : `Mostrando ${rows.length ? (page - 1) * limit + 1 : 0} a ${Math.min((page - 1) * limit + rows.length, meta.total)} de ${meta.total} oportunidades`}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--dim)' }}>{loading ? 'Cargando…' : `Mostrando ${rows.length ? (page - 1) * limit + 1 : 0} a ${Math.min((page - 1) * limit + rows.length, meta.total)} de ${meta.total} oportunidades`}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page <= 1 ? '#374151' : '#6b7280', cursor: page <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
+          <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 7, padding: '5px 7px', color: page <= 1 ? 'var(--line-2)' : 'var(--dim)', cursor: page <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
             <RiArrowLeftSLine style={{ width: 14, height: 14 }} />
           </button>
-          <button style={{ background: '#4f46e5', border: '1px solid #4f46e5', borderRadius: 7, padding: '5px 9px', color: '#fff', cursor: 'default', fontSize: 12, fontWeight: 700 }}>{page}</button>
-          <span style={{ fontSize: 11, color: '#4b5563' }}>de {meta.totalPages}</span>
-          <button disabled={page >= meta.totalPages} onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page >= meta.totalPages ? '#374151' : '#6b7280', cursor: page >= meta.totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
+          <button style={{ background: 'var(--accent-deep)', border: '1px solid var(--accent-deep)', borderRadius: 7, padding: '5px 9px', color: '#fff', cursor: 'default', fontSize: 12, fontWeight: 700 }}>{page}</button>
+          <span style={{ fontSize: 11, color: 'var(--dim)' }}>de {meta.totalPages}</span>
+          <button disabled={page >= meta.totalPages} onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 7, padding: '5px 7px', color: page >= meta.totalPages ? 'var(--line-2)' : 'var(--dim)', cursor: page >= meta.totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
             <RiArrowRightSLine style={{ width: 14, height: 14 }} />
           </button>
-          <select value={limit} onChange={e => setLimit(Number(e.target.value))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 9px', color: '#6b7280', fontSize: 12, cursor: 'pointer', outline: 'none' }}>
+          <select value={limit} onChange={e => setLimit(Number(e.target.value))} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 7, padding: '5px 9px', color: 'var(--dim)', fontSize: 12, cursor: 'pointer', outline: 'none' }}>
             <option value={10}>10 por página</option>
             <option value={25}>25 por página</option>
             <option value={50}>50 por página</option>
@@ -560,7 +578,10 @@ function PipelineListView({ onSelect }) {
 }
 
 export default function Pipeline() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  // Los gráficos de abajo necesitan hex resueltos; además, suscribirse aquí hace
+  // que todo el subárbol (donut, gauges) se repinte al cambiar de tema.
+  const colors = useThemeColors()
   const navigate = useNavigate()
   const [showNewOpp, setShowNewOpp] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -583,21 +604,43 @@ export default function Pipeline() {
   const [lostPrompt, setLostPrompt]   = useState(null)
   const [dataStatus, setDataStatus]   = useState('loading')
   const [dataError, setDataError]     = useState('')
+  // Paneles laterales caídos: el tablero sigue en pie, pero hay que decirlo.
+  const [panelStatus, setPanelStatus] = useState('')
+  const [panelError, setPanelError]   = useState('')
 
   useEffect(() => {
     let active = true
     setDataStatus('loading')
     setDataError('')
+    setPanelStatus('')
+    setPanelError('')
     async function loadPipeline() {
       try {
+        // Sólo el último (/api/pipeline) es esencial: si cae un panel secundario
+        // se degrada a vacío en vez de tumbar el tablero entero.
         const paths = ['/api/pipeline/insights', '/api/pipeline/prediction', '/api/pipeline/actions', '/api/pipeline/forecast', '/api/pipeline']
-        const payloads = await Promise.all(paths.map(async path => {
+        const results = await Promise.allSettled(paths.map(async path => {
           const response = await apiFetch(path)
-          if (!response.ok) throw new Error(`pipeline_${response.status}`)
+          if (!response.ok) {
+            const error = new Error(`pipeline_${response.status}`)
+            error.gate = await readPlanGate(response)
+            throw error
+          }
           return response.json()
         }))
         if (!active) return
-        const [ins, pred, acts, fc, data] = payloads
+        const board = results[results.length - 1]
+        if (board.status === 'rejected') throw board.reason
+        const data = board.value
+        const [ins, pred, acts, fc] = results.slice(0, -1).map(r => (r.status === 'fulfilled' ? r.value : null))
+        const failed = results.slice(0, -1).filter(r => r.status === 'rejected')
+        if (failed.length) {
+          const gate = failed.find(r => r.reason?.gate)?.reason.gate
+          setPanelStatus(gate ? 'plan' : 'error')
+          setPanelError(gate
+            ? planGateMessage(gate, locale)
+            : 'Los paneles laterales (insights, previsión, predicción o acciones) no se pudieron cargar. El tablero sigue mostrando datos reales.')
+        }
         setInsights(Array.isArray(ins) ? ins : [])
         setPrediction(pred && typeof pred === 'object' ? pred : { total: 0, weeks: [] })
         setAcciones(Array.isArray(acts) ? acts : [])
@@ -669,6 +712,11 @@ export default function Pipeline() {
         setInsights([])
         setAcciones([])
         setForecast({})
+        if (error?.gate) {
+          setDataStatus('plan')
+          setDataError(planGateMessage(error.gate, locale))
+          return
+        }
         const status = classifyFetchError(error)
         setDataStatus(status)
         setDataError(statusMessage(status, { error: 'No se pudieron cargar los datos del pipeline.' }))
@@ -725,24 +773,24 @@ export default function Pipeline() {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#080c14', minWidth: 0, overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0, overflow: 'hidden' }}>
 
       {/* header */}
       <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>{t('modules.pipelineTitle')}</h1>
+            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: 'var(--text-strong)' }}>{t('modules.pipelineTitle')}</h1>
           </div>
-          <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>Visualiza y gestiona tu pipeline de ventas impulsado por IA.</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Visualiza y gestiona tu pipeline de ventas impulsado por IA.</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* OP-103: toggle Kanban / Lista */}
-          <div style={{ display: 'flex', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: 2, gap: 2 }}>
+          <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 9, padding: 2, gap: 2 }}>
             <button
               onClick={() => setView('kanban')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 7, padding: '6px 11px',
-                background: view === 'kanban' ? '#4f46e5' : 'transparent', color: view === 'kanban' ? '#fff' : '#94a3b8',
+                background: view === 'kanban' ? 'var(--accent-deep)' : 'transparent', color: view === 'kanban' ? '#fff' : 'var(--muted)',
                 fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
               }}
             >
@@ -752,14 +800,14 @@ export default function Pipeline() {
               onClick={() => setView('list')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 7, padding: '6px 11px',
-                background: view === 'list' ? '#4f46e5' : 'transparent', color: view === 'list' ? '#fff' : '#94a3b8',
+                background: view === 'list' ? 'var(--accent-deep)' : 'transparent', color: view === 'list' ? '#fff' : 'var(--muted)',
                 fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all .15s',
               }}
             >
               <RiListCheck2 style={{ width: 13, height: 13 }} /> Lista
             </button>
           </div>
-          <button onClick={() => setShowNewOpp(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
+          <button onClick={() => setShowNewOpp(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
             <RiAddLine style={{ width: 14, height: 14 }} /> {t('modules.pipelineCreate')}
           </button>
         </div>
@@ -773,35 +821,37 @@ export default function Pipeline() {
         actionLabel={dataStatus === 'disconnected' ? 'Configurar conexión' : 'Crear oportunidad'}
       />
 
+      {panelStatus && <DataStatusBanner status={panelStatus} message={panelError} compact onRetry={panelStatus === 'error' ? () => setRefreshKey(key => key + 1) : undefined} />}
+
       {showNewOpp && <NewOportunidadModal onClose={() => setShowNewOpp(false)} onSuccess={() => { setShowNewOpp(false); setRefreshKey(k => k + 1) }} />}
 
       {dragError && (
         <div style={{
           margin: '0 24px', padding: '9px 14px', borderRadius: 9,
-          background: '#7f1d1d20', border: '1px solid #ef444440', color: '#fca5a5',
+          background: '#7f1d1d20', border: '1px solid #ef444440', color: 'var(--danger-faint)',
           fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0,
         }}>
           <span>{dragError}</span>
-          <button onClick={() => setDragError('')} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
+          <button onClick={() => setDragError('')} style={{ background: 'none', border: 'none', color: 'var(--danger-faint)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>✕</button>
         </div>
       )}
 
       {dataStatus !== 'live' ? (
         <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 24 }}>
-          <div style={{ width: 'min(560px, 100%)', padding: 28, border: '1px solid #1e2433', borderRadius: 14, background: '#0d1117', textAlign: 'center' }}>
-            <RiBriefcaseLine style={{ width: 30, height: 30, color: dataStatus === 'error' || dataStatus === 'disconnected' ? '#fbbf24' : '#818cf8' }} />
-            <h2 style={{ margin: '12px 0 7px', color: '#f1f5f9', fontSize: 17 }}>{dataStatus === 'loading' ? 'Cargando pipeline…' : dataStatus === 'empty' ? 'Tu pipeline está listo para empezar' : dataStatus === 'demo' ? 'Modo demo explícito' : 'No se pudo cargar el pipeline'}</h2>
-            <p style={{ margin: '0 auto 18px', maxWidth: 430, color: '#64748b', fontSize: 12.5, lineHeight: 1.5 }}>{dataError || statusMessage(dataStatus, { empty: 'Crea tu primera oportunidad para empezar a mover etapas.', demo: 'Activa una conexión real o crea una oportunidad en tu organización para trabajar con datos reales.' })}</p>
-            {dataStatus === 'empty' || dataStatus === 'demo' ? <button onClick={() => setShowNewOpp(true)} style={{ background: '#4f46e5', border: '1px solid #6366f1', borderRadius: 8, padding: '8px 13px', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}><RiAddLine /> Crear oportunidad</button> : <button onClick={() => setRefreshKey(key => key + 1)} style={{ background: '#1e293b', border: '1px solid #475569', borderRadius: 8, padding: '8px 13px', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>}
+          <div style={{ width: 'min(560px, 100%)', padding: 28, border: '1px solid var(--line)', borderRadius: 14, background: 'var(--surface)', textAlign: 'center' }}>
+            <RiBriefcaseLine style={{ width: 30, height: 30, color: dataStatus === 'error' || dataStatus === 'disconnected' ? 'var(--warn-soft)' : 'var(--accent-soft)' }} />
+            <h2 style={{ margin: '12px 0 7px', color: 'var(--text-strong)', fontSize: 17 }}>{dataStatus === 'loading' ? 'Cargando pipeline…' : dataStatus === 'empty' ? 'Tu pipeline está listo para empezar' : dataStatus === 'demo' ? 'Modo demo explícito' : dataStatus === 'plan' ? 'El pipeline no está incluido en tu plan' : 'No se pudo cargar el pipeline'}</h2>
+            <p style={{ margin: '0 auto 18px', maxWidth: 430, color: 'var(--dim)', fontSize: 12.5, lineHeight: 1.5 }}>{dataError || statusMessage(dataStatus, { empty: 'Crea tu primera oportunidad para empezar a mover etapas.', demo: 'Activa una conexión real o crea una oportunidad en tu organización para trabajar con datos reales.' })}</p>
+            {dataStatus === 'plan' ? null : dataStatus === 'empty' || dataStatus === 'demo' ? <button onClick={() => setShowNewOpp(true)} style={{ background: 'var(--accent-deep)', border: '1px solid var(--accent)', borderRadius: 8, padding: '8px 13px', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}><RiAddLine /> Crear oportunidad</button> : <button onClick={() => setRefreshKey(key => key + 1)} style={{ background: 'var(--line)', border: '1px solid var(--faint)', borderRadius: 8, padding: '8px 13px', color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>}
           </div>
         </div>
       ) : (
       <>
       {/* body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className="split-pane split-pane--fill">
 
         {/* ── left scrollable ── */}
-        <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+        <div className="dark-scroll split-main" style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* KPI row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
@@ -833,18 +883,18 @@ export default function Pipeline() {
           {/* Acciones recomendadas */}
           {acciones.length > 0 && (
             <div>
-              <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>Acciones recomendadas por IA</h3>
+              <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Acciones recomendadas por IA</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
                 {acciones.map((a, i) => {
                   const deco = ACTION_DECO[i] ?? ACTION_DECO[0]
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, background: deco.bg, border: `1px solid ${deco.border}`, borderRadius: 13, padding: '16px 18px' }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: `${deco.color}20`, border: `1px solid ${deco.color}38`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: `color-mix(in srgb, ${deco.color} 13%, transparent)`, border: `1px solid color-mix(in srgb, ${deco.color} 22%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <deco.Icon style={{ width: 20, height: 20, color: deco.color }} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: '0 0 3px', fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{a.title}</p>
-                        <p style={{ margin: '0 0 7px', fontSize: 11.5, color: '#6b7280' }}>{a.desc}</p>
+                        <p style={{ margin: '0 0 3px', fontSize: 13, fontWeight: 700, color: 'var(--text-strong)' }}>{a.title}</p>
+                        <p style={{ margin: '0 0 7px', fontSize: 11.5, color: 'var(--dim)' }}>{a.desc}</p>
                         <button onClick={() => navigate(a.url)} style={{ background: 'none', border: 'none', color: deco.color, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
                           {a.cta} <RiArrowRightLine style={{ width: 12, height: 12 }} />
                         </button>
@@ -858,11 +908,11 @@ export default function Pipeline() {
         </div>
 
         {/* ── right panel ── */}
-        <div className="dark-scroll" style={{ width: 255, flexShrink: 0, overflowY: 'auto', borderLeft: '1px solid #1e2433', padding: '0 14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="dark-scroll split-rail" style={{ '--rail-width': '255px', padding: '0 14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <ConversionFunnel funnelData={funnelData} />
           <DonutPanel donutData={donutData} totalValue={totalValue} />
           <ForecastPanel forecast={forecast} />
-          <PredictionPanel prediction={prediction} />
+          <PredictionPanel prediction={prediction} colors={colors} />
           <InsightsPanel insights={insights} />
         </div>
       </div>

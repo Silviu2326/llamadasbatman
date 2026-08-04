@@ -17,15 +17,15 @@ import './agents.css'
 import { useI18n } from '../i18n'
 
 const STATUS = {
-  Activo: { color: '#34d399', bg: '#10b98115', border: '#10b98135' },
-  Pausado: { color: '#fbbf24', bg: '#f59e0b14', border: '#f59e0b35' },
+  Activo: { color: 'var(--success)', bg: '#10b98115', border: '#10b98135' },
+  Pausado: { color: 'var(--warn-soft)', bg: '#f59e0b14', border: '#f59e0b35' },
 }
 
 const TYPE_META = {
-  ventas: { label: 'Ventas', short: 'Ventas', color: '#a78bfa', icon: RiPhoneLine, description: 'Califica leads y acompaña al equipo comercial.' },
-  soporte: { label: 'Soporte', short: 'Soporte', color: '#22d3ee', icon: RiMessage3Line, description: 'Atiende consultas y deriva incidencias.' },
-  agenda: { label: 'Agendamiento', short: 'Agenda', color: '#34d399', icon: RiCalendarLine, description: 'Coordina reuniones y próximos pasos.' },
-  cobranza: { label: 'Recuperación', short: 'Recuperación', color: '#fb923c', icon: RiFlashlightLine, description: 'Hace seguimiento de oportunidades.' },
+  ventas: { label: 'Ventas', short: 'Ventas', color: 'var(--violet)', icon: RiPhoneLine, description: 'Califica leads y acompaña al equipo comercial.' },
+  soporte: { label: 'Soporte', short: 'Soporte', color: 'var(--cyan)', icon: RiMessage3Line, description: 'Atiende consultas y deriva incidencias.' },
+  agenda: { label: 'Agendamiento', short: 'Agenda', color: 'var(--success)', icon: RiCalendarLine, description: 'Coordina reuniones y próximos pasos.' },
+  cobranza: { label: 'Recuperación', short: 'Recuperación', color: 'var(--warn)', icon: RiFlashlightLine, description: 'Hace seguimiento de oportunidades.' },
 }
 
 const AGENT_TYPE_META = {
@@ -99,7 +99,7 @@ function AgentAvatar({ agent, size = 'md' }) {
 }
 
 function Metric({ Icon, label, value, detail, color }) {
-  return <div className="agent-metric"><span className="agent-metric-icon" style={{ color, background: `${color}18`, borderColor: `${color}38` }}><Icon /></span><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div>
+  return <div className="agent-metric"><span className="agent-metric-icon" style={{ color, background: `color-mix(in srgb, ${color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${color} 22%, transparent)` }}><Icon /></span><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div>
 }
 
 function AgentListItem({ agent, selected, onClick, locale = (document.documentElement.lang === 'en' ? 'en' : 'es') }) {
@@ -133,7 +133,7 @@ function TypePanel({ agent, onEdit }) {
   const Icon = meta.icon
   return <div className="agent-studio-grid agent-type-grid">
     <section className="agent-panel agent-type-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Rol guardado en el agente</span><h3>Elige el propósito</h3></div><RiRobot2Line /></div><p className="agent-panel-intro">El cambio se guarda como el rol del agente al pulsar «Guardar cambios».</p><div className="agent-type-options">{Object.entries(TYPE_META).map(([id, item]) => { const TypeIcon = item.icon; return <button type="button" key={id} className={`agent-type-option${id === agent.type ? ' is-selected' : ''}`} onClick={() => onEdit({ role: id })} style={{ '--type-color': item.color }}><span><TypeIcon /></span><strong>{item.label}</strong><small>{item.description}</small>{id === agent.type && <RiCheckLine />}</button> })}</div></section>
-    <section className="agent-panel agent-summary-panel" style={{ '--agent-color': agent.color }}><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Perfil actual</span><h3>{agent.name}</h3></div><AgentAvatar agent={agent} size="lg" /></div><div className="agent-profile-badge" style={{ color: meta.color, background: `${meta.color}16`, borderColor: `${meta.color}35` }}><Icon /> {agent.role}</div><p>{agent.systemPrompt || 'Este agente todavía no tiene instrucciones registradas.'}</p></section>
+    <section className="agent-panel agent-summary-panel" style={{ '--agent-color': agent.color }}><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Perfil actual</span><h3>{agent.name}</h3></div><AgentAvatar agent={agent} size="lg" /></div><div className="agent-profile-badge" style={{ color: meta.color, background: `color-mix(in srgb, ${meta.color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${meta.color} 21%, transparent)` }}><Icon /> {agent.role}</div><p>{agent.systemPrompt || 'Este agente todavía no tiene instrucciones registradas.'}</p></section>
   </div>
 }
 
@@ -249,7 +249,10 @@ export default function Agentes() {
       setAgentActivity(rows.sort((a, b) => b.calls - a.calls).map(row => ({ ...row, pct: Math.round((row.calls / max) * 100) })))
     })
     return () => { active = false }
-  }, [agents, loading])
+    // Depende de la identidad de la lista, no del array: editar un campo del
+    // Studio recrea `agents` y relanzaría las stats en cada pulsación de tecla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agents.map(agent => agent.id).join(','), loading])
 
   const selectedAgent = agents.find(agent => agent.id === selectedId) ?? null
   const filtered = useMemo(() => agents.filter(agent => {
@@ -293,7 +296,7 @@ export default function Agentes() {
       // Local form edits are deliberately optimistic for typing, but they
       // must not survive a failed/missing PUT as if they had been persisted.
       setAgents(current => current.map(agent => agent.id === agentBeforeSave.id ? agentBeforeSave : agent))
-      setLoadError('No se pudieron guardar los cambios en la API. Se restauró la última configuración confirmada.')
+      setLoadError('No se pudieron guardar los cambios. Se restauró la última configuración confirmada.')
       notify('No se pudieron guardar los cambios')
     } finally {
       setSaving(false)
@@ -302,9 +305,9 @@ export default function Agentes() {
 
   const activeAgents = agents.filter(agent => agent.isActive).length
   const metrics = [
-    { Icon: RiRobot2Line, label: 'Agentes configurados', value: agents.length, detail: 'datos de tu organización', color: '#a78bfa' },
-    { Icon: RiCheckLine, label: 'Agentes activos', value: activeAgents, detail: 'habilitados actualmente', color: '#34d399' },
-    { Icon: RiBarChartLine, label: 'Agentes pausados', value: agents.length - activeAgents, detail: 'sin atención de nuevas conversaciones', color: '#fbbf24' },
+    { Icon: RiRobot2Line, label: 'Agentes configurados', value: agents.length, detail: 'datos de tu organización', color: 'var(--violet)' },
+    { Icon: RiCheckLine, label: 'Agentes activos', value: activeAgents, detail: 'habilitados actualmente', color: 'var(--success)' },
+    { Icon: RiBarChartLine, label: 'Agentes pausados', value: agents.length - activeAgents, detail: 'sin atención de nuevas conversaciones', color: 'var(--warn-soft)' },
   ]
 
   return <div className="agents-page dark-scroll">

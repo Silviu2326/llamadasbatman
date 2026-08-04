@@ -873,16 +873,6 @@ El backend aplica autenticación, aislamiento de organización, validación, per
 - Estado actual: Implementado.
 - Siguiente acción: Asociar playbook a tipo de agente.
 
-### Postiz
-
-- Archivo o ámbito: backend/src/routes/postiz.ts.
-- Responsabilidad: Publicar y sincronizar contenido social.
-- Entradas: Payload y credenciales.
-- Salidas: Social asset y estado.
-- Dependencias: PostizSync service.
-- Estado actual: Implementado según integración.
-- Siguiente acción: Añadir idempotency key.
-
 ### Prospects
 
 - Archivo o ámbito: backend/src/routes/prospects.ts.
@@ -1357,26 +1347,6 @@ Los servicios contienen reglas que no deberían repetirse en las rutas. La front
 - Estado actual: Implementado.
 - Siguiente acción: Añadir pruebas de compatibilidad con agente.
 
-### Postiz payload
-
-- Archivo o ámbito: backend/src/services/postizPayload.ts.
-- Responsabilidad: Construir publicaciones sociales.
-- Entradas: OrganicAsset y schedule.
-- Salidas: Provider payload.
-- Dependencias: Postiz rules.
-- Estado actual: Implementado.
-- Siguiente acción: Sanitizar enlaces y contenido.
-
-### Postiz sync
-
-- Archivo o ámbito: backend/src/services/postizSync.service.ts.
-- Responsabilidad: Publicar y reconciliar estados.
-- Entradas: Provider response.
-- Salidas: OrganicAction y event.
-- Dependencias: Postiz API.
-- Estado actual: Implementado.
-- Siguiente acción: Idempotencia por publicación.
-
 ### Prospecting service
 
 - Archivo o ámbito: backend/src/services/prospecting.service.ts.
@@ -1423,7 +1393,7 @@ Los servicios contienen reglas que no deberían repetirse en las rutas. La front
 - Responsabilidad: Normalizar tipos de contenido.
 - Entradas: Provider asset.
 - Salidas: Canonical type.
-- Dependencias: Postiz y organic.
+- Dependencias: Metricool y organic.
 - Estado actual: Implementado.
 - Siguiente acción: Cubrir formatos multimedia.
 
@@ -1767,7 +1737,7 @@ Prisma es la fuente de verdad del esquema. Las entidades se relacionan por organ
 - Responsabilidad: Registrar cada intento de entrega.
 - Entradas: Message, provider, status y response.
 - Salidas: Resultado de envío.
-- Dependencias: WhatsApp, email y Postiz.
+- Dependencias: WhatsApp, email y Metricool.
 - Estado actual: Operativo.
 - Siguiente acción: Aplicar backoff y límite.
 
@@ -2087,7 +2057,7 @@ Prisma es la fuente de verdad del esquema. Las entidades se relacionan por organ
 - Responsabilidad: Representar contenido creado.
 - Entradas: Project, type, locale y status.
 - Salidas: Asset publicable.
-- Dependencias: Postiz y actions.
+- Dependencias: Metricool y actions.
 - Estado actual: Operativo.
 - Siguiente acción: Revisión humana obligatoria.
 
@@ -2097,7 +2067,7 @@ Prisma es la fuente de verdad del esquema. Las entidades se relacionan por organ
 - Responsabilidad: Representar acción de publicación u optimización.
 - Entradas: Asset, provider y status.
 - Salidas: Acción ejecutable.
-- Dependencias: Postiz sync.
+- Dependencias: Metricool sync.
 - Estado actual: Operativo.
 - Siguiente acción: Idempotencia por asset y destino.
 
@@ -2107,7 +2077,7 @@ Prisma es la fuente de verdad del esquema. Las entidades se relacionan por organ
 - Responsabilidad: Configurar integración orgánica.
 - Entradas: Organization, provider y status.
 - Salidas: Integración.
-- Dependencias: Metricool y Postiz.
+- Dependencias: Metricool.
 - Estado actual: Operativo.
 - Siguiente acción: Comprobar permisos.
 
@@ -3254,16 +3224,6 @@ Las integraciones amplían el sistema, pero introducen latencia, cuotas, cambios
 - Dependencias: Metricool sync.
 - Estado actual: Disponible según cuenta.
 - Siguiente acción: Añadir healthcheck por endpoint.
-
-### Postiz
-
-- Archivo o ámbito: Postiz.
-- Responsabilidad: Publicar contenido social.
-- Entradas: Endpoint, token y asset.
-- Salidas: Publication status.
-- Dependencias: Postiz payload y sync.
-- Estado actual: Disponible según despliegue.
-- Siguiente acción: Probar retry e idempotencia.
 
 ### Email provider
 

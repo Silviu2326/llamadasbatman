@@ -225,12 +225,12 @@ function Guardrails({ plan }) {
 
 function NextModules() {
   const modules = [
-    { label: 'Ads', route: '/ads', color: '#818cf8' },
-    { label: 'Organic Leads', route: '/organic', color: '#84cc16' },
-    { label: 'Prospect Finder', route: '/prospectos', color: '#22d3ee' },
-    { label: 'Pipeline', route: '/pipeline', color: '#06b6d4' },
-    { label: 'Reuniones', route: '/reuniones', color: '#f97316' },
-    { label: 'Automatizaciones', route: '/automatizaciones', color: '#fb7185' },
+    { label: 'Ads', route: '/ads', color: 'var(--accent-soft)' },
+    { label: 'Organic Leads', route: '/organic', color: 'var(--lime)' },
+    { label: 'Prospect Finder', route: '/prospectos', color: 'var(--cyan)' },
+    { label: 'Pipeline', route: '/pipeline', color: 'var(--cyan-deep)' },
+    { label: 'Reuniones', route: '/reuniones', color: 'var(--warn)' },
+    { label: 'Automatizaciones', route: '/automatizaciones', color: 'var(--danger-soft)' },
   ]
   return (
     <section className="orch-rail-panel orch-next-panel" aria-labelledby="orch-next-title">

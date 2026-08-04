@@ -1,4 +1,4 @@
-import { RiAlertLine, RiDatabase2Line, RiLoader4Line, RiRefreshLine, RiSparkling2Line } from 'react-icons/ri'
+import { RiAlertLine, RiDatabase2Line, RiLoader4Line, RiLockLine, RiRefreshLine, RiSparkling2Line } from 'react-icons/ri'
 import './data-status.css'
 import { useI18n } from '../../i18n'
 
@@ -9,6 +9,8 @@ const STATUS_COPY = {
   disconnected: { tone: 'disconnected', icon: RiAlertLine },
   error: { tone: 'error', icon: RiAlertLine },
   loading: { tone: 'loading', icon: RiLoader4Line },
+  // Bloqueo de plan: la pagina funciona, simplemente no esta contratada.
+  plan: { tone: 'plan', icon: RiLockLine },
 }
 
 export default function DataStatusBanner({

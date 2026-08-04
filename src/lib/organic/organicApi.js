@@ -1,4 +1,5 @@
 import { apiFetch } from '../api'
+import { readPlanGate } from '../planGate'
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
@@ -98,6 +99,9 @@ export async function fetchOrganicOverview({ projectId, period } = {}) {
   const query = params.toString()
   const response = await apiFetch(`/api/organic/overview${query ? `?${query}` : ''}`)
   if (response.status === 404 || response.status === 204) return { status: 'setup', data: null }
+  // Bloqueo de plan: misma rama que el estado inicial, para caer en el onboarding y no en la tarjeta de error.
+  const gate = response.ok ? null : await readPlanGate(response)
+  if (gate) return { status: 'setup', data: null, gate }
   const payload = await response.json().catch(() => null)
   if (!response.ok) throw new Error(payload?.error || 'No pudimos cargar Organic Leads.')
   if (!payload?.project && !payload?.data?.project && !payload?.overview?.project) {

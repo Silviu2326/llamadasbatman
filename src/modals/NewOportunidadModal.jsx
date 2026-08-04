@@ -98,19 +98,19 @@ export default function NewOportunidadModal({ onClose, onSuccess }) {
 
   return (
     <FormModal title={t('modal.newOpportunity')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createOpportunity')} size="sm">
-      {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
 
       <div>
-        <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5, fontWeight: 500 }}>{t('modal.lead')}</label>
+        <label style={{ display: 'block', fontSize: 11, color: 'var(--dim)', marginBottom: 5, fontWeight: 500 }}>{t('modal.lead')}</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <button
             type="button"
             onClick={() => switchMode('new')}
             style={{
               flex: 1, padding: '7px 10px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-              background: leadMode === 'new' ? 'linear-gradient(90deg,#4f46e5,#7c3aed)' : 'transparent',
-              color: leadMode === 'new' ? '#fff' : '#94a3b8',
-              border: leadMode === 'new' ? 'none' : '1px solid #1e2433',
+              background: leadMode === 'new' ? 'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))' : 'transparent',
+              color: leadMode === 'new' ? '#fff' : 'var(--muted)',
+              border: leadMode === 'new' ? 'none' : '1px solid var(--line)',
             }}
           >
             {t('modal.newLead')}
@@ -120,9 +120,9 @@ export default function NewOportunidadModal({ onClose, onSuccess }) {
             onClick={() => switchMode('existing')}
             style={{
               flex: 1, padding: '7px 10px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-              background: leadMode === 'existing' ? 'linear-gradient(90deg,#4f46e5,#7c3aed)' : 'transparent',
-              color: leadMode === 'existing' ? '#fff' : '#94a3b8',
-              border: leadMode === 'existing' ? 'none' : '1px solid #1e2433',
+              background: leadMode === 'existing' ? 'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))' : 'transparent',
+              color: leadMode === 'existing' ? '#fff' : 'var(--muted)',
+              border: leadMode === 'existing' ? 'none' : '1px solid var(--line)',
             }}
           >
             {t('modal.existingLead')}
@@ -136,31 +136,31 @@ export default function NewOportunidadModal({ onClose, onSuccess }) {
               onChange={e => { setLeadSearch(e.target.value); setSelectedLead(null) }}
               placeholder={t('modal.searchLead')}
               style={{
-                width: '100%', boxSizing: 'border-box', background: '#080c14', border: '1px solid #1e2433',
-                borderRadius: 8, padding: '9px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit',
+                width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--line)',
+                borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit',
               }}
             />
-            {searchingLeads && <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#6b7280' }}>{t('common.search')}…</p>}
+            {searchingLeads && <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--dim)' }}>{t('common.search')}…</p>}
             {!selectedLead && leadResults.length > 0 && (
-              <div style={{ marginTop: 6, border: '1px solid #1e2433', borderRadius: 8, overflow: 'hidden', maxHeight: 160, overflowY: 'auto' }}>
+              <div style={{ marginTop: 6, border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden', maxHeight: 160, overflowY: 'auto' }}>
                 {leadResults.map(lead => (
                   <button
                     type="button"
                     key={lead.id}
                     onClick={() => pickLead(lead)}
                     style={{
-                      display: 'block', width: '100%', textAlign: 'left', background: '#0d1117', border: 'none',
-                      borderBottom: '1px solid #1e2433', padding: '8px 10px', cursor: 'pointer', color: '#e2e8f0', fontSize: 12.5,
+                      display: 'block', width: '100%', textAlign: 'left', background: 'var(--surface)', border: 'none',
+                      borderBottom: '1px solid var(--line)', padding: '8px 10px', cursor: 'pointer', color: 'var(--text)', fontSize: 12.5,
                     }}
                   >
                     <div style={{ fontWeight: 600 }}>{lead.name || 'Sin nombre'}</div>
-                    <div style={{ color: '#6b7280', fontSize: 11 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ') || '—'}</div>
+                    <div style={{ color: 'var(--dim)', fontSize: 11 }}>{[lead.phone, lead.email].filter(Boolean).join(' · ') || '—'}</div>
                   </button>
                 ))}
               </div>
             )}
             {selectedLead && (
-              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#10b981' }}>{t('modal.selectedLead')}: {selectedLead.name || selectedLead.id}</p>
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--success)' }}>{t('modal.selectedLead')}: {selectedLead.name || selectedLead.id}</p>
             )}
           </div>
         )}

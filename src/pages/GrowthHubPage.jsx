@@ -167,10 +167,12 @@ function ProgramModal({ program, initial, onClose, onSubmit, saving, requestErro
 
   function submit(event) {
     event.preventDefault()
-    if (!form.name.trim()) return
+    if (!String(form.name || '').trim()) return
     const payload = {
-      name: form.name.trim(),
-      description: form.description.trim(),
+      // `description` es opcional en el modelo: al editar un programa sin
+      // objetivo llega como null y `.trim()` congelaba el modal sin guardar.
+      name: String(form.name || '').trim(),
+      description: String(form.description || '').trim(),
       status: form.status || 'draft',
     }
     if (!isEditing) payload.type = form.type

@@ -7,43 +7,12 @@ html, body, #app {
   padding: 0;
   width: 100%;
   height: 100%;
-  background: #080c14;
+  background: var(--bg);
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Responsive utilities ─────────────────────────────────────────────────── */
-
-/* KPI bar: wraps to multiple rows on mobile */
-.kpi-bar { display: flex; gap: 10px; flex-wrap: wrap; }
-.kpi-bar > * { flex: 1 1 160px; min-width: 0; }
-
-/* Page padding: reduces on mobile */
-.page-pad { padding: 22px 24px; }
-
-/* Page header row: wraps on mobile */
-.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-
-/* Scrollable tab strip */
-.tabs-scroll { display: flex; overflow-x: auto; flex-shrink: 0; scrollbar-width: none; }
-.tabs-scroll::-webkit-scrollbar { display: none; }
-
-/* Two-column content row: stacks on mobile */
-.content-row { display: flex; align-items: flex-start; gap: 14px; }
-
-/* Grid that auto-fills columns */
-.auto-grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
-.auto-grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
-.auto-grid-4 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-
-@media (max-width: 768px) {
-  .page-pad { padding: 12px 14px; }
-  .page-header { flex-wrap: wrap; }
-  .page-header .hdr-actions { flex-wrap: wrap; }
-  .content-row { flex-wrap: wrap; }
-  /* Hide desktop-only side panels on mobile */
-  .panel-desktop { display: none !important; }
-}
+/* Las utilidades responsive compartidas viven al final de este archivo. */
 
 /* Login */
 .login-page {
@@ -153,7 +122,9 @@ html, body, #app {
   display: inline-flex;
   align-items: center;
   gap: 11px;
-  color: #f8fbff;
+  /* El showcase del login es siempre oscuro, así que no sigue el tema.
+     #fff (3 dígitos) además es inmune a scripts/tokenize-colors.mjs. */
+  color: #fff;
   font-size: 18px;
   font-weight: 780;
   letter-spacing: -.04em;
@@ -418,7 +389,7 @@ html, body, #app {
 .login-field label {
   display: block;
   margin: 0 0 9px;
-  color: #2a3954;
+  color: var(--login-ink);
   font-size: 12px;
   font-weight: 760;
 }
@@ -554,7 +525,7 @@ html, body, #app {
   gap: 14px;
   margin-top: 29px;
   padding-top: 21px;
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--login-line);
 }
 
 .login-trust span:not(.login-trust__dot) {
@@ -681,21 +652,21 @@ html, body, #app {
   display: grid;
   place-items: center;
   padding: 32px;
-  background: #f5f7fb;
-  color: #101828;
+  background: var(--bg);
+  color: var(--text-strong);
 }
 
 .app-error-boundary-card {
   width: min(560px, 100%);
   padding: 36px;
-  border: 1px solid #e4e7ec;
+  border: 1px solid var(--line);
   border-radius: 24px;
-  background: #fff;
-  box-shadow: 0 20px 60px rgba(16, 24, 40, .1);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
 }
 
 .app-error-boundary-eyebrow {
-  color: #6941c6;
+  color: var(--accent-soft);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .08em;
@@ -708,10 +679,192 @@ html, body, #app {
   line-height: 1.08;
 }
 
-.app-error-boundary p { color: #475467; line-height: 1.6; }
+.app-error-boundary p { color: var(--muted); line-height: 1.6; }
 
 .app-error-boundary-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
-.app-error-boundary-actions button { border: 0; border-radius: 10px; padding: 11px 16px; background: #6d28d9; color: #fff; cursor: pointer; font-weight: 700; }
-.app-error-boundary-actions button.secondary { border: 1px solid #d0d5dd; background: #fff; color: #344054; }
-.app-error-boundary details { margin-top: 24px; color: #667085; font-size: 12px; }
+.app-error-boundary-actions button { border: 0; border-radius: 10px; padding: 11px 16px; background: var(--violet-deep); color: var(--on-accent); cursor: pointer; font-weight: 700; }
+.app-error-boundary-actions button.secondary { border: 1px solid var(--line-2); background: var(--surface); color: var(--text-2); }
+.app-error-boundary details { margin-top: 24px; color: var(--dim); font-size: 12px; }
 .app-error-boundary code { display: block; margin-top: 8px; white-space: pre-wrap; }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   UTILIDADES RESPONSIVE COMPARTIDAS
+   ═════════════════════════════════════════════════════════════════════════
+
+   Por qué existen: la interfaz se maquetó con estilos en línea de React y los
+   estilos en línea NO admiten media queries. Todo lo que cambia con el ancho
+   de la ventana tiene que vivir en una hoja de estilos y aplicarse con
+   className; lo que se resuelve sin breakpoint (minmax(0,1fr), min(), clamp(),
+   flex-wrap) se queda en el propio estilo en línea y no debe subir aquí.
+
+   Cómo se parametrizan: cada utilidad lee una custom property que la página
+   fija en su style en línea (--rail-width, --form-row-columns, --modal-width).
+   Así hay una sola regla CSS y cada pantalla ajusta la medida.
+
+   ── LOS TRES BREAKPOINTS ──────────────────────────────────────────────────
+   Solo se usan estos tres valores. Añadir un cuarto es un error:
+
+   900px  El split "columna principal + rail" apila. No son 768px porque hasta
+          768px la barra lateral (.sidebar-aside, sidebar.css) sigue ocupando
+          224px del ancho en el flujo: a 900px de ventana la página solo
+          dispone de ~676px, que ya no dan para una columna principal legible
+          más un rail de 220-290px.
+   768px  Frontera del chrome de la aplicación: es donde sidebar.css saca la
+          barra lateral del flujo (pasa a overlay). Aquí cambian las utilidades
+          que dependen de que exista o no esa barra.
+   560px  Teléfono: las rejillas de dos columnas pasan a una.
+
+   Otros archivos (dashboard.css, knowledge-base.css, campaigns.css…) tienen
+   sus propios breakpoints heredados; no se tocan desde aquí.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Cabecera de página ─────────────────────────────────────────────────── */
+
+/* Fila "título + acciones" de cada página. Envuelve cuando no caben las dos
+   mitades en la misma línea.                                                */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+/* ── Columnas auxiliares de escritorio ──────────────────────────────────── */
+
+/* Columna que se oculta cuando la barra lateral deja de estar en el flujo.
+   Solo para contenido REDUNDANTE (cabeceras de tabla, listas de categorías
+   que ya se pueden filtrar de otra forma): lo que solo existe aquí debe usar
+   .split-rail, que apila en vez de esconderse.                              */
+@media (max-width: 768px) {
+  .page-header { flex-wrap: wrap; }
+  .panel-desktop { display: none !important; }
+}
+
+/* ── Split: columna principal + rail lateral ────────────────────────────────
+   Un único juego para las fichas de detalle (oportunidad, reunión,
+   automatización, playbook, artículo) y para los módulos grandes
+   (Configuración, Pipeline).
+
+   Por debajo de 900px el rail APILA debajo a ancho completo; nunca se oculta,
+   porque lleva acciones que no existen en ningún otro sitio de la pantalla.
+   Cada página fija el ancho del rail con --rail-width.                       */
+.split-pane { display: flex; min-width: 0; }
+.split-main { flex: 1; min-width: 0; min-height: 0; }
+.split-rail { width: var(--rail-width, 220px); flex-shrink: 0; min-width: 0; }
+
+/* Variante para el panel que ocupa el alto restante de la ventana y da scroll
+   independiente a cada columna (Configuración, Pipeline). Sin ella el scroll
+   lo lleva la página entera, que es lo que quieren las fichas de detalle.    */
+.split-pane--fill { flex: 1; min-height: 0; overflow: hidden; }
+.split-pane--fill > .split-main,
+.split-pane--fill > .split-rail { overflow-y: auto; }
+.split-pane--fill > .split-rail { border-left: 1px solid var(--line); }
+
+/* Tira horizontal de secciones: sustituye al nav lateral de escritorio cuando
+   el split apila. Oculta por encima del breakpoint.                          */
+.section-tabs-mobile {
+  display: none;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 0 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+.section-tabs-mobile::-webkit-scrollbar { display: none; }
+.section-tabs-mobile > button { flex: 0 0 auto; white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .split-pane { flex-direction: column; }
+  .split-rail { width: 100%; }
+  .split-pane--fill { overflow-y: auto; }
+  .split-pane--fill > .split-main { flex: none; overflow: visible; }
+  .split-pane--fill > .split-rail {
+    overflow: visible;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  /* Un nav lateral de ancho fijo no tiene sentido apilado: lo releva
+     .section-tabs-mobile. Fuera del split, .panel-desktop sigue oculto a
+     768px, que es donde su página lo compensa.                              */
+  .split-pane > .panel-desktop { display: none; }
+  .section-tabs-mobile { display: flex; }
+}
+
+/* ── Contenido que no cabe a lo ancho ───────────────────────────────────── */
+
+/* Envoltorio de tablas y filas anchas: se desplazan dentro de su caja en vez
+   de desbordar la página. El hijo directo lleva su propio min-width.         */
+.scroll-x {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Barra de pestañas: scroll horizontal sin barra visible y sin encoger las
+   pestañas.                                                                  */
+.tabs-scroll {
+  display: flex;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tabs-scroll::-webkit-scrollbar { display: none; }
+.tabs-scroll > * { flex-shrink: 0; }
+
+/* ── Rejilla de campos de formulario ────────────────────────────────────── */
+
+/* Fila de campos (components/forms/FormRow y los formularios de los modales).
+   El número de columnas llega en --form-row-columns; minmax(0,1fr) evita que
+   el ancho intrínseco mínimo de un <input> desborde la rejilla, y en teléfono
+   la fila pasa a una sola columna.                                           */
+.form-row-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--form-row-columns, 2), minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .form-row-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Panel lateral fijo ─────────────────────────────────────────────────── */
+
+/* P. ej. el editor del dashboard: estrecho en escritorio, a ancho completo
+   cuando la barra lateral ya no está en el flujo.                            */
+.fixed-side-panel { width: min(300px, 100vw); }
+
+@media (max-width: 768px) {
+  .fixed-side-panel { width: 100%; }
+}
+
+/* Hueco que reserva el contenido cuando ese panel está abierto. En móvil el
+   panel se superpone a pantalla completa, así que no debe reservarse nada.
+   El segundo selector gana a la sombra `padding` de .db-pad (dashboard.css).  */
+@media (min-width: 1100px) {
+  .fixed-side-panel-offset,
+  .db-pad.fixed-side-panel-offset { padding-right: 324px; }
+}
+
+/* ── Modales ────────────────────────────────────────────────────────────── */
+
+/* El backdrop reserva margen alrededor y la caja nunca supera la ventana. El
+   ancho de diseño llega en --modal-width. Sin media queries: min()/calc()
+   bastan, pero se centralizan aquí para no repetirlos en cada modal.         */
+.app-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.app-modal-card {
+  width: min(var(--modal-width, 420px), 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+/* iOS Safari hace zoom automatico al enfocar un campo de menos de 16px, y
+   despues no se puede volver a alejar. Solo en tactil: en escritorio el tamano
+   pequeno es intencional. */
+@media (max-width: 560px) {
+  input, select, textarea { font-size: 16px; }
+}

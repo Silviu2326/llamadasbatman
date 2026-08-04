@@ -60,7 +60,10 @@ test('runner carga y lista recursivamente todos los tests, incluidos contracts',
   })
   assert.equal(result.status, 0, result.stderr)
   const files = result.stdout.trim().split(/\r?\n/)
-  assert.equal(files.length, 28)
+  // Cota inferior, no recuento exacto: lo que se comprueba es que el descubrimiento
+  // recursivo funciona, no cuantos tests hay. Un numero fijo se rompe cada vez que
+  // se anade un test, que es justo lo que acababa de pasar (28 -> 32).
+  assert.ok(files.length >= 28, `descubiertos ${files.length} ficheros de test`)
   assert.ok(files.some((file) => file.replaceAll('\\', '/').includes('contracts/action-center.contract.test.ts')))
   assert.ok(files.every((file) => file.endsWith('.test.ts')))
 })

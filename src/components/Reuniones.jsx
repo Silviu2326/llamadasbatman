@@ -27,10 +27,10 @@ const MEETING_STATUS_OPTIONS = [
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const STATUS_LABEL = { scheduled:'Confirmada', completed:'Completada', cancelled:'Cancelada', no_show:'No asistió' }
-const STATUS_COLOR = { scheduled:'#10b981', completed:'#6b7280', cancelled:'#ef4444', no_show:'#f59e0b' }
+const STATUS_COLOR = { scheduled:'var(--success)', completed:'var(--dim)', cancelled:'var(--danger)', no_show:'var(--warn)' }
 const ATTEND_LABEL = { scheduled:'Pendiente', completed:'Asistió', cancelled:'No asistirá', no_show:'No asistió' }
-const ATTEND_COLOR = { scheduled:'#6b7280', completed:'#10b981', cancelled:'#ef4444', no_show:'#f59e0b' }
-const BG_POOL = ['#2563eb','#0891b2','#7c3aed','#b45309','#be185d','#059669','#d97706','#0d9488']
+const ATTEND_COLOR = { scheduled:'var(--dim)', completed:'var(--success)', cancelled:'var(--danger)', no_show:'var(--warn)' }
+const BG_POOL = ['var(--info-deep)','var(--cyan-deep)','var(--violet-deep)','var(--warn-deep)','var(--pink)','var(--success-deep)','var(--warn-deep)','var(--success)']
 const TABS = ['Todas','Hoy','Mañana','Esta semana','Próxima semana','Completadas','Canceladas','No asistieron']
 
 // ─── data helpers ─────────────────────────────────────────────────────────────
@@ -38,9 +38,9 @@ function dayBucket(scheduledAt) {
   const d = new Date(scheduledAt)
   const todayMs = new Date(new Date().setHours(0,0,0,0)).getTime()
   const dMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-  if (dMs === todayMs) return { label:'HOY', color:'#8b5cf6' }
-  if (dMs === todayMs + 86400000) return { label:'MAÑANA', color:'#60a5fa' }
-  return { label: d.toLocaleDateString(localeCode(getLocale()),{day:'2-digit',month:'short'}).toUpperCase(), color:'#94a3b8' }
+  if (dMs === todayMs) return { label:'HOY', color:'var(--violet)' }
+  if (dMs === todayMs + 86400000) return { label:'MAÑANA', color:'var(--info)' }
+  return { label: d.toLocaleDateString(localeCode(getLocale()),{day:'2-digit',month:'short'}).toUpperCase(), color:'var(--muted)' }
 }
 
 function mapMeeting(m, i) {
@@ -56,21 +56,21 @@ function mapMeeting(m, i) {
     id: m.id, status: m.status,
     dayLabel, dayColor, time, dur: `${dur} min`,
     lead: { name: m.lead?.name ?? '—', company: m.lead?.company ?? '—', bg: BG_POOL[i % BG_POOL.length] },
-    agent: { name: m.assignee?.name ?? '—', role: '', bg: '#4f46e5' },
+    agent: { name: m.assignee?.name ?? '—', role: '', bg: 'var(--accent-deep)' },
     date: d.toLocaleDateString(localeCode(getLocale())),
     range: `${time} - ${endTime}`,
     platform: m.meetingUrl?.includes('zoom') ? 'zoom' : 'google',
     estado: STATUS_LABEL[m.status] ?? m.status,
-    estadoColor: STATUS_COLOR[m.status] ?? '#10b981',
+    estadoColor: STATUS_COLOR[m.status] ?? 'var(--success)',
     asistencia: ATTEND_LABEL[m.status] ?? 'Pendiente',
-    asistColor: ATTEND_COLOR[m.status] ?? '#6b7280',
+    asistColor: ATTEND_COLOR[m.status] ?? 'var(--dim)',
     value: m.value != null ? m.value : (m.lead?.value != null ? m.lead.value : '—'),
     priority: m.priority ?? m.lead?.priority ?? '—',
-    prioColor: m.priorityColor ?? '#94a3b8',
+    prioColor: m.priorityColor ?? 'var(--muted)',
     hasJoin: !!m.meetingUrl && m.status === 'scheduled', isLive,
     objetivo: m.title ?? '',
     title: m.title ?? '',
-    leadStatus: m.lead?.statusLabel ?? m.lead?.status ?? '—', leadStatusColor: m.lead?.statusColor ?? '#94a3b8',
+    leadStatus: m.lead?.statusLabel ?? m.lead?.status ?? '—', leadStatusColor: m.lead?.statusColor ?? 'var(--muted)',
     summary: m.notes ?? '', resources: [],
     meetingUrl: m.meetingUrl,
     scheduledAt: m.scheduledAt,
@@ -111,11 +111,11 @@ function buildKPIs(raw, totalMeetings) {
   // not a trend, so leave the sparkline empty instead of inventing history.
   const noHistory = []
   return [
-    { Icon: RiCalendar2Line, iconBg:'#6d28d9', label:'Reuniones\nagendadas',  value: String(totalMeetings ?? total), pct:null, color:'#a78bfa', data: noHistory },
-    { Icon: RiCalendarLine,  iconBg:'#047857', label:'Reuniones\ncompletadas', value: String(completed),   pct:null, color:'#34d399', data: noHistory },
-    { Icon: RiGroupLine,     iconBg:'#0e7490', label:'Tasa de\nasistencia',    value: attendRate == null ? '—' : `${attendRate}%`, pct:null, color:'#22d3ee', data: noHistory },
-    { Icon: RiMoneyDollarBoxLine, iconBg:'#b45309', label:'Canceladas',        value: String(cancelled),   pct:null, color:'#fbbf24', data: noHistory },
-    { Icon: RiLineChartLine, iconBg:'#0d9488', label:'Duración\npromedio',     value: avgDur == null ? '—' : `${avgDur} min`, pct:null, color:'#2dd4bf', data: noHistory },
+    { Icon: RiCalendar2Line, iconBg:'var(--violet-deep)', label:'Reuniones\nagendadas',  value: String(totalMeetings ?? total), pct:null, color:'var(--violet)', data: noHistory },
+    { Icon: RiCalendarLine,  iconBg:'var(--success-deep)', label:'Reuniones\ncompletadas', value: String(completed),   pct:null, color:'var(--success)', data: noHistory },
+    { Icon: RiGroupLine,     iconBg:'var(--cyan-deep)', label:'Tasa de\nasistencia',    value: attendRate == null ? '—' : `${attendRate}%`, pct:null, color:'var(--cyan)', data: noHistory },
+    { Icon: RiMoneyDollarBoxLine, iconBg:'var(--warn-deep)', label:'Canceladas',        value: String(cancelled),   pct:null, color:'var(--warn-soft)', data: noHistory },
+    { Icon: RiLineChartLine, iconBg:'var(--success)', label:'Duración\npromedio',     value: avgDur == null ? '—' : `${avgDur} min`, pct:null, color:'var(--success)', data: noHistory },
   ]
 }
 
@@ -127,7 +127,7 @@ function Avatar({ name, bg, size = 34 }) {
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0, background: bg,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.32, fontWeight: 700, color: '#fff', boxShadow: `0 0 8px ${bg}40`,
+      fontSize: size * 0.32, fontWeight: 700, color: '#fff', boxShadow: `0 0 8px color-mix(in srgb, ${bg} 25%, transparent)`,
     }}>{ini.toUpperCase()}</div>
   )
 }
@@ -139,7 +139,7 @@ function PlatformBadge({ type }) {
   }
   const c = cfg[type] ?? cfg.google
   return (
-    <span style={{ fontSize: 9.5, padding: '2px 6px', borderRadius: 5, fontWeight: 600, background: `${c.color}15`, color: c.color, whiteSpace: 'nowrap' }}>
+    <span style={{ fontSize: 9.5, padding: '2px 6px', borderRadius: 5, fontWeight: 600, background: `color-mix(in srgb, ${c.color} 8%, transparent)`, color: c.color, whiteSpace: 'nowrap' }}>
       {c.label}
     </span>
   )
@@ -147,7 +147,7 @@ function PlatformBadge({ type }) {
 
 function Pill({ text, color }) {
   return (
-    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, background: `${color}15`, border: `1px solid ${color}28`, color, whiteSpace: 'nowrap' }}>
+    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700, background: `color-mix(in srgb, ${color} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${color} 16%, transparent)`, color, whiteSpace: 'nowrap' }}>
       {text}
     </span>
   )
@@ -193,19 +193,19 @@ function RowMenu({ mtg, onDetail, onReschedule, onCancel }) {
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}
-        style={{ background: open ? '#1e2433' : 'none', border: '1px solid ' + (open ? '#2d3748' : 'transparent'), borderRadius: 6, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', transition: 'all .15s' }}
+        style={{ background: open ? 'var(--line)' : 'none', border: '1px solid ' + (open ? 'var(--line-2)' : 'transparent'), borderRadius: 6, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--dim)', transition: 'all .15s' }}
       >
         <RiMoreLine style={{ width: 14, height: 14 }} />
       </button>
 
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 10, padding: '4px', minWidth: 170, boxShadow: '0 8px 32px #00000060' }}>
+        <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '4px', minWidth: 170, boxShadow: 'var(--shadow-2)' }}>
           {MENU_OPTS.map(opt => (
             <button
               key={opt.label}
               onClick={(e) => handle(e, opt.action)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'none', border: 'none', borderRadius: 7, color: opt.danger ? '#ef4444' : '#e2e8f0', fontSize: 12, fontWeight: 500, cursor: 'pointer', textAlign: 'left' }}
-              onMouseEnter={e => e.currentTarget.style.background = opt.danger ? '#ef444412' : '#ffffff0a'}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'none', border: 'none', borderRadius: 7, color: opt.danger ? 'var(--danger)' : 'var(--text)', fontSize: 12, fontWeight: 500, cursor: 'pointer', textAlign: 'left' }}
+              onMouseEnter={e => e.currentTarget.style.background = opt.danger ? 'color-mix(in srgb, var(--danger) 12%, transparent)' : 'var(--surface-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
               <opt.icon style={{ width: 13, height: 13, flexShrink: 0 }} />
@@ -219,7 +219,10 @@ function RowMenu({ mtg, onDetail, onReschedule, onCancel }) {
 }
 
 // ─── table config ─────────────────────────────────────────────────────────────
-const GRID = '68px 1.5fr 1fr 1.2fr 1fr 0.8fr 0.8fr 64px'
+// minmax() en vez de fr a secas: con ocho columnas, por debajo de ~820px la
+// tabla se desplaza en horizontal dentro de su caja (DataTable ya la envuelve
+// en overflow-x:auto) en lugar de aplastar cada celda hasta hacerla ilegible.
+const GRID = '68px minmax(150px, 1.5fr) minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(100px, 1fr) minmax(105px, 0.8fr) minmax(100px, 0.8fr) 64px'
 const COLS = ['Reunión','Lead / Empresa','Agente IA','Fecha y hora','Estado','Asistencia','Valor potencial','Acciones']
 
 // ─── main ─────────────────────────────────────────────────────────────────────
@@ -272,7 +275,7 @@ export default function Reuniones() {
         if (!active) return
         const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
         setRaw(items)
-        setMeta({ total: data.total ?? items.length, totalPages: data.totalPages ?? 1 })
+        setMeta({ total: data?.total ?? items.length, totalPages: data?.totalPages ?? 1 })
         setDataStatus(DEMO_MODE ? 'demo' : items.length ? 'live' : 'empty')
       })
       .catch(error => {
@@ -324,38 +327,38 @@ export default function Reuniones() {
   const renderMeeting = (mtg) => [
     <div key="t">
       <p style={{ margin:0, fontSize:9, fontWeight:700, color:mtg.dayColor, letterSpacing:0.5 }}>{mtg.dayLabel}</p>
-      <p style={{ margin:0, fontSize:16, fontWeight:800, color:'#f1f5f9', lineHeight:1.1 }}>{mtg.time}</p>
-      <p style={{ margin:0, fontSize:10, color:'#6b7280' }}>{mtg.dur}</p>
+      <p style={{ margin:0, fontSize:16, fontWeight:800, color:'var(--text-strong)', lineHeight:1.1 }}>{mtg.time}</p>
+      <p style={{ margin:0, fontSize:10, color:'var(--dim)' }}>{mtg.dur}</p>
     </div>,
     <div key="l" style={{ display:'flex', gap:8, alignItems:'center', minWidth:0 }}>
       <Avatar name={mtg.lead.name} bg={mtg.lead.bg} size={34} />
       <div style={{ minWidth:0 }}>
-        <p style={{ margin:0, fontSize:12, fontWeight:700, color:'#f1f5f9', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{mtg.lead.name}</p>
-        <p style={{ margin:0, fontSize:10, color:'#4b5563' }}>{mtg.lead.company}</p>
+        <p style={{ margin:0, fontSize:12, fontWeight:700, color:'var(--text-strong)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{mtg.lead.name}</p>
+        <p style={{ margin:0, fontSize:10, color: 'var(--dim)' }}>{mtg.lead.company}</p>
       </div>
     </div>,
     <div key="a" style={{ display:'flex', gap:6, alignItems:'center', minWidth:0 }}>
       <Avatar name={mtg.agent.name} bg={mtg.agent.bg} size={26} />
       <div style={{ minWidth:0 }}>
-        <p style={{ margin:0, fontSize:11, fontWeight:600, color:'#e2e8f0', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{mtg.agent.name}</p>
+        <p style={{ margin:0, fontSize:11, fontWeight:600, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{mtg.agent.name}</p>
       </div>
     </div>,
     <div key="f">
-      <p style={{ margin:'0 0 2px', fontSize:11, fontWeight:600, color:'#e2e8f0' }}>{mtg.date}</p>
-      <p style={{ margin:'0 0 3px', fontSize:10.5, color:'#94a3b8' }}>{mtg.range}</p>
+      <p style={{ margin:'0 0 2px', fontSize:11, fontWeight:600, color:'var(--text)' }}>{mtg.date}</p>
+      <p style={{ margin:'0 0 3px', fontSize:10.5, color:'var(--muted)' }}>{mtg.range}</p>
       <PlatformBadge type={mtg.platform} />
     </div>,
     <Pill key="e" text={mtg.estado} color={mtg.estadoColor} />,
     <AttendIcon key="s" status={mtg.asistencia} color={mtg.asistColor} />,
     <div key="v">
-      <p style={{ margin:'0 0 3px', fontSize:13, fontWeight:700, color:'#f1f5f9' }}>{mtg.value}</p>
+      <p style={{ margin:'0 0 3px', fontSize:13, fontWeight:700, color:'var(--text-strong)' }}>{mtg.value}</p>
       <Pill text={mtg.priority} color={mtg.prioColor} />
     </div>,
     <div key="ac" style={{ display:'flex', gap:6, alignItems:'center' }}>
       {mtg.hasJoin && (
         <button
           onClick={(e) => { e.stopPropagation(); window.open(mtg.meetingUrl || 'https://meet.google.com', '_blank') }}
-          style={{ fontSize:10.5, padding:'4px 9px', background:'#4f46e5', border:'none', borderRadius:7, color:'#fff', cursor:'pointer', fontWeight:700, whiteSpace:'nowrap' }}
+          style={{ fontSize:10.5, padding:'4px 9px', background:'var(--accent-deep)', border:'none', borderRadius:7, color:'#fff', cursor:'pointer', fontWeight:700, whiteSpace:'nowrap' }}
         >
           Unirse
         </button>
@@ -365,25 +368,25 @@ export default function Reuniones() {
   ]
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#080c14', minWidth: 0, overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0, overflow: 'hidden' }}>
 
       {/* header */}
       <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-            <RiCalendar2Line style={{ width: 20, height: 20, color: '#a78bfa' }} />
-            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#f1f5f9' }}>{t('modules.meetingsTitle')}</h1>
+            <RiCalendar2Line style={{ width: 20, height: 20, color: 'var(--violet)' }} />
+            <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: 'var(--text-strong)' }}>{t('modules.meetingsTitle')}</h1>
           </div>
-          <p style={{ margin: 0, fontSize: 12.5, color: '#4b5563' }}>{t('modules.meetingsSubtitle')}</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>{t('modules.meetingsSubtitle')}</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setShowFilters(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: showFilters || filterCount ? '#8b5cf620' : '#0d1117', border: `1px solid ${showFilters || filterCount ? '#8b5cf6' : '#1e2433'}`, borderRadius: 9, padding: '7px 13px', color: showFilters || filterCount ? '#c4b5fd' : '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setShowFilters(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: showFilters || filterCount ? '#8b5cf620' : 'var(--surface)', border: `1px solid ${showFilters || filterCount ? 'var(--violet)' : 'var(--line)'}`, borderRadius: 9, padding: '7px 13px', color: showFilters || filterCount ? 'var(--violet-soft)' : 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
             <RiFilterLine style={{ width: 13, height: 13 }} /> Filtros{filterCount > 0 && ` (${filterCount})`}
           </button>
-          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '7px 13px', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 9, padding: '7px 13px', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
             <RiDownloadLine style={{ width: 13, height: 13 }} /> Exportar
           </button>
-          <button onClick={() => setShowNewMeeting(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
+          <button onClick={() => setShowNewMeeting(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))', border: 'none', borderRadius: 9, padding: '7px 15px', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 18px #4f46e544' }}>
             <RiAddLine style={{ width: 14, height: 14 }} /> {t('modal.newMeeting')}
           </button>
         </div>
@@ -398,23 +401,23 @@ export default function Reuniones() {
       />
 
       {showFilters && (
-        <div style={{ margin: '0 24px 14px', background: '#0d1117', border: '1px solid #1e2433', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+        <div style={{ margin: '0 24px 14px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Estado
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }}>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none' }}>
               {MEETING_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Desde
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11, color: 'var(--dim)' }}>
             Hasta
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 7, padding: '6px 9px', color: '#e2e8f0', fontSize: 12, outline: 'none' }} />
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 9px', color: 'var(--text)', fontSize: 12, outline: 'none' }} />
           </label>
           {filterCount > 0 && (
-            <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 0' }}>
+            <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 0' }}>
               <RiCloseLine style={{ width: 13, height: 13 }} /> Limpiar filtros
             </button>
           )}
@@ -432,15 +435,15 @@ export default function Reuniones() {
       )}
 
       {cancelTarget && (
-        <div onClick={() => setCancelTarget(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', width: 360, boxShadow: '0 40px 80px #0009' }}>
-            <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>¿Cancelar esta reunión?</p>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>Se marcará como cancelada la reunión con {cancelTarget.lead.name}.</p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setCancelTarget(null)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>
+        <div className="app-modal-backdrop" onClick={() => setCancelTarget(null)} style={{ zIndex: 100, background: 'var(--scrim)' }}>
+          <div className="app-modal-card dark-scroll" onClick={e => e.stopPropagation()} style={{ '--modal-width': '360px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '24px', boxShadow: 'var(--shadow-2)' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>¿Cancelar esta reunión?</p>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--dim)' }}>Se marcará como cancelada la reunión con {cancelTarget.lead.name}.</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button onClick={() => setCancelTarget(null)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>
                 Volver
               </button>
-              <button onClick={handleCancel} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: '#ef4444', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={handleCancel} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--danger)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 Cancelar reunión
               </button>
             </div>
@@ -452,7 +455,7 @@ export default function Reuniones() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* ── left column ── */}
-        <div style={{ flex: 1, overflow: 'hidden', padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+        <div className="dark-scroll" style={{ flex: 1, overflow: 'auto', padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
           {/* KPI row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10 }}>
@@ -461,32 +464,32 @@ export default function Reuniones() {
 
           {/* filter tabs + search */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #1a2235', overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--line)', overflowX: 'auto', scrollbarWidth: 'none' }}>
               {TABS.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   background: 'none', border: 'none', padding: '7px 13px',
                   fontSize: 12, fontWeight: activeTab === tab ? 700 : 400,
-                  color: activeTab === tab ? '#f1f5f9' : '#4b5563',
-                  borderBottom: `2px solid ${activeTab === tab ? '#8b5cf6' : 'transparent'}`,
+                  color: activeTab === tab ? 'var(--text-strong)' : 'var(--faint)',
+                  borderBottom: `2px solid ${activeTab === tab ? 'var(--violet)' : 'transparent'}`,
                   cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap', flexShrink: 0,
                 }}>{tab}</button>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 9, padding: '6px 11px' }}>
-                <RiSearchLine style={{ width: 12, height: 12, color: '#6b7280' }} />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar reuniones…" style={{ background: 'none', border: 'none', outline: 'none', color: '#94a3b8', fontSize: 11.5, width: 130 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 9, padding: '6px 11px' }}>
+                <RiSearchLine style={{ width: 12, height: 12, color: 'var(--dim)' }} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar reuniones…" style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--muted)', fontSize: 11.5, width: 130 }} />
               </div>
-              <button onClick={() => setShowFilters(v => !v)} style={{ background: showFilters || filterCount ? '#8b5cf620' : '#0d1117', border: `1px solid ${showFilters || filterCount ? '#8b5cf6' : '#1e2433'}`, borderRadius: 9, padding: '6px 9px', color: showFilters || filterCount ? '#c4b5fd' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <button onClick={() => setShowFilters(v => !v)} style={{ background: showFilters || filterCount ? '#8b5cf620' : 'var(--surface)', border: `1px solid ${showFilters || filterCount ? 'var(--violet)' : 'var(--line)'}`, borderRadius: 9, padding: '6px 9px', color: showFilters || filterCount ? 'var(--violet-soft)' : 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                 <RiFilterLine style={{ width: 13, height: 13 }} />
               </button>
             </div>
           </div>
 
           {error && (
-            <div style={{ background: '#ef444412', border: '1px solid #ef444430', borderRadius: 9, padding: '9px 13px', color: '#ef4444', fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ background: '#ef444412', border: '1px solid #ef444430', borderRadius: 9, padding: '9px 13px', color: 'var(--danger)', fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <span>{error}</span>
-              <button onClick={() => setRefreshKey(k => k + 1)} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
+              <button onClick={() => setRefreshKey(k => k + 1)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Reintentar</button>
             </div>
           )}
 
@@ -503,18 +506,18 @@ export default function Reuniones() {
           />
 
           {/* pagination */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, color: '#6b7280' }}>{loading ? 'Cargando…' : `Mostrando ${raw.length ? (page - 1) * limit + 1 : 0} a ${Math.min((page - 1) * limit + raw.length, meta.total)} de ${meta.total} reuniones`}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: 'var(--dim)' }}>{loading ? 'Cargando…' : `Mostrando ${raw.length ? (page - 1) * limit + 1 : 0} a ${Math.min((page - 1) * limit + raw.length, meta.total)} de ${meta.total} reuniones`}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page <= 1 ? '#374151' : '#6b7280', cursor: page <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
+              <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 7, padding: '5px 7px', color: page <= 1 ? 'var(--line-2)' : 'var(--dim)', cursor: page <= 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
                 <RiArrowLeftSLine style={{ width: 14, height: 14 }} />
               </button>
-              <button style={{ background: '#4f46e5', border: '1px solid #4f46e5', borderRadius: 7, padding: '5px 9px', color: '#fff', cursor: 'default', fontSize: 12, fontWeight: 700 }}>{page}</button>
-              <span style={{ fontSize: 11, color: '#4b5563' }}>de {meta.totalPages}</span>
-              <button disabled={page >= meta.totalPages} onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 7px', color: page >= meta.totalPages ? '#374151' : '#6b7280', cursor: page >= meta.totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
+              <button style={{ background: 'var(--accent-deep)', border: '1px solid var(--accent-deep)', borderRadius: 7, padding: '5px 9px', color: '#fff', cursor: 'default', fontSize: 12, fontWeight: 700 }}>{page}</button>
+              <span style={{ fontSize: 11, color: 'var(--dim)' }}>de {meta.totalPages}</span>
+              <button disabled={page >= meta.totalPages} onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 7, padding: '5px 7px', color: page >= meta.totalPages ? 'var(--line-2)' : 'var(--dim)', cursor: page >= meta.totalPages ? 'default' : 'pointer', display: 'flex', alignItems: 'center' }}>
                 <RiArrowRightSLine style={{ width: 14, height: 14 }} />
               </button>
-              <select value={limit} onChange={e => setLimit(Number(e.target.value))} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 7, padding: '5px 9px', color: '#6b7280', fontSize: 12, cursor: 'pointer', outline: 'none' }}>
+              <select value={limit} onChange={e => setLimit(Number(e.target.value))} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 7, padding: '5px 9px', color: 'var(--dim)', fontSize: 12, cursor: 'pointer', outline: 'none' }}>
                 <option value={10}>10 por página</option>
                 <option value={25}>25 por página</option>
                 <option value={50}>50 por página</option>

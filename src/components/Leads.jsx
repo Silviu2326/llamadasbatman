@@ -19,18 +19,20 @@ import '../pages/leads.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
 const STATUS_CONFIG = {
-  Nuevo: { color: '#94a3b8', bg: '#94a3b815' },
-  Contactado: { color: '#22d3ee', bg: '#22d3ee15' },
-  Interesado: { color: '#f59e0b', bg: '#f59e0b15' },
-  'En seguimiento': { color: '#818cf8', bg: '#818cf815' },
-  'Reunión agendada': { color: '#34d399', bg: '#34d39915' },
-  Negociación: { color: '#c084fc', bg: '#c084fc15' },
-  Ganado: { color: '#34d399', bg: '#34d39915' },
-  Perdido: { color: '#ef4444', bg: '#ef444415' },
+  Nuevo: { color: 'var(--muted)', bg: '#94a3b815' },
+  Contactado: { color: 'var(--cyan)', bg: '#22d3ee15' },
+  Interesado: { color: 'var(--warn)', bg: '#f59e0b15' },
+  'En seguimiento': { color: 'var(--accent-soft)', bg: '#818cf815' },
+  'Reunión agendada': { color: 'var(--success)', bg: '#34d39915' },
+  Negociación: { color: 'var(--violet-soft)', bg: '#c084fc15' },
+  Ganado: { color: 'var(--success)', bg: '#34d39915' },
+  Perdido: { color: 'var(--danger)', bg: '#ef444415' },
 }
 
-const SCORE_COLOR = { 'Muy alto': '#34d399', Alto: '#818cf8', Medio: '#f59e0b', Bajo: '#ef4444' }
-const STAGES = ['Nuevo', 'Contactado', 'Interesado', 'En seguimiento', 'Reunión agendada', 'Negociación', 'Ganado']
+const SCORE_COLOR = { 'Muy alto': 'var(--success)', Alto: 'var(--accent-soft)', Medio: 'var(--warn)', Bajo: 'var(--danger)' }
+// Estados reales de un lead en el backend (LeadStatus). Las etapas de venta
+// posteriores viven en Pipeline como oportunidades.
+const STAGES = ['Nuevo', 'Contactado', 'Interesado', 'Ganado', 'Perdido']
 const FILTER_TABS = ['Todos', 'Hot', 'En seguimiento', 'Nuevos', 'Sin próxima acción']
 const AUDIT_FILTERS = [
   { key: 'noWebsite', label: 'Sin web' },
@@ -66,18 +68,19 @@ function StatusBadge({ status }) {
 }
 
 function Avatar({ lead, size = 'md' }) {
-  return <div className={`lead-avatar ${size}`} style={{ '--avatar-bg': lead.bg || '#6366f1' }}>{lead.initials}</div>
+  return <div className={`lead-avatar ${size}`} style={{ '--avatar-bg': lead.bg || 'var(--accent)' }}>{lead.initials}</div>
 }
 
 // Sin datos = sin gráfico: no fabricar una tendencia falsa cuando la API no
 // entrega una serie real para el KPI (P0-09/VE-02).
-function SparkBars({ color = '#818cf8', data }) {
+function SparkBars({ color = 'var(--accent-soft)', data }) {
   if (!data?.length) return null
   const max = Math.max(...data)
   return <div className="lead-spark-bars" aria-hidden="true">{data.map((bar, index) => <i key={index} style={{ height: `${Math.max(18, (bar / max) * 100)}%`, background: color, opacity: index === data.length - 1 ? 1 : .32 + index * .06 }} />)}</div>
 }
 
 function ScoreMeter({ score }) {
+  if (score == null) return <div className="lead-score"><strong>—</strong><span style={{ color: 'var(--dim)' }}>Sin score</span><div><i style={{ width: '0%' }} /></div></div>
   const label = score >= 82 ? 'Muy alto' : score >= 65 ? 'Alto' : score >= 40 ? 'Medio' : 'Bajo'
   return <div className="lead-score"><strong>{score}</strong><span style={{ color: SCORE_COLOR[label] }}>{label}</span><div><i style={{ width: `${score}%`, background: SCORE_COLOR[label] }} /></div></div>
 }
@@ -87,7 +90,7 @@ function KpiCard({ icon: Icon, label, value, detail, color, data }) {
 }
 
 function FocusPanel({ leads, onOpenLead }) {
-  const hotLeadsAll = leads.filter(lead => lead.score >= 80 && lead.status !== 'Ganado')
+  const hotLeadsAll = leads.filter(lead => lead.score != null && lead.score >= 80 && lead.status !== 'Ganado')
   const hotLeads = hotLeadsAll.slice(0, 3)
   const meetingsCount = leads.filter(lead => lead.status === 'Reunión agendada').length
   return <aside className="leads-focus-panel">
@@ -99,7 +102,7 @@ function FocusPanel({ leads, onOpenLead }) {
       <div className="leads-focus-row"><span className="leads-focus-row-icon amber"><RiCalendar2Line /></span><span><strong>{meetingsCount} reuniones agendadas</strong><small>Revisa el contexto antes de entrar</small></span></div>
       <div className="leads-focus-row"><span className="leads-focus-row-icon green"><RiCheckboxCircleLine /></span><span><strong>{leads.filter(lead => lead.nextAction).length} próximas acciones</strong><small>Registradas en los datos cargados</small></span></div>
     </div>
-    <div className="leads-priority-summary"><div className="leads-priority-line"><i style={{ width: `${Math.max(1, hotLeadsAll.length)}%`, background: '#ec4899' }} /><i style={{ width: `${Math.max(1, leads.filter(lead => lead.status === 'En seguimiento').length)}%`, background: '#22d3ee' }} /></div><div><span><i className="pink-dot" /> Hot <b>{hotLeadsAll.length}</b></span><span><i className="cyan-dot" /> En seguimiento <b>{leads.filter(lead => lead.status === 'En seguimiento').length}</b></span></div></div>
+    <div className="leads-priority-summary"><div className="leads-priority-line"><i style={{ width: `${Math.max(1, hotLeadsAll.length)}%`, background: 'var(--pink)' }} /><i style={{ width: `${Math.max(1, leads.filter(lead => lead.status === 'En seguimiento').length)}%`, background: 'var(--cyan)' }} /></div><div><span><i className="pink-dot" /> Hot <b>{hotLeadsAll.length}</b></span><span><i className="cyan-dot" /> En seguimiento <b>{leads.filter(lead => lead.status === 'En seguimiento').length}</b></span></div></div>
   </aside>
 }
 
@@ -119,7 +122,7 @@ function LeadRow({ lead, selected, onToggle, onOpen, onAction, onAudit }) {
 }
 
 function KanbanCard({ lead, onOpen }) {
-  return <article className="lead-kanban-card" onClick={() => onOpen(lead.id)}><div className="lead-kanban-card-head"><Avatar lead={lead} size="sm" /><span className="lead-kanban-score" style={{ color: SCORE_COLOR[lead.sl] || '#818cf8' }}>{lead.score}</span></div><strong>{lead.name}</strong><span className="lead-kanban-company">{lead.company}</span><div className="lead-kanban-card-foot"><span>{lead.nextAction || 'Sin próxima acción'}</span><RiArrowRightSLine /></div></article>
+  return <article className="lead-kanban-card" onClick={() => onOpen(lead.id)}><div className="lead-kanban-card-head"><Avatar lead={lead} size="sm" /><span className="lead-kanban-score" style={{ color: SCORE_COLOR[lead.sl] || 'var(--faint)' }}>{lead.score ?? '—'}</span></div><strong>{lead.name}</strong><span className="lead-kanban-company">{lead.company}</span><div className="lead-kanban-card-foot"><span>{lead.nextAction || 'Sin próxima acción'}</span><RiArrowRightSLine /></div></article>
 }
 
 export default function LeadsPage() {
@@ -165,13 +168,13 @@ export default function LeadsPage() {
     if (sourceFilter !== 'all') params.set('source', sourceFilter)
     if (sortBy) params.set('sort', sortBy)
     Promise.all([
-      apiFetch('/api/dashboard/stats').then(response => response.ok ? response.json() : null),
+      apiFetch('/api/dashboard/stats').then(response => response.ok ? response.json() : null).catch(() => null),
       apiFetch(`/api/leads?${params.toString()}`).then(response => { if (!response.ok) throw new Error('leads'); return response.json() }),
     ]).then(([statsValue, data]) => {
       if (!active) return
       if (statsValue) setStats(statsValue)
       const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-      setLeads(items.map(enhanceLead)); setMeta({ total: data.total ?? items.length, totalPages: data.totalPages ?? 1 })
+      setLeads(items.map(enhanceLead)); setMeta({ total: data?.total ?? items.length, totalPages: data?.totalPages ?? 1 })
     }).catch(() => { if (active) setError('No se pudieron cargar los leads. Revisa la conexión.') }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [page, refreshKey, debouncedSearch, sourceFilter, sortBy])
@@ -195,28 +198,28 @@ export default function LeadsPage() {
   // solo pueden aplicarse sobre la página ya cargada.
   const filtered = useMemo(() => {
     return leads.filter(lead => {
-      if (activeFilter === 'Hot' && lead.score < 80) return false
+      if (activeFilter === 'Hot' && !(lead.score != null && lead.score >= 80)) return false
       if (activeFilter === 'En seguimiento' && !['En seguimiento', 'Contactado', 'Interesado'].includes(lead.status)) return false
       if (activeFilter === 'Nuevos' && lead.status !== 'Nuevo') return false
       if (activeFilter === 'Sin próxima acción' && lead.nextAction !== 'Sin próxima acción') return false
-      if (scoreFilter !== 'all' && lead.score < Number(scoreFilter)) return false
+      if (scoreFilter !== 'all' && !(lead.score != null && lead.score >= Number(scoreFilter))) return false
       for (const key of auditFilters) if (!lead.auditFlags?.[key]) return false
       return true
     })
   }, [activeFilter, auditFilters, leads, scoreFilter])
 
   const totalLeads = stats?.totalLeads ?? meta.total
-  const hotCount = stats?.funnel?.find(item => ['Calificados', 'Leads Hot'].includes(item.label))?.value ?? leads.filter(lead => lead.score >= 80).length
+  const hotCount = stats?.funnel?.find(item => ['Calificados', 'Leads Hot'].includes(item.label))?.value ?? leads.filter(lead => lead.score != null && lead.score >= 80).length
   const followupCount = stats?.funnel?.find(item => item.label === 'Contactados')?.value ?? leads.filter(lead => ['Contactado', 'En seguimiento', 'Interesado'].includes(lead.status)).length
   const meetingCount = stats?.meetingsScheduled ?? leads.filter(lead => lead.status === 'Reunión agendada').length
   const pipelineValue = stats?.pipelineValue ?? leads.reduce((total, lead) => total + Number(String(lead.potValue).replace(/[^0-9]/g, '') || 0), 0)
   const kpis = [
-    { icon: RiGroupLine, label: 'Leads totales', value: totalLeads.toLocaleString(localeCode(getLocale())), detail: 'Actividad de tu organización', color: '#818cf8' },
-    { icon: RiUserAddLine, label: 'Leads nuevos (7 días)', value: stats?.newLeads?.toLocaleString(localeCode(getLocale())) ?? '—', detail: stats ? 'Actividad de tu organización' : 'Sin datos todavía', color: '#22d3ee' },
-    { icon: RiFireLine, label: 'Leads Hot', value: hotCount.toLocaleString(localeCode(getLocale())), detail: 'Datos cargados', color: '#ec4899' },
-    { icon: RiTimeLine, label: 'En seguimiento', value: followupCount.toLocaleString(localeCode(getLocale())), detail: 'Datos cargados', color: '#34d399' },
-    { icon: RiPulseLine, label: 'Tasa de conversión', value: stats?.conversionRate != null ? `${stats.conversionRate}%` : '—', detail: stats ? 'Actividad de tu organización' : 'Sin datos todavía', color: '#f59e0b' },
-    { icon: RiBarChartBoxLine, label: 'Valor potencial', value: formatCurrency(stats?.pipelineValue ?? (leads.length ? pipelineValue : null)), detail: 'Datos cargados', color: '#a78bfa' },
+    { icon: RiGroupLine, label: 'Leads totales', value: totalLeads.toLocaleString(localeCode(getLocale())), detail: 'Actividad de tu organización', color: 'var(--accent-soft)' },
+    { icon: RiUserAddLine, label: 'Leads nuevos (7 días)', value: stats?.newLeads?.toLocaleString(localeCode(getLocale())) ?? '—', detail: stats ? 'Actividad de tu organización' : 'Sin datos todavía', color: 'var(--cyan)' },
+    { icon: RiFireLine, label: 'Leads Hot', value: hotCount.toLocaleString(localeCode(getLocale())), detail: 'Datos cargados', color: 'var(--pink)' },
+    { icon: RiTimeLine, label: 'En seguimiento', value: followupCount.toLocaleString(localeCode(getLocale())), detail: 'Datos cargados', color: 'var(--success)' },
+    { icon: RiPulseLine, label: 'Tasa de conversión', value: stats?.conversionRate != null ? `${stats.conversionRate}%` : '—', detail: stats ? 'Actividad de tu organización' : 'Sin datos todavía', color: 'var(--warn)' },
+    { icon: RiBarChartBoxLine, label: 'Valor potencial', value: formatCurrency(stats?.pipelineValue ?? (leads.length ? pipelineValue : null)), detail: 'Datos cargados', color: 'var(--violet)' },
   ]
 
   function toggleSelected(id) {
@@ -289,7 +292,7 @@ export default function LeadsPage() {
 
     <section className="leads-kpi-row" aria-label="Resumen de leads">{kpis.map(kpi => <KpiCard key={kpi.label} {...kpi} />)}</section>
 
-    <section className="leads-funnel-grid"><div className="leads-funnel-panel"><div className="leads-panel-heading"><div><span className="leads-heading-kicker"><RiPulseLine /> Pipeline en movimiento</span><h2>Embudo de leads</h2></div></div><div className="leads-funnel">{STAGES.slice(0, 6).map((stage, index) => { const item = stats?.funnel?.find(entry => entry.label === stage); const count = item?.value ?? leads.filter(lead => lead.status === stage).length; return <div className={`funnel-stage ${['blue', 'cyan', 'green', 'violet', 'pink', 'lime'][index]}`} key={stage}><strong>{stage}</strong><b>{Number(count).toLocaleString(localeCode(getLocale()))}</b><small>Datos disponibles</small></div> })}</div><div className="leads-funnel-footer"><span>Conversión total: <b>{stats?.conversionRate != null ? `${stats.conversionRate}%` : '—'}</b></span><span><i className="live-dot" /> Datos sincronizados</span></div></div><FocusPanel leads={leads} onOpenLead={id => navigate(`/leads/${id}`)} /></section>
+    <section className="leads-funnel-grid"><div className="leads-funnel-panel"><div className="leads-panel-heading"><div><span className="leads-heading-kicker"><RiPulseLine /> Pipeline en movimiento</span><h2>Embudo de leads</h2></div></div><div className="leads-funnel">{STAGES.map((stage, index) => { const item = stats?.funnel?.find(entry => entry.label === stage); const count = item?.value ?? leads.filter(lead => lead.status === stage).length; return <div className={`funnel-stage ${['blue', 'cyan', 'green', 'violet', 'pink', 'lime'][index]}`} key={stage}><strong>{stage}</strong><b>{Number(count).toLocaleString(localeCode(getLocale()))}</b><small>Datos disponibles</small></div> })}</div><div className="leads-funnel-footer"><span>Conversión total: <b>{stats?.conversionRate != null ? `${stats.conversionRate}%` : '—'}</b></span><span><i className="live-dot" /> Datos sincronizados</span></div></div><FocusPanel leads={leads} onOpenLead={id => navigate(`/leads/${id}`)} /></section>
 
     <section className="leads-workspace"><div className="leads-workspace-toolbar"><div className="leads-toolbar-left"><div className="leads-filter-tabs">{FILTER_TABS.map(tab => <button key={tab} className={activeFilter === tab ? 'active' : ''} onClick={() => setActiveFilter(tab)}>{tab}{tab === 'Hot' && <span>{hotCount}</span>}</button>)}</div><button className={`leads-filter-button${showFilters || filterCount ? ' active' : ''}`} onClick={() => setShowFilters(value => !value)}><RiFilterLine /> Filtros {filterCount > 0 && <span>{filterCount}</span>}</button></div><div className="leads-toolbar-right"><label className="leads-sort">Ordenar por <select value={sortBy} onChange={event => setSortBy(event.target.value)}><option value="createdAt:desc">Más recientes</option><option value="createdAt:asc">Más antiguos</option><option value="name:asc">Nombre A-Z</option><option value="name:desc">Nombre Z-A</option></select><HiChevronDown /></label><button className="leads-button ghost compact" onClick={handleExportCsv} disabled={exporting} title="Exporta todos los leads que cumplen los filtros activos"><RiFileDownloadLine /> {exporting ? 'Exportando…' : 'Exportar'}</button><div className="leads-view-switcher"><button className={view === 'table' ? 'active' : ''} onClick={() => setView('table')} aria-label="Vista tabla"><RiTableLine /></button><button className={view === 'kanban' ? 'active' : ''} onClick={() => setView('kanban')} aria-label="Vista kanban"><RiLayoutGridLine /></button></div></div></div>
 

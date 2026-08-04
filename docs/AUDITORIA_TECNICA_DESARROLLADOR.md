@@ -50,7 +50,7 @@ La aplicación no debe considerarse lista para un despliegue externo amplio hast
 
 ### P0 — Roles de interfaz no equivalen a autorización del servidor
 
-**Evidencia:** múltiples rutas mutables sólo aplican `authenticate`, no `authorize`: agentes; campañas (crear, iniciar, pausar y compartir); Meta (OAuth, presupuesto y desconexión); Postiz/publicación; WhatsApp; prospectos/importación y ads. `src/components/AdminRoute.jsx` protege únicamente la navegación en cliente.
+**Evidencia:** múltiples rutas mutables sólo aplican `authenticate`, no `authorize`: agentes; campañas (crear, iniciar, pausar y compartir); Meta (OAuth, presupuesto y desconexión); Metricool/publicación; WhatsApp; prospectos/importación y ads. `src/components/AdminRoute.jsx` protege únicamente la navegación en cliente.
 
 **Riesgo:** una cuenta autenticada de sólo lectura puede invocar las APIs directamente y modificar datos, publicar contenido, arrancar campañas o generar costes. Ocultar botones en React no es un control de acceso.
 

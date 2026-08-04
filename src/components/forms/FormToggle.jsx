@@ -5,7 +5,7 @@ export default function FormToggle({ label, checked, onChange, name }) {
         <label
           style={{
             fontSize: 11,
-            color: '#6b7280',
+            color: 'var(--dim)',
             fontWeight: 500,
           }}
         >
@@ -20,7 +20,7 @@ export default function FormToggle({ label, checked, onChange, name }) {
           width: 44,
           height: 24,
           borderRadius: 12,
-          background: checked ? '#8b5cf6' : '#374151',
+          background: checked ? 'var(--violet)' : 'var(--line-2)',
           position: 'relative',
           cursor: 'pointer',
           transition: 'background .2s',

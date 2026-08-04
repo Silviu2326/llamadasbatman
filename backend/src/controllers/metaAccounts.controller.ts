@@ -6,7 +6,19 @@ type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
 export async function oauthStartUrl(request: FastifyRequest, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
-  return reply.send({ url: await service.buildOAuthStartUrl(orgId) })
+  try {
+    return reply.send({ url: await service.buildOAuthStartUrl(orgId) })
+  } catch (error) {
+    // Sin las credenciales de la app de Meta el servicio lanza antes de tocar
+    // la red; eso es configuración pendiente, no un error del servidor.
+    if (!process.env.META_APP_ID?.trim() || !process.env.META_APP_SECRET?.trim()) {
+      return reply.status(409).send({
+        error: 'La conexión con Meta todavía no está activada. Pide a tu administrador que la configure para poder conectar tu cuenta de anuncios.',
+        code: 'META_OAUTH_NOT_CONFIGURED',
+      })
+    }
+    throw error
+  }
 }
 
 export async function oauthStart(request: FastifyRequest, reply: FastifyReply) {

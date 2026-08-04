@@ -167,7 +167,7 @@ La protección backend es más completa que la navegación frontend, pero no sie
 | Dashboard | \`dashboard.read\` | \`guest\` puede fallar porque la ruta exige alcance \`org\` |
 | Campañas | \`campaigns.read\` | Se muestra a roles comerciales sin permiso |
 | Ads | \`ads.read\` | \`admin\` puede leer, pero no necesariamente escribir o solicitar gasto |
-| Social / Metricool | \`social.read\` | Sidebar no filtra y Postiz queda como legacy |
+| Social / Metricool | \`social.read\` | Sidebar no filtra |
 | Prospect Finder | \`leads.write\` + \`costs.request\` | Se muestra a usuarios sin permiso de operación pagada |
 | Inbox | \`conversations.read\` | Scopes propios/equipo no se aplican bien |
 | Llamadas | \`calls.read\` | Las rutas exigen alcance organizativo |
@@ -222,7 +222,6 @@ La protección backend es más completa que la navegación frontend, pero no sie
 
 Revisar, documentar como compatibilidad o retirar después de confirmar consumidores externos:
 
-- \`/api/postiz\`, sustituido en frontend por Metricool.
 - \`/api/email/overview\`.
 - Métricas de campañas de email.
 - Operaciones avanzadas de Mautic.

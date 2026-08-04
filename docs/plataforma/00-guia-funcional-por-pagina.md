@@ -38,7 +38,7 @@ Las páginas de Sistema gobiernan permisos, conocimiento, configuración, audito
 |---|---|---|---|
 | **Campañas** — `/campanas` | Organizar acciones de captación sin perder agente, playbook, landing ni resultados | Crea/revisa campañas, objetivos, fechas, agente, presupuesto y seguimiento | Una campaña operativa con leads, llamadas y reuniones atribuibles |
 | **Ads** — `/ads` | Gestionar publicidad de pago sin separar estrategia, configuración y rendimiento | Revisa cuentas Meta, campañas, anuncios, presupuestos e insights | Campañas Ads controladas y métricas de rendimiento |
-| **Redes sociales** — `/redes-sociales` | Publicar en varios canales sin entrar manualmente en cada red | Conecta redes y trabaja publicaciones/programación mediante Postiz | Contenido distribuido y estado de publicación centralizado |
+| **Redes sociales** — `/redes-sociales` | Publicar en varios canales sin entrar manualmente en cada red | Conecta redes y trabaja publicaciones/programación mediante Metricool | Contenido distribuido y estado de publicación centralizado |
 | **Prospect Finder** — `/prospectos` | Encontrar empresas o contactos nuevos cuando el CRM todavía no tiene suficiente mercado | Busca, filtra, revisa y puede importar prospectos | Nuevos prospectos incorporables al flujo comercial; puede requerir coste/aprobación |
 | **Landings & webs** — `/landings` | Convertir una campaña o servicio en una página pública con una acción clara | Crea/revisa landings, formularios, slug y contenido | URL pública que captura demanda y puede atribuir conversiones |
 | **Funnels** — `/funnels` | Visualizar dónde se pierden los contactos entre captación y venta | Configura pasos, entradas y conversiones del funnel | Diagnóstico de fugas y puntos de mejora |

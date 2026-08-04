@@ -59,7 +59,7 @@ export default function NewAgenteModal({ onClose, onSuccess }) {
 
   return (
     <FormModal title={t('modal.newAgent')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createAgent')}>
-      {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
       <FormInput label={t('modal.agentName')} value={form.name} onChange={e => update('name', e.target.value)} placeholder={locale === 'en' ? 'e.g. Sofia' : 'Ej. Sofía'} required />
       <FormRow>
         <FormSelect label="Rol" value={form.role} onChange={e => update('role', e.target.value)} options={ROLES} required />

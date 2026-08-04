@@ -36,7 +36,7 @@ En términos de madurez aproximada:
 - Se eliminó la colisión de `GET /health/ready`; el readiness global queda en observabilidad y el health específico de integraciones pasa a `/health/integrations/ready`.
 - Se añadió la migración de `SensitiveApprovalRequest`, aunque el historial completo todavía debe incorporarse a Git y validarse contra PostgreSQL.
 - Los gateways de voz usan `es-ES` como default, aceptan idioma por sesión y reportan el idioma real del transcript dúplex.
-- Compose ya no usa `changeme` como fallback para contraseñas o JWT de Mautic/Postiz.
+- Compose ya no usa `changeme` como fallback para contraseñas o JWT de Mautic.
 - Las páginas React se cargan mediante code-splitting; el bundle inicial baja aproximadamente de 1,89 MB a 504 kB de JavaScript, aunque el chunk de gráficos sigue superando 500 kB.
 - El runner offline espera ahora los 28 tests actuales y los 5 tests del gateway Moshi pasan.
 
@@ -50,7 +50,7 @@ Siguen bloqueados la rotación efectiva de secretos, el commit del historial com
 - Redis/BullMQ para jobs y workers.
 - Motor de voz Python en voice-engine/, con ruta modular STT/LLM/TTS y ruta dúplex basada en Moshi/Mimi.
 - Telefonía y mensajería mediante Twilio y Meta.
-- Integraciones de CRM/marketing con Mautic, Postiz y otros conectores.
+- Integraciones de CRM/marketing con Mautic, Metricool y otros conectores.
 - Frontend desplegable mediante Vercel y backend actualmente acoplado a una URL de Railway en vercel.json.
 
 ## Verificaciones ejecutadas
@@ -161,7 +161,7 @@ Sin embargo, agentType no selecciona todavía un conjunto de herramientas, playb
 
 ### P1-05 — Despliegue extremo a extremo no reproducible
 
-docker-compose.yml levanta servicios auxiliares de Mautic/Postiz, sus bases de datos y Redis, pero no encapsula de forma completa el backend VozIA, los workers ni voice-engine. El motor de voz depende de Python, modelos locales, GPU/CPU, servidores de inferencia y voces instaladas fuera de una entrega única.
+docker-compose.yml levanta servicios auxiliares de Mautic, su base de datos y Redis, pero no encapsula de forma completa el backend VozIA, los workers ni voice-engine. El motor de voz depende de Python, modelos locales, GPU/CPU, servidores de inferencia y voces instaladas fuera de una entrega única.
 
 **Riesgo:** el entorno local no representa el entorno de llamadas y una incidencia de modelo, driver, sample rate o proveedor es difícil de reproducir.
 
@@ -169,7 +169,7 @@ docker-compose.yml levanta servicios auxiliares de Mautic/Postiz, sus bases de d
 
 ### P1-06 — Gate de producción actualmente incumplido
 
-ops:production-gate falla porque el entorno no está marcado como production, faltan URLs públicas y varios secretos, hay endpoints locales/privados para Redis/Postiz/Mautic, existen integraciones parciales y JWT_SECRET no cumple longitud.
+ops:production-gate falla porque el entorno no está marcado como production, faltan URLs públicas y varios secretos, hay endpoints locales/privados para Redis/Mautic, existen integraciones parciales y JWT_SECRET no cumple longitud.
 
 Esto es correcto como comportamiento del gate: el problema es que no existe todavía un perfil de staging/producción completo y verificable. No debe saltarse el gate para probar llamadas reales.
 
@@ -201,7 +201,7 @@ Puede consumir recursos, traducir texto generado por usuarios, romper contenido 
 
 ### P2-05 — Credenciales por defecto peligrosas en Compose
 
-docker-compose.yml:12-57 usa changeme como fallback para contraseñas de Mautic/Postiz y un JWT de Postiz.
+docker-compose.yml:12-57 usa changeme como fallback para contraseñas de Mautic.
 
 Un despliegue sin variables produce credenciales conocidas. Debe fallar si faltan secretos, nunca aplicar defaults funcionales y separar claramente desarrollo de staging/producción.
 

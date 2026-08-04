@@ -16,12 +16,12 @@ import './calls.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
 const STATUS_META = {
-  'Reunión agendada': { color: '#34d399', icon: '●' },
-  Interesado: { color: '#fbbf24', icon: '◆' },
-  Seguimiento: { color: '#60a5fa', icon: '◐' },
-  'No interesado': { color: '#fb7185', icon: '×' },
-  'Propuesta enviada': { color: '#a78bfa', icon: '↗' },
-  'Sin resultado': { color: '#94a3b8', icon: '—' },
+  'Reunión agendada': { color: 'var(--success)', icon: '●' },
+  Interesado: { color: 'var(--warn-soft)', icon: '◆' },
+  Seguimiento: { color: 'var(--info)', icon: '◐' },
+  'No interesado': { color: 'var(--danger-soft)', icon: '×' },
+  'Propuesta enviada': { color: 'var(--violet)', icon: '↗' },
+  'Sin resultado': { color: 'var(--muted)', icon: '—' },
 }
 
 const OUTCOME_BY_LABEL = {
@@ -32,10 +32,10 @@ const OUTCOME_BY_LABEL = {
 }
 
 const KPI_META = [
-  { label: 'Llamadas totales', color: '#818cf8', Icon: RiPhoneLine },
-  { label: 'Duración promedio', color: '#22d3ee', Icon: RiTimeLine },
-  { label: 'Tasa de conversión', color: '#34d399', Icon: RiFlashlightLine },
-  { label: 'Reuniones agendadas', color: '#a78bfa', Icon: RiCalendar2Line },
+  { label: 'Llamadas totales', color: 'var(--accent-soft)', Icon: RiPhoneLine },
+  { label: 'Duración promedio', color: 'var(--cyan)', Icon: RiTimeLine },
+  { label: 'Tasa de conversión', color: 'var(--success)', Icon: RiFlashlightLine },
+  { label: 'Reuniones agendadas', color: 'var(--violet)', Icon: RiCalendar2Line },
 ]
 
 function mapCall(call, index) {
@@ -43,7 +43,7 @@ function mapCall(call, index) {
   return {
     id: call.id,
     initials: (call.lead?.name ?? '??').split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase(),
-    bg: ['#6366f1', '#06b6d4', '#10b981', '#8b5cf6', '#ec4899'][index % 5],
+    bg: ['var(--accent)', 'var(--cyan-deep)', 'var(--success)', 'var(--violet)', 'var(--pink)'][index % 5],
     name: call.lead?.name ?? 'Sin contacto',
     company: call.lead?.company ?? 'Sin empresa',
     role: call.lead?.role ?? '',
@@ -53,6 +53,7 @@ function mapCall(call, index) {
     score: call.sentimentScore ?? null,
     agent: call.agent?.name ?? 'Sin agente',
     recordingUrl: call.recordingUrl,
+    startedAt: call.startedAt,
   }
 }
 
@@ -61,7 +62,7 @@ function Avatar({ call, size = 38 }) {
 }
 
 function StatusBadge({ status }) {
-  const meta = STATUS_META[status] ?? { color: '#94a3b8', icon: '•' }
+  const meta = STATUS_META[status] ?? { color: 'var(--muted)', icon: '•' }
   return <span className="calls-status" style={{ '--status': meta.color }}><i>{meta.icon}</i>{status}</span>
 }
 
@@ -119,9 +120,12 @@ export default function CallsPage() {
     setNewCallError('')
     try {
       const response = await apiFetch(`/api/leads/${newCallLeadId}/call-now`, { method: 'POST' })
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(body.error || 'No se pudo iniciar la llamada')
+      const body = await response.json().catch(() => ({}))
+      // HTTP 200 no basta: queued=false significa que la llamada NO se encoló.
+      if (!response.ok || body.queued !== true) {
+        const code = body.error || 'call_not_queued'
+        const known = { lead_without_campaign: t('calls.leadWithoutCampaign'), lead_without_phone: t('calls.leadWithoutPhone'), call_queue_unavailable: t('calls.queueUnavailable'), call_not_queued: t('calls.notQueued') }
+        throw new Error(known[code] || code)
       }
       setNewCallState('done')
       setTimeout(() => { setShowNewCall(false); loadCalls() }, 1600)
@@ -141,7 +145,7 @@ export default function CallsPage() {
       const items = data?.data ?? data
       const next = Array.isArray(items) ? items.map(mapCall) : []
       setCalls(next)
-      setMeta({ total: data.total ?? next.length, totalPages: data.totalPages ?? 1 })
+      setMeta({ total: data?.total ?? next.length, totalPages: data?.totalPages ?? 1 })
       setDataStatus(DEMO_MODE ? 'demo' : next.length ? 'live' : 'empty')
     }).catch(error => {
       const status = classifyFetchError(error)
@@ -194,7 +198,7 @@ export default function CallsPage() {
   }), [calls, search])
   const viewedCalls = useMemo(() => filtered.filter(call => {
     if (quickView === 'Alta intención') return ['Interesado', 'Reunión agendada', 'Propuesta enviada'].includes(call.status)
-    if (quickView === 'Para hoy') return call.time.toLowerCase().startsWith('hoy')
+    if (quickView === 'Para hoy') return call.startedAt && new Date(call.startedAt).toDateString() === new Date().toDateString()
     return true
   }), [filtered, quickView])
   const highIntentCount = calls.filter(call => ['Interesado', 'Reunión agendada', 'Propuesta enviada'].includes(call.status)).length
@@ -247,22 +251,22 @@ export default function CallsPage() {
     {showFilters && <section className="calls-filter-panel" aria-label="Filtros de llamadas"><div><span className="calls-filter-label">Resultado</span><div className="calls-filter-chips">{['Todos', ...Object.keys(OUTCOME_BY_LABEL)].map(value => <button key={value} className={statusFilter === value ? 'active' : ''} onClick={() => { setStatusFilter(value); setPage(1) }}>{value}</button>)}</div></div><div><span className="calls-filter-label">Agente</span><select value={agentFilter} onChange={event => { setAgentFilter(event.target.value); setPage(1) }}><option value="Todos">Todos</option>{agentOptions.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></div><button className="calls-icon-button" aria-label="Cerrar filtros" onClick={() => setShowFilters(false)}><RiCloseLine /></button></section>}
 
     <section className="calls-workspace"><div className="calls-list-panel"><div className="calls-panel-heading"><div><h2>Llamadas recientes</h2><p>{viewedCalls.length} conversaciones en esta vista</p></div><span className="calls-live"><i /> {dataStatus === 'live' ? 'Datos reales' : dataStatus === 'demo' ? 'Modo demo' : 'Sin sincronización'}</span></div><div className="calls-list-toolbar"><div className="calls-view-switcher">{['Todas', 'Alta intención', 'Para hoy'].map(value => <button key={value} className={quickView === value ? 'active' : ''} onClick={() => setQuickView(value)}>{value}{value === 'Alta intención' && <i>{highIntentCount}</i>}</button>)}</div><button className="calls-toolbar-more" onClick={() => setShowFilters(value => !value)}><RiFilter3Line /> Personalizar vista <RiArrowDownSLine /></button></div><div className="calls-search"><RiSearchLine /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar contacto, empresa o cargo..." aria-label="Buscar llamadas" />{search && <button onClick={() => setSearch('')} aria-label="Limpiar búsqueda"><RiCloseLine /></button>}<kbd>/</kbd></div>{selectedIds.length > 0 && <div className="calls-bulk-bar"><span><RiCheckboxCircleLine /> {selectedIds.length} seleccionadas</span><button onClick={() => bulkAction('follow_up', 'Seguimiento creado')}><RiSendPlaneLine /> Crear seguimiento</button><button onClick={() => bulkAction('priority', 'Marcadas como prioritarias')}><RiBookmark3Line /> Priorizar</button><button onClick={exportCalls}><RiDownload2Line /> Exportar</button><button aria-label="Limpiar selección" onClick={() => setSelectedIds([])}><RiCloseLine /></button></div>}<div className="calls-table-head"><span className="calls-check-cell"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} aria-label="Seleccionar todas las llamadas visibles" /></span><span>Contacto</span><span>Empresa</span><span>Fecha</span><span>Resultado</span><span /></div><div className="calls-list dark-scroll">{viewedCalls.length ? viewedCalls.map(call => <div className={`calls-row ${selectedIds.includes(call.id) ? 'is-selected' : ''}`} key={call.id} role="button" tabIndex="0" onClick={() => navigate(`/llamadas/${call.id}${window.location.search}`)} onKeyDown={event => { if (event.key === 'Enter') navigate(`/llamadas/${call.id}${window.location.search}`) }}><span className="calls-check-cell" onClick={event => event.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(call.id)} onChange={() => toggleSelection(call.id)} aria-label={`Seleccionar ${call.name}`} /></span><div className="calls-person" data-i18n-skip><Avatar call={call} /><span><strong>{call.name}</strong><small>{call.role}</small></span></div><div className="calls-company" data-i18n-skip><i style={{ background: call.bg }}>{call.initials[0]}</i>{call.company}</div><span className="calls-date">{call.time}</span><StatusBadge status={call.status} /><div className="calls-row-action"><RiPlayCircleLine /><RiArrowRightSLine /></div></div>) : <div className="calls-empty"><RiSearchLine /><strong>{dataStatus === 'empty' ? 'Aún no hay llamadas' : 'No encontramos llamadas'}</strong><span>{dataStatus === 'empty' ? 'Inicia una llamada para registrar la primera conversación.' : 'Prueba con otro contacto, empresa o resultado.'}</span>{dataStatus === 'empty' && <button className="calls-button secondary" onClick={openNewCall}>Nueva llamada</button>}</div>}</div><div className="calls-list-footer"><span>Mostrando {viewedCalls.length ? (page - 1) * 20 + 1 : 0}–{Math.min(page * 20, total ?? 0)} de {total == null ? '—' : total.toLocaleString(localeCode(getLocale()))}</span><div><button disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))} aria-label="Página anterior"><HiChevronLeft /></button><b>{page}</b><button disabled={page >= meta.totalPages} onClick={() => setPage(value => Math.min(meta.totalPages, page + 1))} aria-label="Página siguiente"><HiChevronRight /></button></div></div></div>
-      <aside className="calls-insight-panel"><div className="calls-panel-heading"><div><h2>Rendimiento de hoy</h2><p>{statsStatus === 'live' ? 'Métricas sincronizadas' : statsStatus === 'demo' ? 'Modo demo explícito' : 'Sin métricas disponibles'}</p></div><RiBarChartHorizontalLine className="calls-heading-icon" /></div><DataStatusBanner compact status={statsStatus} message={statsError || statusMessage(statsStatus, { live: 'Métricas reales disponibles.', empty: 'No hay métricas de rendimiento todavía.', demo: 'Las métricas demo están identificadas y no representan actividad real.' })} onRetry={statsStatus === 'error' || statsStatus === 'disconnected' ? () => window.location.reload() : undefined} />{calls.length ? <div className="calls-outcome-breakdown">{Object.keys(STATUS_META).map(label => { const count = calls.filter(call => call.status === label).length; const pct = calls.length ? Math.round((count / calls.length) * 100) : 0; return <div key={label} className="calls-outcome-row"><span style={{ color: STATUS_META[label].color }}>{label}</span><b>{count}</b><i><span style={{ width: `${pct}%`, background: STATUS_META[label].color }} /></i></div> })}<small>Sobre las {calls.length} llamadas de esta vista.</small></div> : <div className="calls-empty"><RiBarChartHorizontalLine /><strong>Aún no hay llamadas que analizar</strong></div>}</aside></section>
+      <aside className="calls-insight-panel"><div className="calls-panel-heading"><div><h2>Resultados de esta vista</h2><p>{statsStatus === 'live' ? 'Métricas sincronizadas' : statsStatus === 'demo' ? 'Modo demo explícito' : 'Sin métricas disponibles'}</p></div><RiBarChartHorizontalLine className="calls-heading-icon" /></div><DataStatusBanner compact status={statsStatus} message={statsError || statusMessage(statsStatus, { live: 'Métricas reales disponibles.', empty: 'No hay métricas de rendimiento todavía.', demo: 'Las métricas demo están identificadas y no representan actividad real.' })} onRetry={statsStatus === 'error' || statsStatus === 'disconnected' ? () => window.location.reload() : undefined} />{calls.length ? <div className="calls-outcome-breakdown">{Object.keys(STATUS_META).map(label => { const count = calls.filter(call => call.status === label).length; const pct = calls.length ? Math.round((count / calls.length) * 100) : 0; return <div key={label} className="calls-outcome-row"><span style={{ color: STATUS_META[label].color }}>{label}</span><b>{count}</b><i><span style={{ width: `${pct}%`, background: STATUS_META[label].color }} /></i></div> })}<small>Sobre las {calls.length} llamadas de esta vista.</small></div> : <div className="calls-empty"><RiBarChartHorizontalLine /><strong>Aún no hay llamadas que analizar</strong></div>}</aside></section>
     {showCommand && <div className="calls-command-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowCommand(false) }}><section className="calls-command" role="dialog" aria-modal="true" aria-label="Comandos rápidos"><div className="calls-command-input"><RiCommandLine /><input autoFocus value={commandQuery} onChange={event => setCommandQuery(event.target.value)} placeholder="Busca una acción o escribe para navegar…" /><kbd>ESC</kbd></div>{[{ label: 'Buscar llamadas', hint: 'Enfoca el buscador', icon: RiSearchLine, action: 'search' }, { label: 'Filtrar alta intención', hint: 'Ver oportunidades calientes', icon: RiSparkling2Line, action: 'priority' }, { label: 'Personalizar filtros', hint: 'Estado y agente', icon: RiFilter3Line, action: 'filters' }, { label: 'Exportar vista actual', hint: 'Descargar CSV', icon: RiDownload2Line, action: 'export' }, { label: 'Nueva llamada', hint: 'Llamar a un lead ahora', icon: RiPhoneLine, action: 'new' }].filter(item => !commandQuery || `${item.label} ${item.hint}`.toLowerCase().includes(commandQuery.toLowerCase())).map(item => <button className="calls-command-item" key={item.action} onClick={() => runCommand(item.action)}><span><item.icon /></span><strong>{item.label}<small>{item.hint}</small></strong><RiArrowRightSLine /></button>)}</section></div>}
-    {showNewCall && <div onClick={() => newCallState !== 'calling' && setShowNewCall(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#000a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={event => event.stopPropagation()} style={{ background: '#0d1117', border: '1px solid #1e2433', borderRadius: 14, padding: '24px', width: 420, boxShadow: '0 40px 80px #0009' }}>
-        <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Nueva llamada</p>
-        <p style={{ margin: '0 0 16px', fontSize: 12.5, color: '#94a3b8' }}>Elige a quién llamar. El agente asignado a su campaña hará la llamada ahora.</p>
-        {callableLeads === null ? <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>Cargando leads…</p>
-          : callableLeads.length === 0 ? <p style={{ margin: '0 0 16px', fontSize: 13, color: '#94a3b8' }}>Todavía no tienes leads. <button onClick={() => navigate('/leads')} style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', fontSize: 13, padding: 0, textDecoration: 'underline' }}>Importa o crea el primero</button> y vuelve aquí.</p>
-          : <select value={newCallLeadId} onChange={event => setNewCallLeadId(event.target.value)} disabled={newCallState === 'calling'} style={{ width: '100%', boxSizing: 'border-box', background: '#111827', border: '1px solid #1e2433', borderRadius: 9, padding: '9px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', marginBottom: 14 }}>
+    {showNewCall && <div className="app-modal-backdrop" onClick={() => newCallState !== 'calling' && setShowNewCall(false)} style={{ zIndex: 100, background: 'var(--scrim)' }}>
+      <div className="app-modal-card dark-scroll" onClick={event => event.stopPropagation()} style={{ '--modal-width': '420px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: '24px', boxShadow: 'var(--shadow-2)' }}>
+        <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>Nueva llamada</p>
+        <p style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--muted)' }}>Elige a quién llamar. El agente asignado a su campaña hará la llamada ahora.</p>
+        {callableLeads === null ? <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--dim)' }}>Cargando leads…</p>
+          : callableLeads.length === 0 ? <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>Todavía no tienes leads. <button onClick={() => navigate('/leads')} style={{ background: 'none', border: 'none', color: 'var(--accent-soft)', cursor: 'pointer', fontSize: 13, padding: 0, textDecoration: 'underline' }}>Importa o crea el primero</button> y vuelve aquí.</p>
+          : <select value={newCallLeadId} onChange={event => setNewCallLeadId(event.target.value)} disabled={newCallState === 'calling'} style={{ width: '100%', boxSizing: 'border-box', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', marginBottom: 14 }}>
             {callableLeads.map(lead => <option key={lead.id} value={lead.id}>{lead.name || 'Sin nombre'}{lead.company ? ` — ${lead.company}` : ''}{lead.phone ? ` (${lead.phone})` : ''}</option>)}
           </select>}
-        {newCallError && <p style={{ margin: '0 0 12px', color: '#f87171', fontSize: 12 }} role="alert">{newCallError}</p>}
-        {newCallState === 'done' && <p style={{ margin: '0 0 12px', color: '#10b981', fontSize: 13, fontWeight: 600 }} role="status"><RiCheckboxCircleLine style={{ verticalAlign: 'middle', marginRight: 4 }} /> Llamada iniciada. Aparecerá en la lista en unos segundos.</p>}
+        {newCallError && <p style={{ margin: '0 0 12px', color: 'var(--danger-soft)', fontSize: 12 }} role="alert">{newCallError}</p>}
+        {newCallState === 'done' && <p style={{ margin: '0 0 12px', color: 'var(--success)', fontSize: 13, fontWeight: 600 }} role="status"><RiCheckboxCircleLine style={{ verticalAlign: 'middle', marginRight: 4 }} /> Llamada iniciada. Aparecerá en la lista en unos segundos.</p>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={() => setShowNewCall(false)} disabled={newCallState === 'calling'} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid #1e2433', background: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-          <button onClick={startNewCall} disabled={!newCallLeadId || newCallState !== 'idle' || !callableLeads?.length} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: !newCallLeadId || newCallState !== 'idle' ? 'not-allowed' : 'pointer', opacity: !newCallLeadId || newCallState !== 'idle' ? 0.6 : 1 }}>{newCallState === 'calling' ? 'Llamando…' : newCallState === 'done' ? 'Llamada iniciada' : 'Llamar ahora'}</button>
+          <button onClick={() => setShowNewCall(false)} disabled={newCallState === 'calling'} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={startNewCall} disabled={!newCallLeadId || newCallState !== 'idle' || !callableLeads?.length} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))', color: '#fff', fontSize: 13, fontWeight: 700, cursor: !newCallLeadId || newCallState !== 'idle' ? 'not-allowed' : 'pointer', opacity: !newCallLeadId || newCallState !== 'idle' ? 0.6 : 1 }}>{newCallState === 'calling' ? 'Llamando…' : newCallState === 'done' ? 'Llamada iniciada' : 'Llamar ahora'}</button>
         </div>
       </div>
     </div>}

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { prisma } from '../lib/prisma'
 import * as metricool from './metricoolSync.service'
-import * as postiz from './postizSync.service'
 import * as mautic from './mauticSync.service'
 import * as authService from './auth.service'
 
@@ -81,7 +80,7 @@ const ORG_FIELDS = {
   address: true,
   currency: true,
   mauticEnabled: true,
-  postizEnabled: true,
+  metricoolEnabled: true,
 } as const
 
 export async function getOrganization(orgId: string) {
@@ -107,19 +106,17 @@ export async function updateOrganization(
 export async function getIntegrations(orgId: string) {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: { plan: true, mauticEnabled: true, mauticCompanyId: true, postizEnabled: true },
+    select: { plan: true, mauticEnabled: true, mauticCompanyId: true, metricoolEnabled: true },
   })
   if (!org) return null
 
   const metricoolConfigured = metricool.isConfigured(orgId)
-  const postizConfigured = postiz.isConfigured(orgId)
   const mauticConfigured = mautic.isConfigured(orgId)
 
   return {
     plan: org.plan,
     mautic: { enabled: org.mauticEnabled, connected: Boolean(org.mauticCompanyId) && mauticConfigured, configured: mauticConfigured },
-    metricool: { enabled: metricoolConfigured, connected: metricoolConfigured },
-    postiz: { enabled: org.postizEnabled, connected: org.postizEnabled && postizConfigured, configured: postizConfigured },
+    metricool: { enabled: org.metricoolEnabled, connected: org.metricoolEnabled && metricoolConfigured, configured: metricoolConfigured },
   }
 }
 

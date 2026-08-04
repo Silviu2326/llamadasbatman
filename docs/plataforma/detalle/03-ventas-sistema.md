@@ -509,7 +509,7 @@ Insights es la lectura ejecutiva del CRM. Resuelve la dificultad de interpretar 
 - `callsByCampaign`.
 - `pipelineByDay`.
 - `sentiment` positivo/neutral/negativo.
-- `userCount`, plan de org y flags de Mautic/Postiz.
+- `userCount`, plan de org y flags de Mautic/Metricool.
 
 El servicio usa modelos `Call`, `Lead`, `Meeting`, `Campaign`, `Opportunity`, `Agent`, `AdInsightSnapshot` y `Organization`. No es una tabla propia de “insights”; es una proyección calculada.
 
@@ -660,7 +660,7 @@ En la implementación actual, la pantalla tiene una navegación visual extensa, 
 | Contraseña | `PUT /api/settings/password` | Verifica hash actual y almacena nuevo hash |
 | Empresa | `GET /api/settings/organization` | `Organization` |
 | Guardar empresa | `PUT /api/settings/organization` | Nombre, email, website, teléfono, industria, zona, dirección, moneda |
-| Integraciones | `GET /api/settings/integrations` | Plan, Mautic y estado de Metricool/Postiz según configuración |
+| Integraciones | `GET /api/settings/integrations` | Plan, Mautic y estado de Metricool según configuración |
 | Uso | `GET /api/dashboard/stats`, `GET /api/agents` | Llamadas, agentes, usuarios, plan y ratios visuales |
 
 El backend valida URLs, email, teléfonos, código ISO de moneda y campos no vacíos. Cambiar contraseña exige contraseña actual y una nueva de al menos ocho caracteres.
@@ -671,7 +671,7 @@ El backend valida URLs, email, teléfonos, código ISO de moneda y campos no vac
 - **Perfil de empresa**: nombre, email, web, teléfono, industria, timezone, dirección y moneda.
 - **Moneda y números**: selector de divisa y toggle de decimales; el toggle de decimales es local de la UI y no está persistido en el modelo mostrado.
 - **Plan y uso**: plan, llamadas, agentes y usuarios frente a límites visuales configurados en frontend.
-- **Integraciones**: Mautic y Metricool/Postiz con estados activo/conectado; no es el panel OAuth de Organic Google.
+- **Integraciones**: Mautic y Metricool con estados activo/conectado; no es el panel OAuth de Organic Google.
 - **Seguridad**: la pantalla contiene el acceso visual a seguridad/SSO/auditoría, pero las capacidades reales se distribuyen entre auth, Access Control y Governance.
 - **Cuenta**: botón de eliminación visible, pero no hay operación backend conectada en este componente; no debe interpretarse como borrado operativo disponible.
 

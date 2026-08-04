@@ -1,0 +1,12 @@
+52_15_1ref_exagerado.wav -> Hola, buenos días. Soy Carlos, de Padel Top. ¿Podría hablar contigo un minuto?
+52_15_1ref_medido.wav -> Hola, buenos días. Soy Carlos de Paeltop. Podría hablar contigo un minuto.
+52_15_2ref_exagerado.wav -> Hola, buenos días, soy Carlos de Padletop. ¿Podré hablar contigo un minuto?
+52_15_2ref_medido.wav -> hola buenos días soy carlos de padetop podría hablar contigo un minuto
+52_53_1ref_exagerado.wav -> Hola, ¿qué tal? Me llamo Carlos. Soy de Padletop. ¿Podría hablar con el encargado?
+52_53_1ref_medido.wav -> Hola, ¿qué tal? Me llamo Carlos. Soy de Padletop. ¿Podría hablar con el encargado?
+52_53_2ref_exagerado.wav -> Hola, ¿qué tal? Me llamo Carlos. Soy Depa del Top. ¿Podría hablar con el encargado?
+52_53_2ref_medido.wav -> Hola, ¿qué tal? Me llamo Carlos, soy de Padletop. ¿Podría hablar con el encargado?
+53_11_1ref_exagerado.wav -> Buenos días Silvio, soy Carlos de Padel Top, podría hablar contigo un minuto.
+53_11_1ref_medido.wav -> Buenos días Silvio, soy Carlos de Padletop. ¿Podré hablar contigo un minuto?
+53_11_2ref_exagerado.wav -> Buenos días Silvio, soy Carlos de Padletop. ¿Podría hablar contigo un minuto?
+53_11_2ref_medido.wav -> Buenos días Silvio, soy Carlos de PanelTop. Podría hablar contigo un minuto.

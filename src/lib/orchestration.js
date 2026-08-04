@@ -28,18 +28,18 @@ export const EMPTY_ORCHESTRATION_FORM = {
 }
 
 export const PHASE_META = {
-  diagnosis: { label: 'Diagnóstico', kicker: 'Entender la oportunidad', color: '#22d3ee', description: 'Reunimos las señales disponibles para decidir dónde merece la pena actuar.' },
-  assets: { label: 'Activos', kicker: 'Preparar la base', color: '#a78bfa', description: 'Convertimos la estrategia en activos trazables y borradores revisables.' },
-  activation: { label: 'Activación', kicker: 'Poner el plan en marcha', color: '#f59e0b', description: 'Proponemos campañas y seguimientos; cualquier acción sensible queda protegida.' },
-  monitoring: { label: 'Monitorización', kicker: 'Vigilar el sistema', color: '#10b981', description: 'Observamos señales, tareas y bloqueos para que el equipo sepa qué atender.' },
-  attribution: { label: 'Atribución', kicker: 'Conectar con negocio', color: '#f472b6', description: 'Relacionamos actividad, reuniones, oportunidades e ingresos para aprender.' },
+  diagnosis: { label: 'Diagnóstico', kicker: 'Entender la oportunidad', color: 'var(--cyan)', description: 'Reunimos las señales disponibles para decidir dónde merece la pena actuar.' },
+  assets: { label: 'Activos', kicker: 'Preparar la base', color: 'var(--violet)', description: 'Convertimos la estrategia en activos trazables y borradores revisables.' },
+  activation: { label: 'Activación', kicker: 'Poner el plan en marcha', color: 'var(--warn)', description: 'Proponemos campañas y seguimientos; cualquier acción sensible queda protegida.' },
+  monitoring: { label: 'Monitorización', kicker: 'Vigilar el sistema', color: 'var(--success)', description: 'Observamos señales, tareas y bloqueos para que el equipo sepa qué atender.' },
+  attribution: { label: 'Atribución', kicker: 'Conectar con negocio', color: 'var(--pink)', description: 'Relacionamos actividad, reuniones, oportunidades e ingresos para aprender.' },
 }
 const PHASE_KEYS = Object.keys(PHASE_META)
 
 export const RISK_META = {
-  low: { label: 'Bajo riesgo', color: '#6ee7b7' },
-  medium: { label: 'Riesgo medio', color: '#fcd34d' },
-  high: { label: 'Alto riesgo', color: '#fb7185' },
+  low: { label: 'Bajo riesgo', color: 'var(--success-soft)' },
+  medium: { label: 'Riesgo medio', color: 'var(--warn-soft)' },
+  high: { label: 'Alto riesgo', color: 'var(--danger-soft)' },
 }
 
 const PERIOD_DAYS = { '30 días': 30, '60 días': 60, '90 días': 90 }

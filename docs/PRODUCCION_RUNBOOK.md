@@ -22,7 +22,7 @@ Desde la raíz del repositorio:
 npm run ops:production-gate -- --env-file backend/.env
 ```
 
-El comando exige `NODE_ENV=production`, `DATABASE_URL`, `REDIS_URL`, `PUBLIC_BASE_URL`, `JWT_SECRET`, `OAUTH_STATE_SECRET`, las claves de cifrado y las integraciones indicadas por `REQUIRED_INTEGRATIONS`. Si `REQUIRED_INTEGRATIONS` está vacío en producción, se consideran obligatorias Meta Ads, Google/Search Console, Metricool, Postiz, Mautic y Twilio.
+El comando exige `NODE_ENV=production`, `DATABASE_URL`, `REDIS_URL`, `PUBLIC_BASE_URL`, `JWT_SECRET`, `OAUTH_STATE_SECRET`, las claves de cifrado y las integraciones indicadas por `REQUIRED_INTEGRATIONS`. Si `REQUIRED_INTEGRATIONS` está vacío en producción, se consideran obligatorias Meta Ads, Google/Search Console, Metricool, Mautic y Twilio.
 
 Cada integración tiene tres estados de configuración: bloque completamente
 ausente (`WARN` si no es obligatoria), bloque completo (`PASS`) o bloque
@@ -78,7 +78,6 @@ Antes de confirmar una migración de producción deben existir backup verificabl
 | Meta Ads | `META_APP_ID`, `META_APP_SECRET`, `META_OAUTH_REDIRECT_URI`, `META_TOKEN_ENCRYPTION_KEY`, `META_WEBHOOK_VERIFY_TOKEN` | OAuth con PKCE, scopes aprobados, webhook Meta firmado y cuenta publicitaria de staging |
 | Google / Search Console | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_BASE_URL`, `ORGANIC_TOKEN_ENCRYPTION_KEY` | Propiedad seleccionada, refresh token cifrado y acceso real a Search Console |
 | Metricool | `METRICOOL_BASE_URL`, `METRICOOL_USER_TOKEN`, `METRICOOL_USER_ID`, `METRICOOL_BLOG_ID` | Perfil/marca devuelto por la API y post de borrador con atribución |
-| Postiz | `POSTIZ_BASE_URL`, `POSTIZ_API_KEY` | Workspace aislado, redes conectadas y publicación de prueba |
 | Mautic | `MAUTIC_BASE_URL`, `MAUTIC_CLIENT_ID`, `MAUTIC_CLIENT_SECRET`, `MAUTIC_WEBHOOK_SECRET` | Plantilla propiedad de la organización, consentimiento y webhook idempotente |
 | Twilio | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, URL pública de webhook y número origen | Firma `X-Twilio-Signature`, llamada de prueba y callback de estado |
 

@@ -11,8 +11,8 @@ import { HiChevronDown } from 'react-icons/hi'
 import { useAuth } from '../contexts/AuthContext'
 import { canNavigateTo, filterNavigationSections } from '../lib/navigationPermissions'
 import { useExperience } from '../contexts/ExperienceContext'
-import { EXPERIENCE_MODES } from '../lib/experienceConfig'
-import ExperienceSwitcher from './ExperienceSwitcher'
+import { useTheme } from '../hooks/useTheme'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import OnboardingModal from './OnboardingModal'
 import { useI18n } from '../i18n'
 
@@ -37,69 +37,70 @@ function getNavLabel(item, t) {
 // Dashboard queda fijo arriba, fuera de secciones (es el "home"). El resto se
 // agrupa según el embudo del producto (ver PLATAFORMA_EXPLICACION_GENERAL.md)
 // para que una lista de 17 items no sea un solo bloque plano.
-const DASHBOARD_ITEM = { image: '/assets/sidebar-icons/dashboard.png', label: 'Dashboard', color: '#6366f1', to: '/dashboard', moduleId: 'dashboard' }
-const OBJECTIVE_ITEM = { icon: RiSparkling2Line, label: 'Objetivos', color: '#a78bfa', to: '/orquestador', moduleId: 'dashboard' }
+const DASHBOARD_ITEM = { image: '/assets/sidebar-icons/dashboard.png', label: 'Dashboard', color: 'var(--accent)', to: '/dashboard', moduleId: 'dashboard' }
+const OBJECTIVE_ITEM = { icon: RiSparkling2Line, label: 'Objetivos', color: 'var(--violet)', to: '/orquestador', moduleId: 'dashboard' }
 
 const SECTIONS = [
   {
     id: 'captacion',
     label: 'Captación',
     items: [
-      { icon: RiShareForwardLine, label: 'Campañas',        color: '#ec4899', to: '/campanas', moduleId: 'campaigns' },
-      { icon: RiBarChartLine,     label: 'Ads',             color: '#818cf8', to: '/ads', moduleId: 'ads' },
-      { icon: RiShareForwardLine, label: 'Redes sociales',  color: '#ec4899', to: '/redes-sociales', moduleId: 'social' },
-      { icon: RiCompass3Line,     label: 'Buscador de prospectos', color: '#22d3ee', to: '/prospectos', moduleId: 'prospect-finder' },
-      { icon: RiGlobalLine,       label: 'Landings y webs', color: '#22d3ee', to: '/landings', moduleId: 'landings' },
-      { icon: RiFlowChart,        label: 'Funnels',         color: '#a78bfa', to: '/funnels', moduleId: 'funnels' },
-      { icon: RiLeafLine,         label: 'Captación orgánica',   color: '#84cc16', to: '/organic', moduleId: 'organic' },
+      { icon: RiShareForwardLine, label: 'Campañas',        color: 'var(--pink)', to: '/campanas', moduleId: 'campaigns' },
+      { icon: RiBarChartLine,     label: 'Ads',             color: 'var(--accent-soft)', to: '/ads', moduleId: 'ads' },
+      { icon: RiShareForwardLine, label: 'Redes sociales',  color: 'var(--pink)', to: '/redes-sociales', moduleId: 'social' },
+      { icon: RiCompass3Line,     label: 'Buscador de prospectos', color: 'var(--cyan)', to: '/prospectos', moduleId: 'prospect-finder' },
+      { icon: RiGlobalLine,       label: 'Landings y webs', color: 'var(--cyan)', to: '/landings', moduleId: 'landings' },
+      { icon: RiFlowChart,        label: 'Funnels',         color: 'var(--violet)', to: '/funnels', moduleId: 'funnels' },
+      { icon: RiLeafLine,         label: 'Captación orgánica',   color: 'var(--lime)', to: '/organic', moduleId: 'organic' },
     ],
   },
   {
     id: 'conversacion',
     label: 'Conversación',
     items: [
-      { icon: RiMessage3Line, label: 'Bandeja de entrada',      color: '#38bdf8', to: '/conversacion/inbox', moduleId: 'inbox' },
-      { icon: RiPhoneLine,  label: 'Llamadas',   color: '#10b981', to: '/llamadas', moduleId: 'calls' },
-      { icon: RiRobot2Line, label: 'Agentes IA', color: '#8b5cf6', to: '/agentes', moduleId: 'agents' },
-      { icon: RiBook2Line,  label: 'Playbooks',  color: '#14b8a6', to: '/playbooks', moduleId: 'playbooks' },
-      { icon: RiMicLine,    label: 'Probar voz', color: '#f43f5e', to: '/voz/test', moduleId: 'voice-test' },
+      { icon: RiMessage3Line, label: 'Bandeja de entrada',      color: 'var(--cyan-soft)', to: '/conversacion/inbox', moduleId: 'inbox' },
+      { icon: RiPhoneLine,  label: 'Llamadas',   color: 'var(--success)', to: '/llamadas', moduleId: 'calls' },
+      { icon: RiRobot2Line, label: 'Agentes IA', color: 'var(--violet)', to: '/agentes', moduleId: 'agents' },
+      { icon: RiBook2Line,  label: 'Playbooks',  color: 'var(--success)', to: '/playbooks', moduleId: 'playbooks' },
+      { icon: RiMicLine,    label: 'Probar voz', color: 'var(--danger)', to: '/voz/test', moduleId: 'voice-test' },
+      { icon: RiMicLine,    label: 'Qwen Omni (beta)', color: 'var(--cyan)', to: '/voz/omni', moduleId: 'qwen-omni' },
     ],
   },
   {
     id: 'nutricion',
     label: 'Nutrición',
     items: [
-      { icon: RiMailLine,  label: 'Email marketing',  color: '#6366f1', to: '/email-marketing', moduleId: 'email' },
-      { icon: RiFlowChart, label: 'Automatizaciones', color: '#fb7185', to: '/automatizaciones', moduleId: 'automations' },
+      { icon: RiMailLine,  label: 'Email marketing',  color: 'var(--accent)', to: '/email-marketing', moduleId: 'email' },
+      { icon: RiFlowChart, label: 'Automatizaciones', color: 'var(--danger-soft)', to: '/automatizaciones', moduleId: 'automations' },
     ],
   },
   {
     id: 'growth',
     label: 'Growth',
     items: [
-      { icon: RiFlowChart, label: 'Growth Hub', color: '#38bdf8', to: '/growth', moduleId: 'growth' },
+      { icon: RiFlowChart, label: 'Growth Hub', color: 'var(--cyan-soft)', to: '/growth', moduleId: 'growth' },
     ],
   },
   {
     id: 'ventas',
     label: 'Ventas',
     items: [
-      { icon: RiGroupLine,         label: 'Leads',     color: '#f59e0b', to: '/leads', moduleId: 'leads' },
-      { icon: RiShoppingCart2Line, label: 'Pipeline',  color: '#06b6d4', to: '/pipeline', moduleId: 'pipeline' },
-      { icon: RiCalendarLine,      label: 'Reuniones', color: '#f97316', to: '/reuniones', moduleId: 'meetings' },
-      { icon: RiFlowChart,         label: 'Inteligencia comercial', color: '#8b93ff', to: '/inteligencia-comercial', moduleId: 'revenue-intelligence' },
+      { icon: RiGroupLine,         label: 'Leads',     color: 'var(--warn)', to: '/leads', moduleId: 'leads' },
+      { icon: RiShoppingCart2Line, label: 'Pipeline',  color: 'var(--cyan-deep)', to: '/pipeline', moduleId: 'pipeline' },
+      { icon: RiCalendarLine,      label: 'Reuniones', color: 'var(--warn)', to: '/reuniones', moduleId: 'meetings' },
+      { icon: RiFlowChart,         label: 'Inteligencia comercial', color: 'var(--accent-soft)', to: '/inteligencia-comercial', moduleId: 'revenue-intelligence' },
     ],
   },
   {
     id: 'sistema',
     label: 'Sistema',
     items: [
-      { icon: RiBarChartLine, label: 'Insights',       color: '#a78bfa', to: '/insights', moduleId: 'insights' },
-      { icon: RiBookReadLine, label: 'Base de conocimiento', color: '#34d399', to: '/knowledge-base', moduleId: 'knowledge' },
-      { icon: RiSettings4Line, label: 'Configuración', color: '#94a3b8', to: '/configuracion', moduleId: 'settings' },
-      { icon: RiSettings4Line, label: 'Gobierno empresarial', color: '#38bdf8', to: '/gobierno-empresarial', moduleId: 'governance' },
-      { icon: RiSettings4Line, label: 'Control de accesos', color: '#f59e0b', to: '/access-control', moduleId: 'access-control' },
-      { icon: RiBook2Line, label: 'Recetas Ads', color: '#7c3aed', to: '/admin/ad-playbooks', moduleId: 'ad-playbooks' },
+      { icon: RiBarChartLine, label: 'Insights',       color: 'var(--violet)', to: '/insights', moduleId: 'insights' },
+      { icon: RiBookReadLine, label: 'Base de conocimiento', color: 'var(--success)', to: '/knowledge-base', moduleId: 'knowledge' },
+      { icon: RiSettings4Line, label: 'Configuración', color: 'var(--muted)', to: '/configuracion', moduleId: 'settings' },
+      { icon: RiSettings4Line, label: 'Gobierno empresarial', color: 'var(--cyan-soft)', to: '/gobierno-empresarial', moduleId: 'governance' },
+      { icon: RiSettings4Line, label: 'Control de accesos', color: 'var(--warn)', to: '/access-control', moduleId: 'access-control' },
+      { icon: RiBook2Line, label: 'Recetas Ads', color: 'var(--violet-deep)', to: '/admin/ad-playbooks', moduleId: 'ad-playbooks' },
     ],
   },
 ]
@@ -168,25 +169,27 @@ function NavItem({ item, isHovered, onHover, onLeave, ripple, onClick, t }) {
       {({ isActive }) => (<>
         {ripple && (
           <span
-            style={{ ...styles.ripple, left: ripple.x, top: ripple.y, background: item.color + '55' }}
+            style={{ ...styles.ripple, left: ripple.x, top: ripple.y, background: `color-mix(in srgb, ${item.color} 33%, transparent)` }}
             className="ripple-anim"
           />
         )}
         <span
           style={{
             ...styles.iconWrap,
-            background: isActive ? item.color + '25' : isHovered ? item.color + '18' : 'transparent',
-            boxShadow: isActive ? `0 0 12px ${item.color}55` : 'none',
+            background: isActive
+              ? `color-mix(in srgb, ${item.color} 15%, transparent)`
+              : isHovered ? `color-mix(in srgb, ${item.color} 9%, transparent)` : 'transparent',
+            boxShadow: isActive ? `0 0 12px color-mix(in srgb, ${item.color} 33%, transparent)` : 'none',
             transition: 'all 0.2s ease',
           }}
         >
           {image ? (
             <img src={image} alt="" aria-hidden="true" style={{ width: 22, height: 22, objectFit: 'contain', display: 'block', opacity: isActive || isHovered ? 1 : 0.76, transition: 'opacity 0.2s ease, transform 0.2s ease', transform: isActive ? 'scale(1.08)' : 'none' }} />
           ) : (
-            <Icon style={{ width: 18, height: 18, color: isActive ? item.color : isHovered ? item.color : '#6b7280', transition: 'color 0.2s ease' }} />
+            <Icon style={{ width: 18, height: 18, color: isActive ? item.color : isHovered ? item.color : 'var(--dim)', transition: 'color 0.2s ease' }} />
           )}
         </span>
-        <span style={{ fontSize: 13.5, fontWeight: isActive ? 600 : 500, color: isActive ? '#ffffff' : isHovered ? '#e2e8f0' : '#9ca3af', transition: 'color 0.2s ease', letterSpacing: 0.1 }}>
+        <span style={{ fontSize: 13.5, fontWeight: isActive ? 600 : 500, color: isActive ? 'var(--text-strong)' : isHovered ? 'var(--text)' : 'var(--muted)', transition: 'color 0.2s ease', letterSpacing: 0.1 }}>
           {getNavLabel(item, t)}
         </span>
         {isActive && <span style={{ ...styles.activeDot, background: item.color, boxShadow: `0 0 8px ${item.color}` }} className="pulse-dot" />}
@@ -204,6 +207,9 @@ export default function Sidebar({ isOpen }) {
   const [ripple, setRipple] = useState(null)
   const [collapsed, setCollapsed] = useState(loadCollapsed)
   const experience = useExperience()
+  const [theme, setTheme, isAutoTheme] = useTheme()
+  // A <=768px la barra sale del flujo y pasa a ser un cajon superpuesto.
+  const isDrawer = useMediaQuery('(max-width: 768px)')
   const permittedSections = useMemo(() => filterNavigationSections(user, SECTIONS), [user])
   const visibleSections = useMemo(() => permittedSections
     .map(section => ({
@@ -214,9 +220,6 @@ export default function Sidebar({ isOpen }) {
       )),
     }))
     .filter(section => section.items.length > 0), [experience, location.pathname, permittedSections])
-  const hiddenModuleCount = useMemo(() => permittedSections.reduce((count, section) => count + section.items.filter(item => (
-    experience.isModuleAvailable(item.moduleId) && !experience.isModuleVisible(item.moduleId)
-  )).length, 0), [experience, permittedSections])
   const canSeeDashboard = canNavigateTo(user, DASHBOARD_ITEM.to) && experience.isModuleVisible(
     DASHBOARD_ITEM.moduleId,
     { isActive: location.pathname.startsWith(DASHBOARD_ITEM.to) },
@@ -247,7 +250,13 @@ export default function Sidebar({ isOpen }) {
 
   return (
     <>
-      <aside className={`sidebar-aside${isOpen ? ' open' : ''}`} style={styles.aside}>
+      <aside
+      className={`sidebar-aside${isOpen ? ' open' : ''}`}
+      style={styles.aside}
+      // Con el cajon cerrado en movil, sus ~25 enlaces seguian siendo enfocables
+      // fuera de pantalla. inert los saca del foco y del arbol accesible.
+      inert={isDrawer && !isOpen ? '' : undefined}
+    >
       {/* Animated top glow border */}
       <div style={styles.topGlow} />
 
@@ -296,18 +305,6 @@ export default function Sidebar({ isOpen }) {
           />
         )}
 
-        {experience.providerAvailable && (
-          <div className="sidebar-experience-section">
-            <ExperienceSwitcher compact />
-            {experience.experienceMode !== EXPERIENCE_MODES.ADVANCED && hiddenModuleCount > 0 && (
-              <button type="button" className="sidebar-show-all" onClick={() => experience.setExperienceMode(EXPERIENCE_MODES.ADVANCED)}>
-                <span>{t('sidebar.viewAll')}</span>
-                <small>{t('sidebar.modulesAvailable', { count: hiddenModuleCount })}</small>
-              </button>
-            )}
-          </div>
-        )}
-
         {visibleSections.map(section => {
           const hasActiveItem = section.items.some(it => location.pathname.startsWith(it.to))
           const isCollapsed = !!collapsed[section.id] && !hasActiveItem
@@ -352,6 +349,25 @@ export default function Sidebar({ isOpen }) {
         <button type="button" className={locale === 'en' ? 'active' : ''} onClick={() => setLocale('en')}>EN</button>
       </div>
 
+      <div className="sidebar-locale-switcher" role="group" aria-label={t('common.theme')}>
+        <span>{t('common.theme')}</span>
+        <button type="button" className={isAutoTheme ? 'active' : ''} onClick={() => setTheme(null)}>{t('common.themeAuto')}</button>
+        <button
+          type="button"
+          className={!isAutoTheme && theme === 'light' ? 'active' : ''}
+          onClick={() => setTheme('light')}
+          title={t('common.themeLight')}
+          aria-label={t('common.themeLight')}
+        >☀</button>
+        <button
+          type="button"
+          className={!isAutoTheme && theme === 'dark' ? 'active' : ''}
+          onClick={() => setTheme('dark')}
+          title={t('common.themeDark')}
+          aria-label={t('common.themeDark')}
+        >☾</button>
+      </div>
+
 
       {/* User */}
       <div style={styles.divider} />
@@ -360,15 +376,15 @@ export default function Sidebar({ isOpen }) {
           <button
             onClick={() => navigate('/configuracion')}
             style={{ ...styles.userBtn, flex: 1 }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#1a2235')}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             <div style={styles.avatar}>{initials}</div>
             <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user?.name || 'Tu cuenta'}
               </p>
-              <p style={{ fontSize: 11, color: '#4b5563', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p style={{ fontSize: 11, color: 'var(--dim)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user?.email || 'Sesión activa'}
               </p>
             </div>
@@ -377,15 +393,15 @@ export default function Sidebar({ isOpen }) {
             onClick={handleLogout}
             title={t('sidebar.logout')}
             style={styles.logoutBtn}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f8717115'; e.currentTarget.style.color = '#f87171' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#4b5563' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f8717115'; e.currentTarget.style.color = 'var(--danger-soft)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--faint)' }}
           >
             <RiLogoutBoxLine style={{ width: 16, height: 16 }} />
           </button>
         </div>
         <div style={{ display: 'flex', gap: 10, padding: '0 20px 12px' }}>
           <button type="button" onClick={() => navigate('/privacidad')} style={styles.legalLink}>{t('legal.privacyTitle')}</button>
-          <span style={{ color: '#1e2433', fontSize: 11 }}>·</span>
+          <span style={{ color: 'var(--dim)', fontSize: 11 }}>·</span>
           <button type="button" onClick={() => navigate('/terminos')} style={styles.legalLink}>{t('legal.termsTitle')}</button>
         </div>
       </div>
@@ -400,10 +416,10 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     width: 224,
-    minHeight: '100vh',
+    minHeight: '100dvh',
     flexShrink: 0,
-    background: 'linear-gradient(180deg, #0d1117 0%, #0a0e1a 100%)',
-    borderRight: '1px solid #1e2433',
+    background: 'linear-gradient(180deg, var(--surface) 0%, var(--surface) 100%)',
+    borderRight: '1px solid var(--line)',
     // position handled by .sidebar-aside CSS class (responsive)
     overflow: 'hidden',
   },
@@ -411,7 +427,7 @@ const styles = {
     position: 'absolute',
     top: 0, left: 0, right: 0,
     height: 2,
-    background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899, #6366f1)',
+    background: 'linear-gradient(90deg, var(--accent), var(--violet), var(--pink), var(--accent))',
     backgroundSize: '200% 100%',
     animation: 'gradientMove 3s linear infinite',
   },
@@ -421,28 +437,28 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-    boxShadow: '0 0 20px #6366f155, 0 4px 12px #0000004d',
+    background: 'linear-gradient(135deg, var(--accent-deep) 0%, var(--violet-deep) 100%)',
+    boxShadow: '0 0 20px color-mix(in srgb, var(--accent) 33%, transparent), 0 4px 12px var(--shadow-color)',
     flexShrink: 0,
     cursor: 'pointer',
     transition: 'transform 0.3s ease, box-shadow 0.3s ease',
   },
   logoText: {
-    color: '#f1f5f9',
+    color: 'var(--text-strong)',
     fontWeight: 800,
     fontSize: 20,
     margin: 0,
     letterSpacing: -0.5,
   },
   logoSub: {
-    color: '#374151',
+    color: 'var(--dim)',
     fontSize: 10.5,
     margin: '2px 0 0',
     letterSpacing: 0.2,
   },
   divider: {
     height: 1,
-    background: 'linear-gradient(90deg, transparent, #1e2433 30%, #1e2433 70%, transparent)',
+    background: 'linear-gradient(90deg, transparent, var(--line) 30%, var(--line) 70%, transparent)',
     margin: '0',
   },
   sectionHeader: {
@@ -458,7 +474,7 @@ const styles = {
     fontWeight: 700,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: '#374151',
+    color: 'var(--dim)',
   },
   navBtn: {
     position: 'relative',
@@ -476,12 +492,12 @@ const styles = {
     transition: 'transform 0.15s ease',
   },
   navBtnActive: color => ({
-    background: `linear-gradient(90deg, ${color}22 0%, ${color}10 100%)`,
-    border: `1px solid ${color}35`,
-    boxShadow: `inset 0 0 20px ${color}10, 0 2px 8px ${color}20`,
+    background: `linear-gradient(90deg, color-mix(in srgb, ${color} 13%, transparent) 0%, color-mix(in srgb, ${color} 6%, transparent) 100%)`,
+    border: `1px solid color-mix(in srgb, ${color} 21%, transparent)`,
+    boxShadow: `inset 0 0 20px color-mix(in srgb, ${color} 6%, transparent), 0 2px 8px color-mix(in srgb, ${color} 13%, transparent)`,
   }),
   navBtnHover: color => ({
-    background: `${color}0d`,
+    background: `color-mix(in srgb, ${color} 5%, transparent)`,
     transform: 'translateX(3px)',
   }),
   iconWrap: {
@@ -508,8 +524,8 @@ const styles = {
   greenDot: {
     width: 8, height: 8,
     borderRadius: '50%',
-    background: '#10b981',
-    boxShadow: '0 0 8px #10b981',
+    background: 'var(--success)',
+    boxShadow: '0 0 8px var(--success)',
     flexShrink: 0,
     display: 'inline-block',
   },
@@ -517,14 +533,14 @@ const styles = {
     width: '100%',
     height: 6,
     borderRadius: 99,
-    background: '#1e2433',
+    background: 'var(--line)',
     position: 'relative',
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     borderRadius: 99,
-    background: 'linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%)',
+    background: 'linear-gradient(90deg, var(--accent-deep) 0%, var(--violet-deep) 50%, var(--violet) 100%)',
     transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
     position: 'relative',
   },
@@ -552,26 +568,26 @@ const styles = {
   avatar: {
     width: 34, height: 34,
     borderRadius: 10,
-    background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+    background: 'linear-gradient(135deg, var(--cyan) 0%, var(--cyan-deep) 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: 11,
     fontWeight: 700,
-    color: 'white',
+    color: 'var(--surface)',
     flexShrink: 0,
     boxShadow: '0 0 12px #06b6d455',
   },
   legalLink: {
     background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-    color: '#4b5563', fontSize: 11, fontFamily: 'inherit',
+    color: 'var(--dim)', fontSize: 11, fontFamily: 'inherit',
   },
   logoutBtn: {
     width: 32, height: 32,
     borderRadius: 8,
     border: 'none',
     background: 'transparent',
-    color: '#4b5563',
+    color: 'var(--dim)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

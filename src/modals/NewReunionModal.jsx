@@ -26,9 +26,9 @@ function splitDateTime(iso) {
 function toggleBtnStyle(active) {
   return {
     flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-    border: `1px solid ${active ? '#8b5cf6' : '#1e2433'}`,
+    border: `1px solid ${active ? 'var(--violet)' : 'var(--line)'}`,
     background: active ? '#8b5cf620' : 'transparent',
-    color: active ? '#c4b5fd' : '#94a3b8',
+    color: active ? 'var(--violet-soft)' : 'var(--muted)',
   }
 }
 
@@ -155,13 +155,13 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
       onSubmit={handleSubmit}
       submitText={saving ? t('common.saving') : (isReschedule ? t('modal.confirmNewDate') : t('modal.createMeeting'))}
     >
-      {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
 
       {isReschedule ? (
-        <div style={{ background: '#080c14', border: '1px solid #1e2433', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 11, color: '#6b7280' }}>{t('modal.newMeeting')}</span>
-          <strong style={{ fontSize: 13, color: '#e2e8f0' }}>{meeting.objetivo || meeting.title || 'Reunión'}</strong>
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>{meeting.lead?.name}{meeting.lead?.company ? ` · ${meeting.lead.company}` : ''}</span>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 11, color: 'var(--dim)' }}>{t('modal.newMeeting')}</span>
+          <strong style={{ fontSize: 13, color: 'var(--text)' }}>{meeting.objetivo || meeting.title || 'Reunión'}</strong>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{meeting.lead?.name}{meeting.lead?.company ? ` · ${meeting.lead.company}` : ''}</span>
         </div>
       ) : (
         <div>
@@ -169,42 +169,42 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
 
           {useExisting ? (
             <div ref={boxRef} style={{ position: 'relative', marginTop: 10 }}>
-              <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 5, fontWeight: 500 }}>
-                {t('modal.searchLead')}<span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>
+              <label style={{ display: 'block', fontSize: 11, color: 'var(--dim)', marginBottom: 5, fontWeight: 500 }}>
+                {t('modal.searchLead')}<span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>
               </label>
               <div style={{ position: 'relative' }}>
-                <RiSearchLine style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: '#6b7280' }} />
+                <RiSearchLine style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--dim)' }} />
                 <input
                   value={selectedLead ? selectedLead.name : leadQuery}
                   onChange={event => { setSelectedLead(null); setLeadQuery(event.target.value); setLeadDropdownOpen(true) }}
                   onFocus={() => setLeadDropdownOpen(true)}
                   placeholder={t('modal.searchLead')}
-                  style={{ width: '100%', boxSizing: 'border-box', background: '#080c14', border: '1px solid #1e2433', borderRadius: 8, padding: '9px 12px 9px 30px', color: '#e2e8f0', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px 9px 30px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
                 />
               </div>
               {leadDropdownOpen && (leadResults.length > 0 || searchingLeads) && (
-                <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: '#0d1117', border: '1px solid #1e2433', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: '0 12px 32px #0009' }}>
-                  {searchingLeads && <div style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{t('common.search')}…</div>}
+                <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: 'var(--shadow-2)' }}>
+                  {searchingLeads && <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--dim)' }}>{t('common.search')}…</div>}
                   {!searchingLeads && leadResults.map(lead => (
                     <button
                       key={lead.id}
                       type="button"
                       onClick={() => { setSelectedLead(lead); setLeadDropdownOpen(false) }}
-                      style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', color: '#e2e8f0' }}
-                      onMouseEnter={event => (event.currentTarget.style.background = '#ffffff0a')}
+                      style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)' }}
+                      onMouseEnter={event => (event.currentTarget.style.background = 'var(--surface-hover)')}
                       onMouseLeave={event => (event.currentTarget.style.background = 'none')}
                     >
                       <strong style={{ fontSize: 12.5 }}>{lead.name}</strong>
-                      <span style={{ fontSize: 11, color: '#6b7280' }}>{lead.company || t('modal.company')}</span>
+                      <span style={{ fontSize: 11, color: 'var(--dim)' }}>{lead.company || t('modal.company')}</span>
                     </button>
                   ))}
                   {!searchingLeads && !leadResults.length && debouncedLeadQuery && (
-                    <div style={{ padding: '8px 12px', fontSize: 12, color: '#6b7280' }}>{t('common.noResults')}: "{debouncedLeadQuery}"</div>
+                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--dim)' }}>{t('common.noResults')}: "{debouncedLeadQuery}"</div>
                   )}
                 </div>
               )}
               {selectedLead && (
-                <p style={{ margin: '6px 0 0', fontSize: 11.5, color: '#34d399', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
                   <RiUserLine style={{ width: 12, height: 12 }} /> {t('modal.selectedLead')}: {selectedLead.name}
                 </p>
               )}

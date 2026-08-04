@@ -207,7 +207,7 @@ export default function LoginPage() {
               onChange={event => { setEmail(event.target.value); if (error) setError('') }}
               onFocus={() => setFocused('email')}
               onBlur={() => setFocused(null)}
-              placeholder="tu@empresa.com"
+              placeholder={t('auth.emailPlaceholder')}
               autoComplete="email"
               focused={focused === 'email'}
               describedBy={error ? errorId : undefined}
@@ -256,7 +256,7 @@ export default function LoginPage() {
                   type="email"
                   value={recoveryEmail}
                   onChange={event => setRecoveryEmail(event.target.value)}
-                  placeholder="tu@empresa.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   autoComplete="email"
                   aria-describedby={recoveryDescriptionId}
                   style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '8px 10px', border: '1px solid #b6c4ee', borderRadius: 8, color: '#14233d', background: '#fff', font: 'inherit' }}
