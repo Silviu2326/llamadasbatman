@@ -186,7 +186,7 @@ async function enhanceWithClaude(input: AdsStrategyInput, fallback: AdsStrategy)
 
   const model = process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6'
   const prompt = `
-Eres el estratega de adquisición de VozIA. Devuelve únicamente JSON válido, sin markdown.
+Eres el estratega de adquisición de Vendrava. Devuelve únicamente JSON válido, sin markdown.
 Analiza este brief de Meta Ads:
 - vertical: ${input.vertical}
 - objetivo: ${input.objetivo}

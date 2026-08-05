@@ -24,7 +24,7 @@ export function defaultAgentConfig(): AgentConfig {
     agentType: 'sales',
     callDirection: 'both',
     identity: { agentName: 'Alex', agentGender: 'neutral', agentAccent: 'es' },
-    product: { companyName: 'Vozia', productName: 'Asistente IA', targetVertical: 'general', priceMonthly: 0, currency: 'EUR', currencySymbol: '€', marketCountry: 'ES' },
+    product: { companyName: 'Vendrava', productName: 'Asistente IA', targetVertical: 'general', priceMonthly: 0, currency: 'EUR', currencySymbol: '€', marketCountry: 'ES' },
     playbook: { strategy: 'free_value_first', scripts: {} },
     compliance: { disclosureText: 'Esta llamada es con un asistente de IA', disclosureAi: true, timezone: 'America/Mexico_City', callHourStart: parseInt(process.env.CALL_HOUR_START ?? '9'), callHourEnd: parseInt(process.env.CALL_HOUR_END ?? '20') },
     voice: { twilioFromNumber: process.env.TWILIO_FROM_NUMBER, elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID },

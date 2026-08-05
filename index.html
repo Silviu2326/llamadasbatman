@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VozIA</title>
+    <title>Vendrava</title>
     <script>
       // Resuelve el tema antes del primer pintado para que no haya flash.
       // Sin preferencia guardada => sigue al sistema operativo.
       (function () {
         var mq = window.matchMedia('(prefers-color-scheme: light)')
         var apply = function () {
-          var saved = localStorage.getItem('vozia:theme')
+          var saved = localStorage.getItem('vendrava:theme')
           document.documentElement.dataset.theme =
             saved === 'dark' || saved === 'light' ? saved : mq.matches ? 'light' : 'dark'
         }

@@ -8,7 +8,7 @@ interface LoginBody {
   password: string
 }
 
-const REFRESH_COOKIE = 'vozia_refresh'
+const REFRESH_COOKIE = 'vendrava_refresh'
 
 function readCookie(request: FastifyRequest, name: string) {
   const raw = request.headers.cookie

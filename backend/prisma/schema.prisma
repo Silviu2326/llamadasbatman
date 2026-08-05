@@ -203,6 +203,65 @@ model Organization {
   salesSequenceEnrollments   SalesSequenceEnrollment[]
   salesSequenceStepRuns      SalesSequenceStepRun[]
   integrationCredentials     OrganizationIntegrationCredential[]
+  seoReports                 SeoReport[]
+  seoProjects                SeoProject[]
+  seoKeywordRanks            SeoKeywordRank[]
+}
+
+// Informe SEO (página /seo): un registro por análisis, manual (auto=false) o
+// del refresco semanal del worker (auto=true). El informe completo vive en
+// `report` (JSON) — el score se duplica como columna para poder graficar la
+// evolución sin deserializar cada informe.
+model SeoReport {
+  id         String   @id @default(cuid())
+  orgId      String
+  url        String
+  score      Int
+  auto       Boolean  @default(false)
+  report     Json
+  // Token opaco para el enlace público de solo lectura del informe.
+  shareToken String?  @unique
+  createdAt  DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, url, createdAt])
+}
+
+// Proyecto SEO: el contexto persistente de cada web vigilada (una org puede
+// llevar varias — caso agencia). El refresco diario del worker itera sobre
+// estos proyectos con su sector/ciudad y vigila también a sus competidores.
+model SeoProject {
+  id          String   @id @default(cuid())
+  orgId       String
+  url         String
+  business    String?
+  sector      String?
+  city        String?
+  competitors String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, url])
+}
+
+// Foto semanal de posición por keyword del plan (fuente: Search Console).
+// Serie temporal simple — una fila por keyword y captura.
+model SeoKeywordRank {
+  id          String   @id @default(cuid())
+  orgId       String
+  url         String
+  keyword     String
+  position    Float?
+  clicks      Int      @default(0)
+  impressions Int      @default(0)
+  capturedAt  DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, url, keyword, capturedAt])
 }
 
 model User {
@@ -1217,7 +1276,12 @@ model KnowledgeBase {
   content   String?
   fileUrl   String?
   isActive  Boolean  @default(true)
+  // Publicación en el blog público de una landing (solo artículos SEO):
+  // slug de la URL pública y fecha de publicación. Null = borrador interno.
+  slug        String?
+  publishedAt DateTime?
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   org       Organization        @relation(fields: [orgId], references: [id])
   favorites KnowledgeFavorite[]

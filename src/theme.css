@@ -5,7 +5,7 @@
    El tema se resuelve en JS antes del primer pintado (script inline en
    index.html) y queda en <html data-theme="dark|light">. Por defecto sigue al
    sistema operativo; el usuario puede forzarlo desde el sidebar y se guarda en
-   localStorage('vozia:theme').
+   localStorage('vendrava:theme').
 
    ponytail: no hay @media(prefers-color-scheme) en CSS porque el atributo ya
    está siempre puesto — una sola fuente de verdad en vez de dos.

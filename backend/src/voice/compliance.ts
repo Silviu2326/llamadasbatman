@@ -129,7 +129,7 @@ export function openingGreeting(options: {
   recordingConsentPending?: boolean
 } = {}): string {
   const name = options.agentName?.trim() || 'Alex'
-  const company = options.companyName?.trim() || 'VozIA'
+  const company = options.companyName?.trim() || 'Vendrava'
   const lang = options.lang || 'es'
   let greeting = isEnglish(lang)
     ? `Hi, good day. This is ${name}${company ? `, from ${company}` : ''}. Is the person in charge available for a moment?`

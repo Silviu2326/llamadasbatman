@@ -364,7 +364,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
 
         <div className="email-tools-section">
           <div><span className="email-eyebrow">4. Remitente</span></div>
-          <label className="email-field"><span>Remitente</span><input value={form.sender} onChange={e => setForm(prev => ({ ...prev, sender: e.target.value }))} placeholder="Equipo VozIA <hola@tuempresa.com>" /></label>
+          <label className="email-field"><span>Remitente</span><input value={form.sender} onChange={e => setForm(prev => ({ ...prev, sender: e.target.value }))} placeholder="Equipo Vendrava <hola@tuempresa.com>" /></label>
           <label className="email-field"><span>Responder a (opcional)</span><input value={form.replyTo} onChange={e => setForm(prev => ({ ...prev, replyTo: e.target.value }))} placeholder="soporte@tuempresa.com" /></label>
         </div>
 

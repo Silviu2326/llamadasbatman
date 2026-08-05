@@ -122,9 +122,9 @@ function publishQueueMetrics(queues: Awaited<ReturnType<typeof queueSnapshot>>) 
     setQueueGauge(queue, 'expired_leases', stats.expiredLeases)
     setQueueGauge(queue, 'oldest_pending_age_seconds', stats.oldestPendingAgeSeconds)
   }
-  setGaugeMetric('vozia_scheduler_pending', {}, queues.scheduledTriggers.pending ?? 0)
-  setGaugeMetric('vozia_scheduler_overdue', {}, queues.scheduledTriggers.overdue ?? 0)
-  setGaugeMetric('vozia_database_queries_available', {}, queues.databaseQueriesAvailable ? 1 : 0)
+  setGaugeMetric('vendrava_scheduler_pending', {}, queues.scheduledTriggers.pending ?? 0)
+  setGaugeMetric('vendrava_scheduler_overdue', {}, queues.scheduledTriggers.overdue ?? 0)
+  setGaugeMetric('vendrava_database_queries_available', {}, queues.databaseQueriesAvailable ? 1 : 0)
 }
 
 export type WorkerHealth = {

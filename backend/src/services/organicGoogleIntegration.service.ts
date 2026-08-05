@@ -658,6 +658,50 @@ function safeNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+/**
+ * Consulta puntual a la API de Search Console sin persistir nada. La usa la
+ * página SEO para análisis que necesitan otras dimensiones (query+page) y no
+ * justifican duplicar el pipeline de sincronización de OrganicOpportunity.
+ */
+export async function querySearchAnalytics(orgId: string, input: {
+  startDate: string
+  endDate: string
+  dimensions: string[]
+  rowLimit?: number
+}): Promise<Array<{ keys: string[]; clicks: number; impressions: number; position: number | null }>> {
+  const provider: OrganicGoogleProvider = 'search_console'
+  const { integration } = await integrationForOrg(orgId, provider)
+  if (integration.status !== 'connected' || !integration.externalPropertyId) {
+    throw new OrganicGoogleIntegrationError('resource_required', 'Configura una propiedad de Search Console antes de consultar', 409)
+  }
+  const accessToken = await getAccessToken(orgId, provider)
+  const data = await googlePost(
+    `${SEARCH_CONSOLE_API}/sites/${encodeURIComponent(integration.externalPropertyId)}/searchAnalytics/query`,
+    accessToken,
+    {
+      startDate: input.startDate,
+      endDate: input.endDate,
+      dimensions: input.dimensions,
+      type: 'web',
+      rowLimit: Math.min(Math.max(input.rowLimit ?? 5_000, 1), 25_000),
+      dataState: 'all',
+    },
+  )
+  const rows = Array.isArray(data.rows) ? data.rows : []
+  return rows.flatMap((row) => {
+    if (!row || typeof row !== 'object') return []
+    const value = row as Record<string, unknown>
+    const keys = Array.isArray(value.keys) ? value.keys.filter((k): k is string => typeof k === 'string') : []
+    if (!keys.length) return []
+    return [{
+      keys,
+      clicks: safeNumber(value.clicks) ?? 0,
+      impressions: safeNumber(value.impressions) ?? 0,
+      position: safeNumber(value.position),
+    }]
+  })
+}
+
 export async function syncSearchConsoleQueries(orgId: string, userId: string, input: SearchConsoleSyncInput) {
   const provider: OrganicGoogleProvider = 'search_console'
   const { project, integration } = await integrationForOrg(orgId, provider)

@@ -10,6 +10,7 @@ interface LandingAssets {
   adCopy?: string
   landingTemplateId?: string
   imageUrl?: string
+  seo?: { title?: string; metaDescription?: string }
 }
 
 export interface LandingTrackingBody {
@@ -200,6 +201,7 @@ export async function getLanding(
     adCopy: assets.adCopy ?? '',
     landingTemplateId: assets.landingTemplateId ?? 'generic-v1',
     imageUrl: assets.imageUrl ?? '',
+    seo: assets.seo ?? null,
   })
 }
 

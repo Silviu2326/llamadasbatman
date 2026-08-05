@@ -81,7 +81,7 @@ const ROLE_ALIASES = {
 
 const ROLE_FALLBACK_PERMISSIONS = {
   owner: [...READ_PERMISSIONS, 'leads.write', 'costs.request'],
-  admin: [...BUSINESS_READ, 'organic.read', 'organization.read', 'integrations.read', 'access_control.read', 'playbooks.manage_global'],
+  admin: [...READ_PERMISSIONS, 'leads.write', 'costs.request'],
   revenue_ops: [...BUSINESS_READ, 'organic.read', 'organization.read', 'integrations.read', 'access_control.read', 'leads.write', 'costs.request'],
   sales_manager: [
     'dashboard.read', 'leads.read', 'accounts.read', 'calls.read', 'conversations.read',
@@ -117,6 +117,8 @@ const NAVIGATION_REQUIREMENTS = {
   '/dashboard': ['dashboard.read'],
   '/campanas': ['campaigns.read'],
   '/organic': ['organic.read'],
+  // El análisis SEO lanza un LLM: misma barrera de coste que /prospectos.
+  '/seo': ['campaigns.read', 'costs.request'],
   '/ads': ['ads.read'],
   '/redes-sociales': ['social.read'],
   // Prospect search/import is a paid operation and has no separate read
@@ -196,10 +198,14 @@ function explicitPermissions(user) {
 
 export function getEffectiveNavigationPermissions(user) {
   const explicit = explicitPermissions(user)
-  if (explicit) return explicit
-
   const role = normalizeRole(user?.role || user?.roleKey || user?.access?.role)
-  return new Set(ROLE_FALLBACK_PERMISSIONS[role] || [])
+  const fallback = ROLE_FALLBACK_PERMISSIONS[role] || []
+  if (!explicit) return new Set(fallback)
+
+  // Owner/admin siempre ven la navegación completa aunque el backend devuelva
+  // una lista de permisos parcial; la API sigue autorizando cada llamada.
+  if (role === 'owner' || role === 'admin') fallback.forEach(permission => explicit.add(permission))
+  return explicit
 }
 
 export function hasNavigationPermission(user, requirement) {

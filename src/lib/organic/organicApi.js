@@ -135,13 +135,11 @@ export async function fetchOrganicIntegrations() {
   }
 }
 
-export function startOrganicOAuth(provider, payload = {}) {
-  void payload
+export function startOrganicOAuth(provider) {
   return requestJson(`/api/organic/integrations/${encodeURIComponent(provider)}/oauth/start-url`)
 }
 
-export function disconnectOrganicIntegration(provider, payload = {}) {
-  void payload
+export function disconnectOrganicIntegration(provider) {
   return requestJson(`/api/organic/integrations/${encodeURIComponent(provider)}`, { method: 'DELETE' })
 }
 

@@ -4,7 +4,7 @@ import '../sidebar.css'
 import {
   RiDashboard3Fill, RiPhoneLine, RiGroupLine, RiMessage3Line,
   RiRobot2Line, RiShoppingCart2Line, RiCalendarLine, RiBook2Line,
-  RiBarChartLine, RiFlowChart, RiBookReadLine, RiSettings4Line,
+  RiBarChartLine, RiFlowChart, RiBookReadLine, RiSettings4Line, RiLineChartLine,
   RiLogoutBoxLine, RiMicLine, RiCompass3Line, RiShareForwardLine, RiMailLine, RiGlobalLine, RiLeafLine, RiSparkling2Line,
 } from 'react-icons/ri'
 import { HiChevronDown } from 'react-icons/hi'
@@ -18,7 +18,7 @@ import { useI18n } from '../i18n'
 
 const NAV_LABEL_KEYS = {
   dashboard: 'nav.dashboard', objectives: 'nav.objectives', campaigns: 'nav.campaigns', ads: 'nav.ads', social: 'nav.social',
-  'prospect-finder': 'nav.prospectFinder', landings: 'nav.landings', funnels: 'nav.funnels', organic: 'nav.organicLeads', inbox: 'nav.inbox',
+  'prospect-finder': 'nav.prospectFinder', landings: 'nav.landings', funnels: 'nav.funnels', organic: 'nav.organicLeads', seo: 'nav.seo', inbox: 'nav.inbox',
   calls: 'nav.calls', agents: 'nav.agents', playbooks: 'nav.playbooks', 'voice-test': 'nav.voiceTest', email: 'nav.emailMarketing',
   automations: 'nav.automations', growth: 'nav.growthHub', leads: 'nav.leads', pipeline: 'nav.pipeline', meetings: 'nav.meetings',
   'revenue-intelligence': 'nav.revenueIntelligence', insights: 'nav.insights', knowledge: 'nav.knowledgeBase', settings: 'nav.settings',
@@ -52,6 +52,7 @@ const SECTIONS = [
       { icon: RiGlobalLine,       label: 'Landings y webs', color: 'var(--cyan)', to: '/landings', moduleId: 'landings' },
       { icon: RiFlowChart,        label: 'Funnels',         color: 'var(--violet)', to: '/funnels', moduleId: 'funnels' },
       { icon: RiLeafLine,         label: 'Captación orgánica',   color: 'var(--lime)', to: '/organic', moduleId: 'organic' },
+      { icon: RiLineChartLine,    label: 'SEO',             color: 'var(--success)', to: '/seo', moduleId: 'seo' },
     ],
   },
   {
@@ -105,7 +106,7 @@ const SECTIONS = [
   },
 ]
 
-const STORAGE_KEY = 'vozia_sidebar_collapsed:v1'
+const STORAGE_KEY = 'vendrava_sidebar_collapsed:v1'
 
 // Iconos generados con Magnific (gpt-2), estilo mono-línea con acento índigo→violeta.
 // Cada slug existe en /assets/sidebar-icons/light/ y /dark/ con el mismo glifo.
@@ -277,12 +278,12 @@ export default function Sidebar({ isOpen }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img
             src="/logo.png"
-            alt="VozIA"
+            alt="Vendrava"
             className="logo-spin-hover"
             style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, cursor: 'pointer', boxShadow: '0 0 22px #6366f155' }}
           />
           <div>
-            <p style={styles.logoText}>VozIA</p>
+            <p style={styles.logoText}>Vendrava</p>
             <p style={styles.logoSub}>AI Voice Revenue Platform</p>
           </div>
         </div>

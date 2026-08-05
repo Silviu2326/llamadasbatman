@@ -38,7 +38,7 @@ const TYPE_CFG = {
 const DEFAULT_CFG = TYPE_CFG['document']
 
 const DEMO_RAW = [
-  { id: 'demo-producto', name: 'Cómo funciona VozIA para equipos comerciales', type: 'Producto', content: 'Resumen del producto, casos de uso y el valor que aporta a equipos comerciales.', createdAt: '2026-07-10T09:20:00.000Z' },
+  { id: 'demo-producto', name: 'Cómo funciona Vendrava para equipos comerciales', type: 'Producto', content: 'Resumen del producto, casos de uso y el valor que aporta a equipos comerciales.', createdAt: '2026-07-10T09:20:00.000Z' },
   { id: 'demo-objeciones', name: 'Guía para responder objeciones de precio', type: 'Objeciones comunes', content: 'Respuestas claras para hablar de inversión, retorno y próximos pasos sin perder contexto.', createdAt: '2026-07-09T14:05:00.000Z' },
   { id: 'demo-integraciones', name: 'Integraciones disponibles y requisitos', type: 'Integraciones', content: 'Conecta tu CRM, calendario y canales de comunicación para mantener toda la operación sincronizada.', createdAt: '2026-07-08T11:40:00.000Z' },
   { id: 'demo-servicios', name: 'Servicios incluidos en cada plan', type: 'Servicios', content: 'Qué incluye cada nivel de servicio, tiempos de respuesta y soporte para el equipo.', createdAt: '2026-07-07T10:15:00.000Z' },

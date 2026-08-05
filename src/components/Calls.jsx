@@ -209,7 +209,7 @@ export default function CallsPage() {
 
   const exportCalls = () => {
     const csv = ['Contacto,Empresa,Resultado,Duración,Sentimiento,Agente', ...viewedCalls.map(call => [call.name, call.company, call.status, call.dur, call.score, call.agent].map(value => `"${String(value).replaceAll('"', '""')}"`).join(','))].join('\n')
-    const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); link.download = 'llamadas-vozia.csv'; link.click(); URL.revokeObjectURL(link.href)
+    const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); link.download = 'llamadas-vendrava.csv'; link.click(); URL.revokeObjectURL(link.href)
   }
 
   const toggleSelection = id => setSelectedIds(ids => ids.includes(id) ? ids.filter(value => value !== id) : [...ids, id])

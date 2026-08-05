@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const KEY = 'vozia:theme'
+const KEY = 'vendrava:theme'
 
 /** Tema activo ('dark' | 'light') y setter. `null` = seguir al sistema.
  *  El valor inicial ya lo puso el script inline de index.html antes de pintar. */

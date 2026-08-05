@@ -45,7 +45,7 @@ function Sparkline({ data, color }) {
   )
 }
 
-export default function KPICard({ Icon, image, iconBg, label, value, pct, color, data, delay = '0ms', compact = false, large = false }) {
+export default function KPICard({ Icon, image, iconBg, label, value, pct, color, data, delay = '0ms', compact = false, large = false, onClick }) {
   const { locale } = useI18n()
   const [hov, setHov] = useState(false)
   const C = compact
@@ -58,6 +58,10 @@ export default function KPICard({ Icon, image, iconBg, label, value, pct, color,
       aria-label={`${cleanLabel}: ${value}`}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
       style={{
         flex: '1 1 0', minWidth: 0,
         display: 'flex', flexDirection: 'column',
@@ -65,7 +69,7 @@ export default function KPICard({ Icon, image, iconBg, label, value, pct, color,
         borderWidth: 1, borderStyle: 'solid',
         borderColor: hov ? tint(iconBg, 44) : 'var(--line)',
         borderRadius: 14, overflow: 'hidden',
-        animationDelay: delay, cursor: 'default',
+        animationDelay: delay, cursor: onClick ? 'pointer' : 'default',
         '--kpi-accent': color,
         boxShadow: hov ? `0 0 32px ${tint(iconBg, 15)}` : 'none',
         transition: 'all .25s ease',
@@ -98,7 +102,7 @@ export default function KPICard({ Icon, image, iconBg, label, value, pct, color,
               : <HiArrowDown style={{ width: C ? 10 : L ? 11 : 10, height: C ? 10 : L ? 11 : 10, color: 'var(--danger-soft)', flexShrink: 0 }} />
             }
             <span style={{ fontSize: C ? 9 : L ? 11 : 10, color: pct >= 0 ? 'var(--success-soft)' : 'var(--danger-soft)', fontWeight: 700 }}>{Math.abs(pct)}%</span>
-            {!C && <span style={{ fontSize: L ? 10 : 9, color: 'var(--muted)' }}>{locale === 'en' ? 'vs. previous week' : 'vs. semana anterior'}</span>}
+            {!C && <span style={{ fontSize: L ? 10 : 9, color: 'var(--muted)' }}>{locale === 'en' ? 'vs. previous period' : 'vs. periodo anterior'}</span>}
           </div>
         )}
         {isRevenue && !C && <span className="kpi-card-context">{locale === 'en' ? 'team-attributed closes' : 'cierres atribuidos al equipo'}</span>}

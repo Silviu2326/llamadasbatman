@@ -103,16 +103,23 @@ export function ExperienceProvider({ children, initialPreferences }) {
     }))
   }, [])
 
+  // Owner/admin ven toda la plataforma: sin recorte por modo de experiencia ni plan.
+  const isPrivilegedUser = ['owner', 'admin', 'administrator', 'administrador', 'propietario'].includes(
+    String(auth?.user?.role || auth?.user?.roleKey || '').trim().toLowerCase()
+  )
+
   const isModuleAvailable = useCallback(moduleId => (
-    isModuleAvailableForPlan(moduleId, preferences.plan)
-  ), [preferences.plan])
+    isPrivilegedUser ? Boolean(MODULE_BY_ID[moduleId]) : isModuleAvailableForPlan(moduleId, preferences.plan)
+  ), [isPrivilegedUser, preferences.plan])
 
   const isModuleVisible = useCallback((moduleId, options = {}) => {
     const { isActive = false } = options
     const module = moduleId && moduleId !== 'unknown'
       ? moduleId
       : null
-    if (!module || !isModuleAvailableForPlan(module, preferences.plan)) return false
+    if (!module) return false
+    if (isPrivilegedUser) return Boolean(MODULE_BY_ID[module])
+    if (!isModuleAvailableForPlan(module, preferences.plan)) return false
     if (isActive) return true
     if (preferences.experienceMode === EXPERIENCE_MODES.ADVANCED) return true
 
@@ -121,7 +128,7 @@ export function ExperienceProvider({ children, initialPreferences }) {
     }
 
     return module === 'dashboard' || preferences.recommendedModules.includes(module)
-  }, [preferences.experienceMode, preferences.plan, preferences.recommendedModules])
+  }, [isPrivilegedUser, preferences.experienceMode, preferences.plan, preferences.recommendedModules])
 
   const value = useMemo(() => ({
     providerAvailable: true,

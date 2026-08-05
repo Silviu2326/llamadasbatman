@@ -32,7 +32,7 @@ function safeLabel(value: unknown): string {
 }
 
 function safeMetricName(value: string): string {
-  return value.replace(/[^A-Za-z0-9_:]/g, '_').replace(/^[^A-Za-z_:]+/, '_').slice(0, 120) || 'vozia_unknown_total'
+  return value.replace(/[^A-Za-z0-9_:]/g, '_').replace(/^[^A-Za-z_:]+/, '_').slice(0, 120) || 'vendrava_unknown_total'
 }
 
 function normalizeLabels(labels: MetricLabels): Record<string, string> {
@@ -99,9 +99,9 @@ export function recordHttpRequest(input: {
 }): void {
   const statusFamily = `${Math.floor(input.statusCode / 100)}xx`
   const labels = { method: input.method.toUpperCase(), route: input.route, status_family: statusFamily }
-  incrementMetric('vozia_http_requests_total', labels)
-  recordHistogram('vozia_http_request_duration_ms', { method: input.method.toUpperCase(), route: input.route }, input.durationMs)
-  if (input.statusCode >= 500) incrementMetric('vozia_http_errors_total', labels)
+  incrementMetric('vendrava_http_requests_total', labels)
+  recordHistogram('vendrava_http_request_duration_ms', { method: input.method.toUpperCase(), route: input.route }, input.durationMs)
+  if (input.statusCode >= 500) incrementMetric('vendrava_http_errors_total', labels)
 }
 
 export function recordWebhookRequest(input: {
@@ -109,7 +109,7 @@ export function recordWebhookRequest(input: {
   channel: string
   outcome: 'accepted' | 'rejected' | 'retry'
 }): void {
-  incrementMetric('vozia_webhook_requests_total', input)
+  incrementMetric('vendrava_webhook_requests_total', input)
 }
 
 export function recordWebhookLifecycle(input: {
@@ -117,19 +117,19 @@ export function recordWebhookLifecycle(input: {
   channel: string
   outcome: 'received' | 'duplicate' | 'processed' | 'failed' | 'dead_letter'
 }): void {
-  incrementMetric('vozia_webhook_events_total', input)
+  incrementMetric('vendrava_webhook_events_total', input)
 }
 
 export function recordQueueEvent(input: {
   queue: string
   outcome: 'claimed' | 'processed' | 'retry' | 'dead_letter' | 'lease_lost' | 'claim_conflict' | 'tick_error'
 }): void {
-  incrementMetric('vozia_queue_events_total', input)
+  incrementMetric('vendrava_queue_events_total', input)
 }
 
 export function setQueueGauge(queue: string, metric: string, value: number | null): void {
   if (value === null) return
-  setGaugeMetric(`vozia_queue_${metric}`, { queue }, value)
+  setGaugeMetric(`vendrava_queue_${metric}`, { queue }, value)
 }
 
 export function webhookIdentity(path: string): { provider: string; channel: string } | null {
@@ -164,9 +164,9 @@ function renderLabels(labels: Record<string, string>): string {
 
 export function renderPrometheus(snapshot = snapshotMetrics()): string {
   const lines = [
-    '# HELP vozia_process_uptime_seconds Process uptime in seconds.',
-    '# TYPE vozia_process_uptime_seconds gauge',
-    `vozia_process_uptime_seconds ${snapshot.uptimeSeconds}`,
+    '# HELP vendrava_process_uptime_seconds Process uptime in seconds.',
+    '# TYPE vendrava_process_uptime_seconds gauge',
+    `vendrava_process_uptime_seconds ${snapshot.uptimeSeconds}`,
   ]
   const typed = new Set<string>()
   for (const counter of snapshot.counters) {

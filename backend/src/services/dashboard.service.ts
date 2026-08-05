@@ -10,9 +10,9 @@ const formatDuration = (seconds: number | null | undefined) => {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
 }
 
-export async function getStats(orgId: string) {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+export async function getStats(orgId: string, days = 7) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  const prevSince = new Date(Date.now() - 2 * days * 24 * 60 * 60 * 1000)
 
   const [
     totalCalls, totalLeads, meetingsScheduled, activeCampaigns,
@@ -24,6 +24,7 @@ export async function getStats(orgId: string) {
     callsByCampGroups, recentOpps, sentimentGroups,
     recentContactedLeads, recentConvertedLeads,
     adSpendAgg, callDurationAgg,
+    contactedPrevCount, convertedPrevCount,
   ] = await Promise.all([
     prisma.call.count({ where: { orgId } }),
     prisma.lead.count({ where: { orgId } }),
@@ -32,8 +33,8 @@ export async function getStats(orgId: string) {
     prisma.campaign.aggregate({ where: { orgId }, _sum: { totalLeads: true, meetingsScheduled: true } }),
     prisma.opportunity.aggregate({ where: { orgId }, _sum: { value: true } }),
     prisma.lead.groupBy({ by: ['status'], where: { orgId }, _count: { id: true } }),
-    prisma.call.findMany({ where: { orgId, createdAt: { gte: sevenDaysAgo } }, select: { createdAt: true } }),
-    prisma.meeting.findMany({ where: { orgId, createdAt: { gte: sevenDaysAgo } }, select: { createdAt: true } }),
+    prisma.call.findMany({ where: { orgId, createdAt: { gte: since } }, select: { createdAt: true } }),
+    prisma.meeting.findMany({ where: { orgId, createdAt: { gte: since } }, select: { createdAt: true } }),
     prisma.call.groupBy({
       by: ['agentId'],
       where: { orgId, agentId: { not: null } },
@@ -41,14 +42,14 @@ export async function getStats(orgId: string) {
       orderBy: { _count: { id: 'desc' } },
       take: 5,
     }),
-    // week-over-week prev window
-    prisma.call.count({ where: { orgId, createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } } }),
-    prisma.lead.count({ where: { orgId, createdAt: { gte: sevenDaysAgo } } }),
-    prisma.lead.count({ where: { orgId, createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } } }),
-    prisma.meeting.count({ where: { orgId, createdAt: { gte: sevenDaysAgo } } }),
-    prisma.meeting.count({ where: { orgId, createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } } }),
-    prisma.opportunity.aggregate({ where: { orgId, createdAt: { gte: sevenDaysAgo } }, _sum: { value: true } }),
-    prisma.opportunity.aggregate({ where: { orgId, createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } }, _sum: { value: true } }),
+    // ventana anterior del mismo tamaño, para los deltas
+    prisma.call.count({ where: { orgId, createdAt: { gte: prevSince, lt: since } } }),
+    prisma.lead.count({ where: { orgId, createdAt: { gte: since } } }),
+    prisma.lead.count({ where: { orgId, createdAt: { gte: prevSince, lt: since } } }),
+    prisma.meeting.count({ where: { orgId, createdAt: { gte: since } } }),
+    prisma.meeting.count({ where: { orgId, createdAt: { gte: prevSince, lt: since } } }),
+    prisma.opportunity.aggregate({ where: { orgId, createdAt: { gte: since } }, _sum: { value: true } }),
+    prisma.opportunity.aggregate({ where: { orgId, createdAt: { gte: prevSince, lt: since } }, _sum: { value: true } }),
     prisma.opportunity.aggregate({ where: { orgId, stage: 'closed_won' }, _sum: { value: true } }),
     prisma.call.groupBy({
       by: ['campaignId'],
@@ -58,7 +59,7 @@ export async function getStats(orgId: string) {
       take: 5,
     }),
     prisma.opportunity.findMany({
-      where: { orgId, createdAt: { gte: sevenDaysAgo } },
+      where: { orgId, createdAt: { gte: since } },
       select: { createdAt: true, value: true },
     }),
     prisma.call.groupBy({
@@ -67,17 +68,20 @@ export async function getStats(orgId: string) {
       _count: { id: true },
     }),
     prisma.lead.findMany({
-      where: { orgId, status: 'contacted', createdAt: { gte: sevenDaysAgo } },
+      where: { orgId, status: 'contacted', createdAt: { gte: since } },
       select: { createdAt: true },
     }),
     prisma.lead.findMany({
-      where: { orgId, status: 'converted', createdAt: { gte: sevenDaysAgo } },
+      where: { orgId, status: 'converted', createdAt: { gte: since } },
       select: { createdAt: true },
     }),
     // Mismo periodo (sin filtro de fecha) que closedWonAgg, para calcular el ROI real
     prisma.adInsightSnapshot.aggregate({ where: { orgId }, _sum: { spendCents: true } }),
     // Solo llamadas con duracion registrada: las no contestadas falsearian la media.
     prisma.call.aggregate({ where: { orgId, durationSeconds: { not: null } }, _avg: { durationSeconds: true } }),
+    // Ventana anterior para el delta de conversión
+    prisma.lead.count({ where: { orgId, status: 'contacted', createdAt: { gte: prevSince, lt: since } } }),
+    prisma.lead.count({ where: { orgId, status: 'converted', createdAt: { gte: prevSince, lt: since } } }),
   ])
 
   const totalLeadsSum = conversionAgg._sum.totalLeads ?? 0
@@ -91,20 +95,23 @@ export async function getStats(orgId: string) {
   const pipelinePrevVal = pipelinePrev._sum.value ? Number(pipelinePrev._sum.value) : 0
   const callsThisWeek = recentCalls.length
 
+  const convRateNow = recentContactedLeads.length > 0 ? recentConvertedLeads.length / recentContactedLeads.length * 100 : 0
+  const convRatePrev = contactedPrevCount > 0 ? convertedPrevCount / contactedPrevCount * 100 : 0
   const kpiPcts = {
     calls: pct(callsThisWeek, callsPrev),
     leads: pct(leadsThisWeek, leadsPrev),
     meetings: pct(meetingsThisWeek, meetingsPrev),
     pipeline: pct(pipelineThisWeekVal, pipelinePrevVal),
+    conversion: pct(convRateNow, convRatePrev),
   }
 
-  // Last 7 days time series
-  const days: string[] = []
-  for (let i = 6; i >= 0; i--) {
+  // Serie temporal del periodo pedido
+  const dayKeys: string[] = []
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
-    days.push(d.toISOString().slice(0, 10))
+    dayKeys.push(d.toISOString().slice(0, 10))
   }
-  const timeSeries = days.map(day => {
+  const timeSeries = dayKeys.map(day => {
     const dayStr = day
     const llamadas = recentCalls.filter(c => c.createdAt.toISOString().slice(0, 10) === dayStr).length
     const reuniones = recentMeetings.filter(m => m.createdAt.toISOString().slice(0, 10) === dayStr).length
@@ -159,8 +166,8 @@ export async function getStats(orgId: string) {
     }))
   }
 
-  // Pipeline value by day (last 7 days)
-  const pipelineByDay = days.map(day => ({
+  // Valor de pipeline por día del periodo
+  const pipelineByDay = dayKeys.map(day => ({
     date: day.slice(5).replace('-', '/'),
     value: recentOpps
       .filter(o => o.createdAt.toISOString().slice(0, 10) === day)

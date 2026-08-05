@@ -7,6 +7,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
 
   const canRead = { preHandler: requirePermission('dashboard.read', { scope: 'org' }) }
-  app.get('/stats', canRead, ctrl.statsHandler)
+  app.get('/stats', canRead, ctrl.statsHandler as any)
   app.get('/activity', canRead, ctrl.activity as any)
+  app.get('/live', canRead, ctrl.liveHandler)
 }

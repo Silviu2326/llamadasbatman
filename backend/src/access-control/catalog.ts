@@ -1,5 +1,5 @@
 /**
- * Catálogo RBAC estático de VozIA.
+ * Catálogo RBAC estático de Vendrava.
  *
  * Los permisos describen capacidades del servidor, no elementos de UI. El
  * alcance máximo concedido a cada rol se expresa por separado para poder

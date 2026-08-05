@@ -146,7 +146,7 @@ export default function VoiceLabPage() {
       micSource.connect(worklet)
       workletRef.current = worklet
 
-      const socket = new WebSocket(WS_URL, ['vozia', token])
+      const socket = new WebSocket(WS_URL, ['vendrava', token])
       socket.binaryType = 'arraybuffer'
       wsRef.current = socket
 

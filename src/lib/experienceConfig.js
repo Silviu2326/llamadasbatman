@@ -90,6 +90,7 @@ export const MODULES = [
   { id: 'landings', label: 'Landings & webs', group: 'captacion', basicVisible: false, minPlan: 'pro' },
   { id: 'funnels', label: 'Funnels', group: 'captacion', basicVisible: false, minPlan: 'pro' },
   { id: 'organic', label: 'Organic Leads', group: 'captacion', basicVisible: true, minPlan: 'pro' },
+  { id: 'seo', label: 'SEO', group: 'captacion', basicVisible: false, minPlan: 'pro' },
   { id: 'inbox', label: 'Inbox', group: 'conversacion', basicVisible: true, minPlan: 'pro' },
   { id: 'calls', label: 'Llamadas', group: 'conversacion', basicVisible: true, minPlan: 'pro' },
   { id: 'agents', label: 'Agentes IA', group: 'conversacion', basicVisible: false, minPlan: 'pro' },

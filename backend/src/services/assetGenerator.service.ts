@@ -48,7 +48,7 @@ export async function generateImageUrl(prompt: string): Promise<string | undefin
 /**
  * Fallback cuando el rubro no tiene AdPlaybook preparado (ver
  * META_ADS_AUTOMATION.md). Genera oferta/lead magnet/copy con el mismo LLM
- * ya configurado para VozIA (Claude). Si OPENAI_API_KEY está configurada,
+ * ya configurado para Vendrava (Claude). Si OPENAI_API_KEY está configurada,
  * también genera la imagen real a partir del prompt; si no, devuelve solo
  * imagePrompt para que se genere después.
  */

@@ -13,6 +13,7 @@ import { emitToOrg } from '../../websockets/index'
 import { ingestCall as persistCall } from '../../services/calls.service'
 import { prisma } from '../../lib/prisma'
 import type { MediaStreamClaims } from './streamAuth'
+import { registerLiveCall, unregisterLiveCall } from './liveCalls'
 import { buildVoiceRuntimeSnapshot, VoiceTrace } from '../observability/voiceTrace'
 import { TurnManager } from '../turn/turnManager'
 import { decideNextAction } from '../intelligence/salesBrain'
@@ -353,6 +354,15 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
     // With policy 'consent' the Twilio call was created without record:true;
     // the agent must obtain consent in-call before any recording starts.
     if (recordingPolicy() === 'consent') ctx.recordingConsentPending = true
+    registerLiveCall({
+      callSid: claims.callSid,
+      orgId: claims.orgId,
+      leadId: claims.leadId,
+      agentId: claims.agentId,
+      campaignId: claims.campaignId,
+      phone: claims.phone,
+      startedAt: ctx.startedAt,
+    })
 
     const systemPrompt = agentConfig?.playbook?.scripts?.base_prompt as string ?? ''
     const experiment = await resolveVoiceExperiment(ctx.orgId, ctx.leadId, ctx.campaignId).catch(error => {
@@ -407,7 +417,10 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
   connection.on('close', async () => {
     clearTimeout(startDeadline)
     if (sessionDeadline) clearTimeout(sessionDeadline)
-    if (ownsCallSid) activeCallSids.delete(claims.callSid)
+    if (ownsCallSid) {
+      activeCallSids.delete(claims.callSid)
+      unregisterLiveCall(claims.callSid)
+    }
     if (session) await session.close().catch(() => {})
 
     if (ctx) {

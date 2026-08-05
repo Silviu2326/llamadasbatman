@@ -14,7 +14,7 @@ export type WorkerHeartbeatStatus = {
 }
 
 function heartbeatConfig(role: string) {
-  const prefix = process.env.WORKER_HEARTBEAT_PREFIX?.trim() || 'vozia:worker:heartbeat'
+  const prefix = process.env.WORKER_HEARTBEAT_PREFIX?.trim() || 'vendrava:worker:heartbeat'
   const configuredKey = process.env.WORKER_HEARTBEAT_KEY?.trim()
   const key = role === DEFAULT_ROLE && configuredKey ? configuredKey : `${prefix}:${role}`
   const ttlSeconds = Math.max(15, Number(process.env.WORKER_HEARTBEAT_TTL_SECONDS ?? DEFAULT_TTL_SECONDS))

@@ -25,11 +25,6 @@ export function getChartDomain(data) {
 export const AGENT_BG = ['var(--accent-deep)','var(--cyan-deep)','var(--violet-deep)','var(--success)','var(--pink)']
 
 // Empty fallbacks: widgets must render from real backend data only.
-export const VIEW_OPTIONS_DEFAULT = {
-  day:   { label: 'Por día',    data: [] },
-  week:  { label: 'Por semana', data: [] },
-  month: { label: 'Por mes',    data: [] },
-}
 export const FUNNEL = []
 export const DONUT = []
 export const BAR_DATA = []

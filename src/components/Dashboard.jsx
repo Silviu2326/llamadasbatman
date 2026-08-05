@@ -42,6 +42,9 @@ const KPI_BASE = [
 
 const KPI_IMAGES = [callsIcon, leadsIcon, meetingsIcon, conversionIcon, pipelineIcon, revenueIcon]
 const KPI_LABEL_KEYS = ['callsMade', 'contactedLeads', 'meetingsBooked', 'conversionRate', 'pipelineGenerated', 'attributedRevenue', 'systemRoi']
+// Destino al pinchar cada tarjeta KPI; null = sin página de detalle propia.
+const KPI_ROUTES = ['/llamadas', '/leads', '/reuniones', '/campanas', '/pipeline', '/pipeline', null]
+const PERIOD_OPTIONS = [7, 30, 90]
 
 const MOCK_STATS = {
   totalCalls: 1248, totalLeads: 386, meetingsScheduled: 74, conversionRate: 18.6,
@@ -104,6 +107,7 @@ export default function Dashboard() {
   const [dataError, setDataError] = useState('')
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
+  const [period, setPeriod] = useState(7)
   const [isEditMode, setIsEditMode] = useState(false)
   const [gridWidth, setGridWidth] = useState(0)
   const gridRef = useRef(null)
@@ -123,7 +127,7 @@ export default function Dashboard() {
     setLoading(true)
     setDataSource('loading')
     setDataError('')
-    apiFetch('/api/dashboard/stats')
+    apiFetch(`/api/dashboard/stats?days=${period}`)
       .then(r => {
         if (!r.ok) throw new Error(`Error ${r.status}`)
         return r.json()
@@ -143,7 +147,7 @@ export default function Dashboard() {
           { value: String(source.totalCalls ?? 0),            pct: p.calls    ?? null, data: spark('llamadas') },
           { value: String(source.totalLeads ?? 0),            pct: p.leads    ?? null, data: spark('contactados') },
           { value: String(source.meetingsScheduled ?? 0),     pct: p.meetings ?? null, data: spark('reuniones') },
-          { value: `${source.conversionRate ?? 0}%`,          pct: null,                 data: spark('conversion') },
+          { value: `${source.conversionRate ?? 0}%`,          pct: p.conversion ?? null, data: spark('conversion') },
           { pct: p.pipeline ?? null, data: pipe.map(d => d.value ?? 0) }, // `value` se asigna justo debajo desde `source`
           { value: fmt(source.closedWonValue),                pct: null,                 data: null },
           { value: source.roi != null ? `${source.roi.toFixed(1)}x` : '—', pct: null,     data: null },
@@ -168,7 +172,7 @@ export default function Dashboard() {
         }
       })
       .finally(() => setLoading(false))
-  }, [reloadKey, locale])
+  }, [reloadKey, locale, period])
 
   const dataStatusLabel = dataSource === 'live'
     ? t('dashboard.liveData')
@@ -180,7 +184,11 @@ export default function Dashboard() {
         ? t('dashboard.syncing')
         : t('dashboard.demoActive')
 
-  const localizedKpi = kpi.map((item, index) => ({ ...item, label: t(`dashboard.${KPI_LABEL_KEYS[index] || 'callsMade'}`) }))
+  const localizedKpi = kpi.map((item, index) => ({
+    ...item,
+    label: t(`dashboard.${KPI_LABEL_KEYS[index] || 'callsMade'}`),
+    onClick: !isEditMode && KPI_ROUTES[index] ? () => navigate(KPI_ROUTES[index]) : undefined,
+  }))
 
   useLayoutEffect(() => {
     const el = gridRef.current
@@ -215,6 +223,23 @@ export default function Dashboard() {
           <p style={{ margin:'3px 0 0', fontSize:12.5, color: 'var(--dim)' }}>{t('dashboard.todaySummary')}</p>
         </div>
         <div className="dashboard-welcome-art"><img src={dashboardOrbit} alt="" /><span className={`dashboard-data-status dashboard-data-status-${dataSource}`}><i /> {dataStatusLabel}</span></div><div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+
+          <div role="group" aria-label={locale === 'en' ? 'Period' : 'Periodo'} style={{ display:'flex', background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius:9, padding:2, gap:2 }}>
+            {PERIOD_OPTIONS.map(d => (
+              <button
+                key={d}
+                onClick={() => setPeriod(d)}
+                style={{
+                  border:'none', borderRadius:7, padding:'5px 10px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                  background: period === d ? 'var(--surface)' : 'transparent',
+                  color: period === d ? 'var(--text-strong)' : 'var(--dim)',
+                  boxShadow: period === d ? 'var(--shadow-1, 0 1px 3px rgba(0,0,0,.2))' : 'none',
+                }}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
 
           <ExportDropdown
             filename="dashboard.csv"

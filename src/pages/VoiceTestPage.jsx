@@ -301,9 +301,9 @@ export default function VoiceTestPage() {
       workletRef.current = worklet
 
       // Browser WebSockets cannot send Authorization headers. The server only
-      // accepts the JWT when it is supplied after the fixed `vozia` protocol
+      // accepts the JWT when it is supplied after the fixed `vendrava` protocol
       // marker, and negotiates only that marker back (never the token itself).
-      const socket = new WebSocket(WS_URL, ['vozia', token])
+      const socket = new WebSocket(WS_URL, ['vendrava', token])
       socket.binaryType = 'arraybuffer'
       wsRef.current = socket
 

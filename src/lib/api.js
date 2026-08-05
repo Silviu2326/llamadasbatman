@@ -13,7 +13,7 @@ function jsonContentType(body) {
 function request(path, options) {
   const token = getAccessToken()
   const locale = typeof window !== 'undefined'
-    ? window.localStorage?.getItem('vozia:locale:v1') || 'es'
+    ? window.localStorage?.getItem('vendrava:locale:v1') || 'es'
     : 'es'
   return fetch(path, {
     ...options,

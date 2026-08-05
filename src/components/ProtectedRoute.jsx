@@ -81,8 +81,8 @@ export default function ProtectedRoute() {
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <img src="/logo.png" alt="VozIA" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
-            <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>VozIA</span>
+            <img src="/logo.png" alt="Vendrava" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+            <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>Vendrava</span>
           </div>
         </header>
 

@@ -32,7 +32,7 @@ import audienceConstellation from '../assets/ads/audience-constellation.png'
 import '../dashboard.css'
 import './ads-wizard.css'
 
-const DRAFT_STORAGE_KEY = 'vozia.ads.wizard.draft.v2'
+const DRAFT_STORAGE_KEY = 'vendrava.ads.wizard.draft.v2'
 
 function currencyFormatter(locale = getLocale()) {
   return new Intl.NumberFormat(localeCode(locale), { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
@@ -657,7 +657,7 @@ export default function AdsWizardPage() {
                 <span className="ads-ai-button-icon"><RiSparkling2Line /></span>
                 <span>
                   <strong>{aiStatus === 'running' ? 'Analizando tu campaña…' : aiStatus === 'ready' ? 'Regenerar estrategia con IA' : 'Generar estrategia con IA'}</strong>
-                  <small>{aiStatus === 'running' ? 'VozIA está cruzando audiencia, objetivo y presupuesto' : 'Analiza oportunidades, audiencias y proyecciones'}</small>
+                  <small>{aiStatus === 'running' ? 'Vendrava está cruzando audiencia, objetivo y presupuesto' : 'Analiza oportunidades, audiencias y proyecciones'}</small>
                 </span>
                 {aiStatus === 'running' ? <RiPulseLine className="ads-ai-spinner" /> : <RiArrowRightLine />}
               </button>

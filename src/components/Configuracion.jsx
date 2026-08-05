@@ -556,7 +556,7 @@ export default function Configuracion() {
                     <polyline points="0,18 7,4 14,32 21,8 28,26 35,12 42,22 49,18" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                   </svg>
                 </div>
-                <p style={{ margin: 0, fontSize: 9.5, color: 'var(--dim)', maxWidth: 82, lineHeight: 1.4 }}>Logo de VozIA</p>
+                <p style={{ margin: 0, fontSize: 9.5, color: 'var(--dim)', maxWidth: 82, lineHeight: 1.4 }}>Logo de Vendrava</p>
               </div>
               {/* Fields */}
               <div style={{ flex: '1 1 220px', minWidth: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(200px,100%),1fr))', gap: 14 }}>
@@ -719,11 +719,11 @@ export default function Configuracion() {
             <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Centro de ayuda</p>
             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
               {[
-                { Icon: RiGroupLine, iconBg: 'var(--success)', title: 'Soporte', sub: 'soporte@vozia.app' },
+                { Icon: RiGroupLine, iconBg: 'var(--success)', title: 'Soporte', sub: 'soporte@vendrava.app' },
               ].map((h, i, arr) => (
                 <button
                   key={i}
-                  onClick={() => { window.location.href = 'mailto:soporte@vozia.app' }}
+                  onClick={() => { window.location.href = 'mailto:soporte@vendrava.app' }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none', background: 'transparent', cursor: 'pointer', transition: 'background .15s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -794,7 +794,7 @@ export default function Configuracion() {
                 </p>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                   <button onClick={() => setShowPlanModal(false)} style={{ padding: '8px 18px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
-                  <button onClick={() => { window.location.href = 'mailto:soporte@vozia.app?subject=Cambio%20de%20plan' }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Contactar para cambiar de plan</button>
+                  <button onClick={() => { window.location.href = 'mailto:soporte@vendrava.app?subject=Cambio%20de%20plan' }} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Contactar para cambiar de plan</button>
                 </div>
               </>
             )}

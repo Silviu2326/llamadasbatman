@@ -41,7 +41,7 @@
 .organic-opportunity-copy p { max-width: 610px; margin: 0; color: var(--muted); line-height: 1.45; }
 
 .organic-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 15px; }
-.organic-kpi { position: relative; min-height: 150px; padding: 15px 17px 13px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.organic-kpi { position: relative; padding: 15px 17px 13px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .organic-kpi-head { display: flex; align-items: center; gap: 10px; color: var(--text-strong); font-size: 12px; font-weight: 750; }
 .organic-kpi-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; color: var(--accent-faint); background: var(--accent-bg); font-size: 19px; }
 .organic-kpi:nth-child(2) .organic-kpi-icon { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
@@ -49,7 +49,6 @@
 .organic-kpi:nth-child(4) .organic-kpi-icon { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
 .organic-kpi-value { display: block; margin-top: 8px; font-size: 25px; letter-spacing: -.8px; font-weight: 760; }
 .organic-kpi-copy { max-width: 250px; margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
-.organic-sparkline { position: absolute; right: 9px; bottom: 7px; left: 9px; width: calc(100% - 18px); height: 35px; opacity: .85; }
 
 .organic-integrations-panel { margin-top: 16px; }
 .organic-integrations-panel .organic-panel-header { align-items: flex-start; }
@@ -116,7 +115,6 @@
 .organic-impact { display: inline-block; margin-top: 5px; padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); font-size: 9px; font-weight: 750; }
 .organic-impact.medium { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
 .organic-action-row .organic-button { flex: 0 0 auto; min-height: 29px; padding: 0 9px; font-size: 10px; }
-.organic-panel-footer { padding: 10px 16px 14px; text-align: center; }
 
 .organic-lower-grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr .95fr; gap: 16px; margin-top: 16px; }
 .organic-small-panel { min-width: 0; overflow: hidden; }

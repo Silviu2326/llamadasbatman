@@ -139,7 +139,7 @@ function scrollToForm() {
 }
 
 function landingSessionId(slug) {
-  const key = `vozia_landing_session_${slug}`
+  const key = `vendrava_landing_session_${slug}`
   try {
     const existing = window.sessionStorage.getItem(key)
     if (existing) return existing
@@ -342,6 +342,28 @@ export default function PublicLandingPage() {
     return () => controller.abort()
   }, [preview, slug])
 
+  // SEO on-page aplicado desde la página /seo: title y meta description
+  // guardados en adAssets.seo de la campaña.
+  useEffect(() => {
+    if (!landing?.seo?.title) return undefined
+    const previousTitle = document.title
+    document.title = landing.seo.title
+    let meta = document.querySelector('meta[name="description"]')
+    const previousDescription = meta?.getAttribute('content') ?? null
+    if (landing.seo.metaDescription) {
+      if (!meta) {
+        meta = document.createElement('meta')
+        meta.setAttribute('name', 'description')
+        document.head.appendChild(meta)
+      }
+      meta.setAttribute('content', landing.seo.metaDescription)
+    }
+    return () => {
+      document.title = previousTitle
+      if (meta && previousDescription != null) meta.setAttribute('content', previousDescription)
+    }
+  }, [landing])
+
   const tracking = useMemo(() => preview ? null : buildLandingTracking(slug, searchKey), [preview, searchKey, slug])
 
   useEffect(() => {
@@ -390,8 +412,8 @@ export default function PublicLandingPage() {
       <div className="landing-noise" aria-hidden="true" />
       <header className="landing-nav">
         <a className="landing-brand" href="#top" aria-label={t('landing.backHome')}>
-          <img src="/logo.png" alt="VozIA" />
-          <span>VozIA</span>
+          <img src="/logo.png" alt="Vendrava" />
+          <span>Vendrava</span>
         </a>
         <nav className="landing-nav-links" aria-label={t('landing.landingNav')}>
           <a href="#beneficios">{t('landing.includes')}</a>

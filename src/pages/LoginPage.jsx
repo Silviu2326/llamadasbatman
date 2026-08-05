@@ -26,7 +26,7 @@ function Brand({ compact = false }) {
       <span className="login-brand__mark" aria-hidden="true">
         {[18, 28, 38, 30, 22].map((height, index) => <i key={index} style={{ '--brand-bar-height': `${height}px` }} />)}
       </span>
-      <span>VozIA</span>
+      <span>Vendrava</span>
     </div>
   )
 }
@@ -58,7 +58,7 @@ function SceneCard({ type, icon: Icon, title, detail, children }) {
 function Showcase() {
   const { t } = useI18n()
   return (
-    <section className="login-showcase" aria-label={`VozIA, ${t('auth.conversationalIntelligence').toLowerCase()}`}>
+    <section className="login-showcase" aria-label={`Vendrava, ${t('auth.conversationalIntelligence').toLowerCase()}`}>
       <div className="login-showcase__grid" aria-hidden="true" />
       <div className="login-showcase__glow login-showcase__glow--one" aria-hidden="true" />
       <div className="login-showcase__glow login-showcase__glow--two" aria-hidden="true" />
@@ -144,8 +144,8 @@ export default function LoginPage() {
   const errorId = 'login-form-error'
   const recoveryDescriptionId = 'login-recovery-description'
   const supportMailto = locale === 'en'
-    ? `mailto:soporte@vozia.app?subject=${encodeURIComponent('VozIA access recovery request')}&body=${encodeURIComponent(`Hello, I need to recover access to VozIA.\n\nAccount email: ${recoveryEmail.trim() || '[enter your email]'}\n\nThank you.`)}`
-    : `mailto:soporte@vozia.app?subject=${encodeURIComponent('Solicitud de recuperación de acceso a VozIA')}&body=${encodeURIComponent(`Hola, necesito recuperar el acceso a VozIA.\n\nCorreo de la cuenta: ${recoveryEmail.trim() || '[indica aquí tu correo]'}\n\nGracias.`)}`
+    ? `mailto:soporte@vendrava.app?subject=${encodeURIComponent('Vendrava access recovery request')}&body=${encodeURIComponent(`Hello, I need to recover access to Vendrava.\n\nAccount email: ${recoveryEmail.trim() || '[enter your email]'}\n\nThank you.`)}`
+    : `mailto:soporte@vendrava.app?subject=${encodeURIComponent('Solicitud de recuperación de acceso a Vendrava')}&body=${encodeURIComponent(`Hola, necesito recuperar el acceso a Vendrava.\n\nCorreo de la cuenta: ${recoveryEmail.trim() || '[indica aquí tu correo]'}\n\nGracias.`)}`
 
   useEffect(() => {
     if (!showRecovery) return

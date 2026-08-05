@@ -47,6 +47,8 @@ import { growthProgramsRoutes } from './routes/growthPrograms'
 import { revenueIntelligenceRoutes } from './routes/revenueIntelligence'
 import { accessControlRoutes } from './routes/accessControl'
 import { organicRoutes } from './routes/organic'
+import { seoRoutes } from './routes/seo'
+import { publicSeoRoutes } from './routes/publicSeo'
 import { actionCenterRoutes } from './routes/actionCenter'
 import { orchestrationRoutes } from './routes/orchestration'
 import { integrationHealthRoutes } from './routes/integrationHealth'
@@ -199,6 +201,8 @@ async function build() {
   await app.register(revenueIntelligenceRoutes, { prefix: '/api/revenue-intelligence' })
   await app.register(accessControlRoutes, { prefix: '/api/access-control' })
   await app.register(organicRoutes, { prefix: '/api/organic' })
+  await app.register(seoRoutes, { prefix: '/api/seo' })
+  await app.register(publicSeoRoutes, { prefix: '/api/public/seo' })
 
   app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
   await app.register(integrationHealthRoutes, { prefix: '/health' })
@@ -222,8 +226,8 @@ async function main() {
   const simWss   = new WebSocketServer({
     noServer: true,
     maxPayload: 128 * 1024,
-    // The client sends ['vozia', jwt]. Never reflect the JWT in the response.
-    handleProtocols: protocols => protocols.has('vozia') ? 'vozia' : false,
+    // The client sends ['vendrava', jwt]. Never reflect the JWT in the response.
+    handleProtocols: protocols => protocols.has('vendrava') ? 'vendrava' : false,
   })
 
   const validPrincipal = (value: unknown): value is VoiceSimulationPrincipal => {
@@ -238,7 +242,7 @@ async function main() {
     const raw = Array.isArray(header) ? header[0] : header
     if (!raw) return null
     const protocols = raw.split(',').map((value: string) => value.trim()).filter(Boolean)
-    const marker = protocols.indexOf('vozia')
+    const marker = protocols.indexOf('vendrava')
     const token = marker >= 0 ? protocols[marker + 1] : null
     return token && /^[A-Za-z0-9._-]{1,4096}$/.test(token) ? token : null
   }
@@ -283,10 +287,10 @@ async function main() {
   })
 
   initWebSockets(httpServer, token => app.jwt.verify(token))
-  console.log(`[Vozia] Server running on port ${PORT}`)
+  console.log(`[Vendrava] Server running on port ${PORT}`)
 }
 
 main().catch((err) => {
-  console.error('[Vozia] Fatal error:', err)
+  console.error('[Vendrava] Fatal error:', err)
   process.exit(1)
 })

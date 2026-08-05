@@ -995,3 +995,13 @@
   .action-center-loading-heading svg,
   .action-center-skeleton-card { animation: none; }
 }
+
+/* Widget "En directo" */
+.live-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: live-pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes live-pulse { 50% { opacity: 0.35; } }

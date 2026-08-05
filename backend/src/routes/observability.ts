@@ -69,7 +69,7 @@ export async function observabilityRoutes(app: FastifyInstance) {
     const [runtime, persisted] = await Promise.all([Promise.resolve(snapshotMetrics()), getOperationalMetrics()])
     reply.header('cache-control', 'no-store')
     reply.type('text/plain; version=0.0.4; charset=utf-8')
-    return reply.send(`${renderPrometheus(runtime)}vozia_database_available ${persisted.database === 'healthy' ? 1 : 0}\n`)
+    return reply.send(`${renderPrometheus(runtime)}vendrava_database_available ${persisted.database === 'healthy' ? 1 : 0}\n`)
   })
 
   app.get('/metrics/json', { preHandler: protectObservability }, async (_request, reply) => {

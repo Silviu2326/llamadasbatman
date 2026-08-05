@@ -43,7 +43,7 @@ test('la apertura comercial incluye disclosure, presentación y consentimiento p
   assert.ok(english.includes('record this call'))
   const spanish = openingGreeting({ lang: 'es' })
   assert.ok(spanish.includes('asistente de IA'))
-  assert.ok(spanish.includes('Soy Alex, de VozIA'))
+  assert.ok(spanish.includes('Soy Alex, de Vendrava'))
   assert.equal(spanish.includes('grabamos esta llamada'), false)
 })
 

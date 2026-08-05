@@ -13,7 +13,7 @@ import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import './landings.css'
 
-const STORAGE_KEY = 'vozia.external-webs.v1'
+const STORAGE_KEY = 'vendrava.external-webs.v1'
 
 const TEMPLATE_META = {
   'gym-trial-v1': { label: 'Fitness Boost', kind: 'Fitness', color: 'var(--pink)' },
@@ -70,7 +70,7 @@ function normalizeCampaign(campaign, index) {
     meetings,
     visits,
     updatedAt: activityDate ? new Date(activityDate).toLocaleDateString(localeCode(getLocale()), { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha',
-    updatedBy: campaign.agent?.name || 'Equipo VozIA',
+    updatedBy: campaign.agent?.name || 'Equipo Vendrava',
     image: assets.imageUrl || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
     offer: assets.offer || '',
     leadMagnet: assets.leadMagnet || '',

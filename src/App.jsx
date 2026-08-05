@@ -28,6 +28,11 @@ const OpportunityDetailPage = lazy(() => import('./pages/OpportunityDetailPage')
 const VoiceTestPage = lazy(() => import('./pages/VoiceTestPage'))
 const VoiceLabPage = lazy(() => import('./pages/VoiceLabPage'))
 const ProspectFinderPage = lazy(() => import('./pages/ProspectFinderPage'))
+const SeoPage = lazy(() => import('./pages/SeoPage'))
+const PublicSeoAuditPage = lazy(() => import('./pages/PublicSeoAuditPage'))
+const PublicSeoReportPage = lazy(() => import('./pages/PublicSeoReportPage'))
+const PublicBlogIndexPage = lazy(() => import('./pages/PublicBlogPage').then(module => ({ default: module.PublicBlogIndexPage })))
+const PublicBlogPostPage = lazy(() => import('./pages/PublicBlogPage').then(module => ({ default: module.PublicBlogPostPage })))
 const PublicLandingPage = lazy(() => import('./pages/PublicLandingPage'))
 const PublicCampaignSharePage = lazy(() => import('./pages/PublicCampaignSharePage'))
 const LandingsPage = lazy(() => import('./pages/LandingsPage'))
@@ -66,6 +71,10 @@ export default function App() {
             <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/l/:slug" element={<PublicLandingPage />} />
+          <Route path="/audita/:slug" element={<PublicSeoAuditPage />} />
+          <Route path="/seo-informe/:token" element={<PublicSeoReportPage />} />
+          <Route path="/l/:slug/blog" element={<PublicBlogIndexPage />} />
+          <Route path="/l/:slug/blog/:articleSlug" element={<PublicBlogPostPage />} />
           <Route path="/campanas/compartir/:token" element={<PublicCampaignSharePage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/terminos" element={<TermsPage />} />
@@ -99,6 +108,7 @@ export default function App() {
             <Route path="/voz/omni" element={<VoiceLabPage />} />
             <Route path="/prospectos" element={<ProspectFinderPage />} />
             <Route path="/organic" element={<OrganicLeadsPage />} />
+            <Route path="/seo" element={<SeoPage />} />
             <Route path="/captacion/conectar" element={<MetaAccountPage />} />
             <Route path="/redes-sociales" element={<ConectarRedesPage />} />
             <Route path="/email-marketing" element={<EmailMarketingPage />} />
