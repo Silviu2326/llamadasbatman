@@ -11,6 +11,11 @@ export async function runWizard(orgId: string, input: {
   presupuestoMensual: number
   audience?: string
   strategy?: Record<string, unknown>
+  // Margen por venta y porcentaje admisible para adquisicion. De aqui salen
+  // el CAC, el CPQL y el CPL objetivo (ads.md 9). Sin margen la pagina solo
+  // puede comparar campanas entre si, nunca contra lo que el negocio aguanta.
+  marginPerSaleCents?: number
+  acquisitionSharePct?: number
 }) {
   const playbook = await findByVertical(input.vertical)
 
@@ -40,6 +45,9 @@ export async function runWizard(orgId: string, input: {
       adPlaybookId: playbook?.id,
       adAssets,
       adStatus: 'draft',
+      budgetCents: Math.round(input.presupuestoMensual * 100),
+      marginPerSaleCents: input.marginPerSaleCents ?? null,
+      acquisitionSharePct: input.acquisitionSharePct ?? null,
       landingSlug: `${input.vertical}-${randomUUID().slice(0, 8)}`,
       status: 'draft',
     },

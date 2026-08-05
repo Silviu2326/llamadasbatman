@@ -14,22 +14,22 @@ import { HiChevronLeft, HiChevronRight } from 'react-icons/hi'
 import '../dashboard.css'
 import './calls.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import { CALL_OUTCOME, FILTERABLE_OUTCOMES, OUTCOME_COLOR, OUTCOME_ICON, outcomeLabel } from '../lib/callOutcome'
 
-const STATUS_META = {
-  'Reunión agendada': { color: 'var(--success)', icon: '●' },
-  Interesado: { color: 'var(--warn-soft)', icon: '◆' },
-  Seguimiento: { color: 'var(--info)', icon: '◐' },
-  'No interesado': { color: 'var(--danger-soft)', icon: '×' },
-  'Propuesta enviada': { color: 'var(--violet)', icon: '↗' },
-  'Sin resultado': { color: 'var(--muted)', icon: '—' },
-}
+// El desglose y los filtros se derivan del vocabulario canónico. Antes eran
+// dos mapas escritos a mano: "Seguimiento" enviaba `outcome=callback` y
+// "No interesado" enviaba `rejected`, valores que el backend no escribe nunca,
+// así que ambos filtros devolvían siempre cero llamadas.
+const STATUS_META = Object.fromEntries(
+  FILTERABLE_OUTCOMES.concat(CALL_OUTCOME.NONE).map(outcome => [
+    outcomeLabel(outcome),
+    { color: OUTCOME_COLOR[outcome], icon: OUTCOME_ICON[outcome] },
+  ])
+)
 
-const OUTCOME_BY_LABEL = {
-  'Reunión agendada': 'meeting_scheduled',
-  Interesado: 'interested',
-  'No interesado': 'rejected',
-  Seguimiento: 'callback',
-}
+const OUTCOME_BY_LABEL = Object.fromEntries(
+  FILTERABLE_OUTCOMES.map(outcome => [outcomeLabel(outcome), outcome])
+)
 
 const KPI_META = [
   { label: 'Llamadas totales', color: 'var(--accent-soft)', Icon: RiPhoneLine },
@@ -49,7 +49,7 @@ function mapCall(call, index) {
     role: call.lead?.role ?? '',
     time: call.startedAt ? new Date(call.startedAt).toLocaleString(localeCode(getLocale()), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha',
     dur: seconds ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : '—',
-    status: ({ meeting_scheduled: 'Reunión agendada', interested: 'Interesado', rejected: 'No interesado', callback: 'Seguimiento' })[call.outcome] ?? 'Sin resultado',
+    status: outcomeLabel(call.outcome),
     score: call.sentimentScore ?? null,
     agent: call.agent?.name ?? 'Sin agente',
     recordingUrl: call.recordingUrl,

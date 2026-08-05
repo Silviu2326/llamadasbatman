@@ -101,7 +101,7 @@ export function buildAttributedLandingUrl(attribution: PostCampaignAttribution, 
   url.searchParams.set('utm_source', source)
   url.searchParams.set('utm_medium', 'organic_social')
   url.searchParams.set('utm_campaign', attribution.campaignId)
-  url.searchParams.set('utm_content', `${source}_metricool`)
+  url.searchParams.set('utm_content', attribution.utmContent ?? `${source}_metricool`)
   return url.toString()
 }
 
@@ -196,6 +196,17 @@ export async function createDraftPost(
     platforms: string[]
     attribution: PostCampaignAttribution
     scheduledAt?: string
+    /**
+     * Tipo de publicación en Instagram. Las stories de la fase 2 (idea 8) no
+     * son posts: van al mismo endpoint pero con `type: 'STORY'`.
+     *
+     * ponytail: el valor 'STORY' sigue la nomenclatura del resto del payload de
+     * Metricool pero **no se ha verificado contra la API real** — si la cuenta
+     * conectada lo rechaza, el borrador falla con el motivo de Metricool y la
+     * pieza se queda aprobada sin publicar, que es el camino degradado que ya
+     * cubre `approveAndDraft`.
+     */
+    instagramType?: 'POST' | 'STORY' | 'REEL'
   },
   orgId?: string,
 ) {
@@ -217,7 +228,7 @@ export async function createDraftPost(
       smartLinkData: { ids: [] },
       text: appendLandingCta(content.text, content.attribution.cta, landingUrl),
       ...(network === 'facebook' ? { facebookData: {} } : {}),
-      ...(network === 'instagram' ? { instagramData: { type: 'POST', showReelOnFeed: true } } : {}),
+      ...(network === 'instagram' ? { instagramData: { type: content.instagramType ?? 'POST', showReelOnFeed: true } } : {}),
       ...(network === 'linkedin' ? { linkedinData: { type: 'post', previewIncluded: true } } : {}),
       ...(network === 'twitter' ? { twitterData: { tags: [] } } : {}),
       ...(network === 'tiktok' ? { tiktokData: { autoAddMusic: false } } : {}),

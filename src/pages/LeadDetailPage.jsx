@@ -5,10 +5,10 @@ import {
   RiCalendar2Line, RiCalendarLine, RiCheckboxCircleLine, RiCheckLine,
   RiCloseLine, RiDownloadLine, RiExternalLinkLine, RiFileTextLine,
   RiFireLine, RiGlobalLine, RiLightbulbLine, RiLinkM, RiMailLine,
-  RiMapPin2Line, RiMoreLine, RiGroupLine, RiPhoneLine, RiPulseLine, RiRefreshLine,
+  RiMapPin2Line, RiMegaphoneLine, RiMoreLine, RiGroupLine, RiPhoneLine, RiPulseLine, RiRefreshLine,
   RiRobot2Line, RiSearchLine, RiSearchEyeLine, RiSendPlaneLine,
   RiShieldCheckLine, RiSparkling2Line, RiStarLine, RiTimeLine, RiUploadCloud2Line,
-  RiBriefcase4Line, RiCloseCircleLine,
+  RiBriefcase4Line, RiCloseCircleLine, RiCompass3Line, RiLeafLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
@@ -95,6 +95,29 @@ function DetailScoreRing({ score }) {
   const radius = 39
   const circumference = 2 * Math.PI * radius
   return <div className="lead-detail-ring"><svg viewBox="0 0 100 100"><circle className="ring-bg" cx="50" cy="50" r={radius} /><circle className="ring-value" cx="50" cy="50" r={radius} strokeDasharray={`${(score / 100) * circumference} ${circumference}`} /></svg><div><strong>{score}</strong><span>{score >= 82 ? 'Muy alto' : score >= 65 ? 'Alto' : score >= 40 ? 'Medio' : 'Bajo'}</span></div></div>
+}
+
+/**
+ * De dónde vino este lead, en concreto — criterio de §13 de organico.md.
+ *
+ * La ficha ya decía la campaña de Ads, así que el comprador que llegó por un
+ * anuncio se podía rastrear y el que llegó por una búsqueda o un post se
+ * quedaba en "fuente: orgánico". Cuando el origen no se puede nombrar se dice
+ * eso mismo y por qué falta: repartirlo entre canales inflaría al que ya
+ * parece mejor (§8).
+ */
+const ORIGIN_TONE = { organic_unidentified: 'is-unknown', none: 'is-unknown', paid: 'is-paid' }
+
+function OriginChip({ origin }) {
+  if (!origin || origin.kind === 'none') return null
+  const label = origin.label
+    ? `${origin.channelLabel} · ${origin.label}`
+    : origin.channelLabel
+  return (
+    <span className={`lead-origin-chip ${ORIGIN_TONE[origin.kind] || ''}`} title={origin.detail}>
+      {origin.kind === 'paid' ? <RiCompass3Line /> : <RiLeafLine />} {label}
+    </span>
+  )
 }
 
 function StageProgress({ current }) {
@@ -196,6 +219,14 @@ export default function LeadDetailPage() {
         ownerId: timeline.lead.ownerId || null,
         owner: timeline.lead.owner || null,
         firstResponseOverdue: !!timeline.lead.firstResponseOverdue,
+        // Origen: cierra el primer eslabón del hilo de ads.md — sin esto la
+        // ficha empieza en el lead y no se puede seguir un comprador hasta el
+        // anuncio que lo trajo.
+        campaign: timeline.lead.campaign || null,
+        metaAdId: timeline.lead.metaAdId || null,
+        // El otro extremo del hilo: qué keyword, post, ficha, prospección o
+        // acontecimiento vertical lo trajo (organico.md §13).
+        origin: timeline.origin || null,
       })
       else if (timelineOutcome.status === 404) setLoadError('No se encontró este lead.')
       else { setLoadError('No se pudo cargar la ficha del lead. Inténtalo de nuevo.'); setLoadRetryable(true) }
@@ -364,7 +395,7 @@ export default function LeadDetailPage() {
   return <div className="dark-scroll lead-detail-page">
     <header className="lead-detail-topbar"><div className="lead-detail-breadcrumb"><button onClick={() => navigate('/leads')}><RiArrowLeftLine /> Leads</button><RiArrowRightSLine /><div className="lead-detail-brand-icon"><RiGroupLine /></div><div><h1>{lead.name}</h1><p>{lead.company} · Ficha comercial</p></div></div></header>
 
-    <section className="lead-detail-header"><div className="lead-detail-identity"><div className="lead-detail-avatar" style={{ '--avatar-bg': lead.bg || 'var(--accent)' }}>{lead.initials}</div><div className="lead-detail-identity-main"><div className="lead-detail-name-line"><h2>{lead.name}</h2>{score != null && score >= 80 && <span className="lead-hot-label"><RiFireLine /> Hot lead</span>}{lead.firstResponseOverdue && <span className="lead-hot-label" style={{ color: 'var(--danger-faint)', borderColor: tint('--danger', 31), background: tint('--danger', 9) }}><RiTimeLine /> SLA de 1ª respuesta superado</span>}<span className="lead-status" style={{ '--status-color': statusStyle.color, '--status-bg': statusStyle.bg }}><i />{currentStage}</span></div><p>{lead.role || 'Contacto principal'} en {lead.company}</p><div className="lead-detail-identity-meta"><span><RiBuilding2Line /> {lead.source || 'Fuente no definida'}</span><span><RiMapPin2Line /> {lead.city || 'Ubicación no disponible'}</span><span><RiGroupLine /> {lead.owner?.name || 'Sin propietario'}</span></div></div><div className="lead-detail-score-box"><div><strong>{score ?? '—'}</strong><span>{score != null ? (score >= 82 ? 'Muy alto' : score >= 65 ? 'Alto' : 'Medio') : 'Sin score'}</span><small>{score != null ? 'Calculado con la auditoría del lead' : 'Ejecuta la auditoría para obtenerlo'}</small></div></div><div className="lead-detail-actions"><button className="primary" onClick={() => lead.phone && window.open(`tel:${lead.phone}`)} disabled={!lead.phone}><RiPhoneLine /> Llamar</button><button onClick={() => lead.email && window.open(`mailto:${lead.email}?subject=Seguimiento - ${lead.name}`)} disabled={!lead.email}><RiMailLine /> Email</button><button onClick={() => setShowSchedule(true)}><RiCalendar2Line /> Agendar</button><button onClick={() => setTab('Actividad')}><RiMoreLine /> Más</button></div><div className="lead-detail-stage-select"><label>Estado actual<select value={currentStage} onChange={updateStage}>{STAGES.map(stage => <option key={stage}>{stage}</option>)}</select></label><label>Propietario<select value={lead.ownerId || ''} onChange={changeOwner} disabled={ownerSaving}><option value="">Sin asignar</option>{owners.map(owner => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select></label></div></div><StageProgress current={currentStage} />{loadError && <p role="alert" className="lead-email-status" style={{ margin: '10px 0 0', color: 'var(--danger-soft)' }}>{loadError}</p>}</section>
+    <section className="lead-detail-header"><div className="lead-detail-identity"><div className="lead-detail-avatar" style={{ '--avatar-bg': lead.bg || 'var(--accent)' }}>{lead.initials}</div><div className="lead-detail-identity-main"><div className="lead-detail-name-line"><h2>{lead.name}</h2>{score != null && score >= 80 && <span className="lead-hot-label"><RiFireLine /> Hot lead</span>}{lead.firstResponseOverdue && <span className="lead-hot-label" style={{ color: 'var(--danger-faint)', borderColor: tint('--danger', 31), background: tint('--danger', 9) }}><RiTimeLine /> SLA de 1ª respuesta superado</span>}<span className="lead-status" style={{ '--status-color': statusStyle.color, '--status-bg': statusStyle.bg }}><i />{currentStage}</span></div><p>{lead.role || 'Contacto principal'} en {lead.company}</p><div className="lead-detail-identity-meta"><span><RiBuilding2Line /> {lead.source || 'Fuente no definida'}</span>{lead.campaign && <span title={lead.metaAdId ? `Anuncio ${lead.metaAdId}` : 'Anuncio no identificado'}><RiMegaphoneLine /> <button type="button" className="lead-origin-link" onClick={() => navigate(`/campanas/${lead.campaign.id}`)}>{lead.campaign.name}</button>{lead.metaAdId ? ` · anuncio ${lead.metaAdId}` : ' · anuncio sin identificar'}</span>}<OriginChip origin={lead.origin} /><span><RiMapPin2Line /> {lead.city || 'Ubicación no disponible'}</span><span><RiGroupLine /> {lead.owner?.name || 'Sin propietario'}</span></div></div><div className="lead-detail-score-box"><div><strong>{score ?? '—'}</strong><span>{score != null ? (score >= 82 ? 'Muy alto' : score >= 65 ? 'Alto' : 'Medio') : 'Sin score'}</span><small>{score != null ? 'Calculado con la auditoría del lead' : 'Ejecuta la auditoría para obtenerlo'}</small></div></div><div className="lead-detail-actions"><button className="primary" onClick={() => lead.phone && window.open(`tel:${lead.phone}`)} disabled={!lead.phone}><RiPhoneLine /> Llamar</button><button onClick={() => lead.email && window.open(`mailto:${lead.email}?subject=Seguimiento - ${lead.name}`)} disabled={!lead.email}><RiMailLine /> Email</button><button onClick={() => setShowSchedule(true)}><RiCalendar2Line /> Agendar</button><button onClick={() => setTab('Actividad')}><RiMoreLine /> Más</button></div><div className="lead-detail-stage-select"><label>Estado actual<select value={currentStage} onChange={updateStage}>{STAGES.map(stage => <option key={stage}>{stage}</option>)}</select></label><label>Propietario<select value={lead.ownerId || ''} onChange={changeOwner} disabled={ownerSaving}><option value="">Sin asignar</option>{owners.map(owner => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select></label></div></div><StageProgress current={currentStage} />{loadError && <p role="alert" className="lead-email-status" style={{ margin: '10px 0 0', color: 'var(--danger-soft)' }}>{loadError}</p>}</section>
 
     <main className="lead-detail-main"><div className="lead-detail-content"><nav className="lead-detail-tabs" aria-label="Secciones de la ficha">{tabs.map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}{item === 'Notas' && notes.length > 0 && <span style={{ marginLeft: 4, color: 'var(--accent-soft)' }}>({notes.length})</span>}</button>)}</nav>
 

@@ -205,3 +205,17 @@
      llamada y el menú, que es de donde cuelga el resto. */
   .leads-table-row .lead-row-actions button:first-child { display: none; }
 }
+
+/* El origen del lead es navegable: lleva a su campaña. Se pinta como el resto
+   de la linea de metadatos, no como un boton, para no romper la jerarquia. */
+.lead-origin-link { padding: 0; border: 0; background: transparent; color: var(--accent-faint); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.lead-origin-link:hover { color: var(--accent-soft); }
+
+/* Origen orgánico concreto del lead (organico.md §13). Comparte forma con los
+   demás chips de la fila de identidad; el tono distingue lo que se pudo
+   nombrar de lo que se declara desconocido. */
+.lead-origin-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface-2); font-size: 9px; }
+.lead-origin-chip svg { width: 11px; height: 11px; color: var(--success-soft); }
+.lead-origin-chip.is-unknown { font-style: italic; }
+.lead-origin-chip.is-unknown svg { color: var(--dim); }
+.lead-origin-chip.is-paid svg { color: var(--accent-soft); }

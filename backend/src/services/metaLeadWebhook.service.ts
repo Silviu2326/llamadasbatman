@@ -93,7 +93,15 @@ export async function processLeadgenWebhook(payload: LeadgenWebhookPayload): Pro
         campaignId: campaign?.id,
         source: 'meta_lead_ad',
         externalLeadId: leadgenId,
+        // Se guarda aunque no haya campaña que resolver: es lo único que
+        // permite reconciliar después un lead que llegó de un anuncio que
+        // todavía no estaba registrado.
+        metaAdId: adId,
+        metaAdSetId: campaign?.metaAdSetId ?? undefined,
       })
+      if (adId && !campaign) {
+        console.warn(`[MetaLeadWebhook] lead ${leadgenId} sin campaña: no hay Campaign con metaAdId=${adId}`)
+      }
       processed++
     } catch (err) {
       failed++

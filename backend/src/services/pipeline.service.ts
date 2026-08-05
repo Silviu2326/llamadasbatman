@@ -4,6 +4,7 @@ import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
 import { createTask, listTasks } from './tasks.service'
 import { scopedOwnerId, type DataActor } from '../lib/dataScope'
+import { QUALIFYING_CALL_OUTCOMES } from '../lib/callOutcome'
 
 function opportunityOwner(actor: DataActor, permission: 'pipeline.read' | 'pipeline.write' | 'pipeline.reopen') {
   return scopedOwnerId(actor, permission)
@@ -421,7 +422,15 @@ export async function moveStage(
           topic: 'opportunity.won',
           aggregateType: 'Opportunity',
           aggregateId: id,
-          payload: { opportunityId: id, leadId: opportunity.leadId, fromStage },
+          // El valor viaja en el evento para que la señal de venta que se
+          // devuelve a Meta lleve importe sin tener que releer la fila.
+          payload: {
+            opportunityId: id,
+            leadId: opportunity.leadId,
+            fromStage,
+            valueCents: opportunity.value != null ? Math.round(Number(opportunity.value) * 100) : null,
+            currency: opportunity.currency ?? 'EUR',
+          },
         },
       })
     }
@@ -711,7 +720,7 @@ export async function getPipelineActions(orgId: string) {
     prisma.opportunity.count({ where: { orgId, stage: { in: ['lead', 'qualified'] }, stageEnteredAt: { lt: sevenAgo } } }),
     prisma.opportunity.aggregate({ where: { orgId, stage: { in: ['lead', 'qualified'] }, stageEnteredAt: { lt: sevenAgo } }, _sum: { value: true } }),
     prisma.opportunity.count({ where: { orgId, stage: 'proposal', stageEnteredAt: { lt: threeAgo } } }),
-    prisma.call.findMany({ where: { orgId, outcome: { in: ['meeting_scheduled', 'interested'] }, startedAt: { not: null } }, select: { startedAt: true }, take: 100, orderBy: { createdAt: 'desc' } }),
+    prisma.call.findMany({ where: { orgId, outcome: { in: [...QUALIFYING_CALL_OUTCOMES] }, startedAt: { not: null } }, select: { startedAt: true }, take: 100, orderBy: { createdAt: 'desc' } }),
   ])
 
   const hourCounts: Record<number, number> = {}

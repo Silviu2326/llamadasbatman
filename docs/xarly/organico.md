@@ -535,7 +535,8 @@ Cuatro tarjetas, siempre con período y frescura:
 1. **Leads orgánicos** — leads del período cuyo `AcquisitionEvent` es de
    canal orgánico (búsqueda, social, GBP, prospección, referencia directa).
 2. **Cualificados** — de esos leads, los que tienen resultado de llamada
-   válido.
+   válido. Misma definición exacta que `ads.md` §4.4: el embudo no puede
+   contar distinto según el canal que trajo el lead.
 3. **Ventas / valor ganado** — ventas atribuidas a canal orgánico con cohorte
    madura; si no las hay, mostrar oportunidades abiertas con explicación.
 4. **Coste por cualificado en tiempo** — horas estimadas invertidas (piezas
@@ -736,6 +737,13 @@ Se conservan todas las rutas de integraciones de la fase 2. Se añaden:
 | GET | `/api/organic/report/weekly` | Informe narrado. |
 | POST | `/api/organic/integrations/ga4/sync` | Ingesta GA4 (fase 2 de este doc). |
 | POST | `/api/organic/integrations/google_business_profile/sync` | Ingesta GBP (fase 2). |
+| GET | `/api/organic/autonomy` | Sala de autonomía: nivel, modo sombra, freno compartido, catálogo de §9 con su nivel efectivo y decisiones recientes. |
+| PUT | `/api/organic/autonomy` | Conceder nivel, salir del modo sombra y ajustar cooldown y techo diario. |
+| POST | `/api/organic/autonomy/run` | Pasada manual: propone, decide y —solo en N3 en vivo— ejecuta. |
+| POST | `/api/organic/autonomy/decisions/:id/approve` | Aprobación con un clic (N2). Reevalúa guardarraíles y ejecuta. |
+| POST | `/api/organic/autonomy/decisions/:id/reject` | Rechazo con motivo. |
+| POST | `/api/organic/autonomy/kinds/:kind/promote` | Subir de nivel un tipo de acción que se lo ha ganado. |
+| POST | `/api/organic/autonomy/kinds/:kind/demote` | Bajarlo a N1 a mano. |
 
 El callback OAuth corrige su redirección a `/organic`.
 
@@ -840,6 +848,7 @@ Cambios mínimos, en orden de necesidad:
 | `OrganicAction` | Convertirla en el registro medible: brazo destino, pieza resultante, métrica objetivo, ventana de maduración, resultado observado. |
 | `SocialPostRecord` (nuevo, mínimo) | Post creado vía Vendrava: canal, fecha, campaña, UTMs, oportunidad de origen, id externo de Metricool. Sin él no hay atribución social. |
 | `OrganicChannelSnapshot` (nuevo) | Agregado por período × canal: presencia, visitas, leads, cualificados, ventas, horas estimadas. La página lee snapshots, no recalcula en cada carga (mismo patrón que `landings.md` §3.3). |
+| `OrganicTrafficDaily` (nuevo, fase 1) | Un día por fila de lo que entregan GA4 y el Perfil de Empresa: sesiones y sesiones con interacción por página y canal, vistas de ficha, llamadas y clics al sitio. El snapshot se reconstruye entero cada hora, así que el dato diario es lo que permite recalcular cualquier ventana sin volver a pedírselo a Google. |
 | `VerticalModule` (biblioteca, no tabla por cliente) | Definición declarativa de cada paquete vertical (§4.5): acontecimientos, fuentes, preguntas, vocabulario, reglas de aprobación. Son datos versionados (JSON/seed), no código ni esquema nuevo por sector. |
 | `VerticalConnector` (nuevo) | Instancia de fuente vertical de una organización: tipo (API, feed, manual), credenciales cifradas, último evento, estado. Emite acontecimientos que crean `OrganicOpportunity`. |
 
@@ -939,8 +948,12 @@ personas.
   verticales llegan como datos del backend, el componente no conoce sectores.
 - `src/lib/organic/organicApi.js`: nuevo contrato §7.1 + rutas de onboarding;
   el normalizador deja de inventar campos.
-- `src/pages/SeoPage.jsx`: leer informe del backend; aceptar contexto de
-  despacho (keyword/brief precargado).
+- `src/pages/SeoPage.jsx`: lee el informe de `SeoReport` (`GET
+  /api/seo/reports/latest`) y permite volver a uno del historial
+  (`/api/seo/reports/:id`); aceptar contexto de despacho (keyword/brief
+  precargado).
+- `src/pages/LeadDetailPage.jsx`: chip con el origen orgánico concreto del lead,
+  al lado del de campaña de Ads.
 - `src/pages/ConectarRedesPage.jsx`: aceptar contexto de despacho (ángulo,
   campaña); registrar el post al crear el borrador.
 - `src/pages/ProspectFinderPage.jsx`: aceptar contexto (sector/ciudad).
@@ -956,10 +969,21 @@ personas.
 - `verticalConnector.service.ts` (nuevo, fase 2): alta de conectores,
   ingesta de acontecimientos, emisión de `OrganicOpportunity`
   (`sourceKind: vertical_event`).
-- `organicGoogleIntegration.service.ts`: ingesta GA4 y GBP; corregir
-  redirección del callback.
+- `organicGoogleIntegration.service.ts`: OAuth, discovery y sincronización de
+  Search Console; corregir redirección del callback.
+- `organicGoogleIngest.service.ts` (nuevo, fase 1): ingesta de GA4 (sesiones
+  orgánicas por página y día, con el tráfico de pago descartado en el mapeo) y
+  del Perfil de Empresa (vistas de ficha, llamadas, clics al sitio y reseñas sin
+  responder como `OrganicOpportunity`).
+- `organicLeadOrigin.service.ts` (nuevo): de dónde vino un lead en concreto,
+  derivado de `AcquisitionEvent`. Lo consume la ficha de lead.
 - `organicRecommendation.service.ts` (nuevo): diagnósticos, prioridad
   económica, dispatch y evaluación de maduración.
+- `organicAutonomy.service.ts` (nuevo, fase 4): catálogo cerrado de §9 con su
+  ejecutor, guardarraíles, modo sombra, aprobación con un clic y pasada
+  automática. El freno de emergencia lo **lee** de `AdOptimizationPolicy`; la
+  degradación automática vive en `adRuleAutonomy.service.ts`, extendido para
+  distinguir reglas orgánicas de reglas de Ads.
 - `metricoolSync.service.ts`: persistir `SocialPostRecord` en
   `createDraftPost`.
 - `prospecting.service.ts`: agregado por lote de importación.
@@ -969,7 +993,11 @@ personas.
 integrations-sync (SC/GA4/GBP/Metricool) + vertical-events-poll
     → channel-snapshot-build → organic-diagnosis-run
     → recommendation-refresh → action-maturity-check
+    → autonomy-guardrails-enforce → organic-autonomy-pass
 ```
+
+La degradación va **antes** que la pasada de autonomía: al revés, la pasada
+actuaría con el nivel de ayer sobre los datos de hoy.
 
 ## 13. Criterios de aceptación
 
@@ -1009,3 +1037,248 @@ honestidad → onboarding adaptativo → medición por canal → embudo unificad
     → diagnóstico y prioridad → despacho con contexto → conectores reales
     → bucle de resultados → aprendizaje progresivo → autonomía limitada
 ```
+
+## 14. Estado y pendiente
+
+Estado a 6 de agosto de 2026. Las fases 0 y 1 están cerradas; la 4 entregada
+salvo dos tipos de acción sin ejecución. Esta sección existe para poder retomar
+el trabajo sin el contexto de la conversación en que se construyó.
+
+### Lo que ya funciona
+
+| Fase | Estado | Qué quedó construido |
+|---|---|---|
+| 0 — Honestidad | **Completa** | Contrato §7.1 reescrito, `period`/`projectId` filtran de verdad, callback OAuth corregido a `/organic`, banda de integridad con sus fuentes reales, normalizador sin inventar campos, paneles ficticios retirados, y `/seo` leyendo `SeoReport` del backend en vez de `localStorage` |
+| 1 — Onboarding y medición | **Completa** | Onboarding adaptativo completo (pantallas 1–3, núcleo universal, vista previa viva, pantalla final), cuatro módulos verticales, `OrganicChannelSnapshot`, embudo unificado, informe semanal narrado, **ingesta de GA4 y del Perfil de Empresa** con presencia y visitas reales |
+| 2 — Diagnosticar y priorizar | Parcial | Los tres diagnósticos del MVP, ranking por canal y por pieza con horas, cola priorizada con las tres corrientes, despacho con contexto, infraestructura de `VerticalConnector` |
+| 3 — Cerrar el bucle | Parcial | `OrganicAction` medible con ventana de maduración por brazo, evaluación automática al madurar, aprendizaje de los descartes con ventana de silencio por asunto |
+| 4 — Autonomía limitada | Parcial | Sala de autonomía completa: catálogo cerrado de §9, ocho guardarraíles, modo sombra, N2 con aprobación de un clic, N3 automático, kill switch compartido con Ads, degradación automática y promoción por tipo de acción. Cuatro de los seis tipos de §9 tienen ejecución real |
+
+Decisiones tomadas que conviene respetar:
+
+- **Los módulos verticales son datos**, en `backend/src/data/verticalModules.ts`.
+  Ni el servicio ni la pantalla conocen ningún sector. Añadir uno es escribir un
+  objeto. Los cuatro actuales son gimnasio, clínicas, deporte e inmobiliaria;
+  los dos primeros se eligieron porque son los que el producto ya persigue
+  (`prisma/seed.ts` siembra el `AdPlaybook` de gimnasio y el wizard de Ads
+  ofrece clínicas).
+- **No hay motor de decisiones paralelo** (§10). El orgánico reutiliza
+  `AdDecision` con `channel`, `dispatchArm`, `dispatchContext`,
+  `estimatedHours` y `priorityScore`. Una sola auditoría, un solo kill switch.
+- **El registro de posts no se duplicó.** El documento pedía un
+  `SocialPostRecord`; se reutiliza `ContentPiece` del motor de contenido, que ya
+  tiene canal, campaña, `utmContent` y `externalDraftId`. El ranking por pieza
+  se apoya en `ContentPiece.utmContent` ↔ `AcquisitionEvent.content`.
+- **El tráfico pagado se excluye del embudo orgánico.** Un lead que tuvo
+  cualquier toque pagado no cuenta como orgánico aunque después llegara por
+  búsqueda: atribuírselo sería quitárselo a Ads.
+- **Minutos por formato acordados** (`backend/src/data/effortEstimates.ts`):
+  post 20 · carrusel 45 · story 10 · artículo 120 · landing 180 · guion de Reel
+  40 · lote de prospección de 50 → 30 · arreglo SEO 25. Es una estimación
+  declarada, no contabilidad.
+- **El kill switch es uno solo y es el de Ads.** La autonomía orgánica *lee*
+  `AdOptimizationPolicy.killSwitchEnabled`; no existe un segundo botón de parada.
+  Con el freno echado no se ejecuta nada, no se sube de nivel, no se sale de
+  sombra y las reglas por encima de N1 se degradan en la siguiente pasada. El
+  aviso de `ads.md` §10 sobre las dos políticas que conviven sigue vigente para
+  landings, que mantiene la suya.
+- **La autonomía tampoco tiene motor propio.** Una acción autónoma es una
+  `AdDecision` con `diagnosis: autonomy:<kind>` y su `AdAction`, igual que en
+  Ads. El nivel por tipo vive en `AdRuleAutonomy` con la clave
+  `organic_autonomy_<kind>`, así que la promoción se gana con el mismo historial
+  y la degradación usa el mismo mecanismo. Se añadió el estado `blocked` a
+  `AdDecision` y `AdAction` acepta los tipos orgánicos.
+- **Las decisiones de autonomía no entran en la cola de recomendaciones.** Una
+  re-sincronización no se "despacha a un brazo" ni se prioriza por impacto
+  económico: tiene su propia sala. `listOrganicRecommendations` las excluye por
+  el prefijo del diagnóstico, y el contador diario de cambios de Ads dejó de
+  contar acciones orgánicas.
+- **La reparación no se degrada por la avería que repara.** Re-sincronizar y
+  re-auditar están marcadas como `repairsData`: se libran del guardarraíl de
+  datos obsoletos y de la degradación por la misma razón. Degradar la
+  re-sincronización cuando los datos están viejos garantiza que sigan viejos
+  hasta que alguien lo note a mano, que es justo lo que la fase 4 venía a
+  evitar. Siguen bloqueadas si la integridad es `unreliable` o si hay freno.
+- **La lista de contenido sensible es única**
+  (`backend/src/lib/sensitiveContent.ts`). §9 y `landings.md` §10 trazan la misma
+  frontera y dos copias se separan en cuanto alguien arregla una;
+  `landingAutonomy.service.ts` la reexporta para no romper a quien la importaba
+  de allí.
+- **El refresco de artículo se verifica después de hacerlo.** §9 lo delega "sin
+  cambiar sus afirmaciones" y el modelo puede incumplirlo, así que se comparan
+  las afirmaciones sensibles de antes y después: si aparece alguna nueva se
+  restaura el texto anterior y la acción queda como fallida. Es la única lectura
+  comprobable de esa condición.
+- **Una pieza de conector no inventa una línea.** `renderConfirmedEventPiece`
+  solo reordena los campos escalares que llegaron del conector, y la pieza nace
+  como borrador: N3 genera, publicar sigue siendo de una persona. Además exige
+  tres condiciones a la vez —regla en `auto`, acontecimiento no sensible y
+  formato con tres aprobaciones humanas acumuladas—; falla una y vuelve a la
+  sala de aprobación.
+- **Lo ingerido de Google se guarda por día, no por período**
+  (`OrganicTrafficDaily`). El snapshot de canal se reconstruye entero cada hora:
+  si las visitas vivieran solo allí, cada reconstrucción las borraría hasta la
+  siguiente sincronización — el mismo agujero que ya obligó a aplicar las horas
+  en un paso aparte. Con el diario, cualquier ventana se recalcula sumando y sin
+  volver a pedirle nada a Google, y `buildChannelSnapshots` las lee **dentro**
+  de la reconstrucción para que no exista el orden frágil.
+- **El tráfico de pago se descarta al ingerir, no después.** GA4 mezcla en la
+  misma propiedad las sesiones de anuncios y las orgánicas: la lista blanca de
+  `channelFromGa4Group` decide, y una agrupación nueva de Google entra como
+  `unattributed`, nunca como orgánica por descuido.
+- **Directo y referencia no se reparten.** Van a `unattributed`, igual que los
+  leads sin UTM (§8).
+- **Una reseña sin responder es un acontecimiento**, así que entra como
+  `OrganicOpportunity` del canal `gbp` y no como una pantalla nueva. Nunca se
+  guarda el texto literal de la reseña: es contenido de una persona
+  identificable y las evidencias van agregadas (§8).
+- **El origen orgánico del lead se resuelve, no se guarda.**
+  `organicLeadOrigin.service.ts` lo deriva de `AcquisitionEvent`, que sigue
+  siendo el hub único: un toque pagado gana siempre, y lo que no se puede
+  nombrar se declara "origen orgánico no identificado" con el motivo.
+
+### Lo que se construyó en la fase 4
+
+La sala vive en `/organic` (`src/components/organic/OrganicAutonomy.jsx`) y
+enseña, en este orden: el nivel concedido y si sigue en sombra, el estado del
+freno compartido, los guardarraíles vigentes con su lectura de hoy, el catálogo
+entero de §9 con el nivel efectivo de cada tipo y qué le falta para subir, y las
+decisiones recientes con **todos** los guardarraíles evaluados, no solo el que
+bloqueó.
+
+Los ocho guardarraíles que evalúa cada acción, en orden:
+
+```text
+kind_allowed → kill_switch → data_quality → attribution_coverage
+    → max_actions_per_day → cooldown → content_not_sensitive
+    → executor_available
+```
+
+Qué ejecuta de verdad cada tipo de §9 hoy:
+
+| Tipo | Estado |
+|---|---|
+| `resync_source` | Ejecuta: re-sincroniza 30 días de la fuente que toque — Search Console, Analytics o el Perfil de Empresa —, una propuesta por fuente. Necesita una cuenta de Google real conectada, así que fallará con error declarado hasta que la haya |
+| `reaudit_seo` | Ejecuta: repite la auditoría técnica con `skipAi` y la guarda. Un LLM aquí convertiría una comprobación en contenido nuevo |
+| `refresh_article` | Ejecuta con verificación posterior y reversión si introduce afirmaciones |
+| `vertical_event_piece` | Ejecuta: crea el `OrganicAsset` en borrador con los datos confirmados |
+| `reschedule_post` | **Sin ejecución.** `metricoolSync.service.ts` solo sabe crear borradores y `ContentPiece` no guarda fecha de programación: falta la llamada de actualización de Metricool |
+| `reply_review` | **Sin ejecución.** Las reseñas sin responder ya se leen y entran como oportunidades; publicar la respuesta exige escribir en la API v4 restringida de Google y un catálogo de plantillas aprobadas que no existe |
+
+Los dos sin ejecución aparecen igualmente en la sala, marcados y con el motivo:
+un hueco silencioso se lee como "esto ya funciona".
+
+### Lo que se construyó después, cerrando las fases 0 y 1
+
+- **`/seo` dejó de depender de `localStorage`.** El informe se persistía en
+  `SeoReport` desde el primer día y nadie lo leía: el mismo negocio veía cosas
+  distintas en dos ordenadores y el trabajo se perdía al limpiar el navegador.
+  Se añadieron `GET /api/seo/reports/latest` y `GET /api/seo/reports/:id`, y la
+  pantalla arranca con el último informe guardado y deja volver a uno anterior.
+- **La ficha de lead dice de dónde vino, en concreto.** Keyword, pieza, ficha,
+  lote de prospección o acontecimiento vertical, resuelto desde
+  `AcquisitionEvent`. Un toque pagado gana siempre.
+- **GA4 y el Perfil de Empresa se ingieren.** Sesiones orgánicas por página y
+  día, vistas de ficha, llamadas y clics al sitio, y las reseñas sin responder
+  como oportunidades. "Presencia" y "Visitas" del embudo dejaron de ser `null`
+  por falta de código y pasaron a ser `null` solo mientras no haya datos.
+
+De propina, tres defectos reales que aparecieron por el camino y quedaron
+arreglados: `OrganicLeadsPage.jsx` usaba `apiFetch` sin importarlo, así que la
+primera llamada lanzaba un `ReferenceError` y **toda la pantalla caía al estado
+de error** en cuanto había proyecto; y la banda de integridad seguía diciendo
+que los conectores verticales "llegan en la fase 2" mucho después de que la
+fase 2 los construyera — ahora enseña una fila por conector con su estado real.
+Y el botón "Sincronizar" de GA4 y del Perfil de Empresa llamaba a `discover`,
+que solo vuelve a listar propiedades: parecía una sincronización y no traía ni
+un dato.
+
+### Lo que falta
+
+**De las fases 0 y 1**
+
+- Nada. Las dos están cerradas.
+- La ingesta de GA4 y del Perfil de Empresa **está escrita y probada en todo lo
+  que no exige a Google**, pero no se ha ejecutado ni una vez contra la
+  plataforma: hace falta una cuenta real conectada. Lo que se probó: el mapeo de
+  agrupaciones de canal, el plegado de las series temporales de Google, la
+  agregación por canal y por página, la supervivencia del dato al reconstruir el
+  snapshot y los caminos de rechazo (sin conectar, sin recurso elegido, con
+  error registrado). Lo que queda por comprobar contra Google es la forma exacta
+  de sus respuestas.
+- **Las reseñas del Perfil de Empresa dependen de la API v4 restringida.** Se
+  leen si Google concede el acceso; si lo rechaza, la sincronización de métricas
+  no se rompe y se declara `reviews.status: 'unavailable'` con el motivo.
+
+**De la fase 2**
+
+- **Ningún acontecimiento vertical real ha entrado.** La infraestructura está
+  construida y probada en sus caminos de rechazo (firma inválida, evento sin
+  regla, reintento duplicado), pero hasta que un cliente apunte su sistema al
+  webhook no hay datos propios. Endpoint:
+  `POST /api/organic/connectors/:id/events` con la firma HMAC-SHA256 del cuerpo
+  en la cabecera `X-Vendrava-Signature`.
+- **Formulario conversacional por voz** (§4.7), aplazado por acuerdo. Configurar
+  el onboarding hablando, sobre el stack STT/TTS propio.
+
+**De la fase 3**
+
+- **Detección progresiva** (§4.8) y nivel 3 de personalización: que Xarly
+  proponga reglas nuevas al observar el comportamiento — *"publicas resultados
+  los domingos, ¿creamos un resumen semanal cada lunes?"*. Necesita histórico
+  real de publicaciones para tener algo que observar, así que depende de que el
+  motor de contenido lleve tiempo produciendo.
+
+**De la fase 4**
+
+- **Reprogramar un post y responder reseñas**, los dos tipos de §9 sin ejecución.
+  El primero necesita una llamada de actualización de borradores en Metricool
+  —hoy solo se sabe crearlos— y una fecha de programación que `ContentPiece` no
+  guarda; el segundo, la ingesta de la ficha de Google de la fase 1.
+- **Ninguna organización ha salido de N1 todavía.** El estado por defecto es N1
+  con sombra y así se queda hasta que alguien conceda el nivel a mano: es lo que
+  el documento pide, pero significa que el camino N3-en-vivo solo se ha
+  ejercitado en pruebas, no en producción.
+- **La promoción real está por estrenar.** Los umbrales heredados de `ads.md`
+  §10.1 (5 observaciones, 3 aprobadas, tasa de rechazo ≤34 %) no los ha cruzado
+  ninguna acción orgánica todavía porque no hay historial.
+- **Publicar una pieza sigue sin camino auditado.** N3 genera el `OrganicAsset`
+  de un acontecimiento confirmado, pero no lo publica: no existe una ruta de
+  publicación con registro y compensación, y §9 no permite improvisarla.
+
+### Criterios de aceptación
+
+Los quince criterios de la §13 están cubiertos por código. Dos siguen
+dependiendo de datos que solo llegan con cuentas reales conectadas:
+
+- *"puede seguir un lead desde keyword, post, ficha, prospección o
+  acontecimiento vertical hasta llamada, cualificación y venta"* — la ficha de
+  lead resuelve el origen concreto desde `AcquisitionEvent`
+  (`organicLeadOrigin.service.ts`). Nombra la keyword cuando viaja el
+  `utm_term`, la pieza cuando viaja su UTM propio, el sector y la ciudad del
+  lote de prospección y el acontecimiento vertical por su oportunidad. Cuando no
+  puede nombrarlo lo dice y explica qué falta.
+- *"el embudo unificado muestra la señal más profunda elegible por canal"* —
+  se cumple, y "presencia" y "visitas" ya tienen fuente: consultas de Search
+  Console y vistas de ficha para la presencia, sesiones de GA4 para las visitas.
+  Seguirán diciendo *sin medición* hasta la primera sincronización real, que es
+  lo correcto.
+
+### Notas prácticas
+
+- La suite de backend corre con `node scripts/run-tests.mjs` sobre la base
+  `vozia_test`. **Quien cambie el esquema debe hacer `prisma db push` contra esa
+  base**, o los tests fallan con errores de columna inexistente que no tienen
+  nada que ver con el cambio.
+- Hay datos de desarrollo sembrados: `npm run db:seed:ads` crea el circuito de
+  Ads; el tráfico orgánico de prueba (61 leads en cuatro canales) se creó a mano
+  con ids prefijados `xarly-org-`.
+- El motor de contenido (`ContentOpportunity`, `ContentPiece`,
+  `contentStudio.service.ts`) lo construye otra línea de trabajo. El orgánico lo
+  **lee**, no lo reimplementa. Antes de tocarlo, coordinarse. La fase 4 lo lee
+  en un sitio más: cuántas piezas de un formato ha aprobado una persona, que es
+  lo que convierte "formato previamente aprobado" de §9 en un número.
+- La sala de autonomía tiene su job diario en
+  `backend/src/jobs/organicAutonomyPass.ts`, registrado en `worker.ts`. Con
+  `BACKGROUND_WORKERS_ENABLED` apagado no corre; el botón "Revisar ahora" de la
+  pantalla hace exactamente lo mismo a mano.

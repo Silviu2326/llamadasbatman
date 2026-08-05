@@ -429,6 +429,54 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue
 }
 
+/**
+ * Las dos llamadas HTTP, para que la ingesta de GA4 y del Perfil de Empresa
+ * (`organicGoogleIngest.service.ts`) hable con Google exactamente igual que el
+ * discovery: mismo tiempo de espera, misma traducción de errores y el mismo
+ * cuidado de no filtrar el cuerpo de la respuesta en el mensaje.
+ */
+export const googleDataGet = googleGet
+export const googleDataPost = googlePost
+
+/**
+ * Proyecto, integración y token listos para ingerir. Exige lo mismo que la
+ * sincronización de Search Console: integración conectada y recurso elegido.
+ * Sin recurso no se sabe *de qué propiedad* leer, y adivinarlo sería peor que
+ * fallar.
+ */
+export async function integrationForIngest(orgId: string, rawProvider: string) {
+  const provider = requireOrganicGoogleProvider(rawProvider)
+  const { project, integration } = await integrationForOrg(orgId, provider)
+  if (integration.status !== 'connected') {
+    throw new OrganicGoogleIntegrationError('integration_not_connected', 'Conecta primero la integración Google', 409)
+  }
+  if (!integration.externalPropertyId) {
+    throw new OrganicGoogleIntegrationError(
+      'resource_required',
+      provider === 'ga4'
+        ? 'Elige una propiedad de Analytics antes de sincronizar'
+        : 'Elige una ubicación del Perfil de Empresa antes de sincronizar',
+      409,
+    )
+  }
+  return { project, integration, accessToken: await getAccessToken(orgId, provider) }
+}
+
+/**
+ * Marca el error en la integración para que la banda de integridad lo enseñe.
+ * Se llama desde la ingesta: un fallo silencioso deja la fuente en verde
+ * mintiendo sobre datos que nunca llegaron.
+ */
+export async function markIngestError(orgId: string, rawProvider: string, code: string) {
+  const provider = requireOrganicGoogleProvider(rawProvider)
+  const project = await prisma.organicProject.findUnique({ where: { orgId }, select: { id: true } })
+  if (!project) return
+  await prisma.organicIntegration.updateMany({
+    where: { orgId, projectId: project.id, provider },
+    data: { lastError: code },
+  })
+}
+
 function safeIntegration(integration: {
   id: string
   provider: string
@@ -702,7 +750,12 @@ export async function querySearchAnalytics(orgId: string, input: {
   })
 }
 
-export async function syncSearchConsoleQueries(orgId: string, userId: string, input: SearchConsoleSyncInput) {
+/**
+ * `userId` es `null` cuando la sincronización la dispara el sistema (la
+ * re-sincronización autónoma de `organico.md` §9). Atribuirle a una persona un
+ * trabajo que hizo un job convierte la auditoría en ficción.
+ */
+export async function syncSearchConsoleQueries(orgId: string, userId: string | null, input: SearchConsoleSyncInput) {
   const provider: OrganicGoogleProvider = 'search_console'
   const { project, integration } = await integrationForOrg(orgId, provider)
   if (integration.status !== 'connected' || !integration.externalPropertyId) {
@@ -763,6 +816,7 @@ export async function syncSearchConsoleQueries(orgId: string, userId: string, in
   await writeAuditLog({
     orgId,
     actorUserId: userId,
+    actorType: userId ? 'user' : 'system',
     action: 'organic.integration.search_console.sync',
     entityType: 'OrganicIntegration',
     entityId: updated.id,

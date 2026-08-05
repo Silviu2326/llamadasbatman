@@ -146,7 +146,8 @@ reescribir el histórico de lo que Xarly sabía en cada momento.
 Mostrar cuatro tarjetas, siempre con período y frescura:
 
 1. **Gasto** — gasto atribuido de Meta.
-2. **Cualificados** — leads con resultado de llamada válido.
+2. **Cualificados** — leads con resultado de llamada válido (definición exacta
+   en la §4.4).
 3. **CAC / CPQL** — elegir la métrica más profunda disponible; si no hay
    ventas maduras, mostrar CPQL o CPL con una explicación.
 4. **Compradores / ROAS real** — ventas atribuidas y valor ganado, solo cuando
@@ -170,6 +171,53 @@ clic → lead → lead cualificado → oportunidad → venta
 Cada paso muestra volumen, tasa al paso siguiente, cobertura de atribución y
 período. La tarjeta debe indicar cuál es la **señal más profunda elegible**
 para optimizar en ese momento.
+
+#### Definición de cada paso
+
+Sin esto, “resultado de llamada válido” lo interpreta cada servicio a su
+manera. El vocabulario cerrado vive en `backend/src/lib/callOutcome.ts` y su
+espejo `src/lib/callOutcome.js`; ambos ficheros cambian a la vez.
+
+| Paso | Definición exacta | Origen |
+|---|---|---|
+| **Clic** | `AdInsightSnapshot.clicks` | Meta Insights |
+| **Lead** | `Lead` con `campaignId` de la campaña | `Lead.campaignId` |
+| **Contactado** | Lead con ≥1 `Call` cuyo resultado indique que hubo conversación con una persona | `isHumanConversation()` |
+| **Lead cualificado** | Lead con ≥1 `Call` con `outcome ∈ {meeting_scheduled, callback_requested, interested}` | `isQualifyingOutcome()` |
+| **Oportunidad** | Existe `Opportunity` para ese lead, **en cualquier etapa** | `Opportunity.leadId` |
+| **Venta** | `Opportunity.stage = 'closed_won'` | `OpportunityStage` |
+| **Valor** | `Opportunity.value` con `Opportunity.currency`; si es `null`, el ROAS es `null` | — |
+
+Precisiones que evitan métricas falsas:
+
+- **Se cuenta por lead, no por llamada.** Un lead con tres llamadas es *un*
+  cualificado. Contar llamadas hunde artificialmente el CPQL en campañas con
+  muchos reintentos.
+- **`callback_requested` significa “transferido a una persona”**, no “llámame
+  luego” (ver `voice/telephony/mediaStream.ts`, `requestTransfer`). El nombre
+  es heredado y engañoso, pero la señal es fuerte: el lead pidió hablar con
+  alguien del equipo.
+- **El paso “contactado” es obligatorio para diagnosticar.** Una campaña cuyos
+  leads solo alcanzan buzones de voz no tiene un problema de anuncio, tiene un
+  problema de contactabilidad, y la recomendación debe decir eso.
+- **La oportunidad incluye las perdidas.** Si el denominador solo contase las
+  ganadas, la tasa oportunidad→venta sería siempre 100 %.
+- **Una venta sin importe no es una venta de 0 €.** `Opportunity.value` nulo
+  produce `null` en ROAS, coherente con la regla de la §4.3.
+
+`VoiceCallEvaluation.overall` **no** se usa para cualificar. Sus dimensiones
+(`turnTaking`, `voiceNaturalness`, `discovery`, `objectionHandling`,
+`compliance`, `crmAccuracy`) miden lo bien que condujo la llamada el agente de
+IA, no la intención de compra del lead: una llamada de 100/100 puede ser una
+conversación impecable con alguien que no comprará jamás. Su uso correcto está
+en el diagnóstico “gasto sin cualificados”, para separar un problema de
+audiencia de un problema de agente.
+
+`Lead.status = 'qualified'` tampoco sirve como señal: nada lo marca
+automáticamente, solo una edición manual o una regla de automatización que el
+cliente puede no haber configurado.
+
+#### Elegibilidad de la señal
 
 La elegibilidad no se decide solo con “20 leads al mes”. Se calcula con:
 
@@ -450,6 +498,20 @@ No recomendar aumentar gasto si el negocio no puede atender la demanda.
 
 ## 10. Motor de decisiones y autonomía
 
+> **Hoy existen dos políticas de autonomía, no una.** `landings.md` dice que
+> estos niveles se especifican aquí y «no se reinventan» allí, pero ads y
+> landings se construyeron en paralelo y conviven
+> `adPolicy.service.ts` sobre `AdOptimizationPolicy` (`autonomyLevel`,
+> `mode: 'shadow'`, kill switch) y `landingAutonomy.service.ts` sobre
+> `GovernancePolicy` con la clave `landing_autonomy` (`level`, `shadowMode`).
+>
+> Las dos arrancan en N1 con modo sombra, así que ninguna organización tiene
+> autonomía sin concedérsela. Lo que falta: no hay una vista única de gobierno
+> y **el kill switch de aquí no detiene la autonomía de landings**, que es lo
+> contrario de lo que espera quien tira de un kill switch. Decisión pendiente
+> en `landings.md` §13: una política por organización que ambas superficies
+> consulten, o dos declaradas a propósito y visibles juntas.
+
 ### 10.1 Niveles
 
 - **N1 — sugerir:** Xarly calcula, explica y pide una decisión humana.
@@ -699,3 +761,53 @@ integridad → observación → señal de ventas → recomendación → aprobaci
            → canario → autonomía limitada → experimentación y escala
 ```
 
+
+## 16. Pendiente
+
+Estado a 5 de agosto de 2026. Las seis fases están construidas y la página
+`/ads` terminada, incluido su pase visual. Lo que sigue abierto:
+
+### Bloqueante de verdad
+
+**Nada de esto ha hablado nunca con Meta.** Todo está verificado contra una
+base de datos local sembrada (`npm run db:seed:ads`). El guardarraíl
+`meta_credentials` bloquea siempre porque no hay token real, así que el camino
+de ejecución —la llamada al Graph API, la relectura del estado remoto, la
+compensación— está escrito y con sus pruebas de bloqueo, pero **no ejecutado ni
+una vez contra la plataforma**. Lo mismo para Conversions API: consentimiento,
+hasheo y deduplicación probados, pero ninguna señal ha salido.
+
+Hasta conectar una cuenta real no se sabe si Meta contesta lo que esperamos.
+Es el primer paso antes de dar Ads por cerrado.
+
+### Interfaz que falta, con los datos ya disponibles
+
+Nada. Cerrado el 5 de agosto de 2026:
+
+- `MetaAccountPage` muestra la banda de integridad y el freno de autonomía;
+- `CampaignDetailPage` tiene la pestaña **Economía** con el embudo de la
+  campaña, sus costes contra objetivo, el desglose por anuncio, el historial
+  de decisiones y el registro de auditoría.
+
+### Instrumentación
+
+La **tasa de duplicados** ya se mide: `AdConversionSignal.duplicateAttempts`
+cuenta los reintentos que llegan con un `eventId` ya visto, y la tasa se
+calcula sobre el total de intentos, no sobre los aceptados. Sigue devolviendo
+`null` mientras no haya ningún envío del que opinar.
+
+### Requiere decisión de producto
+
+- **"Causas descartadas"** en la tarjeta de decisión (§4.5). No es trabajo de
+  pantalla: hoy cada regla comprueba su propia condición y calla sobre las
+  demás. Hay que decidir qué hipótesis alternativas evalúa y descarta cada
+  diagnóstico antes de poder mostrarlas.
+
+### Depende de otro documento
+
+Los tres últimos puntos de la Fase 6 necesitan el motor de contenido de
+[`organico.md`](organico.md), que todavía no existe:
+
+- variantes de creatividad desde los ángulos del Radar de Xarly;
+- propuestas de contenido orgánico ganador para Ads;
+- benchmarks agregados por sector.

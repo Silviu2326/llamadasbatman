@@ -7,23 +7,11 @@ import {
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 
-const STORAGE_KEY = 'vendrava:seo:lastReport:v1'
-
-function loadLastReport() {
-  try {
-    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null')
-  } catch {
-    return null
-  }
-}
-
-function saveLastReport(report) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(report))
-  } catch {
-    // Sin storage el informe sigue visible en pantalla.
-  }
-}
+// El informe vivía en `localStorage` del navegador. Eso significaba que el
+// mismo negocio veía cosas distintas en dos ordenadores, que el trabajo se
+// perdía al limpiar el almacenamiento y que el centro de mando orgánico no
+// podía leer lo que la pantalla estaba enseñando. Se persistía en `SeoReport`
+// desde el primer día: ahora se lee de ahí (`organico.md` fase 0 y §7.3).
 
 async function readJson(response, fallbackError) {
   const body = await response.json().catch(() => ({}))
@@ -110,7 +98,11 @@ export default function SeoPage() {
   const [form, setForm] = useState({ url: '', business: '', sector: '', city: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [report, setReport] = useState(loadLastReport)
+  const [report, setReport] = useState(null)
+  // `null` mientras se pregunta al backend: sin esto la pantalla enseñaría el
+  // estado vacío durante un instante y parecería que no hay ningún informe.
+  const [reportLoading, setReportLoading] = useState(true)
+  const [openingReportId, setOpeningReportId] = useState('')
 
   const [history, setHistory] = useState([])
   const [searchConsole, setSearchConsole] = useState(null)
@@ -137,6 +129,28 @@ export default function SeoPage() {
   const landingCampaigns = useMemo(() => campaigns.filter((c) => c.landingSlug), [campaigns])
 
   const reportUrl = report?.url ?? ''
+
+  // El último informe guardado es el estado inicial de la pantalla.
+  useEffect(() => {
+    const controller = new AbortController()
+    apiFetch('/api/seo/reports/latest', { signal: controller.signal })
+      .then((response) => readJson(response, 'No se pudo cargar el último informe'))
+      .then((body) => {
+        if (body?.data) {
+          setReport(body.data)
+          setForm((prev) => ({
+            ...prev,
+            url: prev.url || body.data.url || '',
+            business: prev.business || body.data.business || '',
+            sector: prev.sector || body.data.sector || '',
+            city: prev.city || body.data.city || '',
+          }))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setReportLoading(false))
+    return () => controller.abort()
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -186,6 +200,22 @@ export default function SeoPage() {
     return (event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))
   }
 
+  /** Vuelve a un informe del historial. Solo lee: no re-audita nada. */
+  async function openReport(id) {
+    setOpeningReportId(id)
+    setError('')
+    try {
+      const response = await apiFetch(`/api/seo/reports/${encodeURIComponent(id)}`)
+      const body = await readJson(response, 'No se pudo abrir ese informe.')
+      setReport(body.data)
+      setContentState({})
+    } catch (openError) {
+      setError(openError.message)
+    } finally {
+      setOpeningReportId('')
+    }
+  }
+
   async function analyze(event) {
     event.preventDefault()
     if (!form.url.trim()) {
@@ -197,9 +227,10 @@ export default function SeoPage() {
     try {
       const response = await apiFetch('/api/seo/analyze', { method: 'POST', body: JSON.stringify(form) })
       const body = await readJson(response, 'No se pudo generar el informe SEO.')
+      // No hace falta guardarlo en el navegador: `/api/seo/analyze` ya lo
+      // persiste en `SeoReport` antes de responder.
       setReport(body.data)
       setContentState({})
-      saveLastReport(body.data)
     } catch (analyzeError) {
       setError(analyzeError.message)
     } finally {
@@ -463,6 +494,27 @@ export default function SeoPage() {
             <p style={styles.hint}>
               {history.length} auditorías · última: {new Date(history[history.length - 1].createdAt).toLocaleString()} ({history[history.length - 1].score}/100)
             </p>
+            {/* Los informes están en el servidor, así que se puede volver a
+                uno anterior en vez de solo ver su punto en la gráfica. */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+              {[...history].reverse().slice(0, 5).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => openReport(item.id)}
+                  disabled={openingReportId === item.id}
+                  style={{ ...styles.secondaryButton, opacity: openingReportId === item.id ? 0.6 : 1 }}
+                >
+                  {new Date(item.createdAt).toLocaleDateString()} · {item.score}/100{item.auto ? ' (auto)' : ''}
+                </button>
+              ))}
+            </div>
+          </Card>
+        ) : null}
+
+        {reportLoading && !report ? (
+          <Card icon={RiSearchEyeLine} title="Buscando tu último informe">
+            <p style={styles.hint}>Leyendo el informe guardado en tu cuenta…</p>
           </Card>
         ) : null}
 

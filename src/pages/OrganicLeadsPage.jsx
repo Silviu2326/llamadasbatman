@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   RiAddLine,
   RiArrowRightLine,
@@ -20,20 +21,32 @@ import {
   RiUserSearchLine,
 } from 'react-icons/ri'
 import {
+  approveOrganicAutonomyDecision,
   connectOrganicWeb,
   configureOrganicIntegration,
   createOrganicDraft,
   createOrganicProject,
   disconnectOrganicIntegration,
+  dismissOrganicRecommendation,
+  dispatchOrganicRecommendation,
+  fetchOrganicAutonomy,
   fetchOrganicIntegrations,
   fetchOrganicOverview,
+  fetchOrganicRecommendations,
+  promoteOrganicAutonomyKind,
+  rejectOrganicAutonomyDecision,
+  runOrganicAutonomyPass,
   startOrganicOAuth,
   syncOrganicIntegration,
+  updateOrganicAutonomy,
 } from '../lib/organic/organicApi'
 import { DEMO_MODE } from '../lib/dataMode'
 import { planGateMessage } from '../lib/planGate'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
+import OrganicAutonomy from '../components/organic/OrganicAutonomy'
+import OrganicDataIntegrity from '../components/organic/OrganicDataIntegrity'
+import OrganicOnboarding from '../components/organic/OrganicOnboarding'
 import './organic-leads.css'
 
 const PERIODS = [
@@ -42,23 +55,25 @@ const PERIODS = [
   { value: '12m', label: 'Últimos 12 meses' },
 ]
 
-const EMPTY_KPI = [
-  { key: 'potentialCustomers', label: 'Clientes potenciales encontrados', description: 'Personas estimadas que buscan servicios como los tuyos en tu zona.', icon: RiTeamLine },
-  { key: 'organicLeads', label: 'Leads orgánicos', description: 'Contactos, llamadas, formularios o WhatsApps originados desde búsquedas.', icon: RiUserSearchLine },
-  { key: 'estimatedValue', label: 'Valor estimado', description: 'Valor comercial potencial de los leads orgánicos.', icon: RiFocus3Line },
-  { key: 'missedOpportunities', label: 'Oportunidades sin aprovechar', description: 'Búsquedas donde podrías captar clientes pero falta un camino de conversión.', icon: RiFocus3Line },
+// Las cuatro tarjetas de organico.md §5.2. Las anteriores pedían
+// `potentialCustomers`, `estimatedValue` y `missedOpportunities`, que ningún
+// endpoint envió nunca: se renderizaban vacías para siempre.
+const ORGANIC_KPIS = [
+  { key: 'organicLeads', group: 'fast', label: 'Leads orgánicos', description: 'Contactos llegados por búsqueda, redes, ficha de Google o prospección.', icon: RiUserSearchLine },
+  { key: 'qualified', group: 'mature', label: 'Cualificados', description: 'De esos leads, los que tuvieron un resultado de llamada válido.', icon: RiTeamLine },
+  { key: 'sales', group: 'mature', label: 'Ventas atribuidas', description: 'Oportunidades ganadas que nacieron de un canal orgánico.', icon: RiFocus3Line },
+  { key: 'hoursPerQualified', group: 'mature', label: 'Horas por cualificado', description: 'El gasto del orgánico es tiempo: estimado desde las piezas publicadas.', icon: RiLeafLine },
 ]
 
 const ACTION_ICONS = [RiFileTextLine, RiMapPin2Line, RiLeafLine, RiLinkM, RiSparkling2Line]
 
+// Solo las secciones que existen de verdad. Las anteriores apuntaban a
+// paneles retirados: anclas que no llevaban a ninguna parte.
 const ORGANIC_NAV_ITEMS = [
+  ['organic-integrity', 'Fuentes'],
   ['organic-summary', 'Resumen'],
-  ['organic-opportunities', 'Oportunidades'],
-  ['organic-local', 'Visibilidad local'],
-  ['organic-ai', 'Visibilidad IA'],
-  ['organic-content', 'Contenido'],
-  ['organic-competitors', 'Competidores'],
-  ['organic-leads', 'Leads orgánicos'],
+  ['organic-integrations', 'Integraciones'],
+  ['organic-autonomy', 'Autonomía'],
 ]
 
 const INTEGRATION_META = {
@@ -105,10 +120,230 @@ function hasOrganicSignals(data) {
       .some(items => Array.isArray(items) && items.length > 0)
 }
 
-function KpiCard({ item, value, currency }) {
+function KpiCard({ item, value }) {
   const Icon = item.icon
-  const renderedValue = item.key === 'estimatedValue' ? displayCurrency(value, currency) : displayNumber(value)
-  return <article className="organic-kpi"><div className="organic-kpi-head"><span className="organic-kpi-icon"><Icon aria-hidden="true" /></span><span>{item.label}</span></div><strong className="organic-kpi-value">{renderedValue}</strong><p className="organic-kpi-copy">{item.description}</p></article>
+  // `null` significa "no se ha medido"; `0` significa "se midió y salió cero".
+  // Pintarlos igual borra la diferencia entre no tener datos y no tener leads.
+  const missing = value === null || value === undefined
+  return <article className={`organic-kpi${missing ? ' is-missing' : ''}`}>
+    <span className="organic-kpi-icon"><Icon aria-hidden="true" /></span>
+    <div>
+      <small>{item.label}</small>
+      <strong>{missing ? 'Sin medición' : displayNumber(value)}</strong>
+      <p>{item.description}</p>
+    </div>
+  </article>
+}
+
+/**
+ * Lo que el centro de mando todavía no puede mostrar, y en qué fase llega.
+ *
+ * Sustituye a los paneles de demanda, visibilidad local, visibilidad IA y
+ * hueco competitivo, que pintaban tablas vacías y un mapa con coordenadas
+ * inventadas (`left: 25 + index * 11%`). Decir "esto llega en la fase 2" es
+ * información; un panel vacío es ruido que parece un fallo.
+ */
+/** Embudo unificado y ranking por canal — organico.md §5.3 y §5.4. */
+function OrganicFunnel({ funnel, channels, narrative }) {
+  if (!funnel?.length) return null
+  const measured = funnel.filter(step => step.value != null)
+  const max = measured.length ? Math.max(...measured.map(step => step.value)) : 0
+  return <>
+    <section className="organic-panel">
+      <header className="organic-panel-header">
+        <div><h2>Embudo orgánico</h2><p>De la presencia al comprador, sin pagar por el tráfico.</p></div>
+      </header>
+      <div className="organic-funnel">
+        {funnel.map(step => (
+          <div className="organic-funnel-step" key={step.key}>
+            <span>{step.label}</span>
+            <div><i style={{ width: step.value != null && max > 0 ? `${Math.max(5, (step.value / max) * 100)}%` : '0%' }} /></div>
+            <strong className={step.value == null ? 'is-missing' : ''}>{step.value == null ? 'Sin medición' : step.value.toLocaleString('es-ES')}</strong>
+            <em>{step.conversionPct != null ? `${step.conversionPct} %` : ''}</em>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    {channels?.length > 0 && (
+      <section className="organic-panel">
+        <header className="organic-panel-header">
+          <div><h2>Por canal</h2><p>Más tráfico no es mejor canal: lo que cuenta es quién trae compradores.</p></div>
+        </header>
+        <div className="organic-channel-table">
+          <div className="organic-channel-head"><span>Canal</span><span>Leads</span><span>Cualificados</span><span>Ventas</span><span>Horas</span><span>Señal</span></div>
+          {channels.map(channel => (
+            <div className="organic-channel-row" key={channel.channel}>
+              <strong>{channel.label}<small>{channel.cohortStatus === 'mature' ? 'cohorte madura' : channel.cohortStatus === 'maturing' ? 'cohorte madurando' : 'sin cohorte suficiente'}</small></strong>
+              <span>{channel.leads ?? '—'}</span>
+              <span>{channel.qualified ?? '—'}{channel.qualificationPct != null ? ` · ${channel.qualificationPct} %` : ''}</span>
+              <span>{channel.sales ?? '—'}</span>
+              {/* `null` es "sin piezas publicadas", no "cero horas": el canal
+                  pudo traer leads sin que se registrara esfuerzo. */}
+              <span className={channel.hoursInvested == null ? 'is-missing' : ''}>
+                {channel.hoursInvested == null ? 'sin registrar' : `${channel.hoursInvested} h`}
+                {channel.hoursPerQualified != null && <small>{channel.hoursPerQualified} h/cualif</small>}
+              </span>
+              <em>{channel.deepestEligibleSignal}</em>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {narrative && (
+      <section className="organic-panel">
+        <header className="organic-panel-header">
+          <div><h2>Informe del período</h2><p>{narrative.headline}</p></div>
+        </header>
+        <div className="organic-narrative">
+          {narrative.sections.map(section => (
+            <article key={section.key}><h3>{section.title}</h3><p>{section.body}</p></article>
+          ))}
+        </div>
+      </section>
+    )}
+  </>
+}
+
+const STREAM_LABEL = { channel_signal: 'Señal de canal', xarly_hunt: 'Caza de Xarly', vertical_event: 'Acontecimiento' }
+const ARM_LABEL = { seo: 'SEO', social: 'Redes sociales', prospecting: 'Prospectos', landings: 'Landings', ads: 'Ads' }
+
+/**
+ * Cola priorizada de organico.md §5.5. Las tres corrientes —señales de canal,
+ * caza de Xarly y acontecimientos verticales— en la misma lista, ordenadas por
+ * valor económico: impacto × confianza ÷ esfuerzo.
+ *
+ * El botón NO ejecuta: abre el brazo correspondiente con el contexto cargado.
+ * El centro de mando decide y prioriza; ejecutar es de los brazos (§1).
+ */
+function OrganicRecommendations({ items, onDispatch, onDismiss, busyId }) {
+  const [dismissing, setDismissing] = useState('')
+  const [reason, setReason] = useState('')
+  if (!items?.length) return null
+  return <section className="organic-panel">
+    <header className="organic-panel-header">
+      <div><h2>Qué recomienda Xarly</h2><p>Ordenado por valor económico: impacto estimado × confianza ÷ horas de esfuerzo.</p></div>
+    </header>
+    <div className="organic-recs">
+      {items.map(item => (
+        <article key={item.id} className={`organic-rec is-${item.severity}`}>
+          <header>
+            <span className="organic-rec-stream">{STREAM_LABEL[item.stream] ?? item.stream}</span>
+            <span className="organic-rec-priority">prioridad {item.priorityScore}</span>
+          </header>
+          <strong>{item.title}</strong>
+          <p>{item.explanation}</p>
+          <p className="organic-rec-action"><b>Recomendación:</b> {item.recommendation}</p>
+          <dl>
+            <div><dt>Confianza</dt><dd>{item.confidence}</dd></div>
+            <div><dt>Esfuerzo</dt><dd>{item.estimatedHours} h</dd></div>
+            <div><dt>Se ejecuta en</dt><dd>{ARM_LABEL[item.dispatchArm] ?? item.dispatchArm}</dd></div>
+          </dl>
+          <small className="organic-rec-why">{item.confidenceReason}</small>
+          {dismissing === item.id ? (
+            <form className="organic-rec-dismiss" onSubmit={e => { e.preventDefault(); if (reason.trim().length >= 3) { onDismiss(item.id, reason.trim()); setDismissing(''); setReason('') } }}>
+              <label htmlFor={`dismiss-${item.id}`}>¿Por qué la descartas?</label>
+              <textarea id={`dismiss-${item.id}`} rows="2" value={reason} onChange={e => setReason(e.target.value)} placeholder="Ej.: ya lo cubrimos con otra pieza" />
+              <div>
+                <button type="button" className="organic-link" onClick={() => setDismissing('')}>Cancelar</button>
+                <button type="submit" className="organic-button secondary" disabled={reason.trim().length < 3}>Confirmar</button>
+              </div>
+            </form>
+          ) : (
+            <div className="organic-rec-actions">
+              <button type="button" className="organic-button primary" disabled={busyId === item.id} onClick={() => onDispatch(item.id, item.dispatchArm)}>
+                Abrir en {ARM_LABEL[item.dispatchArm] ?? item.dispatchArm} <RiArrowRightLine />
+              </button>
+              {item.stream === 'channel_signal' && (
+                <button type="button" className="organic-link" onClick={() => setDismissing(item.id)}>Descartar</button>
+              )}
+            </div>
+          )}
+        </article>
+      ))}
+    </div>
+  </section>
+}
+
+/**
+ * Ranking por pieza — organico.md §5.4. Demuestra que mas publicaciones no es
+ * mejor contenido: lo que cuenta es cual trajo cualificados y a que coste en
+ * tiempo. El enganche es el UTM propio de cada pieza.
+ */
+function OrganicPieces({ pieces }) {
+  if (!pieces?.length) return null
+  return <section className="organic-panel">
+    <header className="organic-panel-header">
+      <div><h2>Por pieza</h2><p>Qué publicación concreta trajo leads y cuánto tiempo costó producirla.</p></div>
+      <span className="organic-panel-note">Horas estimadas por formato, no cronometradas</span>
+    </header>
+    <div className="organic-piece-table">
+      <div className="organic-piece-head"><span>Pieza</span><span>Canal</span><span>Horas</span><span>Leads</span><span>Cualificados</span><span>Coste en tiempo</span></div>
+      {pieces.map(piece => (
+        <div className="organic-piece-row" key={piece.pieceId}>
+          <strong>{piece.format}<small>{piece.publishedAt ? new Date(piece.publishedAt).toLocaleDateString('es-ES') : 'sin fecha'}</small></strong>
+          <span>{piece.channel}</span>
+          <span>{piece.hoursInvested} h</span>
+          <span>{piece.leads}</span>
+          <span>{piece.qualified}</span>
+          <em className={piece.hoursPerQualified == null ? 'is-missing' : ''}>
+            {piece.hoursPerQualified == null ? 'sin cualificados' : `${piece.hoursPerQualified} h/cualif`}
+          </em>
+        </div>
+      ))}
+    </div>
+  </section>
+}
+
+/**
+ * A qué páginas llega el tráfico orgánico. Sale de la ingesta de GA4: antes el
+ * embudo solo sabía cuántas impresiones había en búsqueda, no dónde aterrizaba
+ * la gente ni cuánta de esa visita se quedaba.
+ */
+function OrganicPages({ pages }) {
+  if (!pages?.length) return null
+  return <section className="organic-panel">
+    <header className="organic-panel-header">
+      <div><h2>Por página</h2><p>Dónde aterriza el tráfico orgánico, según Analytics.</p></div>
+      <span className="organic-panel-note">Sesiones del período, sin tráfico de pago</span>
+    </header>
+    <div className="organic-piece-table">
+      <div className="organic-piece-head"><span>Página</span><span>Canal</span><span>Sesiones</span><span>Con interacción</span></div>
+      {pages.map(page => (
+        <div className="organic-page-row" key={`${page.channel}-${page.page}`}>
+          <strong>{page.page}</strong>
+          <span>{page.channel}</span>
+          <span>{page.sessions.toLocaleString('es-ES')}</span>
+          <em>{page.engagedSessions.toLocaleString('es-ES')}</em>
+        </div>
+      ))}
+    </div>
+  </section>
+}
+
+function OrganicUpcoming() {
+  // Solo lo que de verdad falta. Cuando una fila se construye, se retira: una
+  // lista que sigue prometiendo lo que ya existe deja de leerse.
+  const items = [
+    ['Alcance de redes', 'Metricool tiene el alcance de cada publicación; Vendrava todavía no lo lee, así que redes no tiene presencia medida.', 'Pendiente'],
+    ['Reprogramar un post solo', 'Está en la lista delegable de §9, pero falta la llamada de actualización de Metricool.', 'Fase 4'],
+    ['Responder reseñas con plantilla', 'Las reseñas ya se leen; responderlas exige escribir en la API restringida de Google y plantillas aprobadas.', 'Fase 4'],
+  ]
+  return <section className="organic-panel organic-upcoming">
+    <header className="organic-panel-header">
+      <div><h2>Todavía no medido</h2><p>Lo que falta para cerrar el circuito, y cuándo llega.</p></div>
+    </header>
+    <div className="organic-upcoming-list">
+      {items.map(([title, detail, phase]) => (
+        <div key={title}>
+          <strong>{title}</strong>
+          <span>{phase}</span>
+          <p>{detail}</p>
+        </div>
+      ))}
+    </div>
+  </section>
 }
 
 function OrganicInternalNav() {
@@ -122,7 +357,9 @@ function IntegrationCard({ integration, projectId, busy, onAction }) {
   const Icon = meta.icon
   const presentation = integrationPresentation(integration)
   const propertyLabel = integration.externalPropertyName || integration.externalPropertyId
-  const canSync = presentation.connected && !busy && (integration.provider !== 'search_console' || presentation.hasProperty)
+  // Las tres fuentes ingieren de verdad, y las tres necesitan su recurso
+  // elegido: sin propiedad ni ubicación no se sabe de dónde leer.
+  const canSync = presentation.connected && !busy && presentation.hasProperty
   const properties = integration.properties || []
   return <article className="organic-integration-card">
     <div className="organic-integration-heading"><span className="organic-integration-icon"><Icon aria-hidden="true" /></span><div><h3>{meta.label}</h3><span className={`organic-integration-status ${presentation.tone}`}>{presentation.label}</span></div></div>
@@ -133,7 +370,7 @@ function IntegrationCard({ integration, projectId, busy, onAction }) {
     {integration.lastSyncedAt ? <p className="organic-integration-sync">Última sincronización: {new Intl.DateTimeFormat(localeCode(getLocale()), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(integration.lastSyncedAt))}</p> : null}
     <div className="organic-integration-actions">
       {presentation.connected ? <>
-        <button type="button" className="organic-button secondary" onClick={() => onAction(integration.provider, 'sync')} disabled={!canSync} title={!presentation.hasProperty ? 'Selecciona una propiedad antes de sincronizar.' : undefined}><RiRefreshLine /> {busy ? 'Actualizando…' : integration.provider === 'search_console' ? 'Sincronizar' : 'Actualizar recursos'}</button>
+        <button type="button" className="organic-button secondary" onClick={() => onAction(integration.provider, 'sync')} disabled={!canSync} title={!presentation.hasProperty ? 'Selecciona una propiedad antes de sincronizar.' : undefined}><RiRefreshLine /> {busy ? 'Sincronizando…' : 'Sincronizar'}</button>
         <button type="button" className="organic-button ghost" onClick={() => onAction(integration.provider, 'disconnect')} disabled={busy}><RiCloseLine /> Desconectar</button>
       </> : <button type="button" className="organic-button primary" onClick={() => onAction(integration.provider, 'connect')} disabled={busy || !projectId}><RiLinkM /> {busy ? 'Iniciando…' : 'Iniciar OAuth'}</button>}
     </div>
@@ -160,45 +397,20 @@ function SetupState({ kind, onConfigure, onRetry, error }) {
   return <section className="organic-state" aria-live="polite"><div className="organic-state-box"><span className="organic-state-icon">{isError ? <RiRefreshLine /> : <RiCompass3Line />}</span><h2>{isError ? 'No pudimos cargar Organic Leads' : 'Conecta tu negocio para empezar'}</h2><p>{isError ? error : 'Organic Leads necesita una web o un proyecto conectado para descubrir oportunidades reales. Configúralo y volveremos con datos de búsquedas, leads y valor comercial.'}</p><button type="button" className="organic-button primary" onClick={isError ? onRetry : onConfigure}>{isError ? <><RiRefreshLine /> Reintentar</> : <><RiLinkM /> Configurar Organic Leads</>}</button></div></section>
 }
 
-function MapSurface({ points }) {
-  return <div className="organic-map" aria-label="Superficie de demanda por zona" role="img">
-    <span className="organic-map-city">{points?.[0]?.city || 'Tu zona'}</span>
-    {points?.length ? points.slice(0, 7).map((point, index) => <span key={`${point.label || point.query || 'point'}-${index}`} className={`organic-map-dot ${point.tone === 'hot' ? 'is-hot' : point.tone === 'warm' ? 'is-warm' : ''}`} style={{ left: `${point.x ?? 25 + index * 11}%`, top: `${point.y ?? 26 + (index % 3) * 21}%` }} title={point.label || point.query || 'Oportunidad'} />) : <div className="organic-map-empty"><span>Cuando conectes tu proyecto, aquí verás dónde existe demanda comercial cerca de tu negocio.</span></div>}
-    {points?.slice(0, 5).map((point, index) => point.label || point.query ? <span key={`label-${index}`} className="organic-map-label" style={{ left: `${point.labelX ?? 8 + (index % 3) * 30}%`, top: `${point.labelY ?? 8 + (index % 2) * 42}%` }}>{point.label || point.query}</span> : null)}
-  </div>
-}
 
-function OpportunitiesPanel({ data, onAction }) {
-  const rows = data.demand.opportunities
-  const best = data.demand.best || rows[0]
-  return <section id="organic-opportunities" className="organic-panel"><header className="organic-panel-header"><div><h2>Dónde están tus próximos clientes</h2><p>Demanda comercial encontrada alrededor de tu negocio.</p></div><button type="button" className="organic-link" onClick={() => onAction(best, 'opportunity')}>Ver análisis completo <RiArrowRightLine /></button></header><div className="organic-demand-layout"><MapSurface points={data.demand.points} /><div className="organic-opportunity-table"><div className="organic-table-head"><span>Búsqueda</span><span>Demanda</span><span>Competencia</span><span>Valor por lead</span><span>Acción</span></div>{rows.length ? rows.slice(0, 5).map((row, index) => <div className="organic-table-row" key={row.id || `${row.query || row.label}-${index}`}><strong>{row.query || row.label || 'Oportunidad sin nombre'}</strong><span className={`organic-pill ${row.demandTone || String(row.demand || '').toLowerCase()}`}>{row.demand || '—'}</span><span className="organic-intent">{row.competition || '—'}</span><span>{displayCurrency(row.valuePerLead ?? row.estimatedValue, data.project?.currency || 'EUR')}</span><button type="button" className={`organic-table-action ${index === 1 ? 'primary' : ''}`} onClick={() => onAction(row, 'opportunity')}>{row.actionLabel || 'Ver oportunidad'}</button></div>) : <div className="organic-state"><p>Aquí aparecerán las búsquedas que pueden convertirse en clientes.</p></div>} {best ? <div className="organic-opportunity-best"><p><strong>Mejor oportunidad:</strong> {best.query || best.label || 'Pendiente de análisis'}{best.description ? ` · ${best.description}` : ''}</p><button type="button" className="organic-button primary" onClick={() => onAction(best, 'opportunity')}>Aprovechar oportunidad</button></div> : null}</div></div></section>
-}
 
 function ActionPanel({ actions, onAction }) {
   const items = actions.slice(0, 5)
   return <section className="organic-panel organic-action-panel"><header className="organic-panel-header"><div><h2>Qué hará Vendrava por ti</h2><p>Acciones ordenadas para mover la demanda hacia ventas.</p></div></header>{items.length ? items.map((action, index) => { const Icon = ACTION_ICONS[index] || RiLightbulbFlashLine; return <div className="organic-action-row" key={action.id || `${action.title}-${index}`}><span className="organic-action-index">{index + 1}</span><div className="organic-action-copy"><strong>{action.title || action.name || 'Siguiente acción'}</strong><p>{action.description || action.detail || 'Una recomendación conectada con tu oportunidad comercial.'}</p><span className={`organic-impact ${action.impact === 'medium' ? 'medium' : ''}`}>{action.impactLabel || (action.impact === 'medium' ? 'Impacto medio' : 'Impacto alto')}</span></div><button type="button" className="organic-button primary" onClick={() => onAction(action, 'draft')}><Icon aria-hidden="true" /> <span>{action.cta || 'Preparar'}</span></button></div> }) : <div className="organic-state"><p>Cuando haya una oportunidad, Vendrava te propondrá qué crear o mejorar primero.</p></div>}</section>
 }
 
-function LocalPanel({ data }) {
-  return <section id="organic-local" className="organic-panel organic-small-panel"><header className="organic-panel-header"><div><h2>Presencia local</h2><p>Qué tan visible eres en las zonas que importan.</p></div><RiMapPin2Line aria-hidden="true" /></header><div className="organic-map-mini" aria-hidden="true" /><div className="organic-local-copy"><p className="organic-local-query">{data.local.query || 'Consulta local pendiente'}</p>{data.local.areas.length ? data.local.areas.slice(0, 4).map((area, index) => <div className="organic-local-row" key={area.name || area.label || index}><span>{area.name || area.label || 'Zona'}</span><strong>{area.position ?? area.rank ?? '—'}</strong></div>) : <p className="organic-muted-copy">Conecta tu presencia local para ver posiciones por zona y recomendaciones accionables.</p>}</div></section>
-}
 
-function AiPanel({ data }) {
-  return <section id="organic-ai" className="organic-panel organic-small-panel"><header className="organic-panel-header"><div><h2>Visibilidad en IA</h2><p>Si los asistentes recomiendan tu negocio.</p></div><span className="organic-pill">Nuevo</span></header><div className="organic-ai-list">{data.ai.items.length ? data.ai.items.slice(0, 3).map((item, index) => <div className="organic-ai-item" key={item.id || index}><span className={`organic-status ${item.statusTone || (item.appears === 'partial' ? 'partial' : item.appears ? 'present' : 'missing')}`}>{item.statusLabel || (item.appears === 'partial' ? 'Parcialmente' : item.appears ? 'Aparece' : 'No aparece')}</span><strong>{item.query || item.prompt || 'Consulta sin título'}</strong><p>{item.reason || item.description || 'Sin explicación disponible todavía.'}</p></div>) : <p className="organic-muted-copy">Conecta tu web para comprobar si las respuestas de IA entienden qué vendes y dónde lo haces.</p>}</div></section>
-}
 
 function AssetsPanel({ data, onAction }) {
   return <section id="organic-content" className="organic-panel organic-small-panel"><header className="organic-panel-header"><div><h2>Activos que generan clientes</h2><p>Piezas comerciales conectadas al CRM.</p></div></header><div className="organic-asset-list">{data.assets.length ? data.assets.slice(0, 4).map((asset, index) => <div className="organic-asset-item" key={asset.id || index}><span className="organic-asset-icon"><RiFileTextLine /></span><div><strong>{asset.name || asset.title || 'Activo comercial'}</strong><p>{asset.description || asset.type || 'Borrador conectado a una oportunidad.'}</p></div><button type="button" className="organic-button secondary" onClick={() => onAction(asset, 'draft')}>{asset.cta || 'Crear'}</button></div>) : <p className="organic-muted-copy">Cuando descubras una oportunidad, aquí aparecerán páginas, guías y landings capaces de convertirla.</p>}</div></section>
 }
 
-function LeadsPanel({ data }) {
-  return <section id="organic-leads" className="organic-panel organic-small-panel"><header className="organic-panel-header"><div><h2>Leads orgánicos</h2><p>Contactos atribuidos a búsquedas.</p></div><RiUserSearchLine aria-hidden="true" /></header><div className="organic-lead-list">{data.leads.length ? data.leads.slice(0, 3).map((lead, index) => <div className="organic-lead-row" key={lead.id || index}><span className="organic-lead-avatar">{initials(lead.name)}</span><div className="organic-lead-copy"><strong>{lead.name || 'Lead orgánico'}</strong><span>{lead.query || lead.search || 'Origen orgánico'}</span><small>{lead.statusLabel || lead.status || 'Sin estado'}</small></div><span className="organic-lead-value">{displayCurrency(lead.value ?? lead.estimatedValue, data.project?.currency || 'EUR')}</span></div>) : <p className="organic-muted-copy">Los contactos que lleguen desde Google o asistentes de IA aparecerán aquí junto a su valor comercial.</p>}</div></section>
-}
 
-function CompetitorGap({ data }) {
-  const items = data.competitorGap.items.slice(0, 3)
-  return <section id="organic-competitors" className="organic-gap"><div><h2>Competitor Gap</h2><p>{data.competitorGap.summary || 'Detecta la demanda que otros negocios están captando y encuentra cómo superarla.'}</p></div>{items.length ? items.map((item, index) => <div className="organic-gap-row" key={item.id || index}><span className="organic-gap-icon"><RiSearchEyeLine /></span><div><strong>{item.title || item.name || 'Oportunidad competitiva'}</strong><span>{item.description || item.detail || 'Sin detalle disponible todavía.'}</span></div></div>) : <div className="organic-gap-row"><span className="organic-gap-icon"><RiSearchEyeLine /></span><div><strong>Conecta tu proyecto para comparar</strong><span>Veremos qué servicios, zonas y mensajes están generando demanda en tu mercado.</span></div></div>}</section>
-}
 
 function OrganicModal({ type, target, action = 'draft', onClose, onSubmit, submitting, message }) {
   const isSetup = type === 'setup'
@@ -214,7 +426,13 @@ function OrganicModal({ type, target, action = 'draft', onClose, onSubmit, submi
 
 export default function OrganicLeadsPage() {
   const { locale } = useI18n()
+  const navigate = useNavigate()
   const [period, setPeriod] = useState('30d')
+  const [recommendations, setRecommendations] = useState([])
+  const [autonomy, setAutonomy] = useState(null)
+  const [autonomyBusy, setAutonomyBusy] = useState(false)
+  const [autonomyMessage, setAutonomyMessage] = useState('')
+  const [dispatching, setDispatching] = useState('')
   const [projectId, setProjectId] = useState('')
   const [view, setView] = useState({ status: 'loading', data: null, error: '' })
   const [integrationState, setIntegrationState] = useState({ status: 'loading', integrations: [], error: '', message: '', busyProvider: '' })
@@ -222,9 +440,18 @@ export default function OrganicLeadsPage() {
   const [modalMessage, setModalMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  async function loadAutonomy() {
+    // La sala no puede tumbar la página: si falla, se queda sin panel y el
+    // resto del centro de mando sigue en pie.
+    const state = await fetchOrganicAutonomy().catch(() => null)
+    setAutonomy(state)
+  }
+
   async function loadOverview() {
     setView(current => ({ ...current, status: 'loading', error: '' }))
     try {
+      fetchOrganicRecommendations().then(setRecommendations).catch(() => setRecommendations([]))
+      loadAutonomy()
       const result = await fetchOrganicOverview({ projectId, period })
       const status = result.status === 'ready' && !hasOrganicSignals(result.data) ? 'empty' : result.status
       setView({ status, data: result.data, error: '', gate: result.gate || null })
@@ -301,8 +528,42 @@ export default function OrganicLeadsPage() {
   const currency = data?.project?.currency || 'EUR'
 
   if (view.status === 'loading') return <main className="organic-page"><div className="organic-shell"><div className="organic-state"><div><div className="organic-spinner" /><p>{locale === 'en' ? 'Preparing your opportunity map…' : 'Preparando tu mapa de oportunidades…'}</p></div></div></div></main>
-  if (view.status === 'setup' || !data) return <main className="organic-page"><div className="organic-shell">{view.gate ? <DataStatusBanner status="plan" message={planGateMessage(view.gate, locale)} /> : null}<SetupState kind="setup" onConfigure={() => openModal('setup', null, 'project')} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
+  if (view.status === 'setup' || !data) return <main className="organic-page"><div className="organic-shell">{view.gate ? <DataStatusBanner status="plan" message={planGateMessage(view.gate, locale)} /> : null}<OrganicOnboarding onComplete={loadOverview} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
   if (view.status === 'error') return <main className="organic-page"><div className="organic-shell"><SetupState kind="error" error={view.error} onRetry={loadOverview} onConfigure={() => openModal('setup', null, 'project')} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
 
-  return <main className="organic-page"><div className="organic-shell"><header className="organic-topbar"><div className="organic-heading"><RiLeafLine aria-hidden="true" /><h1>Organic Leads</h1></div><div className="organic-header-actions"><div className="organic-selects">{projects.length ? <label><span className="organic-screen-reader">Proyecto</span><select className="organic-control" value={projectId || projects[0]?.id || ''} onChange={event => setProjectId(event.target.value)}>{projects.map(project => <option key={project.id} value={project.id}>{project.name || project.location || 'Proyecto orgánico'}</option>)}</select></label> : null}<label><span className="organic-screen-reader">Periodo</span><select className="organic-control" value={period} onChange={event => setPeriod(event.target.value)}>{PERIODS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div><button type="button" className="organic-button secondary" onClick={() => openModal('setup', null, 'connect')}><RiLinkM /> Conectar web</button><button type="button" className="organic-button primary" onClick={() => openModal('draft')}><RiAddLine /> Crear campaña orgánica</button></div></header><OrganicInternalNav />{view.status === 'empty' ? <DataStatusBanner status="empty" message="Aún no hay señales orgánicas en este periodo. Conecta las integraciones y sincroniza para ver datos reales." /> : null}<section id="organic-summary" className="organic-opportunity-banner"><div className="organic-score" aria-label={`Oportunidad orgánica ${data.opportunity.score ?? 'sin puntuación'} sobre 100`}><span>{data.opportunity.score ?? '—'}<small>/100</small></span></div><div className="organic-opportunity-copy"><h2>Oportunidad orgánica: <strong>{data.opportunity.score ?? '—'}/100</strong></h2><p>{data.opportunity.summary || 'Vendrava está buscando oportunidades comerciales que tu negocio todavía no está aprovechando.'}</p></div><button type="button" className="organic-button secondary" onClick={() => handleAction(data.demand.best, 'opportunity')}>Ver análisis completo <RiArrowRightLine /></button></section><section className="organic-kpi-grid">{EMPTY_KPI.map(item => <KpiCard key={item.key} item={item} value={data.kpis[item.key]} currency={currency} />)}</section><OrganicIntegrationsPanel state={integrationState} projectId={data.project?.id || projectId} onAction={handleIntegrationAction} onRefresh={loadIntegrations} /><div className="organic-main-grid"><OpportunitiesPanel data={data} onAction={handleAction} /><ActionPanel actions={data.actions} onAction={handleAction} /></div><div className="organic-lower-grid"><LocalPanel data={data} onAction={handleAction} /><AiPanel data={data} onAction={handleAction} /><AssetsPanel data={data} onAction={handleAction} /><LeadsPanel data={data} onAction={handleAction} /></div><CompetitorGap data={data} onAction={handleAction} /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
+  // Despachar no ejecuta: navega al brazo con el contexto en la query.
+  async function dispatchRecommendation(id) {
+    setDispatching(id)
+    try {
+      const body = await dispatchOrganicRecommendation(id)
+      navigate(body.url)
+    } catch {
+      setDispatching('')
+    }
+  }
+
+  async function dismissRecommendation(id, reason) {
+    await dismissOrganicRecommendation(id, reason).catch(() => {})
+    setRecommendations(current => current.filter(item => item.id !== id))
+  }
+
+  /**
+   * Toda acción de gobierno recarga el estado: el nivel efectivo depende de la
+   * calidad de los datos y del freno compartido, así que el valor que se acaba
+   * de enviar no es necesariamente el que quedó guardado.
+   */
+  async function withAutonomy(operation) {
+    setAutonomyBusy(true)
+    setAutonomyMessage('')
+    try {
+      await operation()
+    } catch (error) {
+      setAutonomyMessage(error.message || 'No pudimos completar la operación de autonomía.')
+    } finally {
+      await loadAutonomy()
+      setAutonomyBusy(false)
+    }
+  }
+
+  return <main className="organic-page"><div className="organic-shell"><header className="organic-topbar"><div className="organic-heading"><RiLeafLine aria-hidden="true" /><h1>Organic Leads</h1></div><div className="organic-header-actions"><div className="organic-selects">{projects.length ? <label><span className="organic-screen-reader">Proyecto</span><select className="organic-control" value={projectId || projects[0]?.id || ''} onChange={event => setProjectId(event.target.value)}>{projects.map(project => <option key={project.id} value={project.id}>{project.name || project.location || 'Proyecto orgánico'}</option>)}</select></label> : null}<label><span className="organic-screen-reader">Periodo</span><select className="organic-control" value={period} onChange={event => setPeriod(event.target.value)}>{PERIODS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div><button type="button" className="organic-button secondary" onClick={() => openModal('setup', null, 'connect')}><RiLinkM /> Conectar web</button><button type="button" className="organic-button primary" onClick={() => openModal('draft')}><RiAddLine /> Crear campaña orgánica</button></div></header><OrganicInternalNav />{view.status === 'empty' ? <DataStatusBanner status="empty" message="Aún no hay señales orgánicas en este periodo. Conecta las integraciones y sincroniza para ver datos reales." /> : null}<div id="organic-integrity"><OrganicDataIntegrity dataQuality={data.dataQuality} onConnect={() => openModal('setup', null, 'connect')} /></div><section id="organic-summary" className="organic-kpi-grid">{ORGANIC_KPIS.map(item => <KpiCard key={item.key} item={item} value={data.summary?.[item.group]?.[item.key]} />)}</section><OrganicIntegrationsPanel state={integrationState} projectId={data.project?.id || projectId} onAction={handleIntegrationAction} onRefresh={loadIntegrations} /><OrganicRecommendations items={recommendations} onDispatch={dispatchRecommendation} onDismiss={dismissRecommendation} busyId={dispatching} />{autonomy ? <><OrganicAutonomy state={autonomy} busy={autonomyBusy} onChangeLevel={level => withAutonomy(() => updateOrganicAutonomy({ level }))} onToggleShadow={shadowMode => withAutonomy(() => updateOrganicAutonomy({ shadowMode }))} onRun={() => withAutonomy(runOrganicAutonomyPass)} onApprove={id => withAutonomy(() => approveOrganicAutonomyDecision(id))} onReject={(id, reason) => withAutonomy(() => rejectOrganicAutonomyDecision(id, reason))} onPromote={kind => withAutonomy(() => promoteOrganicAutonomyKind(kind))} />{autonomyMessage ? <p className="organic-autonomy-message" role="alert">{autonomyMessage}</p> : null}</> : null}<OrganicPieces pieces={data.pieces} /><OrganicPages pages={data.pages} /><OrganicFunnel funnel={data.funnel} channels={data.channels} narrative={data.weeklyNarrative} /><div className="organic-main-grid"><ActionPanel actions={data.actions} onAction={handleAction} /><AssetsPanel data={data} onAction={handleAction} /></div><OrganicUpcoming /></div>{modal ? <OrganicModal {...modal} onClose={() => setModal(null)} onSubmit={submitModal} submitting={submitting} message={modalMessage} /> : null}</main>
 }

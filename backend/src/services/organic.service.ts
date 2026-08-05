@@ -1,5 +1,13 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
+import { QUALIFYING_CALL_OUTCOMES } from '../lib/callOutcome'
+import { getOrganicDataQuality } from './organicDataQuality.service'
+import { buildOrganicNarrative, getUnifiedFunnel } from './organicChannels.service'
+import { applyHoursToSnapshots, getHoursPerQualified, getPieceRanking } from './organicEffort.service'
+import { evaluateMaturedActions, getOutcomeSummary } from './organicOutcome.service'
+import { getTopOrganicPages } from './organicGoogleIngest.service'
+import { getAutonomyConfig } from './organicAutonomy.service'
+import { getPolicy } from './adPolicy.service'
 import { writeAuditLog } from '../lib/audit'
 
 export const ORGANIC_INTEGRATION_PROVIDERS = [
@@ -248,7 +256,34 @@ export async function createOrganicActionFromOpportunity(
   return action
 }
 
-export async function getOrganicOverview(orgId: string) {
+/** Períodos admitidos por la página. `period` dejaba de filtrar: era decorativo. */
+// '12m' es la etiqueta que usa el selector de la pagina; se acepta tal cual
+// en vez de obligar al front a hablar otro idioma.
+const PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '12m': 365, '365d': 365 }
+const DEFAULT_PERIOD = '90d'
+
+function resolvePeriod(period?: string) {
+  const key = period && PERIOD_DAYS[period] ? period : DEFAULT_PERIOD
+  return { key, days: PERIOD_DAYS[key], since: new Date(Date.now() - PERIOD_DAYS[key] * 86_400_000) }
+}
+
+/**
+ * Bloque `policy` del contrato §7.1. Es lo que la pantalla necesita para no
+ * prometer autonomía que no existe: el nivel concedido, si sigue en sombra y si
+ * alguien tiró del freno compartido con Ads.
+ */
+async function autonomyPolicyBlock(orgId: string) {
+  const [config, adPolicy] = await Promise.all([getAutonomyConfig(orgId), getPolicy(orgId)])
+  return {
+    autonomyLevel: adPolicy.killSwitchEnabled ? 'N1' : config.level,
+    mode: config.shadowMode ? 'shadow' : 'live',
+    killSwitchEnabled: adPolicy.killSwitchEnabled,
+    killSwitchReason: adPolicy.killSwitchReason,
+  }
+}
+
+export async function getOrganicOverview(orgId: string, options: { period?: string; projectId?: string } = {}) {
+  const period = resolvePeriod(options.period)
   const project = await getOrganicProject(orgId)
   if (!project) {
     return {
@@ -268,6 +303,21 @@ export async function getOrganicOverview(orgId: string) {
       assets: [],
       integrations: [],
       setupRequired: true,
+      // Contrato de organico.md §7.1. Sin proyecto no se mide nada, y eso se
+      // dice con `null` en vez de con ceros que parecerian resultados.
+      period: { key: period.key, days: period.days },
+      profile: { sectors: [], onboarding: { status: 'not_started', level: 0 } },
+      dataQuality: await getOrganicDataQuality(orgId, null),
+      summary: {
+        fast: { organicLeads: null, visits: null, presence: null },
+        mature: { qualified: null, opportunities: null, sales: null, hoursInvested: null, hoursPerQualified: null },
+        deepestEligibleSignal: null,
+      },
+      funnel: [],
+      channels: [],
+      recommendations: [],
+      weeklyNarrative: null,
+      policy: await autonomyPolicyBlock(orgId),
     }
   }
 
@@ -302,10 +352,21 @@ export async function getOrganicOverview(orgId: string) {
       where: {
         orgId,
         leadId: { not: null },
+        // El período dejó de ser decorativo: filtra de verdad.
+        createdAt: { gte: period.since },
         OR: [
           { source: { contains: 'organic', mode: 'insensitive' } },
           { medium: { contains: 'organic', mode: 'insensitive' } },
+          { type: { in: ['prospect_import', 'landing_lead'] } },
         ],
+        // Mismo criterio que el embudo (`isOrganicEvent`): un `landing_lead`
+        // de una campaña de pago no es un lead orgánico.
+        NOT: {
+          OR: [
+            { medium: { in: ['paid_social', 'cpc', 'ppc', 'paid', 'display', 'retargeting'] } },
+            { source: { in: ['meta', 'facebook_ads', 'google_ads', 'adwords', 'tiktok_ads'] } },
+          ],
+        },
       },
       select: { leadId: true },
       distinct: ['leadId'],
@@ -329,6 +390,65 @@ export async function getOrganicOverview(orgId: string) {
     pendingActions: pendingActionCount,
   }
 
+  // ── Contrato de organico.md §7.1 ──────────────────────────────────────────
+  // Se recorre el mismo hilo que Ads y con las mismas definiciones: un lead
+  // cualificado no puede contar distinto según el canal que lo trajo (§5.2).
+  const leadIds = Array.from(organicLeadIds)
+  const [qualifiedLeads, leadOpportunities] = leadIds.length
+    ? await Promise.all([
+        prisma.lead.count({
+          where: { orgId, id: { in: leadIds }, calls: { some: { outcome: { in: [...QUALIFYING_CALL_OUTCOMES] } } } },
+        }),
+        prisma.opportunity.findMany({
+          where: { orgId, leadId: { in: leadIds } },
+          select: { stage: true },
+        }),
+      ])
+    : [0, [] as Array<{ stage: string }>]
+
+  const sales = leadOpportunities.filter(item => item.stage === 'closed_won').length
+  const dataQuality = await getOrganicDataQuality(orgId, project.id)
+  // El orden importa: `getUnifiedFunnel` reconstruye los snapshots cuando están
+  // caducados, y esa reconstrucción los escribe con `hoursInvested` a null. Si
+  // las horas se aplicaran antes, la reconstrucción las borraría.
+  const unified = await getUnifiedFunnel(orgId, project.id, period.key, period.days)
+  await applyHoursToSnapshots(orgId, project.id, period.key, period.days)
+  const [hoursPerQualified, pieces, pages] = await Promise.all([
+    getHoursPerQualified(orgId, project.id, period.key),
+    getPieceRanking(orgId, period.since),
+    // El detalle que hace útil la ingesta de GA4: a qué páginas llega el
+    // tráfico orgánico, no solo cuánto hay.
+    getTopOrganicPages(orgId, project.id, period.since),
+  ])
+  const hoursByChannel = new Map(hoursPerQualified.map(item => [item.channel, item]))
+  const hourValues = hoursPerQualified
+    .map(item => item.hoursInvested)
+    .filter((value): value is number => value != null)
+  // `null` si no hay ni una pieza publicada: 0 h diria que se publico gratis.
+  const totalHours = hourValues.length
+    ? Math.round(hourValues.reduce((sum, value) => sum + value, 0) * 10) / 10
+    : null
+
+  // El informe recibe los canales ya enriquecidos con sus horas, para poder
+  // hablar del coste en tiempo sin recalcularlo.
+  const channelsWithHours = unified.channels.map(channel => ({
+    ...channel,
+    hoursInvested: hoursByChannel.get(channel.channel)?.hoursInvested ?? channel.hoursInvested,
+    hoursPerQualified: hoursByChannel.get(channel.channel)?.hoursPerQualified ?? null,
+  }))
+
+  // Se evalua lo que haya madurado antes de redactar: el informe debe poder
+  // decir que paso con lo que se recomendo, no solo que se recomendo algo.
+  await evaluateMaturedActions(orgId)
+  const outcomes = await getOutcomeSummary(orgId)
+
+  const narrative = buildOrganicNarrative({
+    periodDays: period.days,
+    funnel: unified.funnel,
+    channels: channelsWithHours,
+    outcomes,
+  })
+
   return {
     project,
     kpis,
@@ -337,6 +457,51 @@ export async function getOrganicOverview(orgId: string) {
     assets,
     integrations: project.integrations,
     setupRequired: opportunityCount === 0 && assetCount === 0 && actionCount === 0 && organicLeadIds.size === 0,
+
+    period: { key: period.key, days: period.days },
+    profile: {
+      sectors: Array.isArray((project.config as Record<string, unknown> | null)?.sectors)
+        ? (project.config as { sectors: string[] }).sectors
+        : [],
+      // El onboarding adaptativo (§4) llega en la fase 1: se declara su
+      // ausencia en vez de fingir que el perfil está completo.
+      onboarding: { status: 'not_started', level: 0 },
+    },
+    dataQuality,
+    summary: {
+      fast: {
+        organicLeads: organicLeadIds.size,
+        // Del embudo, que ya suma lo ingerido de GA4 y del Perfil de Empresa.
+        // Siguen siendo `null` —no cero— mientras esas fuentes no traigan nada:
+        // "sin medición" y "nadie visitó la web" son afirmaciones distintas.
+        visits: unified.funnel.find(step => step.key === 'visit')?.value ?? null,
+        presence: unified.funnel.find(step => step.key === 'presence')?.value ?? null,
+      },
+      mature: {
+        qualified: leadIds.length ? qualifiedLeads : null,
+        opportunities: leadIds.length ? leadOpportunities.length : null,
+        sales: leadIds.length ? sales : null,
+        hoursInvested: totalHours,
+        hoursPerQualified: totalHours != null && qualifiedLeads > 0
+          ? Math.round((totalHours / qualifiedLeads) * 10) / 10
+          : null,
+      },
+      deepestEligibleSignal: sales > 0 ? 'sale' : qualifiedLeads > 0 ? 'qualified_lead' : organicLeadIds.size > 0 ? 'lead' : null,
+    },
+    funnel: unified.funnel,
+    /** Cada canal con su coste en tiempo al lado (§5.2). */
+    channels: channelsWithHours,
+    /** Ranking por pieza: qué publicación concreta trajo leads (§5.4). */
+    pieces,
+    /** Páginas con más tráfico orgánico, de la ingesta de GA4. */
+    pages,
+    /** Qué pasó con lo despachado: la prueba de valor de la fase 3. */
+    outcomes,
+    // Las recomendaciones con prioridad económica y despacho a los brazos son
+    // la fase 2: se declaran vacías en vez de inventarlas.
+    recommendations: [],
+    weeklyNarrative: narrative,
+    policy: await autonomyPolicyBlock(orgId),
   }
 }
 

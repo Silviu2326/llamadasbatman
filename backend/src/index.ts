@@ -30,12 +30,15 @@ import { metaWebhooksRoutes } from './routes/metaWebhooks'
 import { mauticWebhooksRoutes } from './routes/mauticWebhooks'
 import { mauticRoutes } from './routes/mautic'
 import { metricoolRoutes } from './routes/metricool'
+import { contentRoutes } from './routes/content'
+import { contentApprovalPublicRoutes } from './routes/contentApprovalPublic'
 import { publicMediaRoutes } from './routes/publicMedia'
 import { automationsRoutes } from './routes/automations'
 import { knowledgeRoutes } from './routes/knowledge'
 import { dashboardRoutes } from './routes/dashboard'
 import { voiceRoutes } from './routes/voice'
 import { landingRoutes } from './routes/landing'
+import { landingsRoutes } from './routes/landings'
 import { campaignShareRoutes } from './routes/campaignShare'
 import { settingsRoutes } from './routes/settings'
 import { billingRoutes, billingWebhookRoutes } from './routes/billing'
@@ -176,12 +179,15 @@ async function build() {
   await app.register(adPlaybooksRoutes,{ prefix: '/api/ad-playbooks' })
   await app.register(adsRoutes,        { prefix: '/api/ads' })
   await app.register(funnelsRoutes,    { prefix: '/api/funnels' })
+  await app.register(landingsRoutes,   { prefix: '/api/landings' })
   await app.register(metaAccountsRoutes,{ prefix: '/api/meta/accounts' })
   await app.register(metaWebhooksRoutes,{ prefix: '/api/meta/webhooks' })
   await app.register(mauticWebhooksRoutes,{ prefix: '/api/webhooks/mautic' })
   await app.register(mauticRoutes,     { prefix: '/api/mautic' })
   await app.register(metricoolRoutes,  { prefix: '/api/metricool' })
+  await app.register(contentRoutes,    { prefix: '/api/content' })
   await app.register(publicMediaRoutes,{ prefix: '/api/public/media' })
+  await app.register(contentApprovalPublicRoutes, { prefix: '/api/public/content-approval' })
   await app.register(automationsRoutes,{ prefix: '/api/automations' })
   await app.register(knowledgeRoutes,  { prefix: '/api/knowledge' })
   await app.register(dashboardRoutes,  { prefix: '/api/dashboard' })

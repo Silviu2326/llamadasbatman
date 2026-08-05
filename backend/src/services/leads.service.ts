@@ -7,6 +7,7 @@ import { syncContact } from './mauticSync.service'
 import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
 import { orchestrateNewLead, ChannelConsentInput } from './conversations.service'
+import { getLeadOrganicOrigin } from './organicLeadOrigin.service'
 import { scopedOwnerId, type DataActor } from '../lib/dataScope'
 
 /** LE-101: campos permitidos para ordenar server-side; 'campo:direccion'. */
@@ -234,6 +235,11 @@ export async function createLead(orgId: string, actorUserId: string | null | und
   campaignId?: string
   source?: string
   externalLeadId?: string
+  // Identificadores del anuncio de Meta. Se guardan siempre que la fuente los
+  // conozca, aunque no se pueda resolver la campaña: un lead con `metaAdId`
+  // se puede reconciliar más tarde; sin él queda huérfano para siempre.
+  metaAdId?: string
+  metaAdSetId?: string
   status?: LeadStatus
   tags?: string[]
   customFields?: Record<string, unknown>
@@ -601,10 +607,16 @@ export async function getLeadConsent(orgId: string, leadId: string) {
 }
 
 export async function getLeadTimeline(orgId: string, id: string) {
-  const [rawLead, calls, meetings, opportunities] = await Promise.all([
+  const [rawLead, calls, meetings, opportunities, origin] = await Promise.all([
     prisma.lead.findFirst({
       where: { id, orgId },
-      include: { owner: { select: { id: true, name: true, email: true } } },
+      // El origen cierra el primer eslabón del hilo de ads.md §15: sin la
+      // campaña y el anuncio, la ficha empieza en el lead y no se puede
+      // seguir un comprador hasta el anuncio que lo trajo.
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        campaign: { select: { id: true, name: true, objective: true, metaCampaignId: true } },
+      },
     }),
     prisma.call.findMany({
       where: { leadId: id, orgId },
@@ -618,9 +630,13 @@ export async function getLeadTimeline(orgId: string, id: string) {
       where: { leadId: id, orgId },
       orderBy: { createdAt: 'desc' },
     }),
+    // El otro extremo del hilo: la campaña de arriba cierra el origen pagado y
+    // esto cierra el orgánico (`organico.md` §13). Si falla, la ficha se
+    // dibuja igual sin él: el origen es contexto, no la ficha.
+    getLeadOrganicOrigin(orgId, id).catch(() => null),
   ])
 
   const lead = rawLead ? { ...rawLead, firstResponseOverdue: isFirstResponseOverdue(rawLead) } : null
 
-  return { lead, calls, meetings, opportunities }
+  return { lead, calls, meetings, opportunities, origin: lead ? origin : null }
 }

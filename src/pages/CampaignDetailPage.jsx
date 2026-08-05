@@ -8,6 +8,7 @@ import {
   RiShareForwardLine, RiSparkling2Line, RiUserLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { outcomeLabel } from '../lib/callOutcome'
 import { formatLocaleNumber, getLocale, localeCode, useI18n } from '../i18n'
 import '../components/campaigns.css'
 
@@ -28,7 +29,7 @@ const STATUS_META = {
   done: { label: 'Finalizada', color: 'var(--violet)' },
 }
 
-const TABS = ['Resumen', 'Anuncio', 'Audiencia', 'Conversaciones', 'Contenido', 'Automatización', 'Configuración']
+const TABS = ['Resumen', 'Anuncio', 'Economía', 'Audiencia', 'Conversaciones', 'Contenido', 'Automatización', 'Configuración']
 
 const DEFAULT_SETTINGS = { scoring: true, alerts: true, organic: false, frequency: true }
 
@@ -155,6 +156,158 @@ function useCampaignList(url) {
   return items
 }
 
+const AUDIT_LABEL = {
+  'ads.decision.approved': 'Recomendación aprobada',
+  'ads.decision.rejected': 'Recomendación rechazada',
+  'ads.action.executed': 'Acción ejecutada en Meta',
+  'ads.action.failed': 'Acción fallida',
+  'ads.action.compensated': 'Acción deshecha',
+  'ads.policy.updated': 'Política de autonomía cambiada',
+  'ads.autonomy.stopped': 'Autonomía parada',
+  'ads.autonomy.resumed': 'Autonomía reanudada',
+  'ads.rule.promoted': 'Regla promocionada',
+  'ads.rule.degraded': 'Regla degradada a N1',
+}
+
+const COHORT_TEXT = { mature: 'cohorte madura', maturing: 'cohorte madurando', insufficient: 'sin cohorte suficiente' }
+const SIGNAL_TEXT = { clic: 'Clic', lead: 'Lead', qualified_lead: 'Lead cualificado', opportunity: 'Oportunidad', sale: 'Venta' }
+
+function money(cents) {
+  return cents == null ? 'Sin medición' : `${(cents / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+}
+
+function EconomyTab({ campaignId }) {
+  const [data, setData] = useState(undefined)
+  const [decisions, setDecisions] = useState([])
+  const [audit, setAudit] = useState([])
+
+  useEffect(() => {
+    let active = true
+    apiFetch(`/api/ads/campaigns/${campaignId}/attribution`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (active) setData(d) })
+      .catch(() => { if (active) setData(null) })
+    apiFetch(`/api/ads/campaigns/${campaignId}/decisions`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => { if (active) setDecisions(Array.isArray(d) ? d : []) })
+      .catch(() => { if (active) setDecisions([]) })
+    apiFetch('/api/ads/audit?limit=25')
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => { if (active) setAudit(Array.isArray(d) ? d : []) })
+      .catch(() => { if (active) setAudit([]) })
+    return () => { active = false }
+  }, [campaignId])
+
+  if (data === undefined) return <section className="campaign-detail-card"><div className="campaign-composer-empty"><span>Cargando embudo económico…</span></div></section>
+  if (data === null) return <section className="campaign-detail-card"><div className="campaign-composer-empty"><span>Esta campaña no tiene datos de Ads todavía.</span></div></section>
+
+  const t = data.targets
+  return <>
+    <section className="campaign-detail-card">
+      <div className="campaign-detail-card-header">
+        <div><h2>Embudo económico</h2><p>Del clic al comprador, en los últimos {data.periodDays} días.</p></div>
+        <span className="campaign-status"><i />{SIGNAL_TEXT[data.deepestEligibleSignal] ?? '—'}</span>
+      </div>
+      <div className="campaign-tasks">
+        {data.funnel.map(step => (
+          <div className="campaign-task" key={step.key}>
+            <div><span>{step.label}</span><small>{step.conversionPct == null ? 'sin tasa medida' : `${step.conversionPct} % desde el paso anterior`}</small></div>
+            <time>{step.value == null ? 'Sin medición' : step.value.toLocaleString('es-ES')}</time>
+          </div>
+        ))}
+      </div>
+      <div className="campaign-tasks" style={{ marginTop: 10 }}>
+        <div className="campaign-task"><div><span>Coste por lead</span><small>{COHORT_TEXT[data.cohortStatus]}</small></div><time>{money(data.cplCents)}</time></div>
+        <div className="campaign-task"><div><span>Coste por cualificado</span><small>{t?.maxCpqlCents ? `objetivo ≤ ${money(t.maxCpqlCents)}` : 'sin objetivo declarado'}</small></div><time>{money(data.cpqlCents)}</time></div>
+        <div className="campaign-task"><div><span>Coste por comprador</span><small>{t?.maxCacCents ? `objetivo ≤ ${money(t.maxCacCents)}` : 'sin objetivo declarado'}</small></div><time>{money(data.cacCents)}</time></div>
+        <div className="campaign-task"><div><span>ROAS real</span><small>{data.saleLatencyDays == null ? 'sin ventas cerradas' : `cierre medio en ${data.saleLatencyDays} días`}</small></div><time>{data.roas ?? 'Sin medición'}</time></div>
+      </div>
+      {t?.explanation && <p className="campaign-detail-empty-note" style={{ marginTop: 10 }}>{t.explanation}</p>}
+    </section>
+
+    {data.breakdown?.ads?.length > 0 && (
+      <section className="campaign-detail-card">
+        <div className="campaign-detail-card-header">
+          <div><h2>Por anuncio</h2><p>Qué anuncio concreto trae los cualificados, no solo la campaña.</p></div>
+        </div>
+        <div className="campaign-tasks">
+          {data.breakdown.ads.map(ad => (
+            <div className="campaign-task" key={ad.metaAdId}>
+              <div>
+                <span>Anuncio {ad.metaAdId}</span>
+                <small>{ad.leads} leads · {ad.qualified} cualificados{ad.qualificationPct != null ? ` · ${ad.qualificationPct} %` : ''}{ad.sales ? ` · ${ad.sales} venta(s)` : ''}</small>
+              </div>
+              <time>{ad.qualified}</time>
+            </div>
+          ))}
+          {/* Los leads anteriores a que se guardara el identificador de anuncio
+              no lo tendrán nunca. Se muestran aparte en vez de repartirlos. */}
+          {data.breakdown.unattributed && (
+            <div className="campaign-task">
+              <div>
+                <span style={{ color: 'var(--dim)' }}>Sin anuncio identificado</span>
+                <small>{data.breakdown.unattributed.leads} leads llegaron antes de que se guardara el anuncio de origen; su gasto no se puede bajar a este nivel.</small>
+              </div>
+              <time>{data.breakdown.unattributed.qualified}</time>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
+    <section className="campaign-detail-card">
+      <div className="campaign-detail-card-header"><div><h2>Qué ha observado Xarly</h2><p>Historial completo, incluidas las decisiones ya resueltas.</p></div></div>
+      {decisions.length === 0
+        ? <div className="campaign-composer-empty"><span>Xarly no ha registrado ninguna observación sobre esta campaña.</span></div>
+        : <div className="campaign-timeline campaign-decision-log">
+            {decisions.map(d => (
+              <div className="campaign-timeline-item" key={d.id} style={{ '--timeline-color': d.severity === 'critical' ? 'var(--danger-soft)' : d.severity === 'warning' ? 'var(--warn-soft)' : 'var(--info)' }}>
+                <span className="campaign-timeline-dot" />
+                <div>
+                  <small>{new Date(d.createdAt).toLocaleString(localeCode(getLocale()))} · confianza {d.confidence} · {COHORT_TEXT[d.cohortStatus] ?? d.cohortStatus}</small>
+                  <strong>{d.title}</strong>
+                  <p>{d.explanation}</p>
+                  <p><b>Recomendación:</b> {d.recommendation}</p>
+                  {/* El estado y quién lo decidió es lo que convierte esto en
+                      auditoría y no en una lista de avisos. */}
+                  <p style={{ color: 'var(--dim)' }}>
+                    Estado: {d.status}
+                    {d.actor ? ` · decidido por ${d.actor.name || d.actor.email}` : ''}
+                    {d.decisionNote ? ` · “${d.decisionNote}”` : ''}
+                    {d.actions?.length ? ` · ${d.actions.length} acción(es): ${d.actions.map(a => `${a.kind} (${a.status})`).join(', ')}` : ''}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>}
+    </section>
+
+    {audit.length > 0 && (
+      <section className="campaign-detail-card">
+        <div className="campaign-detail-card-header">
+          <div><h2>Registro de auditoría</h2><p>Quién decidió qué y cuándo, en toda la operación de Ads.</p></div>
+        </div>
+        <div className="campaign-tasks">
+          {audit.map(entry => (
+            <div className="campaign-task" key={entry.id}>
+              <div>
+                <span>{AUDIT_LABEL[entry.action] ?? entry.action}</span>
+                <small>
+                  {entry.actorType === 'system'
+                    ? 'decidido por el sistema'
+                    : entry.actor ? `por ${entry.actor.name || entry.actor.email}` : 'sin actor registrado'}
+                  {` · ${entry.entityType}`}
+                </small>
+              </div>
+              <time>{new Date(entry.createdAt).toLocaleString(localeCode(getLocale()))}</time>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+  </>
+}
+
 function AudienceTab({ campaignId, onNavigate }) {
   const leads = useCampaignList(`/api/leads?campaignId=${campaignId}&limit=50`)
   return <section className="campaign-detail-card"><div className="campaign-detail-card-header"><div><h2>Audiencia de la campaña</h2><p>Leads reales asociados a esta campaña.</p></div></div>
@@ -166,11 +319,10 @@ function AudienceTab({ campaignId, onNavigate }) {
 
 function ConversationsTab({ campaignId, onNavigate }) {
   const calls = useCampaignList(`/api/calls?campaignId=${campaignId}&limit=50`)
-  const outcomeLabel = { meeting_scheduled: 'Reunión agendada', interested: 'Interesado', rejected: 'No interesado', callback: 'Seguimiento' }
   return <section className="campaign-detail-card"><div className="campaign-detail-card-header"><div><h2>Conversaciones de la campaña</h2><p>Llamadas reales registradas para esta campaña.</p></div></div>
     {calls === null ? <div className="campaign-composer-empty"><span>Cargando llamadas…</span></div>
       : calls.length === 0 ? <div className="campaign-composer-empty"><span>Esta campaña todavía no tiene llamadas registradas.</span></div>
-      : <div className="campaign-tasks">{calls.map(call => <div className="campaign-task" key={call.id} role="button" tabIndex="0" style={{ cursor: 'pointer' }} onClick={() => onNavigate(`/llamadas/${call.id}`)} onKeyDown={e => e.key === 'Enter' && onNavigate(`/llamadas/${call.id}`)}><div><span>{call.lead?.name || 'Sin contacto'}</span><small>{[call.agent?.name, outcomeLabel[call.outcome] || 'Sin resultado'].filter(Boolean).join(' · ')}</small></div><time>{call.startedAt ? new Date(call.startedAt).toLocaleString(localeCode(getLocale()), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</time></div>)}</div>}
+      : <div className="campaign-tasks">{calls.map(call => <div className="campaign-task" key={call.id} role="button" tabIndex="0" style={{ cursor: 'pointer' }} onClick={() => onNavigate(`/llamadas/${call.id}`)} onKeyDown={e => e.key === 'Enter' && onNavigate(`/llamadas/${call.id}`)}><div><span>{call.lead?.name || 'Sin contacto'}</span><small>{[call.agent?.name, outcomeLabel(call.outcome)].filter(Boolean).join(' · ')}</small></div><time>{call.startedAt ? new Date(call.startedAt).toLocaleString(localeCode(getLocale()), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</time></div>)}</div>}
   </section>
 }
 
@@ -433,6 +585,7 @@ export default function CampaignDetailPage() {
       <div className="campaign-detail-main">
         {tab === 'Resumen' && <Overview campaign={campaign} />}
         {tab === 'Anuncio' && <CampaignAdsPanel campaign={campaign} />}
+        {tab === 'Economía' && <EconomyTab campaignId={campaign.id} />}
         {tab === 'Audiencia' && <AudienceTab campaignId={campaign.id} onNavigate={navigate} />}
         {tab === 'Conversaciones' && <ConversationsTab campaignId={campaign.id} onNavigate={navigate} />}
         {tab === 'Contenido' && <ContentTab campaign={campaign} />}

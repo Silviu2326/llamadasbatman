@@ -42,6 +42,144 @@
 .landings-inline-alert strong { color: var(--danger-faint); }
 .landings-inline-alert button { margin-left: auto; border: 0; color: var(--warn-faint); background: transparent; font: inherit; font-size: 10px; font-weight: 800; cursor: pointer; }
 
+/* Banda de integridad (landings.md §5): el estado de los datos, antes que los
+   números que dependen de ellos. */
+.landings-integrity { display: flex; align-items: center; gap: 11px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); font-size: 10px; line-height: 1.45; }
+.landings-integrity div { min-width: 0; flex: 1; }
+.landings-integrity strong { display: block; color: var(--text-strong); font-size: 11px; }
+.landings-integrity p { margin: 3px 0 0; color: var(--muted); }
+.landings-integrity small { display: block; margin-top: 5px; color: var(--dim); font-size: 9px; }
+.landings-integrity button { flex: 0 0 auto; }
+.landings-integrity-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--band-color, var(--dim)); box-shadow: 0 0 10px var(--band-color, var(--dim)); }
+.landings-integrity.state-ready { --band-color: var(--success); }
+.landings-integrity.state-partial { --band-color: var(--warn); }
+.landings-integrity.state-stale { --band-color: var(--warn); }
+.landings-integrity.state-unreliable, .landings-integrity.state-unknown { --band-color: var(--danger-faint); border-color: #fb718544; }
+
+/* Atención requerida (§5.1): dónde actuar primero, antes que cualquier lista. */
+.landings-attention { margin: 0 0 16px; }
+.landings-attention-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 9px; }
+.landings-attention-head h2 { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-strong); font-size: 13px; }
+.landings-attention-head h2 svg { width: 15px; height: 15px; color: var(--warn); }
+.landings-attention-head span { color: var(--dim); font-size: 10px; }
+.landings-attention-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.landings-attention-card { display: flex; flex-direction: column; gap: 8px; padding: 13px; border: 1px solid var(--line-2); border-left: 3px solid var(--warn); border-radius: 10px; background: var(--surface); }
+.landings-attention-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.landings-attention-type { color: var(--warn); font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
+.landings-attention-level { padding: 1px 6px; border: 1px solid var(--line-2); border-radius: 20px; color: var(--dim); font-size: 8px; font-weight: 800; }
+.landings-attention-card > strong { color: var(--text-strong); font-size: 11.5px; line-height: 1.45; }
+.landings-attention-card ul { margin: 0; padding-left: 15px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.landings-attention-impact { padding: 8px 10px; border-radius: 8px; background: var(--surface-3); }
+.landings-attention-impact span { display: block; color: var(--dim); font-size: 9px; }
+.landings-attention-impact strong { display: block; margin-top: 2px; color: var(--success); font-size: 14px; }
+.landings-attention-impact small { display: block; margin-top: 2px; color: var(--dim); font-size: 9px; }
+.landings-attention-card footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; color: var(--dim); font-size: 9px; }
+
+/* Ranking económico (§5.2). */
+.landings-ranking { margin: 0 0 16px; padding: 15px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--surface); }
+.landings-ranking-scroll { overflow-x: auto; }
+.landings-ranking-table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.landings-ranking-table th { padding: 7px 9px; border-bottom: 1px solid var(--line-2); color: var(--dim); font-size: 9px; font-weight: 800; text-align: right; text-transform: uppercase; }
+.landings-ranking-table th:first-child { text-align: left; }
+.landings-ranking-table td { padding: 9px; border-bottom: 1px solid var(--line-1, var(--line-2)); color: var(--muted); text-align: right; }
+.landings-ranking-table td:first-child { text-align: left; }
+.landings-ranking-table tbody tr { cursor: pointer; }
+.landings-ranking-table tbody tr:hover { background: var(--surface-3); }
+.landings-ranking-table td strong { display: block; color: var(--text-strong); }
+.landings-ranking-table td small { color: var(--dim); font-size: 9px; }
+.landings-confidence { padding: 2px 7px; border-radius: 20px; background: var(--surface-3); font-size: 9px; font-weight: 800; }
+.landings-confidence.is-high { color: var(--success); }
+.landings-confidence.is-medium { color: var(--warn); }
+.landings-confidence.is-low, .landings-confidence.is-none { color: var(--dim); }
+
+/* Detalle de landing (§5.3). */
+.landings-detail { display: flex; flex-direction: column; width: min(860px, 100%); max-height: 90vh; overflow: hidden; border: 1px solid var(--line-2); border-radius: 15px; background: var(--surface); }
+.landings-detail-body { padding: 18px 22px 24px; overflow-y: auto; }
+.landings-detail-body h3 { margin: 20px 0 9px; color: var(--text-strong); font-size: 11.5px; }
+.landings-detail-body h3:first-child { margin-top: 0; }
+.landings-detail-body h3 small { margin-left: 6px; color: var(--dim); font-size: 9px; font-weight: 400; }
+.landings-detail-empty { margin: 0; color: var(--dim); font-size: 10px; }
+.landings-detail-note { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 9px 11px; border-radius: 8px; color: var(--muted); background: var(--surface-3); font-size: 10px; }
+.landings-detail-note svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.landings-dropmap { display: grid; gap: 7px; }
+.landings-dropmap-step { display: grid; grid-template-columns: 150px minmax(0, 1fr) 48px 48px; align-items: center; gap: 9px; font-size: 10px; }
+.landings-dropmap-step > span { color: var(--muted); }
+.landings-dropmap-bar { height: 8px; overflow: hidden; border-radius: 20px; background: var(--surface-3); }
+.landings-dropmap-bar i { display: block; height: 100%; border-radius: 20px; background: linear-gradient(90deg, var(--cyan), #8b5cf6); }
+.landings-dropmap-step strong { color: var(--text-strong); text-align: right; }
+.landings-dropmap-step small { color: var(--dim); text-align: right; }
+.landings-dropmap-depth { margin: 9px 0 0; padding-top: 8px; border-top: 1px dashed var(--line-2); color: var(--dim); font-size: 9.5px; line-height: 1.5; }
+.landings-dropmap-depth strong { color: var(--muted); }
+.landings-fields-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.landings-fields-table th { padding: 6px 8px; border-bottom: 1px solid var(--line-2); color: var(--dim); font-size: 9px; text-align: right; }
+.landings-fields-table th:first-child { text-align: left; }
+.landings-fields-table td { padding: 7px 8px; border-bottom: 1px solid var(--line-2); color: var(--muted); text-align: right; }
+.landings-fields-table td:first-child { color: var(--text-strong); text-align: left; }
+.landings-fields-table td.is-bad { color: var(--danger-faint); font-weight: 800; }
+.landings-detail-diagnosis { margin-bottom: 11px; padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; }
+.landings-detail-diagnosis strong { color: var(--text-strong); font-size: 11px; }
+.landings-detail-diagnosis p { margin: 5px 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.landings-detail-diagnosis ul { margin: 5px 0; padding-left: 16px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.landings-detail-reco { display: flex; align-items: center; gap: 6px; color: var(--cyan-soft) !important; }
+.landings-detail-reco svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.landings-detail-diagnosis small { color: var(--dim); font-size: 9px; }
+
+/* Variantes y experimentos (§5.4, §9). */
+.landings-variants-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 11px; }
+.landings-variants-actions small { color: var(--dim); font-size: 9.5px; line-height: 1.45; }
+.landings-experiment { margin-bottom: 13px; padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface-3); }
+.landings-experiment-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.landings-experiment-head strong { color: var(--text-strong); font-size: 11px; }
+.landings-experiment p { margin: 0 0 9px; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.landings-experiment small { display: block; margin-top: 8px; color: var(--dim); font-size: 9px; line-height: 1.5; }
+.landings-experiment .landing-button { margin-top: 10px; }
+.landings-decision { padding: 2px 8px; border-radius: 20px; background: var(--surface); font-size: 9px; font-weight: 800; }
+.landings-decision.is-winner { color: var(--success); }
+.landings-decision.is-inconclusive { color: var(--warn); }
+.landings-decision.is-insufficient, .landings-decision.is-running { color: var(--dim); }
+.landings-variant-list { display: grid; gap: 9px; }
+.landings-variant { padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; }
+.landings-variant header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.landings-variant header strong { color: var(--text-strong); font-size: 11px; }
+.landings-variant-justification { margin: 6px 0; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
+.landings-variant small { color: var(--dim); font-size: 9px; }
+.landings-variant footer { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+.landings-variant-status { padding: 2px 8px; border-radius: 20px; background: var(--surface-3); font-size: 9px; font-weight: 800; color: var(--dim); }
+.landings-variant-status.is-active { color: var(--cyan); }
+.landings-variant-status.is-winner { color: var(--success); }
+.landings-variant-status.is-pending_approval { color: var(--warn); }
+.landings-variant-status.is-loser, .landings-variant-status.is-discarded { color: var(--danger-faint); }
+
+/* Informe en euros y autonomía (§10, §11 fase 4). */
+.landings-report { margin-bottom: 6px; }
+.landings-report-narrative { margin: 0 0 10px; padding: 11px 13px; border-radius: 9px; color: var(--text-strong); background: var(--surface-3); font-size: 11px; line-height: 1.55; }
+.landings-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); gap: 8px; }
+.landings-report-grid span { padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; }
+.landings-report-grid small { display: block; color: var(--dim); font-size: 9px; }
+.landings-report-grid strong { display: block; margin-top: 3px; color: var(--text-strong); font-size: 13px; }
+.landings-report-caveats { margin: 10px 0 0; padding-left: 16px; color: var(--dim); font-size: 9.5px; line-height: 1.55; }
+
+.landings-autonomy-state { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; padding: 12px; border: 1px solid var(--line-2); border-radius: 10px; }
+.landings-autonomy-state > div { flex: 1; min-width: 0; }
+.landings-autonomy-state strong { display: block; color: var(--text-strong); font-size: 11px; }
+.landings-autonomy-state p { margin: 3px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.landings-autonomy-state small { display: block; margin-top: 4px; color: var(--dim); font-size: 9px; }
+.landings-autonomy-level { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 9px; background: var(--surface-3); font-size: 11px; font-weight: 800; }
+.landings-autonomy-level.is-N1 { color: var(--dim); }
+.landings-autonomy-level.is-N2 { color: var(--warn); }
+.landings-autonomy-level.is-N3 { color: var(--cyan); }
+.landings-autonomy-list { display: grid; gap: 7px; }
+.landings-autonomy-decision { padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 9px; }
+.landings-autonomy-decision header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.landings-autonomy-decision header strong { color: var(--text-strong); font-size: 10.5px; }
+.landings-autonomy-decision p { margin: 5px 0; color: var(--muted); font-size: 10px; line-height: 1.5; word-break: break-word; }
+.landings-autonomy-decision small { display: block; color: var(--dim); font-size: 9px; }
+.landings-autonomy-outcome { margin-bottom: 3px; color: var(--muted) !important; }
+.landings-autonomy-status { padding: 2px 8px; border-radius: 20px; background: var(--surface-3); font-size: 9px; font-weight: 800; color: var(--dim); }
+.landings-autonomy-status.is-applied { color: var(--success); }
+.landings-autonomy-status.is-shadow { color: var(--cyan); }
+.landings-autonomy-status.is-blocked, .landings-autonomy-status.is-rolled_back { color: var(--danger-faint); }
+
 .landings-featured { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(420px, 1.32fr); min-height: 258px; margin-bottom: 14px; overflow: hidden; border: 1px solid var(--line-2); border-radius: 15px; background: radial-gradient(circle at 83% 15%, #ec489918, transparent 30%), radial-gradient(circle at 19% 90%, #4f46e51f, transparent 36%), var(--surface); box-shadow: 0 22px 70px var(--shadow-color); }
 .landings-featured-copy { min-width: 0; padding: 28px 26px 26px 29px; }
 .landings-featured-top { gap: 10px; color: var(--dim); font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }

@@ -533,6 +533,34 @@ export async function saveReport(orgId: string, report: SeoReport, auto = false)
   })
 }
 
+/**
+ * Último informe completo de la organización.
+ *
+ * La pantalla guardaba el informe en `localStorage` del navegador, así que el
+ * mismo negocio veía cosas distintas en dos ordenadores y el trabajo se perdía
+ * al limpiar el almacenamiento. El informe ya se persistía en `SeoReport` desde
+ * el primer día: solo faltaba una forma de leerlo (`organico.md` §7.3).
+ */
+export async function latestReport(orgId: string, url?: string): Promise<SeoReport | null> {
+  const row = await prisma.seoReport.findFirst({
+    where: { orgId, ...(url ? { url } : {}) },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, report: true, createdAt: true },
+  })
+  if (!row?.report) return null
+  return row.report as unknown as SeoReport
+}
+
+/** Un informe concreto del historial, para poder volver a uno anterior. */
+export async function reportById(orgId: string, id: string): Promise<SeoReport | null> {
+  const row = await prisma.seoReport.findFirst({
+    where: { id, orgId },
+    select: { report: true },
+  })
+  if (!row?.report) return null
+  return row.report as unknown as SeoReport
+}
+
 export async function listHistory(orgId: string, url?: string) {
   const items = await prisma.seoReport.findMany({
     where: { orgId, ...(url ? { url } : {}) },

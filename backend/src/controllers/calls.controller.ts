@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 import * as callsService from '../services/calls.service'
 import { emitToOrg } from '../websockets/index'
 import { CallStatus } from '@prisma/client'
+import { normalizeCallOutcome } from '../lib/callOutcome'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -26,7 +27,9 @@ export async function list(
     agentId: q.agentId,
     campaignId: q.campaignId,
     status: q.status as CallStatus | undefined,
-    outcome: q.outcome,
+    // Se traducen los alias antiguos (`rejected`, `callback`) en vez de dejar
+    // que el filtro devuelva cero resultados sin explicación.
+    outcome: q.outcome ? normalizeCallOutcome(q.outcome) ?? q.outcome : undefined,
     dateFrom: q.dateFrom,
     dateTo: q.dateTo,
     page: q.page ? parseInt(q.page) : undefined,
@@ -114,7 +117,10 @@ export async function ingest(
   try {
     call = await callsService.ingestCall(orgId, data)
   } catch (error) {
-    if (error instanceof callsService.InvalidVoiceContextError) {
+    if (
+      error instanceof callsService.InvalidVoiceContextError ||
+      error instanceof callsService.InvalidCallOutcomeError
+    ) {
       return reply.status(error.statusCode).send({ error: error.message })
     }
     throw error

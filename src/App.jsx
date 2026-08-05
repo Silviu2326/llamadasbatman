@@ -35,6 +35,7 @@ const PublicBlogIndexPage = lazy(() => import('./pages/PublicBlogPage').then(mod
 const PublicBlogPostPage = lazy(() => import('./pages/PublicBlogPage').then(module => ({ default: module.PublicBlogPostPage })))
 const PublicLandingPage = lazy(() => import('./pages/PublicLandingPage'))
 const PublicCampaignSharePage = lazy(() => import('./pages/PublicCampaignSharePage'))
+const PublicContentApprovalPage = lazy(() => import('./pages/PublicContentApprovalPage'))
 const LandingsPage = lazy(() => import('./pages/LandingsPage'))
 const MetaAccountPage = lazy(() => import('./pages/MetaAccountPage'))
 const ConectarRedesPage = lazy(() => import('./pages/ConectarRedesPage'))
@@ -76,6 +77,9 @@ export default function App() {
           <Route path="/l/:slug/blog" element={<PublicBlogIndexPage />} />
           <Route path="/l/:slug/blog/:articleSlug" element={<PublicBlogPostPage />} />
           <Route path="/campanas/compartir/:token" element={<PublicCampaignSharePage />} />
+          {/* Sala de aprobación para clientes de agencias (roadmap.md fase 3):
+              pública a propósito, la autorización es el token. */}
+          <Route path="/aprobar/:token" element={<PublicContentApprovalPage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/terminos" element={<TermsPage />} />
           <Route element={<ProtectedRoute />}>

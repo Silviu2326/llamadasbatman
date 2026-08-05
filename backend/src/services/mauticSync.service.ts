@@ -1044,6 +1044,44 @@ export async function claimEmailTemplate(orgId: string, externalId: string, name
 }
 
 /**
+ * Crea en Mautic la plantilla de email de una pieza aprobada — atomización de
+ * la fase 2 (`docs/xarly/roadmap.md`, idea 8).
+ *
+ * Se crea **despublicada y vinculada a la organización** en el mismo paso: una
+ * plantilla creada sin binding sería una plantilla huérfana que cualquier otra
+ * organización podría reclamar desde el listado de no vinculadas, que es justo
+ * la exposición cross-tenant que cierra `claimEmailTemplate`.
+ *
+ * Devuelve el id remoto, o `null` si Mautic no está configurado o rechazó la
+ * creación: quien llama tiene que poder decir por qué no hay email, no dar por
+ * hecho que lo hay.
+ */
+export async function createEmailDraft(
+  orgId: string,
+  email: { name: string; subject: string; html: string },
+): Promise<{ id: string; name: string } | null> {
+  const name = `${campaignPrefix(orgId)} ${email.name}`.slice(0, 191)
+  const res = await mauticFetch('/api/emails/new', {
+    method: 'POST',
+    body: JSON.stringify({
+      name,
+      subject: email.subject.slice(0, 191),
+      customHtml: email.html,
+      emailType: 'list',
+      isPublished: false,
+    }),
+  }, orgId)
+  if (!res?.ok) return null
+
+  const data = (await res.json().catch(() => null)) as { email?: { id?: unknown } } | null
+  const externalId = data?.email?.id ? String(data.email.id) : null
+  if (!externalId) return null
+
+  await claimEmailTemplate(orgId, externalId, name)
+  return { id: externalId, name }
+}
+
+/**
  * Ownership de una plantilla puntual (P0-04/EM-01) — nunca hay que confiar en
  * un `emailId` que manda el navegador sin comprobar antes que está vinculado
  * a la organización que lo usa.

@@ -15,7 +15,9 @@ function phoneRateKey(request: { body: unknown; params: unknown }) {
 }
 
 export async function landingRoutes(app: FastifyInstance) {
-  app.get<{ Params: { slug: string } }>('/:slug', ctrl.getLanding)
+  // `sessionId` llega por query para poder asignar variante en el servidor al
+  // servir la landing (landings.md §9).
+  app.get<{ Params: { slug: string }; Querystring: { sessionId?: string } }>('/:slug', ctrl.getLanding)
   app.post<{ Params: { slug: string }; Body: ctrl.LandingTrackingBody }>('/:slug/view', {
     preHandler: app.rateLimit({
       max: 120,
@@ -24,6 +26,17 @@ export async function landingRoutes(app: FastifyInstance) {
       errorResponseBuilder: () => ({ error: 'Demasiadas solicitudes. Inténtalo de nuevo en un minuto.' }),
     }),
   }, ctrl.recordLandingView)
+  // Telemetría de comportamiento (landings.md §7.1). El límite es más alto que
+  // el de la vista porque una sesión envía varios lotes — scroll, CTA y campos
+  // del formulario — pero sigue acotado por IP y slug.
+  app.post<{ Params: { slug: string }; Body: ctrl.LandingEventsBody }>('/:slug/events', {
+    preHandler: app.rateLimit({
+      max: 240,
+      timeWindow: '1 minute',
+      keyGenerator: request => `landing-events:${request.ip}:${routeSlug(request)}`,
+      errorResponseBuilder: () => ({ error: 'Demasiadas solicitudes. Inténtalo de nuevo en un minuto.' }),
+    }),
+  }, ctrl.recordLandingEvents)
   app.post<{ Params: { slug: string }; Body: ctrl.LandingLeadBody }>('/:slug/lead', {
     preHandler: [
       app.rateLimit({

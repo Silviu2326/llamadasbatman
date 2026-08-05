@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   RiArrowDownSLine,
@@ -21,6 +21,7 @@ import {
 } from 'react-icons/ri'
 import './landing.css'
 import { useI18n } from '../i18n'
+import { createLandingTelemetry, observeScrollDepth } from '../lib/landingTelemetry'
 
 const PREVIEW_LANDING = {
   campaignId: 'preview-campaign',
@@ -126,6 +127,10 @@ function getCopy(landing, slug, locale = 'es') {
   return {
     ...template,
     templateId,
+    // El titular propio manda sobre el de la plantilla. Sin esto, el H1 sería
+    // siempre texto genérico —justo lo que el diagnóstico de desalineación de
+    // mensaje señala— y el parche de hero de una variante no cambiaría nada.
+    title: landing?.title || template.title,
     name: baseName,
     offer: previewData && locale === 'en' ? 'A first guidance conversation at no cost' : landing?.offer || (locale === 'en' ? 'A first guidance conversation at no cost' : PREVIEW_LANDING.offer),
     leadMagnet: previewData && locale === 'en' ? 'We will bring you a clear proposal for your next step.' : landing?.leadMagnet || (locale === 'en' ? 'We will bring you a clear proposal for your next step.' : PREVIEW_LANDING.leadMagnet),
@@ -167,11 +172,47 @@ function buildLandingTracking(slug, searchKey) {
   }
 }
 
-function LandingForm({ slug, preview, tracking, onSubmitted }) {
+// La telemetría llega como ref, no como valor: el efecto que la crea corre
+// después del primer render y un valor suelto se quedaría congelado en `null`.
+function LandingForm({ slug, preview, tracking, telemetryRef, hiddenFields = [], onSubmitted }) {
   const { t } = useI18n()
+  // Campos que la variante activa del experimento retira del formulario (§9).
+  // Nombre, teléfono y consentimiento nunca llegan aquí: el servidor los filtra
+  // porque sin ellos no se puede atender la solicitud ni acreditar permiso.
+  const isHidden = field => hiddenFields.includes(field)
   const [form, setForm] = useState({ name: '', phone: '', email: '', contactTime: 'Cuando antes', consent: false, website: '' })
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
+  // Exposición real por campo (§7.2): sin el instante de foco no hay tiempo
+  // medio, y sin `started` el form_start se repetiría en cada tecla.
+  const focusedAt = useRef({})
+  const started = useRef(false)
+
+  function track(type, payload) {
+    telemetryRef?.current?.track(type, payload)
+  }
+
+  function fieldHandlers(field) {
+    return {
+      onFocus: () => {
+        focusedAt.current[field] = Date.now()
+        if (!started.current) {
+          started.current = true
+          track('form_start')
+        }
+      },
+      onBlur: event => {
+        const startedAt = focusedAt.current[field]
+        const value = event?.target?.type === 'checkbox' ? event.target.checked : event?.target?.value
+        // Se registra si el campo quedó relleno. Nunca con qué.
+        track('form_field_blur', {
+          field,
+          filled: typeof value === 'boolean' ? value : Boolean(String(value ?? '').trim()),
+          value: startedAt ? Date.now() - startedAt : undefined,
+        })
+      },
+    }
+  }
 
   function updateField(field, value) {
     setForm(current => ({ ...current, [field]: value }))
@@ -182,10 +223,12 @@ function LandingForm({ slug, preview, tracking, onSubmitted }) {
     event.preventDefault()
     if (!form.name.trim() || !form.phone.trim()) {
       setFormError(t('landing.namePhoneRequired'))
+      track('form_validation_error', { field: form.name.trim() ? 'phone' : 'name' })
       return
     }
     if (!form.consent) {
       setFormError(t('landing.consentRequired'))
+      track('form_validation_error', { field: 'consent' })
       return
     }
 
@@ -211,8 +254,13 @@ function LandingForm({ slug, preview, tracking, onSubmitted }) {
       } else {
         await new Promise(resolve => setTimeout(resolve, 550))
       }
+      track('form_submit')
+      // El envío es el final del recorrido medible en la página: se vacía la
+      // cola ya, no cuando el visitante cierre la pestaña.
+      telemetryRef?.current?.flush()
       onSubmitted(form)
     } catch (error) {
+      track('form_error')
       setFormError(error.message || t('landing.sendError'))
     } finally {
       setSubmitting(false)
@@ -239,28 +287,28 @@ function LandingForm({ slug, preview, tracking, onSubmitted }) {
         </div>
         <label>
           <span>{t('landing.fullName')} <b>*</b></span>
-          <input value={form.name} onChange={event => updateField('name', event.target.value)} placeholder="Tu nombre" autoComplete="name" />
+          <input value={form.name} onChange={event => updateField('name', event.target.value)} placeholder="Tu nombre" autoComplete="name" {...fieldHandlers('name')} />
         </label>
         <label>
           <span>{t('landing.phone')} <b>*</b></span>
-          <input value={form.phone} onChange={event => updateField('phone', event.target.value)} placeholder="+34 600 000 000" type="tel" autoComplete="tel" />
+          <input value={form.phone} onChange={event => updateField('phone', event.target.value)} placeholder="+34 600 000 000" type="tel" autoComplete="tel" {...fieldHandlers('phone')} />
         </label>
-        <label>
+        {isHidden('email') ? null : <label>
           <span>Email <em>{t('landing.optional')}</em></span>
-          <input value={form.email} onChange={event => updateField('email', event.target.value)} placeholder="tu@email.com" type="email" autoComplete="email" />
-        </label>
-        <label>
+          <input value={form.email} onChange={event => updateField('email', event.target.value)} placeholder="tu@email.com" type="email" autoComplete="email" {...fieldHandlers('email')} />
+        </label>}
+        {isHidden('contactTime') ? null : <label>
           <span>{t('landing.bestTime')}</span>
-          <select value={form.contactTime} onChange={event => updateField('contactTime', event.target.value)}>
+          <select value={form.contactTime} onChange={event => updateField('contactTime', event.target.value)} {...fieldHandlers('contactTime')}>
             <option>{t('landing.asSoonAsPossible')}</option>
             <option>{t('landing.morning')}</option>
             <option>{t('landing.afternoon')}</option>
             <option>{t('landing.afterSix')}</option>
           </select>
-        </label>
+        </label>}
 
         <label className="landing-consent">
-          <input type="checkbox" checked={form.consent} onChange={event => updateField('consent', event.target.checked)} />
+          <input type="checkbox" checked={form.consent} onChange={event => updateField('consent', event.target.checked)} {...fieldHandlers('consent')} />
           <span>{t('landing.consent')}</span>
         </label>
 
@@ -314,6 +362,7 @@ export default function PublicLandingPage() {
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(null)
   const [openFaq, setOpenFaq] = useState(0)
+  const telemetry = useRef(null)
 
   useEffect(() => {
     if (preview) {
@@ -325,7 +374,9 @@ export default function PublicLandingPage() {
     const controller = new AbortController()
     setLoading(true)
     setError('')
-    fetch(`/api/public/landing/${slug}`, { signal: controller.signal })
+    // La sesión viaja al pedir la landing para que el servidor pueda asignar
+    // variante de experimento (landings.md §9). El navegador nunca elige.
+    fetch(`/api/public/landing/${slug}?sessionId=${encodeURIComponent(landingSessionId(slug))}`, { signal: controller.signal })
       .then(response => {
         if (response.status === 404) throw new Error('Landing no encontrada')
         if (!response.ok) throw new Error('No se pudo cargar la landing')
@@ -382,6 +433,25 @@ export default function PublicLandingPage() {
     return () => controller.abort()
   }, [landing?.campaignId, preview, slug, tracking])
 
+  // Telemetría de comportamiento (§7.1). El evento `view` no se emite aquí: lo
+  // registra el servidor en /view, para que la visita tenga un único origen.
+  useEffect(() => {
+    if (preview || !landing?.campaignId || !tracking) return undefined
+    const instance = createLandingTelemetry({ slug, tracking })
+    telemetry.current = instance
+    const stopScrollDepth = observeScrollDepth(mark => instance.track(`scroll_${mark}`, { value: mark }))
+    return () => {
+      stopScrollDepth()
+      instance.dispose()
+      telemetry.current = null
+    }
+  }, [landing?.campaignId, preview, slug, tracking])
+
+  const goToForm = useCallback(origin => {
+    telemetry.current?.track('cta_click', { field: origin })
+    scrollToForm()
+  }, [])
+
   const copy = useMemo(() => getCopy(landing, slug, locale), [landing, locale, slug])
   const faqs = locale === 'en' ? FAQS_EN : FAQS
 
@@ -420,7 +490,7 @@ export default function PublicLandingPage() {
           <a href="#proceso">{t('landing.process')}</a>
           <a href="#faq">{t('landing.faq')}</a>
         </nav>
-        <button className="landing-nav-cta" type="button" onClick={scrollToForm}>{t('landing.information')} <RiArrowRightLine /></button>
+        <button className="landing-nav-cta" type="button" onClick={() => goToForm('nav')}>{t('landing.information')} <RiArrowRightLine /></button>
       </header>
 
       <main id="top">
@@ -429,7 +499,7 @@ export default function PublicLandingPage() {
             <h1>{copy.title}</h1>
             <p className="landing-hero-description">{copy.adCopy || copy.description}</p>
             <div className="landing-hero-actions">
-              <button className="landing-primary-button" type="button" onClick={scrollToForm}>{t('landing.nextStep')} <RiArrowRightLine /></button>
+              <button className="landing-primary-button" type="button" onClick={() => goToForm('hero')}>{t('landing.nextStep')} <RiArrowRightLine /></button>
               <a className="landing-secondary-button" href="#proceso"><RiFlashlightLine /> {t('landing.seeProcess')}</a>
             </div>
             <div className="landing-hero-trust">
@@ -445,7 +515,7 @@ export default function PublicLandingPage() {
             <div className="landing-signal-card"><RiPhoneLine /><span>{t('landing.nextMove')}</span><strong>{t('landing.startsHere')}</strong></div>
             <div className="landing-offer-card"><span>{t('landing.offerAvailable')}</span><strong>{copy.offer}</strong><small><RiCheckLine /> {t('landing.noFinePrint')}</small></div>
             <div className="landing-form-slot" id="landing-form">
-              {submitted ? <SuccessCard name={submitted.name} onReset={() => setSubmitted(null)} /> : <LandingForm slug={slug} preview={preview} tracking={tracking} onSubmitted={setSubmitted} />}
+              {submitted ? <SuccessCard name={submitted.name} onReset={() => setSubmitted(null)} /> : <LandingForm slug={slug} preview={preview} tracking={tracking} telemetryRef={telemetry} hiddenFields={landing?.hiddenFields ?? []} onSubmitted={setSubmitted} />}
             </div>
           </div>
         </section>
@@ -453,7 +523,7 @@ export default function PublicLandingPage() {
         <section className="landing-offer-band" aria-label={t('landing.receive')}>
           <div className="landing-offer-band-icon"><RiSparkling2Line /></div>
           <div><span>{t('landing.nextMove')}</span><strong>{copy.leadMagnet}</strong></div>
-          <button className="landing-text-button" type="button" onClick={scrollToForm}>{t('landing.requestGuidance')} <RiArrowRightLine /></button>
+          <button className="landing-text-button" type="button" onClick={() => goToForm('offer_band')}>{t('landing.requestGuidance')} <RiArrowRightLine /></button>
         </section>
 
         <section className="landing-section landing-benefits" id="beneficios">
@@ -491,7 +561,7 @@ export default function PublicLandingPage() {
         <section className="landing-next-step landing-section">
           <div className="landing-next-step-icon"><RiMapPinTimeLine /></div>
           <div><span>{copy.location}</span><h2>{t('landing.conversationBeforeCall')}</h2><p>{t('landing.contextText')}</p></div>
-          <button className="landing-secondary-button" type="button" onClick={scrollToForm}>{t('landing.talkToSomeone')} <RiArrowRightLine /></button>
+          <button className="landing-secondary-button" type="button" onClick={() => goToForm('next_step')}>{t('landing.talkToSomeone')} <RiArrowRightLine /></button>
         </section>
 
         <section className="landing-section landing-faq" id="faq">
@@ -506,12 +576,12 @@ export default function PublicLandingPage() {
 
         <section className="landing-final-cta">
           <div><span>{t('landing.ready')}</span><h2>{t('landing.finalTitle')}</h2><p>{t('landing.finalText')}</p></div>
-          <button className="landing-primary-button" type="button" onClick={scrollToForm}>{t('landing.nextStep')} <RiArrowRightLine /></button>
+          <button className="landing-primary-button" type="button" onClick={() => goToForm('final')}>{t('landing.nextStep')} <RiArrowRightLine /></button>
         </section>
       </main>
 
       <footer className="landing-footer"><span><RiGlobalLine /> {t('landing.landingFooter')}</span><span><RiLockLine /> {t('landing.responsibleData')}</span></footer>
-      <button className="landing-mobile-cta" type="button" onClick={scrollToForm}>{t('landing.contactMe')} <RiArrowRightLine /></button>
+      <button className="landing-mobile-cta" type="button" onClick={() => goToForm('mobile')}>{t('landing.contactMe')} <RiArrowRightLine /></button>
     </div>
   )
 }

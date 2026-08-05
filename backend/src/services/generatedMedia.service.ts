@@ -6,15 +6,24 @@ import path from 'node:path'
  * Almacén mínimo para imágenes generadas con IA (gpt-image-1 devuelve base64,
  * nunca una URL). Metricool y Meta necesitan una URL pública descargable, así
  * que el PNG se guarda en disco y se sirve desde GET /api/public/media/:file.
+ *
+ * Desde la fase 2 guarda también las **slides de carrusel con plantilla de
+ * marca** (SVG, idea 7) y las **locuciones** del guion de Reel (idea 8). Es el
+ * mismo problema —un archivo que alguien de fuera tiene que poder descargar— y
+ * duplicar el almacén habría duplicado también el patrón de nombre y la ruta
+ * pública, que es justo lo que protege de servir archivos arbitrarios.
  */
 // ponytail: disco local — mover a S3/R2 si el backend escala a varias réplicas.
 const MEDIA_DIR = path.resolve(process.cwd(), 'uploads', 'generated')
-const FILE_NAME_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(png|jpg|webp)$/
+const FILE_NAME_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(png|jpg|webp|svg|wav|mp3)$/
 
 export const MEDIA_CONTENT_TYPES: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
   webp: 'image/webp',
+  svg: 'image/svg+xml',
+  wav: 'audio/wav',
+  mp3: 'audio/mpeg',
 }
 
 /** Solo confiamos en los magic bytes, nunca en el content-type declarado. */
@@ -32,17 +41,28 @@ export function publicMediaBaseUrl(): string | null {
 }
 
 export async function saveGeneratedImage(base64: string): Promise<{ fileName: string; publicUrl: string } | null> {
-  return saveImageBuffer(Buffer.from(base64, 'base64'), 'png')
+  return saveMediaBuffer(Buffer.from(base64, 'base64'), 'png')
 }
 
 /** Para subidas del navegador: rechaza cualquier cosa que no sea una imagen real. */
 export async function saveUploadedImage(buffer: Buffer): Promise<{ fileName: string; publicUrl: string } | null> {
   const type = detectImageType(buffer)
   if (!type) return null
-  return saveImageBuffer(buffer, type)
+  return saveMediaBuffer(buffer, type)
 }
 
-async function saveImageBuffer(buffer: Buffer, extension: string): Promise<{ fileName: string; publicUrl: string } | null> {
+/**
+ * Guarda un archivo que no es una imagen de IA: la slide SVG de un carrusel con
+ * plantilla de marca o la locución de un Reel. La extensión se comprueba contra
+ * el mismo diccionario que sirve la ruta pública, para que nunca se pueda
+ * escribir un archivo que después haya que servir adivinando su tipo.
+ */
+export async function saveGeneratedFile(buffer: Buffer, extension: string): Promise<{ fileName: string; publicUrl: string } | null> {
+  if (!MEDIA_CONTENT_TYPES[extension]) return null
+  return saveMediaBuffer(buffer, extension)
+}
+
+async function saveMediaBuffer(buffer: Buffer, extension: string): Promise<{ fileName: string; publicUrl: string } | null> {
   const base = publicMediaBaseUrl()
   if (!base) return null
   const fileName = `${randomUUID()}.${extension}`

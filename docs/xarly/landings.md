@@ -21,6 +21,67 @@ Comparte con `ads.md` la señal profunda, las reglas de presentación
 autonomía N1/N2/N3 con modo sombra. Lo que se especifica una vez ahí no se
 reinventa aquí.
 
+---
+
+## 0. Estado (lo construido y lo que queda)
+
+**Las cuatro fases del §11 están construidas y el MVP del §4 se demuestra
+entero**: landing nativa → tráfico con UTM → telemetría → formulario → lead →
+llamada con resultado → venta atribuida → diagnóstico → variante justificada →
+experimento server-side.
+
+El resto del documento se conserva tal cual porque los comentarios del código
+citan sus secciones (`§3.4`, `§7.2`, `§10`…): vaciarlas dejaría el código sin
+su porqué. Lo que sigue es el inventario de lo que **no** está hecho.
+
+### Bloqueado por trabajo que no es de landings
+
+| Qué | Necesita |
+|---|---|
+| FAQ viva (§5.4) | `ContentOpportunity`: las preguntas reales minadas de llamadas e inbox — el Radar de `semana.md`. |
+| Voz del dueño (§5.4) | `ownerVoice.service.ts`, día 3 de `semana.md`. Hoy el contexto de marca sale de `KnowledgeBase`. |
+| Ángulo etiquetado del anuncio (§6) | Separar el texto del anuncio del hero: hoy comparten `adAssets.adCopy`. |
+
+### Aplazado por decisión de producto
+
+| Qué | Consecuencia mientras siga así |
+|---|---|
+| Cookie de visitante y ePrivacy (§3.2) | El A/B mide **sesiones**, no visitantes: quien vuelve mañana puede caer en la otra variante. |
+| Webs externas (§8) | Siguen en `localStorage`. "Medición completa" es un producto aparte: tag JS, clave por organización, CORS y consentimiento en web ajena. |
+
+### La lógica está; falta el flujo
+
+| Qué | Estado real |
+|---|---|
+| Consentimiento de testimonio (§5.4) | La puerta bloquea correctamente, pero nadie puede *pedir* el permiso: ningún cliente ganado llega a ser elegible. |
+| Superficie editable de la landing | **N3 no tiene hoy ninguna palanca real.** El formulario solo exige nombre, teléfono y consentimiento —los tres esenciales, intocables—, y el CTA, la FAQ y el orden de bloques son constantes de `PublicLandingPage`, no datos. Los guardarraíles, el modo sombra, la reversión y la auditoría funcionan y están probados; falta superficie que tocar. Cuando la haya, el único punto a modificar es `changeFromDiagnosis`. |
+
+### Desviaciones frente a este documento
+
+Detalle completo en §13. Por tamaño real: **una de fondo** (la métrica de
+decisión del A/B decide por leads, no por cualificados — justo lo contrario de
+la tesis del documento), **una funcionalidad sin empezar** (creación desde
+oportunidad, §5.4), **una máquina de estados a medias** (§5.5) y seis detalles
+menores.
+
+### Configuración
+
+`FRONTEND_URL` en el worker, o el chequeo de salud técnica (§7.3) se salta y lo
+declara.
+
+### Orden sugerido si se retoma
+
+1. Métrica profunda del A/B — contenida, y arregla la incoherencia de fondo.
+2. Flujo de consentimiento de testimonio — pequeño, y desbloquea código que
+   hoy no se ejecuta nunca.
+3. Estados de ciclo de vida (§5.5) — barato, y hoy no gobiernan nada pese a que
+   el documento dice que gobiernan "Atención requerida" y lo que puede tocar N3.
+
+Si en algún momento se retoma el Radar, los tres bloqueos de la primera tabla
+caen solos.
+
+---
+
 ## 1. Alcance
 
 | Pantalla | Responsabilidad |
@@ -81,7 +142,22 @@ utm / atribución de origen
 Modificar el hero crea una versión nueva; la línea base y los experimentos
 comparan versiones, nunca "el slug a lo largo del tiempo".
 
+> **`experimentId` y `variantId` no son opcionales en la práctica.** Si el
+> ingestor no los sella, el agregado suma en la misma fila un formulario con
+> campo email y otro sin él, y la línea base se contamina con su propio
+> experimento: la landing acaba compitiendo contra su variante y puede emitir
+> un «degradada» que en realidad describe el experimento. El servidor los
+> resuelve a partir de la asignación de la sesión; el navegador no los envía.
+
 ### 3.2 Sesión y visitante
+
+> **Decisión pendiente (§13): la identidad persistente de visitante exige
+> cookie de origen propio, y eso es ePrivacy — banner o base legal declarada
+> en `/l/:slug`.** Hasta resolverlo, la medición es **por sesión**:
+> `visitorId` se registra como `null` y ni las cohortes de visitante ni la
+> asignación estable de variante entre visitas están disponibles. El contrato
+> se escribe entero desde el principio para que activar la cookie sea rellenar
+> un campo, no migrar datos.
 
 - **Visitante**: identificador anónimo generado en la primera visita
   (cookie de origen propio); sin cookie se genera uno nuevo — un borrado de
@@ -92,7 +168,17 @@ comparan versiones, nunca "el slug a lo largo del tiempo".
   cookie y el experimento siga activo.
 - **Exclusiones**: bots (user-agent + heurística), previsualizadores de
   redes sociales y mensajería, y tráfico interno (IPs/usuarios de la propia
-  organización marcados).
+  organización marcados). *Lo interno todavía no se excluye (§13).*
+- **Atribución de la sesión**: se sella en el primer evento y el resto la
+  hereda, dispositivo incluido. El agregado se reparte por origen y por
+  dispositivo, así que una sesión que cambiara de origen a mitad —entrar
+  directo y volver con UTM en la misma pestaña— se contaría dos veces.
+  Consecuencia deliberada: `LandingEvent` es **primer contacto** y
+  `AcquisitionEvent` es último contacto (su upsert sobrescribe el origen), de
+  modo que en ese caso raro las dos tablas discrepan. Se prefiere primer
+  contacto aquí porque reescribir eventos ya guardados sería reescribir el
+  histórico, y porque de una sesión de landing interesa de dónde llegó, no por
+  dónde volvió a entrar.
 
 ### 3.3 Tres capas de datos
 
@@ -116,7 +202,11 @@ desde eventos brutos en cada carga.
 - ventana habitual: últimos 28 días **maduros**; comparación con los
   últimos 7 o 14 días;
 - se excluyen días con errores técnicos y períodos con experimentos activos
-  cuando se evalúa la versión principal;
+  cuando se evalúa la versión principal. **La regla implementada es: la línea
+  base, los diagnósticos y el mapa de caída usan solo tráfico con
+  `variantId` vacío** — el que está fuera de todo experimento. Si durante el
+  período todo el tráfico estuvo en experimento, no hay veredicto y se dice
+  con esas palabras, en lugar de devolver «0 sesiones»;
 - mínimo de sesiones antes de emitir diagnóstico (sin volumen → "sin datos
   suficientes", no un veredicto);
 - ajuste por mezcla de tráfico: si el origen cambia mucho (p. ej. empieza a
@@ -234,6 +324,14 @@ bruta, vistas y CTR quedan como señales diagnósticas.
 - Prueba social solo desde clientes ganados con `ContactConsent` y
   aprobación expresa en la sala de aprobación.
 
+> **El consentimiento de contacto no sirve para publicar.** Los
+> `ContactConsent` que ya existen tienen `purpose = 'contact'`: la persona
+> autorizó que la llamaran, no que su nombre aparezca en una página pública.
+> Publicar prueba social exige un consentimiento propio con
+> `purpose = 'testimonial'` **más** aprobación humana; hasta que existan los
+> dos, el cliente ganado aparece como candidato con «falta permiso», nunca como
+> material publicable.
+
 ### 5.5 Estados de ciclo de vida
 
 Landings:
@@ -265,6 +363,16 @@ Para diagnosticar, Xarly compara además:
 ángulo etiquetado del anuncio · promesa principal del anuncio ·
 texto del hero de la landing · oferta · CTA · segmento objetivo
 ```
+
+> **Límite actual del modelo de datos.** El ángulo etiquetado no existe todavía
+> como dato, y `adAssets.adCopy` alimenta a la vez el texto del anuncio
+> (`metaCampaignBuilder.service.ts` lo envía como `message`) y la descripción
+> del hero: compararlos daría siempre solapamiento total y un «todo alineado»
+> falso. Mientras el anuncio y la landing no tengan textos propios, la
+> comparación se hace contra el **título de la landing**, que sí se escribe
+> aparte; cuando ni siquiera eso existe, que la landing no tenga promesa propia
+> *es* el hallazgo. Etiquetar el ángulo del anuncio es lo que desbloquea el
+> diagnóstico completo (§13).
 
 Y el diagnóstico se expresa con prudencia:
 
@@ -310,6 +418,13 @@ causas técnicas antes de diagnosticar mensaje.
 
 ## 8. Webs externas: tres estados de medición
 
+> **Aplazado — fuera de la fase 1.** Las webs externas siguen en
+> `localStorage` hasta que las landings nativas midan de verdad. El estado
+> *Medición completa* además no es una migración: es un producto aparte (tag
+> JS, clave por organización, endpoint con CORS y consentimiento en web
+> ajena). Lo que sigue queda como especificación acordada, no como trabajo en
+> curso.
+
 Nunca mezclar en un mismo ranking webs con medición distinta:
 
 | Estado | Qué significa | Qué se muestra |
@@ -330,6 +445,10 @@ server-side. Reglas:
   `RevenueExperimentAssignment`.
 - Asignación en el server al servir `/l/:slug`, persistente por visitante
   (contrato §3.2); el experimento referencia `landingVersionId`, no slugs.
+  **Hoy la unidad de asignación es la sesión, no el visitante**, porque la
+  cookie sigue pendiente (§13): quien vuelve mañana puede caer en la otra
+  variante. El experimento sigue siendo válido —mide sesiones— y así lo declara
+  en su resultado, pero al resolver §13 la unidad debe pasar a visitante.
 - La métrica de decisión es la más profunda elegible (misma elegibilidad
   que `ads.md` §4.4): cualificados si hay volumen, leads si no.
 - Umbral estadístico explícito antes de declarar ganadora; si no se alcanza
@@ -342,6 +461,32 @@ server-side. Reglas:
 
 N1 (recomendar) y N2 (aprobar con un clic) aplican a todo. N3 (automático)
 distingue qué puede tocar:
+
+> **Hay dos políticas de autonomía, no una.** Este documento dice que los
+> niveles N1/N2/N3 y el modo sombra se especifican en `ads.md` y «no se
+> reinventan aquí», pero ads y landings se construyeron en paralelo y hoy
+> conviven dos implementaciones del mismo concepto:
+> `adPolicy.service.ts` sobre el modelo `AdOptimizationPolicy`
+> (`autonomyLevel`, `mode: 'shadow'`, kill switch) y
+> `landingAutonomy.service.ts` sobre `GovernancePolicy` con la clave
+> `landing_autonomy` (`level`, `shadowMode`).
+>
+> **Coinciden en lo que más importa: las dos arrancan en N1 con modo sombra**,
+> así que ninguna organización tiene autonomía que no le hayan concedido. Lo
+> que falta es una sola vista de gobierno: hoy una organización puede estar en
+> N3 para ads y N1 para landings sin que ningún sitio lo muestre junto, y el
+> kill switch de ads no detiene la autonomía de landings. Unificarlas es una
+> decisión de producto pendiente (§13), no un arreglo mecánico.
+
+> **N3 está construido pero inerte.** Ninguno de los cinco cambios de la lista
+> de abajo tiene hoy dónde aplicarse: el formulario solo exige campos
+> esenciales, y CTA, FAQ y orden de bloques son constantes de
+> `PublicLandingPage`, no datos. Por eso `changeFromDiagnosis` no propone nada
+> y el registro de sombra está vacío a propósito — un registro lleno de
+> decisiones que no habrían cambiado nada sería justo la falsa precisión que
+> este documento existe para evitar. Los guardarraíles, el modo sombra, la
+> reversión automática y la auditoría funcionan y están probados; cuando haya
+> superficie editable, el único punto a tocar es `changeFromDiagnosis`.
 
 **Modificable automáticamente (N3):**
 
@@ -371,34 +516,68 @@ nunca cambiar una landing durante una campaña crítica sin permiso
 
 ## 11. Fases
 
+> Las cuatro están construidas (§0). Se conservan porque describen el orden en
+> que hay que hacer las cosas, que sigue siendo válido para cualquier
+> superficie que repita este patrón.
+
 ### Fase 1 — Medir
 
 - Contratos §3 (identidad/versión, sesión/visitante, tres capas, línea base)
-  — bloqueantes.
+  — bloqueantes. Incluye `LandingVersion` como tabla propia (§12).
 - Telemetría §7 + embudo económico reutilizando la tubería
   UTM/`AcquisitionEvent` de Xarly.
-- Migrar webs externas al backend con los tres estados de medición.
-- Banda de integridad y reglas `null` ≠ `0` en la página.
+- Banda de integridad y reglas `null` ≠ `0` en la página; eliminar
+  `adAssets.visits` como fuente de visitas (doble verdad frente a
+  `AcquisitionEvent`, hoy leída en `funnels.service.ts`).
+- Fuera de fase 1: webs externas (§8) e identidad persistente de
+  visitante (§13).
 
 ### Fase 2 — Diagnosticar
 
 - Línea base por landing/canal y los tres diagnósticos N1 del MVP, con
   impacto estimado, confianza y prioridad económica.
 - "Atención requerida" + ranking económico + detalle con mapa de caída.
+- Salud técnica programada (§7.3) — no por el informe de velocidad, sino
+  porque sin ella el diagnóstico de mensaje no puede descartar causas
+  técnicas.
 - Conexión con `ads.md`: el diagnóstico "anuncio correcto, landing
-  deficiente" abre esta página con el contexto cargado.
+  deficiente" abre esta página con el contexto cargado
+  (`/landings?landing=<landingKey>`).
 
 ### Fase 3 — Variar y experimentar
 
-- Generación de variantes con justificación (servicios de Xarly:
-  oportunidades, voz del dueño, especificidad).
+- Generación de variantes con justificación. **La variante nace de un
+  diagnóstico de la fase 2**, no de un botón «genera algo»: sin hipótesis, el
+  experimento no enseña nada gane o pierda. Con LLM configurado la redacta
+  Claude sobre la evidencia del diagnóstico; sin él se genera igual de forma
+  determinista a partir de esa misma evidencia.
 - A/B server-side (§9) con promoción N1/N2 y estados de ciclo de vida.
-- FAQ viva y prueba social automática con consentimiento.
+- Prueba social con consentimiento propio (§5.4).
+- **Pendiente por dependencias que no existen:** la *voz del dueño*
+  (`ownerVoice.service.ts`, día 3 de `semana.md`) y la *FAQ viva*, que necesita
+  las preguntas reales minadas de llamadas e inbox (`ContentOpportunity`).
+  Mientras tanto, el contexto de marca sale de `KnowledgeBase`.
 
 ### Fase 4 — Autonomía
 
 - N3 con modo sombra, guardarraíles §10 y `AuditLog`.
 - Informe por landing en euros: "X cualificados, CAC Y, mejor variante Z".
+
+Decisiones de implementación que conviene no perder:
+
+- **La autonomía se concede, nunca se hereda.** Por defecto toda organización
+  está en N1 con modo sombra: el job diario escribe lo que *haría* y no toca
+  ninguna landing. Subir a N3 y apagar la sombra son dos actos explícitos y
+  distintos, ambos bajo permiso de gobierno.
+- **La lista negra gana sobre la blanca, y el contenido se inspecciona
+  además del tipo.** Un `cta_text` —tipo permitido— que dice «desde 9 €» o
+  «te devolvemos el dinero» se bloquea igual: la etiqueta del cambio no
+  acredita que su contenido sea inocente.
+- **La línea base de seguridad se congela al aplicar.** Compararse después
+  contra una línea base recalculada escondería justo la caída que la
+  reversión automática existe para detectar.
+- El informe no calcula CAC sobre gasto incompleto: devuelve `null` y explica
+  el hueco con palabras.
 
 ## 12. Riesgos conocidos
 
@@ -413,3 +592,46 @@ nunca cambiar una landing durante una campaña crítica sin permiso
 - **Doble fuente de verdad**: la landing vive dentro de `Campaign`; si las
   variantes se multiplican, evaluar extraer un modelo `Landing` propio —
   pero no antes de la fase 3 (no crear el modelo antes de necesitarlo).
+  **Excepción acordada:** `LandingVersion` sí se crea en la fase 1. Una
+  versión inmutable no puede vivir en el `Json` mutable de
+  `Campaign.adAssets`: sin inmutabilidad, la línea base de §3.4 compara
+  contenidos que ya cambiaron y deja de ser creíble. La landing sigue dentro
+  de `Campaign`; solo salen fuera sus versiones publicadas.
+- **`AcquisitionEvent` no vale para la telemetría de §7.** Su índice
+  `@@unique([campaignId, type, sessionId])` admite un evento por tipo y
+  sesión — correcto para deduplicar vistas y leads, incompatible con doce
+  `form_field_blur` de la misma sesión. `LandingEvent` es tabla nueva y el
+  modelo de atribución no se toca.
+
+## 13. Decisiones pendientes
+
+| Decisión | Estado | Qué desbloquea |
+|---|---|---|
+| **Cookie de visitante y ePrivacy** — banner en `/l/:slug`, cookie técnica declarada, o medición solo por sesión | Pendiente (§3.2) | Visitante recurrente, cohortes por visitante y asignación A/B estable entre visitas. Sin ella el A/B de §9 se degrada a por-sesión. |
+| **Webs externas y SDK** (§8) | Aplazado | Ranking comparable entre landings nativas y webs propias. |
+| **FAQ viva** (§5.4) | Bloqueado | Necesita las preguntas reales minadas de llamadas e inbox: el `ContentOpportunity` del Radar, que no está construido. |
+| **Voz del dueño** (§5.4) | Bloqueado | `ownerVoice.service.ts` (día 3 de `semana.md`) no existe. La generación de variantes usa `KnowledgeBase` como contexto de marca; sustituir esa fuente es cambiar una función. |
+| **Consentimiento de testimonio** (§5.4) | Falta el flujo | Publicar prueba social exige `ContactConsent` con `purpose = 'testimonial'`. Hoy nadie lo pide, así que ningún cliente ganado es elegible — correcto, pero significa que la prueba social no publicará nada hasta que exista ese flujo. |
+| **Superficie editable para N3** (§10) | Bloqueado | Ninguno de los cinco cambios permitidos tiene hoy dónde aplicarse, así que `changeFromDiagnosis` no propone nada y el registro de sombra está vacío a propósito. Detalle y motivo en §0 y §10. |
+
+### Desviaciones detectadas en la revisión final
+
+Ordenadas por lo que costaría que siguieran así. Ninguna corrompe datos —las
+dos que sí lo hacían se corrigieron: sellar los eventos con su experimento y
+excluir de la línea base el tráfico en experimento.
+
+| Desviación | Dice el md | Está | Por qué se dejó |
+|---|---|---|---|
+| **Métrica de decisión del A/B** (§9) | La más profunda elegible: cualificados si hay volumen, leads si no | Siempre `lead` | Es la desviación de fondo: el A/B optimiza a leads, no a compradores, que es la tesis del documento. No corrompe nada mientras tanto. |
+| **Creación desde oportunidad** (§5.4) | Parte de una oportunidad o campaña y genera bloques con voz del dueño | Modal antiguo | Funcionalidad entera sin empezar; depende además de la voz del dueño, bloqueada. |
+| **Estados de ciclo de vida** (§5.5) | Ocho estados de landing | Solo 3 alcanzables (`experimenting`, `winner`, `published`) | `draft`/`in_review`/`approved`/`paused`/`archived` no los escribe nadie: el estado existe pero la máquina está a medias. |
+| **Promoción N3 de la ganadora** (§9) | N1 propone, N2 un clic, N3 automática | Solo N1/N2 | Deliberado: promocionar sola una ganadora es la acción más arriesgada del sistema. |
+| **Tráfico interno** (§3.2) | Excluir IPs/usuarios de la propia organización | Solo bots y previsualizadores | Sesgo pequeño en pymes, pero real cuando el equipo revisa su propia landing. |
+| **Tarjetas de atención** (§5.1) | Incluyen "1 experimento listo para decidir" | Solo diagnósticos | Lo de "landings sin telemetría" ya lo cubre la banda de integridad. |
+| **Fila del ranking** (§5.2) | Mini-embudo, frescura y estado de diagnóstico por fila | Tabla sin esas tres | Cosmética informativa. |
+| **Cobertura por paso** (§5.3) | Cobertura de atribución paso a paso | Global del snapshot | Cosmética informativa. |
+| **Enlace desde `/ads`** (§11 fase 2) | El diagnóstico "landing deficiente" abre esta página con contexto | Solo el extremo receptor (`/landings?landing=…`) | Falta añadir el enlace en `AdsPage`; el destino ya funciona. |
+| **Umbral estadístico del A/B** (§9) | Por definir en fase 3 | `experimentResults` hoy solo devuelve tasas; declarar ganadora exige test de dos proporciones y tamaño mínimo. |
+| **Ángulo etiquetado del anuncio** (§6) | Pendiente | El diagnóstico completo de desalineación. Hoy el anuncio y el hero comparten el campo `adAssets.adCopy`; hasta separarlos, la comparación usa el título de la landing. |
+| **Unificar la política de autonomía con `ads.md`** (§10) | Pendiente de decisión | Existen dos: `AdOptimizationPolicy` (ads) y `GovernancePolicy/landing_autonomy` (landings). Ambas por defecto en N1 + sombra, así que no hay riesgo abierto, pero el kill switch de ads no detiene landings y no hay una vista única de gobierno. Decidir si el nivel es por organización (una política que ambas consultan) o por superficie (dos, pero declarado y visible junto). |
+| **`FRONTEND_URL` en el worker** (§7.3) | Configuración | El chequeo de salud técnica necesita la dirección pública para poder pedir la landing. Sin ella el job se salta el chequeo y lo declara. |

@@ -30,6 +30,9 @@ export async function ingestLead(
     campaignId?: string
     source: string
     externalLeadId?: string
+    /** Anuncio concreto que trajo el lead: baja la atribución de campaña a anuncio. */
+    metaAdId?: string
+    metaAdSetId?: string
     customFields?: Record<string, unknown>
     consent?: ChannelConsentInput
   }

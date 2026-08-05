@@ -4,6 +4,8 @@ import { prisma } from '../lib/prisma'
 import { runAutomationsForEvent } from '../services/automations.service'
 import { recordQueueEvent } from '../observability/metrics'
 import { classifyOperationalError, logOperational } from '../observability/operationalLog'
+import { sendQualifiedLeadEvent, sendSaleEvent } from '../services/metaConversions.service'
+import { isQualifyingOutcome } from '../lib/callOutcome'
 
 const POLL_MS = Number(process.env.OUTBOX_POLL_MS ?? 5_000)
 const BATCH_SIZE = 25
@@ -129,6 +131,41 @@ async function releaseOutboxForRetry(event: { id: string; attempts: number; corr
   })
 }
 
+/**
+ * Devuelve a Meta la señal profunda que su pixel no puede conocer: si un lead
+ * cualificó en la llamada y si acabó comprando.
+ *
+ * No lanza nunca. Una señal que no sale no puede tumbar el procesamiento del
+ * evento de negocio, y la fila de `AdConversionSignal` conserva el fallo para
+ * que se pueda reintentar y para que la banda de integridad lo muestre.
+ */
+async function forwardConversionSignal(orgId: string, topic: string, payload: Record<string, unknown>) {
+  try {
+    if (topic === 'call.completed') {
+      const callId = typeof payload.callId === 'string' ? payload.callId : null
+      const leadId = typeof payload.leadId === 'string' ? payload.leadId : null
+      if (callId && leadId && isQualifyingOutcome(payload.outcome)) {
+        await sendQualifiedLeadEvent(orgId, callId, leadId)
+      }
+      return
+    }
+    if (topic === 'opportunity.won') {
+      const opportunityId = typeof payload.opportunityId === 'string' ? payload.opportunityId : null
+      const leadId = typeof payload.leadId === 'string' ? payload.leadId : null
+      if (opportunityId && leadId) {
+        await sendSaleEvent(orgId, {
+          id: opportunityId,
+          leadId,
+          valueCents: typeof payload.valueCents === 'number' ? payload.valueCents : null,
+          currency: typeof payload.currency === 'string' ? payload.currency : 'EUR',
+        })
+      }
+    }
+  } catch (error) {
+    console.warn(`[Outbox] señal de conversión no enviada (${topic}):`, (error as Error).message)
+  }
+}
+
 async function dispatchPendingOutbox() {
   if (running) return
   running = true
@@ -144,6 +181,10 @@ async function dispatchPendingOutbox() {
             eventId: payload.eventId ?? event.id,
             correlationId: payload.correlationId ?? event.correlationId ?? undefined,
           })
+          // La señal de vuelta a Meta viaja por el outbox y no en
+          // fire-and-forget: así hereda el lease, los reintentos y la
+          // deduplicación, que es lo que exige la Fase 2 de ads.md.
+          await forwardConversionSignal(event.orgId, event.topic, payload)
         })
         if (outcome.leaseLost) {
           recordQueueEvent({ queue: 'outbox', outcome: 'lease_lost' })

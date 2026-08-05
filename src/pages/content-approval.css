@@ -1,0 +1,65 @@
+/**
+ * Sala de aprobación pública (roadmap.md fase 3).
+ *
+ * Estilos propios y no los del CRM: quien entra aquí no es usuario del
+ * producto, y la pantalla tiene que poder leerse en el móvil, de pie, sin
+ * conocer la aplicación. Nada de barras laterales ni navegación.
+ */
+
+.approval-public {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  color: #101828;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: #fff;
+  min-height: 100vh;
+}
+
+.approval-public-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.approval-public-spin { animation: approval-public-rotate 1s linear infinite; font-size: 24px; }
+@keyframes approval-public-rotate { to { transform: rotate(360deg); } }
+
+.approval-public > header { margin-bottom: 24px; }
+.approval-public h1 { margin: 0 0 6px; font-size: 22px; }
+.approval-public > header p { margin: 0 0 4px; color: #475467; font-size: 14px; }
+.approval-public > header small { color: #667085; font-size: 12px; }
+
+.approval-public-notice { padding: 10px 12px; border-radius: 8px; background: #FEF0C7; color: #93370D; font-size: 13px; }
+
+.approval-public-piece { margin-bottom: 20px; padding: 18px; border: 1px solid #EAECF0; border-radius: 12px; }
+.approval-public-piece header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.approval-public-piece header strong { font-size: 15px; }
+.approval-public-piece header span { color: #667085; font-size: 12px; }
+.approval-public-piece img { width: 100%; border-radius: 8px; margin-bottom: 10px; }
+.approval-public-piece pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 14px; line-height: 1.6; }
+.approval-public-piece audio { width: 100%; margin-top: 10px; }
+
+.approval-public-flags { margin: 12px 0 0; padding-left: 18px; color: #B54708; font-size: 12px; line-height: 1.5; }
+
+.approval-public-piece footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.approval-public button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border: 1px solid #D0D5DD; border-radius: 8px;
+  background: #fff; color: #344054; font: inherit; font-size: 13px; cursor: pointer;
+}
+.approval-public button.is-primary { border-color: #101828; background: #101828; color: #fff; }
+.approval-public button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.approval-public-reject { margin-top: 14px; padding: 14px; border: 1px dashed #D0D5DD; border-radius: 10px; }
+.approval-public-reject > span { display: block; margin-bottom: 10px; color: #475467; font-size: 13px; }
+.approval-public-reject > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.approval-public-reject button.is-selected { border-color: #101828; background: #F2F4F7; }
+.approval-public-reject input { width: 100%; margin-top: 10px; padding: 9px 12px; border: 1px solid #D0D5DD; border-radius: 8px; font: inherit; font-size: 13px; }
+.approval-public-reject-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+@media (prefers-color-scheme: dark) {
+  .approval-public { background: #0C111D; color: #F2F4F7; }
+  .approval-public-piece { border-color: #1F242F; }
+  .approval-public > header p, .approval-public-piece header span { color: #94969C; }
+  .approval-public button { border-color: #333741; background: transparent; color: #F2F4F7; }
+  .approval-public button.is-primary { border-color: #F2F4F7; background: #F2F4F7; color: #0C111D; }
+  .approval-public-reject { border-color: #333741; }
+  .approval-public-reject input { border-color: #333741; background: transparent; color: #F2F4F7; }
+  .approval-public-reject button.is-selected { background: #1F242F; }
+}

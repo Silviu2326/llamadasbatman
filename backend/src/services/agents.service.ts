@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
+import { isQualifyingOutcome } from '../lib/callOutcome'
 
 export async function listAgents(orgId: string) {
   return prisma.agent.findMany({
@@ -111,7 +112,7 @@ export async function getAgentTimeseries(orgId: string, id: string, days = 30) {
     }
     if (call.durationSeconds) { durationSum += call.durationSeconds; durationCount++ }
     if (call.sentimentScore != null) { sentimentSum += call.sentimentScore; sentimentCount++ }
-    if (call.outcome === 'meeting_scheduled' || call.outcome === 'interested') success++
+    if (isQualifyingOutcome(call.outcome)) success++
   }
   return {
     days,

@@ -11,6 +11,7 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:seed": "node --env-file=.env --import=tsx prisma/seed.ts",
+    "db:seed:ads": "node --env-file=.env --import=tsx prisma/seed-ads-dev.ts",
     "pretest": "node --env-file=.env scripts/test-database-guard.mjs",
     "test": "node scripts/run-tests.mjs",
     "test:offline": "node --test scripts/test-runtime.offline.test.mjs"

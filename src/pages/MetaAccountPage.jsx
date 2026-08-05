@@ -10,6 +10,8 @@ import { getLocale, localeCode, useI18n } from '../i18n'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import AdsDataIntegrity from '../components/ads/AdsDataIntegrity'
+import '../pages/ads.css'
 
 export default function MetaAccountPage() {
   const { t, locale } = useI18n()
@@ -25,6 +27,12 @@ export default function MetaAccountPage() {
   const [pixelId, setPixelId] = useState('')
   const [savingPixel, setSavingPixel] = useState(false)
   const [message, setMessage] = useState('')
+  // La conexión no se juzga por "hay token", sino por si de verdad permite leer
+  // Insights, recibir leads y enviar CAPI (ads.md §4.1). Ese diagnóstico ya
+  // existe; aquí se muestra en la pantalla donde se repara.
+  const [quality, setQuality] = useState(null)
+  const [checking, setChecking] = useState(false)
+  const [stopping, setStopping] = useState(false)
 
   const oauthStatus = searchParams.get('status')
 
@@ -35,7 +43,48 @@ export default function MetaAccountPage() {
 
   useEffect(() => {
     loadAccount()
+    loadQuality()
   }, [])
+
+  async function loadQuality() {
+    try {
+      const res = await apiFetch('/api/ads/data-quality')
+      setQuality(res.ok ? await res.json() : null)
+    } catch {
+      setQuality(null)
+    }
+  }
+
+  async function recheck() {
+    setChecking(true)
+    try {
+      await apiFetch('/api/ads/data-quality/refresh', { method: 'POST' })
+      await Promise.all([loadAccount(), loadQuality()])
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  // Parar la autonomía desde la cuenta, como pide la Fase 5: el freno tiene que
+  // estar donde alguien lo busca cuando algo va mal, no solo en /ads.
+  async function toggleAutonomy() {
+    if (!quality) return
+    const engaged = quality.policy?.killSwitch === 'engaged'
+    setStopping(true)
+    try {
+      const res = await apiFetch('/api/ads/policy/stop', {
+        method: 'POST',
+        body: JSON.stringify(engaged ? { resume: true } : { reason: 'Parada desde la cuenta de Meta' }),
+      })
+      if (!res.ok) throw new Error()
+      setMessage(engaged ? 'Autonomía reanudada.' : 'Autonomía parada: Xarly no ejecutará ninguna acción.')
+      await loadQuality()
+    } catch {
+      setMessage('No se pudo cambiar el estado de la autonomía.')
+    } finally {
+      setStopping(false)
+    }
+  }
 
   async function loadAccount() {
     try {
@@ -260,6 +309,37 @@ export default function MetaAccountPage() {
             </div>
             <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' }}>{t('meta.pixelHint')}</p>
           </div>
+
+          {quality && (
+            <div className="ads-embed">
+              <AdsDataIntegrity
+                account={{ connected: true, permissions: { insights: quality.permissionsInsights, leads: quality.permissionsLeads, capi: quality.permissionsCapi } }}
+                dataQuality={quality}
+                onSync={recheck}
+                syncing={checking}
+              />
+              <section className="ads-autonomy" style={{ marginTop: 12 }}>
+                <div className="ads-section-head">
+                  <div>
+                    <h2>Autonomía de Xarly</h2>
+                    <p>
+                      Nivel <b>{quality.policy?.autonomyLevel ?? 'N1'}</b> en modo <b>{quality.policy?.mode ?? 'shadow'}</b>.
+                      {quality.policy?.killSwitch === 'engaged'
+                        ? ` Parada: ${quality.policy.killSwitchReason ?? 'sin motivo registrado'}.`
+                        : ' Ninguna acción llega a Meta sin que alguien la apruebe.'}
+                    </p>
+                  </div>
+                  <button
+                    className={`ads-action ${quality.policy?.killSwitch === 'engaged' ? 'primary' : 'secondary'}`}
+                    onClick={toggleAutonomy}
+                    disabled={stopping}
+                  >
+                    {quality.policy?.killSwitch === 'engaged' ? 'Reanudar autonomía' : 'Parar autonomía'}
+                  </button>
+                </div>
+              </section>
+            </div>
+          )}
 
           <button
             onClick={() => setShowDisconnect(true)}

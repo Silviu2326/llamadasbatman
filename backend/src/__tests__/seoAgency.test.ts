@@ -62,3 +62,40 @@ test('el plan determinista usa sector y ciudad y propone arreglos de lo fallido'
   assert.ok(plan.technicalFixes.every((f) => checklist.some((c) => !c.ok && c.label === f.title)))
   assert.ok(plan.localSeo.length >= 3)
 })
+
+/**
+ * El informe dejó de vivir en `localStorage` del navegador (`organico.md` fase
+ * 0). Estas dos pruebas cubren lo que esa migración tiene que garantizar: que
+ * se lee el último informe guardado y que no se lee el de otra organización.
+ */
+test('el último informe se lee de la base y respeta el aislamiento por organización', async () => {
+  const { prisma } = await import('../lib/prisma')
+  const { latestReport, reportById } = await import('../services/seoAgency.service')
+  const { cleanupOrgs, createTestOrg } = await import('./testHelpers')
+
+  const mine = await createTestOrg()
+  const other = await createTestOrg()
+  try {
+    const older = await prisma.seoReport.create({
+      data: { orgId: mine.id, url: 'https://mia.com', score: 40, report: { url: 'https://mia.com', score: 40 } },
+    })
+    await prisma.seoReport.create({
+      data: { orgId: mine.id, url: 'https://mia.com', score: 72, report: { url: 'https://mia.com', score: 72 } },
+    })
+    const theirs = await prisma.seoReport.create({
+      data: { orgId: other.id, url: 'https://ajena.com', score: 91, report: { url: 'https://ajena.com', score: 91 } },
+    })
+
+    const latest = await latestReport(mine.id)
+    assert.equal(latest?.score, 72, 'tiene que devolver el más reciente, no el primero')
+    assert.equal(await latestReport(mine.id, 'https://no-existe.com'), null)
+
+    // Se puede volver a un informe anterior…
+    assert.equal((await reportById(mine.id, older.id))?.score, 40)
+    // …pero nunca al de otro tenant, aunque se acierte el id.
+    assert.equal(await reportById(mine.id, theirs.id), null)
+  } finally {
+    await prisma.seoReport.deleteMany({ where: { orgId: { in: [mine.id, other.id] } } })
+    await cleanupOrgs([mine.id, other.id])
+  }
+})

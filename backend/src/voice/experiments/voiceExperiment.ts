@@ -1,5 +1,6 @@
 import { assignExperimentVariant } from '../../services/revenueIntelligence.service'
 import { prisma } from '../../lib/prisma'
+import { isQualifyingOutcome } from '../../lib/callOutcome'
 
 export type VoiceExperimentSnapshot = {
   experimentId: string
@@ -50,8 +51,7 @@ export async function recordVoiceExperimentOutcome(
   campaignId: string,
   outcome: string,
 ): Promise<void> {
-  const converted = ['meeting_scheduled', 'qualified', 'callback_requested'].includes(outcome)
-  if (!converted) return
+  if (!isQualifyingOutcome(outcome)) return
   await prisma.revenueExperimentAssignment.updateMany({
     where: {
       orgId,

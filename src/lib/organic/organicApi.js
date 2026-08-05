@@ -9,63 +9,55 @@ function firstDefined(...values) {
   return values.find(value => value !== undefined && value !== null)
 }
 
+/**
+ * Normaliza el contrato de organico.md §7.1.
+ *
+ * Lo que hacía antes: cadenas de `firstDefined(kpis.potentialCustomers,
+ * kpis.clientsFound, kpis.searchDemand)` que no resolvían a nada porque el
+ * backend nunca envió ninguno de los tres. El resultado eran paneles
+ * renderizados vacíos para siempre, indistinguibles de "tu negocio no tiene
+ * datos". La regla ahora es la del documento: **la interfaz solo pinta lo que
+ * el contrato declara**, y lo que aún no existe se declara ausente con el
+ * motivo, no con un hueco mudo.
+ */
 function normalizeOverview(payload) {
-  const source = payload?.overview || payload?.data || payload || {}
-  const project = source.project || source.business || source.workspace || null
-  const kpis = source.kpis || source.metrics || {}
-  const demand = source.demand || {}
-  const local = source.local || source.localPresence || {}
-  const ai = source.ai || source.aiVisibility || {}
-  const assets = source.assets || source.commercialAssets || []
-  const leads = source.leads || source.organicLeads || []
-  const competitorGap = source.competitorGap || source.competitors || {}
+  const source = payload || {}
+  const summary = source.summary || {}
 
   return {
-    project,
-    periodLabel: firstDefined(source.periodLabel, source.period?.label, 'Periodo seleccionado'),
-    opportunity: source.opportunity || source.opportunitySummary || {},
-    kpis: {
-      potentialCustomers: firstDefined(kpis.potentialCustomers, kpis.clientsFound, kpis.searchDemand),
-      organicLeads: firstDefined(kpis.organicLeads, kpis.leads, 0),
-      estimatedValue: firstDefined(
-        kpis.estimatedValue,
-        kpis.value,
-        typeof kpis.estimatedValueCents === 'number' ? kpis.estimatedValueCents / 100 : undefined,
-      ),
-      missedOpportunities: firstDefined(kpis.missedOpportunities, kpis.uncovered, kpis.openOpportunities),
+    project: source.project || null,
+    period: source.period || null,
+    profile: source.profile || null,
+    dataQuality: source.dataQuality || null,
+    // `null` es "sin medición" y viaja tal cual: la tarjeta decide cómo
+    // decirlo. Convertirlo en 0 aquí sería mentir en el sitio más discreto.
+    summary: {
+      fast: {
+        organicLeads: summary.fast?.organicLeads ?? null,
+        visits: summary.fast?.visits ?? null,
+        presence: summary.fast?.presence ?? null,
+      },
+      mature: {
+        qualified: summary.mature?.qualified ?? null,
+        opportunities: summary.mature?.opportunities ?? null,
+        sales: summary.mature?.sales ?? null,
+        hoursInvested: summary.mature?.hoursInvested ?? null,
+        hoursPerQualified: summary.mature?.hoursPerQualified ?? null,
+      },
+      deepestEligibleSignal: summary.deepestEligibleSignal ?? null,
     },
-    demand: {
-      points: asArray(demand.points || demand.locations || source.map?.points),
-      opportunities: asArray(demand.opportunities || demand.queries || source.opportunities).map(opportunity => ({
-        ...opportunity,
-        demand: firstDefined(opportunity.demand, opportunity.demandLevel),
-        competition: firstDefined(opportunity.competition, opportunity.competitionLevel),
-        valuePerLead: firstDefined(
-          opportunity.valuePerLead,
-          opportunity.estimatedValue,
-          typeof opportunity.estimatedValueCents === 'number' ? opportunity.estimatedValueCents / 100 : undefined,
-        ),
-        actionLabel: firstDefined(opportunity.actionLabel, opportunity.recommendedAction),
-      })),
-      best: demand.best || source.bestOpportunity || null,
-    },
-    actions: asArray(source.actions || source.recommendedActions),
-    local: {
-      query: firstDefined(local.query, local.primaryQuery),
-      areas: asArray(local.areas || local.grid || local.rankings),
-      insight: firstDefined(local.insight, local.recommendation),
-    },
-    ai: {
-      items: asArray(ai.items || ai.queries || ai.prompts),
-      insight: firstDefined(ai.insight, ai.recommendation),
-    },
-    assets: asArray(assets),
-    leads: asArray(leads),
-    competitorGap: {
-      summary: firstDefined(competitorGap.summary, competitorGap.description),
-      items: asArray(competitorGap.items || competitorGap.competitors || competitorGap.gaps),
-    },
-    setup: source.setup || null,
+    funnel: asArray(source.funnel),
+    pieces: asArray(source.pieces),
+    pages: asArray(source.pages),
+    channels: asArray(source.channels),
+    recommendations: asArray(source.recommendations),
+    weeklyNarrative: source.weeklyNarrative || null,
+    policy: source.policy || null,
+    // Lo que sí existe hoy y la página seguía usando.
+    opportunities: asArray(source.opportunities),
+    actions: asArray(source.actions),
+    assets: asArray(source.assets),
+    setupRequired: Boolean(source.setupRequired),
   }
 }
 
@@ -143,16 +135,25 @@ export function disconnectOrganicIntegration(provider) {
   return requestJson(`/api/organic/integrations/${encodeURIComponent(provider)}`, { method: 'DELETE' })
 }
 
+const SYNCABLE_PROVIDERS = new Set(['search_console', 'ga4', 'google_business_profile'])
+
+/**
+ * Sincroniza una fuente. GA4 y el Perfil de Empresa hacían `discover`, que solo
+ * vuelve a listar propiedades: parecía una sincronización y no traía ni un
+ * dato. Ahora los tres proveedores ingieren de verdad.
+ */
 export function syncOrganicIntegration(provider, payload = {}) {
-  if (provider !== 'search_console') {
+  if (!SYNCABLE_PROVIDERS.has(provider)) {
     return requestJson(`/api/organic/integrations/${encodeURIComponent(provider)}/discover`, { method: 'POST' })
   }
   const end = payload.endDate || new Date().toISOString().slice(0, 10)
   const startDate = new Date(`${end}T00:00:00.000Z`)
   startDate.setUTCDate(startDate.getUTCDate() - 30)
-  return requestJson('/api/organic/integrations/search_console/sync', {
+  const body = { startDate: payload.startDate || startDate.toISOString().slice(0, 10), endDate: end }
+  if (provider === 'search_console') body.rowLimit = payload.rowLimit || 1000
+  return requestJson(`/api/organic/integrations/${encodeURIComponent(provider)}/sync`, {
     method: 'POST',
-    body: JSON.stringify({ startDate: payload.startDate || startDate.toISOString().slice(0, 10), endDate: end, rowLimit: payload.rowLimit || 1000 }),
+    body: JSON.stringify(body),
   })
 }
 
@@ -161,6 +162,58 @@ export function configureOrganicIntegration(provider, externalPropertyId) {
     method: 'PUT',
     body: JSON.stringify({ externalPropertyId }),
   })
+}
+
+// ─── Cola priorizada y sala de autonomía ────────────────────────────────────
+// Vivían sueltas dentro de la página con `apiFetch` sin importar, así que la
+// primera llamada lanzaba un ReferenceError y la pantalla entera caía al estado
+// de error. Aquí comparten el mismo manejo de errores que el resto.
+
+export async function fetchOrganicRecommendations() {
+  const response = await apiFetch('/api/organic/recommendations')
+  if (!response.ok) return []
+  const payload = await response.json().catch(() => null)
+  return Array.isArray(payload) ? payload : []
+}
+
+export function dispatchOrganicRecommendation(id) {
+  return requestJson(`/api/organic/recommendations/${encodeURIComponent(id)}/dispatch`, { method: 'POST' })
+}
+
+export function dismissOrganicRecommendation(id, reason) {
+  return requestJson(`/api/organic/recommendations/${encodeURIComponent(id)}/dismiss`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function fetchOrganicAutonomy() {
+  const response = await apiFetch('/api/organic/autonomy')
+  if (!response.ok) return null
+  return response.json().catch(() => null)
+}
+
+export function updateOrganicAutonomy(patch) {
+  return requestJson('/api/organic/autonomy', { method: 'PUT', body: JSON.stringify(patch) })
+}
+
+export function runOrganicAutonomyPass() {
+  return requestJson('/api/organic/autonomy/run', { method: 'POST' })
+}
+
+export function approveOrganicAutonomyDecision(id) {
+  return requestJson(`/api/organic/autonomy/decisions/${encodeURIComponent(id)}/approve`, { method: 'POST' })
+}
+
+export function rejectOrganicAutonomyDecision(id, reason) {
+  return requestJson(`/api/organic/autonomy/decisions/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export function promoteOrganicAutonomyKind(kind) {
+  return requestJson(`/api/organic/autonomy/kinds/${encodeURIComponent(kind)}/promote`, { method: 'POST' })
 }
 
 export function createOrganicProject(payload = {}) {

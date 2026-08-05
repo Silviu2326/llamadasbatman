@@ -253,6 +253,8 @@ export default function AdsWizardPage() {
   const [objetivo, setObjetivo] = useState(draftSeed.objetivo || '')
   const [presupuesto, setPresupuesto] = useState(draftSeed.presupuesto || '')
   const [audience, setAudience] = useState(draftSeed.audience || '')
+  const [margin, setMargin] = useState('')
+  const [acquisitionShare, setAcquisitionShare] = useState('30')
   const [playbooks, setPlaybooks] = useState([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -260,6 +262,11 @@ export default function AdsWizardPage() {
   const [aiStatus, setAiStatus] = useState(draftSeed.strategy ? 'ready' : 'idle')
   const [strategy, setStrategy] = useState(() => normalizeStrategy(draftSeed.strategy))
   const [showFactors, setShowFactors] = useState(false)
+  // Se enseña el CAC máximo en cuanto hay margen: convierte dos números
+  // abstractos en la cifra con la que /ads juzgará la campaña.
+  const marginPreview = Number(margin) > 0 && Number(acquisitionShare) > 0
+    ? `Podrás pagar hasta ${((Number(margin) * Number(acquisitionShare)) / 100).toFixed(2)} € por cliente nuevo.`
+    : 'Un 30 % es un punto de partida razonable si no lo tienes calculado.'
   const [creativeIndex, setCreativeIndex] = useState(0)
   const [appliedRecommendation, setAppliedRecommendation] = useState('')
   const [draftStatus, setDraftStatus] = useState(
@@ -469,6 +476,8 @@ export default function AdsWizardPage() {
           presupuestoMensual: Number(presupuesto),
           audience: audience.trim(),
           strategy: serializeStrategy(strategy),
+          ...(Number(margin) > 0 ? { marginPerSaleCents: Math.round(Number(margin) * 100) } : {}),
+          ...(Number(acquisitionShare) > 0 ? { acquisitionSharePct: Number(acquisitionShare) } : {}),
         }),
       })
 
@@ -649,6 +658,47 @@ export default function AdsWizardPage() {
                       required
                     />
                     <span className="ads-input-affordance">EUR</span>
+                  </span>
+                </label>
+
+                {/* El margen, no el ticket. De aquí salen el CAC, el CPQL y el
+                    CPL objetivo (ads.md §9). Es opcional: sin él la campaña se
+                    crea igual, pero /ads no podrá decir si sale rentable, solo
+                    si es más barata que las demás. */}
+                <label className="ads-field" htmlFor="ads-margin">
+                  <span className="ads-field-label"><RiMoneyDollarCircleLine /> Margen por venta (€)</span>
+                  <span className="ads-field-helper">Lo que te queda limpio de un cliente nuevo, no el precio. Sin esto no se puede saber si una campaña sale rentable.</span>
+                  <span className="ads-input-wrap">
+                    <input
+                      id="ads-margin"
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={margin}
+                      onChange={event => setMargin(event.target.value)}
+                      placeholder="900"
+                    />
+                    <span className="ads-input-affordance">EUR</span>
+                  </span>
+                </label>
+
+                <label className="ads-field" htmlFor="ads-acq-share">
+                  <span className="ads-field-label"><RiMoneyDollarCircleLine /> Del margen, ¿cuánto puedes gastar en captar? (%)</span>
+                  <span className="ads-field-helper">{marginPreview}</span>
+                  <span className="ads-input-wrap">
+                    <input
+                      id="ads-acq-share"
+                      type="number"
+                      min="1"
+                      max="100"
+                      step="1"
+                      inputMode="numeric"
+                      value={acquisitionShare}
+                      onChange={event => setAcquisitionShare(event.target.value)}
+                      placeholder="30"
+                    />
+                    <span className="ads-input-affordance">%</span>
                   </span>
                 </label>
               </div>

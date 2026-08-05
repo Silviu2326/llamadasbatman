@@ -3,8 +3,18 @@ import { createHash } from 'crypto'
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../lib/prisma'
 import { ingestLead } from '../services/leadIngestion.service'
+import {
+  deviceFromUserAgent,
+  ingestLandingEvents,
+  isBotUserAgent,
+  resolveCurrentVersion,
+  type LandingEventInput,
+} from '../services/landingTelemetry.service'
+import { assignSessionToVariant, assignmentForSession, recordSessionConversion } from '../services/landingExperiments.service'
+import { applyPatch } from '../services/landingVariants.service'
 
 interface LandingAssets {
+  title?: string
   offer?: string
   leadMagnet?: string
   adCopy?: string
@@ -28,6 +38,10 @@ export interface LandingTrackingBody {
   path?: string
   gclid?: string
   fbclid?: string
+}
+
+export interface LandingEventsBody extends LandingTrackingBody {
+  events?: LandingEventInput[]
 }
 
 export interface LandingLeadBody extends LandingTrackingBody {
@@ -176,46 +190,120 @@ async function recordAcquisitionEvent(input: {
   return prisma.acquisitionEvent.create({ data })
 }
 
+const LANDING_SELECT = {
+  id: true,
+  orgId: true,
+  name: true,
+  landingSlug: true,
+  landingKey: true,
+  adAssets: true,
+} as const
+
 export async function getLanding(
-  request: FastifyRequest<{ Params: { slug: string } }>,
+  request: FastifyRequest<{ Params: { slug: string }; Querystring: { sessionId?: string } }>,
   reply: FastifyReply
 ) {
   const campaign = await prisma.campaign.findFirst({
     where: { landingSlug: request.params.slug, status: 'active' },
-    select: {
-      id: true,
-      orgId: true,
-      name: true,
-      landingSlug: true,
-      adAssets: true,
-    },
+    select: LANDING_SELECT,
   })
   if (!campaign) return reply.status(404).send({ error: 'Landing no encontrada' })
 
+  // La versión se resuelve al servir, no al guardar: una landing anterior a la
+  // telemetría obtiene su primera versión en la primera visita, sin backfill
+  // que invente fechas de publicación (landings.md §3.1).
+  const version = await resolveCurrentVersion(campaign)
+
   const assets = (campaign.adAssets ?? {}) as LandingAssets
-  return reply.send({
-    campaignId: campaign.id,
-    name: campaign.name,
+  const base = {
+    title: assets.title ?? null,
     offer: assets.offer ?? '',
     leadMagnet: assets.leadMagnet ?? '',
     adCopy: assets.adCopy ?? '',
+    optionalFields: [] as string[],
+    hiddenFields: [] as string[],
+  }
+
+  // Asignación de variante en el servidor (§9). Se hace aquí, no en el cliente:
+  // el navegador nunca decide qué variante le toca ni puede reasignarse hasta
+  // que le salga la que prefiere.
+  const sessionId = cleanText(request.query?.sessionId, 160)
+  const assignment = sessionId && !isBotUserAgent(request.headers['user-agent'])
+    ? await assignSessionToVariant(version.landingKey, sessionId)
+    : null
+  const served = assignment ? applyPatch(base, assignment.patch) : base
+
+  return reply.send({
+    campaignId: campaign.id,
+    landingKey: version.landingKey,
+    landingVersionId: version.id,
+    name: campaign.name,
+    title: served.title,
+    offer: served.offer,
+    leadMagnet: served.leadMagnet,
+    adCopy: served.adCopy,
+    // Campos que la variante activa deja de exigir o retira del formulario.
+    // Nombre, teléfono y consentimiento nunca se retiran: sin ellos no se puede
+    // atender la solicitud ni acreditar el consentimiento.
+    optionalFields: Array.isArray(served.optionalFields) ? served.optionalFields : [],
+    hiddenFields: (Array.isArray(served.hiddenFields) ? served.hiddenFields : [])
+      .filter((field: unknown) => typeof field === 'string' && !['name', 'phone', 'consent'].includes(field)),
     landingTemplateId: assets.landingTemplateId ?? 'generic-v1',
     imageUrl: assets.imageUrl ?? '',
     seo: assets.seo ?? null,
+    experiment: assignment ? { experimentId: assignment.experimentId, variant: assignment.variantKey } : null,
   })
+}
+
+/**
+ * Contexto compartido por la vista y el resto de eventos. La identidad de la
+ * landing (§3.1) se resuelve siempre en el servidor a partir del slug: el
+ * navegador nunca decide a qué versión pertenece lo que envía.
+ */
+async function telemetryContext(request: FastifyRequest<{ Params: { slug: string }; Body: LandingTrackingBody }>) {
+  const campaign = await prisma.campaign.findFirst({
+    where: { landingSlug: request.params.slug, status: 'active' },
+    select: LANDING_SELECT,
+  })
+  if (!campaign) return null
+
+  const tracking = parseTracking(request.body ?? {})
+  const version = await resolveCurrentVersion(campaign)
+  const userAgent = request.headers['user-agent']
+
+  // Cada evento se sella con su experimento y su variante (§3.1). Sin esto, el
+  // agregado sumaría en la misma fila un formulario con campo email y otro sin
+  // él, y la línea base se contaminaría con su propio experimento.
+  const assignment = tracking.sessionId
+    ? await assignmentForSession(version.landingKey, tracking.sessionId)
+    : null
+
+  return {
+    campaign,
+    tracking,
+    version,
+    assignment,
+    isBot: isBotUserAgent(userAgent),
+    device: deviceFromUserAgent(userAgent),
+    metadata: (request.body ?? {}) as LandingTrackingBody,
+  }
 }
 
 export async function recordLandingView(
   request: FastifyRequest<{ Params: { slug: string }; Body: LandingTrackingBody }>,
   reply: FastifyReply
 ) {
-  const campaign = await prisma.campaign.findFirst({
-    where: { landingSlug: request.params.slug, status: 'active' },
-    select: { id: true, orgId: true },
-  })
-  if (!campaign) return reply.status(404).send({ error: 'Landing no encontrada' })
+  const context = await telemetryContext(request)
+  if (!context) return reply.status(404).send({ error: 'Landing no encontrada' })
 
-  const tracking = parseTracking(request.body ?? {})
+  // Rastreadores y previsualizaciones de enlaces piden la página entera: sin
+  // este filtro, compartir la landing por WhatsApp inventa visitas (§3.2). Se
+  // aplica también a `AcquisitionEvent` a propósito — dos recuentos de visita
+  // distintos serían justo la doble fuente de verdad que evita §12.
+  if (context.isBot) return reply.status(202).send({ ok: true, recorded: false })
+
+  const { campaign, tracking, version, metadata, device, assignment } = context
+
   await recordAcquisitionEvent({
     orgId: campaign.orgId,
     campaignId: campaign.id,
@@ -223,7 +311,63 @@ export async function recordLandingView(
     ...tracking,
   })
 
-  return reply.status(201).send({ ok: true })
+  if (tracking.sessionId) {
+    await ingestLandingEvents([{ type: 'view', occurredAt: new Date().toISOString() }], {
+      orgId: campaign.orgId,
+      campaignId: campaign.id,
+      landingKey: version.landingKey,
+      landingVersionId: version.id,
+      sessionId: tracking.sessionId,
+      experimentId: assignment?.experimentId ?? null,
+      variantId: assignment?.variantId ?? null,
+      source: tracking.source,
+      medium: tracking.medium,
+      utmCampaign: metadata.utm_campaign,
+      content: tracking.content,
+      term: metadata.utm_term,
+      referrer: metadata.referrer,
+      device,
+    })
+  }
+
+  return reply.status(201).send({ ok: true, recorded: true })
+}
+
+/**
+ * Ingesta por lotes del comportamiento dentro de la landing (§7.1). Sin PII:
+ * el cliente envía qué campo se tocó y si quedó relleno, nunca su contenido.
+ */
+export async function recordLandingEvents(
+  request: FastifyRequest<{ Params: { slug: string }; Body: LandingEventsBody }>,
+  reply: FastifyReply
+) {
+  const context = await telemetryContext(request)
+  if (!context) return reply.status(404).send({ error: 'Landing no encontrada' })
+  if (context.isBot) return reply.status(202).send({ ok: true, accepted: 0 })
+
+  const { campaign, tracking, version, metadata, device, assignment } = context
+  // Sin sesión no hay forma honesta de calcular exposición por campo (§7.2):
+  // los eventos sueltos inflarían los denominadores.
+  if (!tracking.sessionId) return reply.status(202).send({ ok: true, accepted: 0 })
+
+  const { accepted } = await ingestLandingEvents(request.body?.events ?? [], {
+    orgId: campaign.orgId,
+    campaignId: campaign.id,
+    landingKey: version.landingKey,
+    landingVersionId: version.id,
+    sessionId: tracking.sessionId,
+    experimentId: assignment?.experimentId ?? null,
+    variantId: assignment?.variantId ?? null,
+    source: tracking.source,
+    medium: tracking.medium,
+    utmCampaign: metadata.utm_campaign,
+    content: tracking.content,
+    term: metadata.utm_term,
+    referrer: metadata.referrer,
+    device,
+  })
+
+  return reply.status(201).send({ ok: true, accepted })
 }
 
 export async function submitLead(
@@ -249,7 +393,7 @@ export async function submitLead(
 
   const campaign = await prisma.campaign.findFirst({
     where: { landingSlug: request.params.slug, status: 'active' },
-    select: { id: true, orgId: true },
+    select: { id: true, orgId: true, landingKey: true },
   })
   if (!campaign) return reply.status(404).send({ error: 'Landing no encontrada' })
 
@@ -296,6 +440,12 @@ export async function submitLead(
     sessionId: undefined,
     externalKey: `landing-lead:${campaign.id}:${submissionFingerprint}`,
   })
+
+  // Conversión del experimento (§9). La conversión se atribuye a la variante
+  // que se sirvió a esa sesión; si no hay experimento activo, no hace nada.
+  if (campaign.landingKey && tracking.sessionId) {
+    await recordSessionConversion(campaign.landingKey, tracking.sessionId, lead.id)
+  }
 
   return reply.status(201).send({ ok: true, message: 'Te llamamos en breve' })
 }

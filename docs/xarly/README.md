@@ -23,9 +23,11 @@ Orden de construcción acordado: **11 + 13 + 23 + 27 → 8 → 16 → 19**
   que sale hacia el modelo. El mapeo no sale del backend.
 - **Evidencias agregadas, no literales.** Las tarjetas muestran conteos y
   paráfrasis ("8 clientes preguntaron por el plazo"), nunca la transcripción
-  cruda. La cita literal de un cliente solo se usa en una pieza si el
-  contacto tiene consentimiento registrado (`ContactConsent`) y el usuario
-  la aprueba expresamente en la sala de aprobación.
+  cruda. **Hoy no se cita literalmente a nadie, nunca**: lo que el modelo
+  devuelve se compara contra el material del que salió y lo que copie una frase
+  se descarta. La vía con permiso —cita literal si el contacto tiene
+  `ContactConsent` y alguien la aprueba expresamente en la sala— está pensada
+  pero **no construida**, y hasta que lo esté la regla es la de arriba.
 - **Ámbito por organización.** Todo el análisis se ejecuta filtrado por
   `orgId`; ninguna oportunidad referencia datos de otra organización.
 - **Sin PII en contenido publicado.** El editor adversario (fase 2) incluye

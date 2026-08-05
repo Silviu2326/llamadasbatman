@@ -1,14 +1,6 @@
 import { randomUUID } from 'crypto'
 import { prisma } from '../lib/prisma'
 
-type FunnelAssets = Record<string, unknown>
-
-function readVisits(adAssets: unknown) {
-  if (!adAssets || typeof adAssets !== 'object' || Array.isArray(adAssets)) return null
-  const value = (adAssets as FunnelAssets).visits
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.round(value) : null
-}
-
 function percent(current: number, previous: number | null) {
   if (previous === null || previous <= 0) return null
   return Math.round((current / previous) * 1000) / 10
@@ -68,7 +60,6 @@ export async function getFunnelsOverview(orgId: string) {
       totalLeads: true,
       contacted: true,
       meetingsScheduled: true,
-      adAssets: true,
       createdAt: true,
     },
   })
@@ -90,13 +81,15 @@ export async function getFunnelsOverview(orgId: string) {
   )
 
   const funnels: Funnel[] = campaigns.map(campaign => {
-    // Los eventos son la fuente de verdad desde que existe atribucion. Para
-    // campanas anteriores sin eventos conservamos el contador legacy.
+    // Las visitas son las que se midieron y nada más. `adAssets.visits` era un
+    // contador escrito a mano que aquí se SUMABA a los eventos reales: una
+    // campaña con 200 visitas heredadas y 30 medidas mostraba 230. Es la doble
+    // fuente de verdad que señala docs/xarly/landings.md §12.
+    //
+    // Sin eventos el valor es `null` —sin medición—, nunca `0`: una campaña
+    // anterior a la atribución no midió cero visitas, no midió ninguna.
     const eventVisits = eventVisitsByCampaign.get(campaign.id)
-    const legacyVisits = readVisits(campaign.adAssets)
-    const visits = campaign.landingSlug
-      ? (eventVisits === undefined ? legacyVisits : (legacyVisits ?? 0) + eventVisits)
-      : null
+    const visits = campaign.landingSlug ? eventVisits ?? null : null
     const leads = campaign.totalLeads
     const contacted = campaign.contacted
     const meetings = campaign.meetingsScheduled

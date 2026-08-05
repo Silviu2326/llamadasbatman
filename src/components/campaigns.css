@@ -428,7 +428,11 @@
 .campaign-next-action-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .campaign-next-action-actions button { padding: 0; border: 0; color: var(--accent-faint); background: transparent; font: inherit; font-size: 9.5px; font-weight: 700; cursor: pointer; }
 .campaign-next-action-actions button.primary-small { padding: 7px 9px; border-radius: 6px; color: #fff; background: var(--accent); }
-.campaign-timeline { position: relative; display: flex; flex-direction: column; gap: 13px; }
+/* La actividad crece sin limite y estiraba la columna derecha al doble que
+   cualquier pestana, dejando medio metro de hueco a la izquierda. Se le da su
+   propio scroll: el historial completo sigue accesible, pero no gobierna la
+   altura de la pagina. */
+.campaign-timeline { position: relative; display: flex; flex-direction: column; gap: 13px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
 .campaign-timeline::before { position: absolute; top: 8px; bottom: 8px; left: 10px; width: 1px; content: ''; background: var(--line-2); }
 .campaign-timeline-item { position: relative; display: grid; grid-template-columns: 21px minmax(0, 1fr); gap: 8px; }
 .campaign-timeline-dot { width: 21px; height: 21px; border: 5px solid var(--surface); border-radius: 50%; background: var(--timeline-color); box-shadow: 0 0 0 1px var(--timeline-color); }
@@ -436,12 +440,21 @@
 .campaign-timeline-item strong { display: block; margin-top: 3px; color: var(--text-2); font-size: 10.5px; }
 .campaign-timeline-item p { margin: 3px 0 0; color: var(--dim); font-size: 9px; line-height: 1.35; }
 .campaign-tasks { display: flex; flex-direction: column; gap: 11px; }
-.campaign-task { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: start; gap: 7px; color: var(--text-2); font-size: 10px; }
+/* La columna de 18px es para el boton de checklist. Sin el, la fila solo tiene
+   dos hijos y el contenido caia en esa columna de 18px: el texto se rompia
+   palabra por palabra (se veia en "Datos disponibles" y "Actividad reciente").
+   La rejilla se adapta a si hay boton o no. */
+.campaign-task { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 7px; color: var(--text-2); font-size: 10px; }
+.campaign-task:has(> button) { grid-template-columns: 18px minmax(0, 1fr) auto; }
 .campaign-task button { display: grid; width: 17px; height: 17px; padding: 0; place-items: center; border: 0; color: var(--dim); background: transparent; cursor: pointer; }
 .campaign-task button.done { color: var(--success); }
 .campaign-task button svg { width: 16px; height: 16px; }
 .campaign-task small { display: block; margin-top: 3px; color: var(--dim); font-size: 9px; }
 .campaign-task time { color: var(--muted); font-size: 9px; white-space: nowrap; }
+/* Se usaba en CampaignDetailPage sin estar definida en ningun sitio, asi que
+   heredaba el cuerpo por defecto del navegador y salia mucho mas grande que
+   todo lo que la rodea. */
+.campaign-detail-empty-note { display: block; margin: 0; color: var(--dim); font-size: 10px; line-height: 1.55; }
 .campaign-insight { display: flex; gap: 8px; padding: 10px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--surface-2); }
 .campaign-insight svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--warn); }
 .campaign-insight strong { display: block; color: var(--text); font-size: 10px; }
@@ -590,3 +603,9 @@
   .campaign-conversation { grid-template-columns: 32px minmax(0, 1fr); }
   .campaign-conversation > .campaign-button { grid-column: 2; justify-self: start; }
 }
+
+/* El historial de decisiones SI es el contenido principal de su tarjeta, asi
+   que no hereda el tope de altura de la barra de actividad. */
+.campaign-decision-log { max-height: none; overflow-y: visible; }
+.campaign-decision-log .campaign-timeline-item p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.campaign-decision-log .campaign-timeline-item b { color: var(--text-2); }

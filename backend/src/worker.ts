@@ -35,6 +35,11 @@ async function startWorkers(): Promise<void> {
     import('./jobs/campaignSendRunner'),
     import('./jobs/salesSequenceRunner'),
     import('./jobs/seoAuditRefresh'),
+    import('./jobs/landingPerformanceRollup'),
+    import('./jobs/landingHealthCheck'),
+    import('./jobs/landingAutonomyPass'),
+    import('./jobs/organicAutonomyPass'),
+    import('./jobs/contentWeeklyRefresh'),
   ])
 
   // The heartbeat starts after all worker modules have loaded. A partially

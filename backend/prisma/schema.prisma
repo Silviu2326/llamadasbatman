@@ -112,6 +112,9 @@ enum GrowthProgramType {
 
 model Organization {
   id                 String   @id @default(cuid())
+  // Ajustes por organización. Hoy guarda el perfil de voz del dueño
+  // (docs/xarly/semana.md día 3), regenerado semanalmente.
+  settings           Json?
   name               String
   plan               String   @default("free")
   stripeCustomerId   String?  @unique
@@ -135,77 +138,103 @@ model Organization {
   address  String?
   currency String  @default("EUR")
 
-  users                      User[]
-  agents                     Agent[]
-  campaigns                  Campaign[]
-  leads                      Lead[]
-  calls                      Call[]
-  voiceCallEvents            VoiceCallEvent[]
-  voiceCallMetrics           VoiceCallMetric[]
-  voiceCallEvaluations       VoiceCallEvaluation[]
-  meetings                   Meeting[]
-  opportunities              Opportunity[]
-  playbooks                  Playbook[]
-  automations                Automation[]
-  knowledgeBases             KnowledgeBase[]
-  metaAdAccounts             MetaAdAccount[]
-  adInsightSnapshots         AdInsightSnapshot[]
-  optOuts                    OptOut[]
-  leadNotes                  LeadNote[]
-  leadAudits                 LeadAudit[]
-  leadFiles                  LeadFile[]
-  adWizardDrafts             AdWizardDraft[]
-  callTasks                  CallTask[]
-  knowledgeFavorites         KnowledgeFavorite[]
-  acquisitionEvents          AcquisitionEvent[]
-  channelIdentities          ChannelIdentity[]
-  conversations              Conversation[]
-  messages                   Message[]
-  contactConsents            ContactConsent[]
-  messageTemplates           MessageTemplate[]
-  webhookEvents              WebhookEvent[]
-  automationRuns             AutomationRun[]
-  outboxEvents               OutboxEvent[]
-  nextBestActions            NextBestAction[]
-  auditLogs                  AuditLog[]
-  mauticAssetBindings        MauticAssetBinding[]
-  automationStepRuns         AutomationStepRun[]
-  scheduledTriggers          ScheduledTrigger[]
-  salesActivities            SalesActivity[]
-  tasks                      Task[]
-  opportunityStageHistory    OpportunityStageHistory[]
-  automationVersions         AutomationVersion[]
-  importJobs                 ImportJob[]
-  mauticContactBindings      MauticContactBinding[]
-  marketingCampaigns         MarketingCampaign[]
-  emailDeliveries            EmailDelivery[]
-  emailEvents                EmailEvent[]
-  accounts                   Account[]
-  opportunityContacts        OpportunityContact[]
-  products                   Product[]
-  opportunityLineItems       OpportunityLineItem[]
-  growthPrograms             GrowthProgram[]
-  metaOAuthStates            MetaOAuthState[]
-  revenueExperiments         RevenueExperiment[]
-  experimentAssignments      RevenueExperimentAssignment[]
-  operationalMemoryProposals OperationalMemoryProposal[]
-  governancePolicies         GovernancePolicy[]
-  accessControlRequests      AccessControlRequest[]
-  sensitiveApprovalRequests  SensitiveApprovalRequest[]
-  organicProjects            OrganicProject[]
-  organicOpportunities       OrganicOpportunity[]
-  organicAssets              OrganicAsset[]
-  organicActions             OrganicAction[]
-  organicIntegrations        OrganicIntegration[]
-  organicOAuthStates         OrganicOAuthState[]
-  actionItems                ActionItem[]
-  actionItemHistory          ActionItemHistory[]
-  salesSequenceEnrollments   SalesSequenceEnrollment[]
-  salesSequenceStepRuns      SalesSequenceStepRun[]
-  integrationCredentials     OrganizationIntegrationCredential[]
-  seoReports                 SeoReport[]
-  seoProjects                SeoProject[]
-  seoKeywordRanks            SeoKeywordRank[]
+  users                        User[]
+  agents                       Agent[]
+  campaigns                    Campaign[]
+  leads                        Lead[]
+  calls                        Call[]
+  voiceCallEvents              VoiceCallEvent[]
+  voiceCallMetrics             VoiceCallMetric[]
+  voiceCallEvaluations         VoiceCallEvaluation[]
+  meetings                     Meeting[]
+  opportunities                Opportunity[]
+  playbooks                    Playbook[]
+  automations                  Automation[]
+  knowledgeBases               KnowledgeBase[]
+  metaAdAccounts               MetaAdAccount[]
+  adInsightSnapshots           AdInsightSnapshot[]
+  adDataQualityStatus          AdDataQualityStatus?
+  adDecisions                  AdDecision[]
+  adConversionSignals          AdConversionSignal[]
+  adOptimizationPolicy         AdOptimizationPolicy?
+  adActions                    AdAction[]
+  adActionResults              AdActionResult[]
+  adRuleAutonomies             AdRuleAutonomy[]
+  adExperiments                AdExperiment[]
+  adExperimentVariants         AdExperimentVariant[]
+  optOuts                      OptOut[]
+  leadNotes                    LeadNote[]
+  leadAudits                   LeadAudit[]
+  leadFiles                    LeadFile[]
+  adWizardDrafts               AdWizardDraft[]
+  callTasks                    CallTask[]
+  knowledgeFavorites           KnowledgeFavorite[]
+  acquisitionEvents            AcquisitionEvent[]
+  channelIdentities            ChannelIdentity[]
+  conversations                Conversation[]
+  messages                     Message[]
+  contactConsents              ContactConsent[]
+  messageTemplates             MessageTemplate[]
+  webhookEvents                WebhookEvent[]
+  automationRuns               AutomationRun[]
+  outboxEvents                 OutboxEvent[]
+  nextBestActions              NextBestAction[]
+  auditLogs                    AuditLog[]
+  mauticAssetBindings          MauticAssetBinding[]
+  automationStepRuns           AutomationStepRun[]
+  scheduledTriggers            ScheduledTrigger[]
+  salesActivities              SalesActivity[]
+  tasks                        Task[]
+  opportunityStageHistory      OpportunityStageHistory[]
+  automationVersions           AutomationVersion[]
+  importJobs                   ImportJob[]
+  mauticContactBindings        MauticContactBinding[]
+  marketingCampaigns           MarketingCampaign[]
+  emailDeliveries              EmailDelivery[]
+  emailEvents                  EmailEvent[]
+  accounts                     Account[]
+  opportunityContacts          OpportunityContact[]
+  products                     Product[]
+  opportunityLineItems         OpportunityLineItem[]
+  growthPrograms               GrowthProgram[]
+  metaOAuthStates              MetaOAuthState[]
+  revenueExperiments           RevenueExperiment[]
+  experimentAssignments        RevenueExperimentAssignment[]
+  operationalMemoryProposals   OperationalMemoryProposal[]
+  governancePolicies           GovernancePolicy[]
+  accessControlRequests        AccessControlRequest[]
+  sensitiveApprovalRequests    SensitiveApprovalRequest[]
+  organicProjects              OrganicProject[]
+  organicOpportunities         OrganicOpportunity[]
+  organicAssets                OrganicAsset[]
+  organicActions               OrganicAction[]
+  organicIntegrations          OrganicIntegration[]
+  organicContentRules          OrganicContentRule[]
+  organicChannelSnapshots      OrganicChannelSnapshot[]
+  organicTrafficDaily          OrganicTrafficDaily[]
+  verticalConnectors           VerticalConnector[]
+  organicRecommendationWeights OrganicRecommendationWeight[]
+  verticalEvents               VerticalEvent[]
+  organicOAuthStates           OrganicOAuthState[]
+  actionItems                  ActionItem[]
+  actionItemHistory            ActionItemHistory[]
+  salesSequenceEnrollments     SalesSequenceEnrollment[]
+  salesSequenceStepRuns        SalesSequenceStepRun[]
+  integrationCredentials       OrganizationIntegrationCredential[]
+  seoReports                   SeoReport[]
+  seoProjects                  SeoProject[]
+  seoKeywordRanks              SeoKeywordRank[]
+  landingVersions              LandingVersion[]
+  landingEvents                LandingEvent[]
+  landingDailyRollups          LandingDailyRollup[]
+  landingSnapshots             LandingPerformanceSnapshot[]
+  LandingHealthCheck           LandingHealthCheck[]
+  landingVariants              LandingVariant[]
+  LandingAutonomyDecision      LandingAutonomyDecision[]
+  ContentOpportunity           ContentOpportunity[]
+  ContentPiece                 ContentPiece[]
+  ContentPieceEvent            ContentPieceEvent[]
+  ContentApprovalLink          ContentApprovalLink[]
 }
 
 // Informe SEO (página /seo): un registro por análisis, manual (auto=false) o
@@ -273,33 +302,39 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
-  org                       Organization                @relation(fields: [orgId], references: [id])
-  meetings                  Meeting[]                   @relation("AssignedMeetings")
-  opportunities             Opportunity[]               @relation("AssignedOpportunities")
-  adWizardDrafts            AdWizardDraft[]
-  preference                UserPreference?
-  callTasks                 CallTask[]
-  knowledgeFavorites        KnowledgeFavorite[]
-  assignedConversations     Conversation[]              @relation("ConversationAssignee")
-  authoredMessages          Message[]                   @relation("MessageAuthor")
-  acceptedNextActions       NextBestAction[]            @relation("NextActionAcceptedBy")
-  auditLogs                 AuditLog[]                  @relation("AuditLogActor")
-  salesActivities           SalesActivity[]             @relation("SalesActivityActor")
-  ownedTasks                Task[]                      @relation("TaskOwner")
-  createdTasks              Task[]                      @relation("TaskCreatedBy")
-  ownedLeads                Lead[]                      @relation("LeadOwner")
-  ownedAccounts             Account[]                   @relation("AccountOwner")
-  authSessions              AuthSession[]
-  createdRevenueExperiments RevenueExperiment[]         @relation("RevenueExperimentCreatedBy")
-  createdMemoryProposals    OperationalMemoryProposal[] @relation("OperationalMemoryCreatedBy")
-  reviewedMemoryProposals   OperationalMemoryProposal[] @relation("OperationalMemoryReviewedBy")
-  requestedAccessChanges    AccessControlRequest[]      @relation("AccessRequestRequester")
-  decidedAccessChanges      AccessControlRequest[]      @relation("AccessRequestDecider")
-  targetedAccessChanges     AccessControlRequest[]      @relation("AccessRequestTargetUser")
-  requestedSensitiveApprovals SensitiveApprovalRequest[] @relation("SensitiveApprovalRequester")
-  decidedSensitiveApprovals   SensitiveApprovalRequest[] @relation("SensitiveApprovalDecider")
-  ownedActionItems          ActionItem[]                @relation("ActionItemOwner")
-  actionItemHistory         ActionItemHistory[]         @relation("ActionItemHistoryActor")
+  org                         Organization                @relation(fields: [orgId], references: [id])
+  meetings                    Meeting[]                   @relation("AssignedMeetings")
+  opportunities               Opportunity[]               @relation("AssignedOpportunities")
+  adWizardDrafts              AdWizardDraft[]
+  preference                  UserPreference?
+  callTasks                   CallTask[]
+  knowledgeFavorites          KnowledgeFavorite[]
+  assignedConversations       Conversation[]              @relation("ConversationAssignee")
+  authoredMessages            Message[]                   @relation("MessageAuthor")
+  acceptedNextActions         NextBestAction[]            @relation("NextActionAcceptedBy")
+  auditLogs                   AuditLog[]                  @relation("AuditLogActor")
+  salesActivities             SalesActivity[]             @relation("SalesActivityActor")
+  ownedTasks                  Task[]                      @relation("TaskOwner")
+  createdTasks                Task[]                      @relation("TaskCreatedBy")
+  ownedLeads                  Lead[]                      @relation("LeadOwner")
+  ownedAccounts               Account[]                   @relation("AccountOwner")
+  authSessions                AuthSession[]
+  createdRevenueExperiments   RevenueExperiment[]         @relation("RevenueExperimentCreatedBy")
+  createdLandingVariants      LandingVariant[]            @relation("LandingVariantCreatedBy")
+  landingAutonomyDecisions    LandingAutonomyDecision[]   @relation("LandingAutonomyActor")
+  createdMemoryProposals      OperationalMemoryProposal[] @relation("OperationalMemoryCreatedBy")
+  reviewedMemoryProposals     OperationalMemoryProposal[] @relation("OperationalMemoryReviewedBy")
+  requestedAccessChanges      AccessControlRequest[]      @relation("AccessRequestRequester")
+  decidedAccessChanges        AccessControlRequest[]      @relation("AccessRequestDecider")
+  targetedAccessChanges       AccessControlRequest[]      @relation("AccessRequestTargetUser")
+  requestedSensitiveApprovals SensitiveApprovalRequest[]  @relation("SensitiveApprovalRequester")
+  decidedSensitiveApprovals   SensitiveApprovalRequest[]  @relation("SensitiveApprovalDecider")
+  ownedActionItems            ActionItem[]                @relation("ActionItemOwner")
+  actionItemHistory           ActionItemHistory[]         @relation("ActionItemHistoryActor")
+  decidedAdDecisions          AdDecision[]                @relation("AdDecisionActor")
+  updatedAdPolicies           AdOptimizationPolicy[]      @relation("AdPolicyUpdatedBy")
+  approvedAdActions           AdAction[]                  @relation("AdActionApprovedBy")
+  promotedAdRules             AdRuleAutonomy[]            @relation("AdRulePromotedBy")
 }
 
 // Sesiones de refresco opacas y revocables. El navegador recibe solo el
@@ -382,21 +417,21 @@ model UserPreference {
 }
 
 model Agent {
-  id           String   @id @default(cuid())
-  orgId        String
-  name         String
-  role         String
-  agentType    String   @default("sales")
-  callDirection String  @default("both")
-  personality  String?
-  voiceId      String?
-  systemPrompt String?
-  language     String   @default("es")
-  isActive     Boolean  @default(true)
+  id            String   @id @default(cuid())
+  orgId         String
+  name          String
+  role          String
+  agentType     String   @default("sales")
+  callDirection String   @default("both")
+  personality   String?
+  voiceId       String?
+  systemPrompt  String?
+  language      String   @default("es")
+  isActive      Boolean  @default(true)
   // Límites operativos y horario activo del tab "Configuración" — sin
   // columnas propias porque son opcionales y varían por tipo de agente.
-  settings     Json?
-  createdAt    DateTime @default(now())
+  settings      Json?
+  createdAt     DateTime @default(now())
 
   org       Organization @relation(fields: [orgId], references: [id])
   campaigns Campaign[]
@@ -414,6 +449,16 @@ model Campaign {
   metaAdSetId         String?
   metaAdId            String?
   landingSlug         String?        @unique
+  // Identidad estable de la landing (docs/xarly/landings.md §3.1). El slug
+  // puede cambiar, reutilizarse o apuntar a otro contenido; la telemetría
+  // nunca cuelga de él. Se genera en la primera publicación.
+  landingKey          String?        @unique
+  // Ciclo de vida de la landing (docs/xarly/landings.md §5.5), distinto del
+  // `status` de la campaña: una campaña activa puede tener su landing en
+  // revisión, en experimento o archivada. Gobierna qué aparece en "Atención
+  // requerida" y qué puede tocar N3.
+  // draft | in_review | approved | published | experimenting | winner | paused | archived
+  landingLifecycle    String?
   adStatus            String?
   maxCostPerLeadCents Int?
   name                String
@@ -425,6 +470,10 @@ model Campaign {
   contacted           Int            @default(0)
   meetingsScheduled   Int            @default(0)
   budgetCents         Int?
+  // Margen por venta y porcentaje admisible para adquisicion. Del margen, no
+  // del ticket, salen el CAC, el CPQL y el CPL objetivo (ads.md 9).
+  marginPerSaleCents  Int?
+  acquisitionSharePct Int?
   goal                String?
   // Toggles de la pestaña "Configuración" del detalle de campaña (scoring,
   // alertas, publicación orgánica, frecuencia...) — 1:1 con la campaña, no
@@ -433,16 +482,27 @@ model Campaign {
   shareToken          String?        @unique
   createdAt           DateTime       @default(now())
 
-  org                  Organization         @relation(fields: [orgId], references: [id])
-  agent                Agent?               @relation(fields: [agentId], references: [id])
-  playbook             Playbook?            @relation(fields: [playbookId], references: [id])
-  adPlaybook           AdPlaybook?          @relation(fields: [adPlaybookId], references: [id])
-  leads                Lead[]
-  calls                Call[]
-  adInsightSnapshots   AdInsightSnapshot[]
-  acquisitionEvents    AcquisitionEvent[]
-  importJobs           ImportJob[]
-  organicOpportunities OrganicOpportunity[]
+  org                     Organization                 @relation(fields: [orgId], references: [id])
+  agent                   Agent?                       @relation(fields: [agentId], references: [id])
+  playbook                Playbook?                    @relation(fields: [playbookId], references: [id])
+  adPlaybook              AdPlaybook?                  @relation(fields: [adPlaybookId], references: [id])
+  leads                   Lead[]
+  calls                   Call[]
+  adInsightSnapshots      AdInsightSnapshot[]
+  adDecisions             AdDecision[]
+  adConversionSignals     AdConversionSignal[]
+  adActions               AdAction[]
+  adExperiments           AdExperiment[]
+  acquisitionEvents       AcquisitionEvent[]
+  importJobs              ImportJob[]
+  organicOpportunities    OrganicOpportunity[]
+  landingVersions         LandingVersion[]
+  landingEvents           LandingEvent[]
+  landingSnapshots        LandingPerformanceSnapshot[]
+  LandingHealthCheck      LandingHealthCheck[]
+  landingVariants         LandingVariant[]
+  LandingAutonomyDecision LandingAutonomyDecision[]
+  ContentPiece            ContentPiece[]
 }
 
 model Lead {
@@ -456,6 +516,11 @@ model Lead {
   status           LeadStatus @default(new)
   source           String?
   externalLeadId   String?
+  // Identificadores del anuncio concreto que trajo el lead. Sin esto el
+  // embudo solo llega a campaña y un lead cuyo anuncio no esté registrado
+  // queda huerfano para siempre (ver metaLeadWebhook.service.ts).
+  metaAdId         String?
+  metaAdSetId      String?
   tags             String[]   @default([])
   customFields     Json?
   attempts         Int        @default(0)
@@ -466,30 +531,31 @@ model Lead {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  org                   Organization           @relation(fields: [orgId], references: [id])
-  campaign              Campaign?              @relation(fields: [campaignId], references: [id])
-  owner                 User?                  @relation("LeadOwner", fields: [ownerId], references: [id])
-  account               Account?               @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  opportunityContacts   OpportunityContact[]
-  calls                 Call[]
-  meetings              Meeting[]
-  opportunities         Opportunity[]
-  notes                 LeadNote[]
-  audits                LeadAudit[]
-  files                 LeadFile[]
-  acquisitionEvents     AcquisitionEvent[]
-  channelIdentities     ChannelIdentity[]
-  conversations         Conversation[]
-  messages              Message[]
-  contactConsents       ContactConsent[]
+  org                      Organization              @relation(fields: [orgId], references: [id])
+  campaign                 Campaign?                 @relation(fields: [campaignId], references: [id])
+  owner                    User?                     @relation("LeadOwner", fields: [ownerId], references: [id])
+  account                  Account?                  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  opportunityContacts      OpportunityContact[]
+  calls                    Call[]
+  meetings                 Meeting[]
+  opportunities            Opportunity[]
+  notes                    LeadNote[]
+  audits                   LeadAudit[]
+  files                    LeadFile[]
+  acquisitionEvents        AcquisitionEvent[]
+  channelIdentities        ChannelIdentity[]
+  conversations            Conversation[]
+  messages                 Message[]
+  contactConsents          ContactConsent[]
   salesSequenceEnrollments SalesSequenceEnrollment[]
-  salesSequenceStepRuns   SalesSequenceStepRun[]
-  nextBestActions       NextBestAction[]
-  salesActivities       SalesActivity[]
-  tasks                 Task[]
-  mauticContactBindings MauticContactBinding[]
-  emailDeliveries       EmailDelivery[]
-  organicOpportunities  OrganicOpportunity[]
+  salesSequenceStepRuns    SalesSequenceStepRun[]
+  nextBestActions          NextBestAction[]
+  salesActivities          SalesActivity[]
+  tasks                    Task[]
+  mauticContactBindings    MauticContactBinding[]
+  emailDeliveries          EmailDelivery[]
+  organicOpportunities     OrganicOpportunity[]
+  adConversionSignals      AdConversionSignal[]
 
   @@unique([orgId, externalLeadId])
   @@index([orgId, status, updatedAt])
@@ -526,40 +592,40 @@ model AcquisitionEvent {
 }
 
 model Call {
-  id              String     @id @default(cuid())
-  orgId           String
-  agentId         String?
-  leadId          String
-  campaignId      String?
-  externalCallId  String?
-  direction       String     @default("outbound")
-  status          CallStatus
-  durationSeconds Int?
-  recordingUrl    String?
-  transcript      String?
-  transcriptWords Json?
-  sentiment       String?
-  sentimentScore  Float?
-  summary         String?
-  outcome         String     @default("none")
-  contactClassification String?
+  id                              String     @id @default(cuid())
+  orgId                           String
+  agentId                         String?
+  leadId                          String
+  campaignId                      String?
+  externalCallId                  String?
+  direction                       String     @default("outbound")
+  status                          CallStatus
+  durationSeconds                 Int?
+  recordingUrl                    String?
+  transcript                      String?
+  transcriptWords                 Json?
+  sentiment                       String?
+  sentimentScore                  Float?
+  summary                         String?
+  outcome                         String     @default("none")
+  contactClassification           String?
   contactClassificationConfidence Float?
-  amdResult       Json?
-  callbackAt      DateTime?
-  startedAt       DateTime?
-  endedAt         DateTime?
-  isFavorite      Boolean    @default(false)
-  createdAt       DateTime   @default(now())
+  amdResult                       Json?
+  callbackAt                      DateTime?
+  startedAt                       DateTime?
+  endedAt                         DateTime?
+  isFavorite                      Boolean    @default(false)
+  createdAt                       DateTime   @default(now())
 
-  org      Organization @relation(fields: [orgId], references: [id])
-  agent    Agent?       @relation(fields: [agentId], references: [id])
-  lead     Lead         @relation(fields: [leadId], references: [id])
-  campaign Campaign?    @relation(fields: [campaignId], references: [id])
-  meetings Meeting[]
-  notes    LeadNote[]
-  tasks    CallTask[]
-  voiceEvents VoiceCallEvent[]
-  voiceMetrics VoiceCallMetric[]
+  org             Organization         @relation(fields: [orgId], references: [id])
+  agent           Agent?               @relation(fields: [agentId], references: [id])
+  lead            Lead                 @relation(fields: [leadId], references: [id])
+  campaign        Campaign?            @relation(fields: [campaignId], references: [id])
+  meetings        Meeting[]
+  notes           LeadNote[]
+  tasks           CallTask[]
+  voiceEvents     VoiceCallEvent[]
+  voiceMetrics    VoiceCallMetric[]
   voiceEvaluation VoiceCallEvaluation?
   runtimeSnapshot Json?
 
@@ -591,15 +657,15 @@ model VoiceCallEvent {
 }
 
 model VoiceCallMetric {
-  id           String   @id @default(cuid())
-  orgId        String
-  callId       String
-  metric       String
-  value        Float
-  unit         String?
-  sampleCount  Int?
-  dimensions   Json?
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  orgId       String
+  callId      String
+  metric      String
+  value       Float
+  unit        String?
+  sampleCount Int?
+  dimensions  Json?
+  createdAt   DateTime @default(now())
 
   org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   call Call         @relation(fields: [callId], references: [id], onDelete: Cascade)
@@ -665,12 +731,12 @@ model Meeting {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  org             Organization    @relation(fields: [orgId], references: [id])
-  lead            Lead            @relation(fields: [leadId], references: [id])
-  call            Call?           @relation(fields: [callId], references: [id])
-  assignee        User?           @relation("AssignedMeetings", fields: [assignedTo], references: [id])
-  salesActivities SalesActivity[]
-  tasks           Task[]
+  org                   Organization           @relation(fields: [orgId], references: [id])
+  lead                  Lead                   @relation(fields: [leadId], references: [id])
+  call                  Call?                  @relation(fields: [callId], references: [id])
+  assignee              User?                  @relation("AssignedMeetings", fields: [assignedTo], references: [id])
+  salesActivities       SalesActivity[]
+  tasks                 Task[]
   salesSequenceStepRuns SalesSequenceStepRun[]
 
   @@index([orgId, status, scheduledAt])
@@ -772,21 +838,21 @@ model AdPlaybook {
 // paga directo a Meta, ver META_ADS_AUTOMATION.md). El token se guarda cifrado
 // (ver lib/tokenCrypto.ts), nunca en texto plano.
 model MetaAdAccount {
-  id                  String   @id @default(cuid())
-  orgId               String
-  metaAdAccountId     String
-  metaUserId          String?
-  metaPageId          String?
-  metaBusinessId      String?
-  metaPixelId         String?
-  systemUserTokenEnc  String?
-  scopes              String[] @default([])
+  id                   String    @id @default(cuid())
+  orgId                String
+  metaAdAccountId      String
+  metaUserId           String?
+  metaPageId           String?
+  metaBusinessId       String?
+  metaPixelId          String?
+  systemUserTokenEnc   String?
+  scopes               String[]  @default([])
   accessTokenExpiresAt DateTime?
-  lastValidatedAt     DateTime?
-  lastError           String?
-  status              String   @default("connected") // connected | revoked | error
-  dailyBudgetCapCents Int?
-  connectedAt         DateTime @default(now())
+  lastValidatedAt      DateTime?
+  lastError            String?
+  status               String    @default("connected") // connected | revoked | error
+  dailyBudgetCapCents  Int?
+  connectedAt          DateTime  @default(now())
 
   org Organization @relation(fields: [orgId], references: [id])
 
@@ -827,9 +893,476 @@ model AdInsightSnapshot {
   clicks           Int
   leadsCount       Int
   costPerLeadCents Int?
+  // Veces que el mismo usuario vio el anuncio. Sin esto no se puede
+  // diagnosticar fatiga creativa (ads.md §3): una caída de CTR con frecuencia
+  // estable es un problema de mensaje, y con frecuencia al alza es desgaste.
+  frequency        Float?
 
   org      Organization @relation(fields: [orgId], references: [id])
   campaign Campaign     @relation(fields: [campaignId], references: [id])
+}
+
+// Fase 0 de docs/xarly/ads.md: antes de mostrar una métrica profunda o de
+// permitir una decisión, la página debe poder afirmar qué datos tiene y
+// cuáles le faltan. Una fila por organización, reescrita por el job
+// data-quality-check; `computedAt` dice si el propio diagnóstico está viejo.
+//
+// Las columnas nullable significan "sin medición", nunca cero: presentar un
+// 0 % de duplicados que en realidad nadie ha contado es exactamente el tipo
+// de mentira que esta tabla existe para impedir.
+model AdDataQualityStatus {
+  id         String   @id @default(cuid())
+  orgId      String   @unique
+  // ready | partial | stale | unreliable
+  status     String
+  computedAt DateTime @default(now())
+
+  // Permisos y activos de Meta
+  // connected | revoked | error | disconnected
+  accountStatus       String
+  permissionsInsights Boolean   @default(false)
+  permissionsLeads    Boolean   @default(false)
+  permissionsCapi     Boolean   @default(false)
+  missingScopes       String[]  @default([])
+  missingAssets       String[]  @default([])
+  lastValidatedAt     DateTime?
+
+  // Frescura de los snapshots de Insights
+  lastSnapshotAt       DateTime?
+  snapshotDelayMinutes Int?
+
+  // Atribución: qué parte del gasto se puede seguir hasta un lead
+  attributionCoveragePct Int?
+  adLevelCoveragePct     Int?
+  unattributedLeads      Int?
+
+  // Deduplicación de eventos
+  duplicateRatePct Int?
+
+  // Consentimiento (RGPD): cobertura y retiradas pendientes
+  // ready | partial | unknown
+  consentStatus      String @default("unknown")
+  consentCoveragePct Int?
+  consentRevoked     Int?
+
+  // Conversions API — ready | not_configured | sending | error | unknown
+  capiStatus String @default("unknown")
+
+  // Configuración con la que se calculan los resultados
+  currency String @default("EUR")
+  timezone String @default("Europe/Madrid")
+
+  // Bloqueos derivados del estado
+  blocksDeepMetrics Boolean @default(false)
+  blocksAutomation  Boolean @default(false)
+
+  // [{ code, severity, message, action? }]
+  issues Json @default("[]")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, computedAt])
+}
+
+// Una observación de Xarly sobre una campaña: qué ha detectado, con qué datos,
+// con cuánta confianza y qué recomienda. Es el registro que exige ads.md §11 —
+// la lógica no puede esconderse dentro de `Automation.actions`, porque después
+// nadie puede auditar por qué se decidió algo.
+//
+// En modo sombra guarda lo que la regla HABRÍA hecho sin tocar Meta. La §10.2
+// es explícita: se puede decir "habría pausado el anuncio tras 84 € de gasto",
+// nunca "habría ahorrado 84 €" — nadie sabe qué habría pasado después.
+model AdDecision {
+  id         String  @id @default(cuid())
+  orgId      String
+  campaignId String?
+
+  // Ads: spend_without_qualified | creative_fatigue | landing_underperforming
+  //      | daily_budget_cap | high_cpl
+  // Organico: channel_not_qualifying | demand_without_content | effort_no_return
+  // Autonomia organica (organico.md §9): autonomy:<kind>, p. ej.
+  //   autonomy:resync_source | autonomy:vertical_event_piece
+  diagnosis String
+
+  /// De donde nace la decision: ads | search | social | gbp | prospecting |
+  /// xarly_hunt | vertical_event. Sin esto habria que duplicar el motor de
+  /// decisiones por producto, y con el la cola es unica (organico.md §5.5).
+  channel         String  @default("ads")
+  /// Brazo donde se ejecuta: seo | social | prospecting | landings | ads
+  dispatchArm     String?
+  /// Contexto que se le pasa al brazo al despachar (keyword, angulo, ciudad…)
+  dispatchContext Json?
+  /// Prioridad economica: impacto estimado x confianza / esfuerzo (§5.5)
+  priorityScore   Float?
+  /// Horas estimadas que cuesta ejecutarla, para poder ordenar por esfuerzo
+  estimatedHours  Float?
+  ruleKey         String
+  ruleVersion     String  @default("1")
+
+  // Idempotencia: la regla se evalúa cada pocas horas y no debe acumular una
+  // decisión idéntica por ejecución.
+  dedupeKey String
+
+  // shadow | advisory | pending_approval | approved | rejected | executed | expired
+  // | blocked — un guardarrail lo impidio; el motivo queda en `decisionNote`
+  //   y la comprobacion concreta en `evidence.guardrails` (organico.md §9).
+  status        String @default("advisory")
+  // shadow | live — en sombra la acción no llega a Meta jamás
+  mode          String @default("shadow")
+  autonomyLevel String @default("N1")
+  severity      String @default("info")
+
+  // low | medium | high, con el motivo explícito de por qué es esa
+  confidence       String
+  confidenceReason String
+
+  title          String
+  explanation    String
+  recommendation String
+
+  // Acción que la regla habría ejecutado, con su alcance. Nunca se ejecuta
+  // desde aquí: eso es AdAction, en la Fase 4.
+  hypotheticalAction Json?
+
+  // Período, snapshots, métricas observadas y línea base con la que se comparó
+  evidence Json
+
+  // insufficient | maturing | mature
+  cohortStatus String  @default("insufficient")
+  // clic | lead | qualified_lead | opportunity | sale
+  signalUsed   String?
+
+  actorUserId  String?
+  decidedAt    DateTime?
+  decisionNote String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  actor    User?        @relation("AdDecisionActor", fields: [actorUserId], references: [id])
+
+  actions AdAction[]
+
+  @@unique([orgId, dedupeKey])
+  @@index([orgId, status, createdAt])
+  @@index([orgId, channel, status])
+  @@index([campaignId, createdAt])
+}
+
+// Señal de conversión devuelta a Meta por Conversions API (ads.md §11 y §7).
+//
+// Antes, `metaConversions.service.ts` enviaba y olvidaba: un `console.warn` y
+// nada más. Sin registro no se puede saber si CAPI funciona, no se puede
+// reintentar y no se puede demostrar que solo se envían contactos con
+// consentimiento — que es una obligación legal, no una preferencia.
+//
+// Los identificadores viajan hasheados. Un hash reduce la exposición pero NO
+// anonimiza: siguen siendo datos personales seudonimizados, así que se guarda
+// la base jurídica y se respeta la retirada del consentimiento.
+model AdConversionSignal {
+  id         String  @id @default(cuid())
+  orgId      String
+  leadId     String?
+  campaignId String?
+
+  // lead | qualified_lead | schedule | sale
+  stage     String
+  /// Nombre del evento tal y como lo espera Meta: Lead, Schedule, Purchase…
+  eventName String
+  /// `event_id` determinista: es lo que permite a Meta deduplicar reintentos.
+  eventId   String
+  eventTime DateTime
+
+  /// Identificadores hasheados que se enviaron; nunca el valor en claro.
+  hashedIdentifiers Json?
+  valueCents        Int?
+  currency          String?
+
+  // granted | missing | revoked — sin `granted` no se envía nada
+  consentStatus String
+  consentSource String?
+
+  // pending | sent | failed | skipped_no_consent | skipped_not_configured
+  status           String    @default("pending")
+  attempts         Int       @default(0)
+  lastAttemptAt    DateTime?
+  deliveredAt      DateTime?
+  /// Respuesta o error de Meta, ya redactado.
+  providerResponse String?
+  errorCode        String?
+
+  /// Veces que se intento reencolar este mismo evento y se descarto por
+  /// duplicado. Sin contarlo, la tasa de duplicados de la §4.2 no se puede
+  /// medir y la banda de integridad tiene que decir "sin medicion".
+  duplicateAttempts Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead     Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaign Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  // La deduplicación real: el mismo evento de negocio no se envía dos veces.
+  @@unique([orgId, eventId])
+  @@index([orgId, status, createdAt])
+  @@index([orgId, stage, createdAt])
+}
+
+// Política de optimización de una organización (ads.md §11): qué se optimiza,
+// hasta dónde puede llegar Xarly solo y con qué límites. Existe para que la
+// autonomía sea una decisión explícita y versionada, no un valor por defecto
+// escondido en el código.
+model AdOptimizationPolicy {
+  id      String @id @default(cuid())
+  orgId   String @unique
+  version Int    @default(1)
+
+  /// Señal a la que se optimiza cuando hay datos: lead | qualified_lead | sale
+  targetSignal  String @default("qualified_lead")
+  /// N1 sugerir · N2 aprobar con un clic · N3 canario automático
+  autonomyLevel String @default("N1")
+  /// shadow | live — en sombra ninguna acción llega a Meta
+  mode          String @default("shadow")
+
+  // Guardarraíles (§10.3). Se guardan aunque la autonomía sea N1: son los
+  // límites que tendrá que respetar cualquier acción cuando se habilite.
+  maxDailySpendCents       Int?
+  maxMonthlySpendCents     Int?
+  maxChangesPerDay         Int     @default(3)
+  minMinutesBetweenChanges Int     @default(120)
+  /// Protege los ad sets que Meta todavía está aprendiendo
+  protectLearningPhase     Boolean @default(true)
+  minCampaignBudgetCents   Int?
+
+  /// Capacidad operativa: no se recomienda subir gasto si nadie puede atender
+  /// los leads que llegarían (§9).
+  maxNewLeadsPerDay Int?
+
+  /// Parada de emergencia de la organización
+  killSwitchEnabled Boolean   @default(false)
+  killSwitchReason  String?
+  killSwitchAt      DateTime?
+
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  updatedBy User?        @relation("AdPolicyUpdatedBy", fields: [updatedByUserId], references: [id])
+}
+
+// Acción derivada de una decisión aprobada (ads.md §10.3).
+//
+// Se crea al aprobar y NO se ejecuta: la ejecución con guardarraíles llega en
+// la Fase 4. Una acción no es simplemente "reversible" sino **compensable**:
+// se registra qué se puede restaurar y qué no se recupera nunca — aprendizaje
+// perdido, impresiones no servidas, oportunidades no captadas.
+model AdAction {
+  id         String  @id @default(cuid())
+  orgId      String
+  decisionId String
+  campaignId String?
+
+  /// Ads: pause_ad_set | resume_ad_set | set_budget | set_max_cpl
+  /// Organico (organico.md §9): resync_source | reaudit_seo | refresh_article
+  ///   | vertical_event_piece | reschedule_post | reply_review
+  kind    String
+  /// Ads: ad | ad_set | campaign
+  /// Organico: search_console | seo_project | article | opportunity
+  scope   String
+  target  String?
+  /// Lo que se enviaría al sistema de destino, tal cual
+  payload Json
+
+  /// pending_execution | executing | executed | failed | cancelled | compensated
+  status String @default("pending_execution")
+  /// shadow | live
+  mode   String @default("shadow")
+
+  /// Resultado de comprobar los guardarraíles: [{ rule, passed, detail }]
+  guardrailChecks     Json?
+  /// Acción que devolvería el sistema a su estado anterior, si existe
+  compensationPayload Json?
+  /// Qué NO se recupera aunque se compense
+  irreversibleEffects String[] @default([])
+
+  approvedByUserId String?
+  approvedAt       DateTime?
+  executedAt       DateTime?
+  providerResponse String?
+  errorCode        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  decision   AdDecision   @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  campaign   Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  approvedBy User?        @relation("AdActionApprovedBy", fields: [approvedByUserId], references: [id])
+
+  results AdActionResult[]
+
+  @@index([orgId, status, createdAt])
+  @@index([decisionId])
+}
+
+// Cada intento de ejecutar o compensar una acción (ads.md §11). Una fila por
+// intento, no una columna que se sobrescribe: si el primer envío falló y el
+// segundo funcionó, hay que poder ver las dos cosas.
+model AdActionResult {
+  id       String @id @default(cuid())
+  orgId    String
+  actionId String
+
+  /// execute | compensate
+  operation String
+  attempt   Int    @default(1)
+  /// ok | provider_error | guardrail_blocked | network_error
+  outcome   String
+
+  /// Lo que se envió y lo que contestó Meta, ya redactado
+  requestPayload   Json?
+  providerResponse String?
+  errorCode        String?
+  httpStatus       Int?
+
+  /// Estado remoto leído después de actuar, para no fiarse del 200 de Meta
+  remoteStateAfter Json?
+  durationMs       Int?
+
+  createdAt DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  action AdAction     @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@index([actionId, createdAt])
+  @@index([orgId, createdAt])
+}
+
+// Autonomía POR REGLA — Fase 5 de ads.md.
+//
+// La §10.1 es explícita: la promoción exige un número mínimo de decisiones
+// evaluadas y resultados observados, no "una semana funcionando". Y la
+// degradación es automática: ante datos obsoletos, cobertura baja o errores,
+// la regla vuelve a N1 sola, sin esperar a que alguien se dé cuenta.
+//
+// Es por regla y no por organización porque una regla demostrada no dice nada
+// sobre otra que acaba de escribirse.
+model AdRuleAutonomy {
+  id      String @id @default(cuid())
+  orgId   String
+  ruleKey String
+
+  /// N1 sugerir · N2 aprobar · N3 canario automático
+  autonomyLevel String @default("N1")
+
+  // Historial que justifica (o no) una promoción
+  decisionsRaised   Int @default(0)
+  decisionsApproved Int @default(0)
+  decisionsRejected Int @default(0)
+  actionsExecuted   Int @default(0)
+  actionsFailed     Int @default(0)
+
+  /// Porcentaje del alcance sobre el que puede actuar en N3. Un canario es un
+  /// experimento con red, no un despliegue completo.
+  canaryPercent Int @default(10)
+
+  promotedAt       DateTime?
+  promotedByUserId String?
+  degradedAt       DateTime?
+  /// Por qué se degradó: es lo que evita repetir la promoción a ciegas
+  degradedReason   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  promotedBy User?        @relation("AdRulePromotedBy", fields: [promotedByUserId], references: [id])
+
+  @@unique([orgId, ruleKey])
+  @@index([orgId, autonomyLevel])
+}
+
+// Aprendizaje deliberado — Fase 6 y §12 de ads.md.
+//
+// La distribución normal de Meta NO es un A/B: Meta entrega más impresiones a
+// lo que predice que funcionará, y eso introduce sesgo. Por eso `mode`
+// distingue el experimento aleatorizado del bandit, y por eso existe
+// `honestLabel`: una campaña que solo ha recibido distribución ordinaria de
+// Meta no se puede llamar A/B, y la interfaz debe decirlo.
+model AdExperiment {
+  id         String  @id @default(cuid())
+  orgId      String
+  campaignId String?
+
+  name       String
+  hypothesis String
+
+  /// experiment (asignación aleatoria) | bandit (explotar/explorar)
+  mode   String @default("bandit")
+  /// draft | running | concluded | inconclusive | stopped
+  status String @default("draft")
+
+  /// Métrica que decide: qualified_lead | sale | lead
+  primaryMetric  String @default("qualified_lead")
+  /// Porcentaje reservado a explorar en modo bandit (10–20 % recomendado)
+  explorePercent Int    @default(15)
+
+  /// Mínimo de eventos por variante antes de concluir nada
+  minEventsPerVariant Int @default(30)
+  /// Días mínimos antes de declarar ganadora, por la latencia de las cohortes
+  minDurationDays     Int @default(14)
+
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  /// Conclusión textual, incluido "sin conclusión" — que es un resultado válido
+  conclusion      String?
+  winnerVariantId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign?             @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  variants AdExperimentVariant[]
+
+  @@index([orgId, status, createdAt])
+}
+
+model AdExperimentVariant {
+  id           String @id @default(cuid())
+  orgId        String
+  experimentId String
+
+  key         String
+  label       String
+  /// Ángulo creativo o cambio que representa esta variante
+  description String?
+  /// Anuncio de Meta al que corresponde, si ya existe
+  metaAdId    String?
+
+  /// Reparto asignado ahora mismo, en porcentaje
+  allocationPercent Int @default(50)
+
+  // Resultados acumulados. `null` es sin medición, nunca cero.
+  impressions Int?
+  clicks      Int?
+  leads       Int?
+  qualified   Int?
+  sales       Int?
+  spendCents  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  experiment AdExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@unique([experimentId, key])
+  @@index([orgId, experimentId])
 }
 
 model Automation {
@@ -1269,19 +1802,19 @@ model LeadFile {
 }
 
 model KnowledgeBase {
-  id        String   @id @default(cuid())
-  orgId     String
-  name      String
-  type      String   @default("document")
-  content   String?
-  fileUrl   String?
-  isActive  Boolean  @default(true)
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String
+  type        String    @default("document")
+  content     String?
+  fileUrl     String?
+  isActive    Boolean   @default(true)
   // Publicación en el blog público de una landing (solo artículos SEO):
   // slug de la URL pública y fecha de publicación. Null = borrador interno.
   slug        String?
   publishedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   org       Organization        @relation(fields: [orgId], references: [id])
   favorites KnowledgeFavorite[]
@@ -1458,13 +1991,13 @@ model Task {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  owner        User?         @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  createdBy    User?         @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  lead         Lead?         @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  opportunity  Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  meeting      Meeting?      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  org                   Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner                 User?                  @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy             User?                  @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lead                  Lead?                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  opportunity           Opportunity?           @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  meeting               Meeting?               @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  conversation          Conversation?          @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   salesSequenceStepRuns SalesSequenceStepRun[]
 
   @@index([orgId, ownerId, status, dueAt])
@@ -1557,10 +2090,10 @@ model EmailDelivery {
   failureDetail       String?
   createdAt           DateTime  @default(now())
 
-  org      Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  campaign MarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  lead     Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  events   EmailEvent[]
+  org                   Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign              MarketingCampaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  lead                  Lead                   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  events                EmailEvent[]
   salesSequenceStepRuns SalesSequenceStepRun[]
 
   @@index([orgId, leadId, createdAt])
@@ -1703,9 +2236,9 @@ model GrowthProgram {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  org          Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  enrollments  SalesSequenceEnrollment[]
-  stepRuns     SalesSequenceStepRun[]
+  org         Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  enrollments SalesSequenceEnrollment[]
+  stepRuns    SalesSequenceStepRun[]
 
   @@index([orgId, type, archivedAt, updatedAt])
   @@index([orgId, status, updatedAt])
@@ -1721,25 +2254,25 @@ model GrowthProgram {
 // programa+lead es la valla de matriculación: repetir la misma petición nunca
 // crea dos recorridos ni dos primeros envíos.
 model SalesSequenceEnrollment {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   orgId           String
   programId       String
   leadId          String
-  status          String   @default("active") // active|paused|completed|stopped|blocked
-  currentStep     Int      @default(0)
+  status          String    @default("active") // active|paused|completed|stopped|blocked
+  currentStep     Int       @default(0)
   nextRunAt       DateTime?
-  enrolledAt      DateTime @default(now())
+  enrolledAt      DateTime  @default(now())
   lastRespondedAt DateTime?
   stoppedAt       DateTime?
   stopReason      String?
   lastErrorCode   String?
   lastError       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  org     Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  program GrowthProgram             @relation(fields: [programId], references: [id], onDelete: Cascade)
-  lead    Lead                      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  org     Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  program GrowthProgram          @relation(fields: [programId], references: [id], onDelete: Cascade)
+  lead    Lead                   @relation(fields: [leadId], references: [id], onDelete: Cascade)
   steps   SalesSequenceStepRun[]
 
   @@unique([programId, leadId])
@@ -1751,41 +2284,41 @@ model SalesSequenceEnrollment {
 // lease/resultado incierto que EmailDelivery; las acciones CRM se identifican
 // por `sourceId`/IDs deterministas y pueden reintentarse sin duplicarse.
 model SalesSequenceStepRun {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   orgId               String
   programId           String
   enrollmentId        String
   leadId              String
   stepKey             String
-  stepIndex            Int
+  stepIndex           Int
   type                String
-  status               String   @default("pending") // pending|processing|succeeded|blocked|failed
+  status              String    @default("pending") // pending|processing|succeeded|blocked|failed
   dueAt               DateTime
-  availableAt         DateTime @default(now())
-  attempts            Int      @default(0)
-  maxAttempts         Int      @default(5)
-  lockedAt             DateTime?
-  leaseExpiresAt       DateTime?
-  workerId             String?
-  providerAttemptedAt  DateTime?
-  emailDeliveryId      String?  @unique
-  meetingId            String?  @unique
-  taskId               String?  @unique
-  output               Json?
-  lastErrorCode        String?
-  lastError            String?
-  startedAt            DateTime?
-  completedAt          DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  availableAt         DateTime  @default(now())
+  attempts            Int       @default(0)
+  maxAttempts         Int       @default(5)
+  lockedAt            DateTime?
+  leaseExpiresAt      DateTime?
+  workerId            String?
+  providerAttemptedAt DateTime?
+  emailDeliveryId     String?   @unique
+  meetingId           String?   @unique
+  taskId              String?   @unique
+  output              Json?
+  lastErrorCode       String?
+  lastError           String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  org           Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  program       GrowthProgram            @relation(fields: [programId], references: [id], onDelete: Cascade)
+  org           Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  program       GrowthProgram           @relation(fields: [programId], references: [id], onDelete: Cascade)
   enrollment    SalesSequenceEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  lead          Lead                     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead          Lead                    @relation(fields: [leadId], references: [id], onDelete: Cascade)
   emailDelivery EmailDelivery?          @relation(fields: [emailDeliveryId], references: [id], onDelete: SetNull)
-  meeting       Meeting?                 @relation(fields: [meetingId], references: [id], onDelete: SetNull)
-  task          Task?                    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  meeting       Meeting?                @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  task          Task?                   @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@unique([enrollmentId, stepKey])
   @@index([orgId, status, availableAt])
@@ -1804,18 +2337,98 @@ model OrganicProject {
   currency              String   @default("EUR")
   config                Json?
   isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
 
-  org           Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  opportunities OrganicOpportunity[]
-  assets        OrganicAsset[]
-  actions       OrganicAction[]
-  integrations  OrganicIntegration[]
+  // ── Perfil del onboarding adaptativo (organico.md §4) ────────────────────
+  // No es solo configuracion de /organic: este perfil alimenta a todo Xarly
+  // (organico, ads, landings y la caza de oportunidades). Se hace una vez.
+  //
+  // `sectors` es una lista y no un campo: una empresa puede ser a la vez
+  // software, deporte y gestion de clubes, y encerrarla en una categoria la
+  // deja fuera de la mitad de su propio contenido (§4.2).
+  sectors              String[] @default([])
+  businessModel        String?
+  primaryGoal          String?
+  /// Como se lo explicarias a un empleado nuevo: entrada libre de la §4.1.
+  businessDescription  String?
+  audience             String?
+  socialProfiles       String[] @default([])
+  /// not_started | in_progress | complete
+  onboardingStatus     String   @default("not_started")
+  /// Paso en el que se quedo, para poder retomar sin repreguntar (§6).
+  onboardingStep       String?
+  /// 1 plantilla · 2 conectores reales · 3 aprendido · 4 automatico (§4.9)
+  personalizationLevel Int      @default(0)
+  /// Respuestas del modulo vertical, cuya forma la define el propio modulo.
+  moduleAnswers        Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  org                Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  opportunities      OrganicOpportunity[]
+  assets             OrganicAsset[]
+  actions            OrganicAction[]
+  integrations       OrganicIntegration[]
+  contentRules       OrganicContentRule[]
+  channelSnapshots   OrganicChannelSnapshot[]
+  trafficDaily       OrganicTrafficDaily[]
+  verticalConnectors VerticalConnector[]
 }
 
+// Una regla del nucleo universal (organico.md §4.4):
+//
+//   Fuente → Acontecimiento → Regla → Pieza → Resultado
+//
+// El onboarding produce estas filas y deben quedar **visibles y editables
+// despues** (criterio de aceptacion §13), no enterradas en un JSON de
+// configuracion. Todavia no disparan nada: los conectores verticales que
+// emiten los acontecimientos llegan en la fase 2.
+model OrganicContentRule {
+  id        String @id @default(cuid())
+  orgId     String
+  projectId String
+
+  /// Clave del modulo vertical que la propuso (padel, inmobiliaria…)
+  moduleKey String
+  /// Acontecimiento que la dispara: match_finished, listing_published…
+  eventKey  String
+  label     String
+
+  /// Formatos a generar: post, carrusel, story, articulo, email…
+  formats  String[] @default([])
+  /// Momentos: 7d_before, 24h_before, on_start, on_end, next_day, weekly
+  timings  String[] @default([])
+  /// Canales de publicacion declarados en el onboarding
+  channels String[] @default([])
+
+  /// auto | approval | always_approval — nunca excede la frontera de §9:
+  /// el contenido publico nuevo pasa por aprobacion hasta ganarse el nivel.
+  approvalPolicy String  @default("approval")
+  /// El modulo marca ciertos acontecimientos como sensibles (salud, legal)
+  sensitive      Boolean @default(false)
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project OrganicProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, moduleKey, eventKey])
+  @@index([orgId, isActive])
+}
+
+/// La oportunidad unica del circuito organico. Nacia solo de consultas de
+/// Search Console; con `channel` y `sourceKind` acepta tambien angulos de
+/// redes, fichas de Google, lotes de prospeccion, la caza de Xarly y los
+/// acontecimientos de los conectores verticales (organico.md §10).
 model OrganicOpportunity {
   id                  String   @id @default(cuid())
+  /// search | social | gbp | prospecting | xarly_hunt | vertical_event
+  channel             String   @default("search")
+  /// query | post_angle | gbp | prospecting | xarly_hunt | vertical_event
+  sourceKind          String   @default("query")
+  /// Evento del conector vertical que la origino, si aplica.
+  connectorId         String?
   orgId               String
   projectId           String
   title               String
@@ -1868,6 +2481,13 @@ model OrganicAsset {
   @@index([opportunityId])
 }
 
+// El registro medible de una accion despachada (organico.md §10 y fase 3).
+//
+// Antes era una tarea con titulo y estado. Ahora guarda **que se esperaba** y
+// **cuando se puede juzgar**, que es lo unico que permite decir despues si una
+// recomendacion funciono. Sin ventana de maduracion declarada de antemano se
+// acaba juzgando cada pieza a los tres dias, y en organico eso solo mide
+// impaciencia.
 model OrganicAction {
   id            String    @id @default(cuid())
   orgId         String
@@ -1881,9 +2501,33 @@ model OrganicAction {
   dueAt         DateTime?
   completedAt   DateTime?
   metadata      Json?
-  createdById   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+
+  // ── Medicion (fase 3) ────────────────────────────────────────────────────
+  /// Decision que la origino, para cerrar el circulo con la cola priorizada.
+  decisionId     String?
+  /// Brazo donde se ejecuto: seo | social | prospecting | landings
+  arm            String?
+  /// Canal del embudo al que deberia mover la aguja.
+  channel        String?
+  /// Metrica objetivo: leads | qualified | visits | position
+  targetMetric   String?
+  /// Valor de esa metrica cuando se despacho: la linea base.
+  baselineValue  Float?
+  /// Efecto esperado, declarado ANTES de ejecutar. Compararse contra una
+  /// expectativa inventada despues no demuestra nada.
+  expectedDelta  Float?
+  /// Cuando se puede juzgar. En organico una pieza tarda semanas.
+  maturesAt      DateTime?
+  /// Valor observado al madurar.
+  observedValue  Float?
+  /// pending | maturing | evaluated | inconclusive
+  outcomeStatus  String    @default("pending")
+  /// Lectura en lenguaje llano de que paso.
+  outcomeSummary String?
+  evaluatedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   org         Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   project     OrganicProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1891,6 +2535,7 @@ model OrganicAction {
 
   @@index([orgId, projectId, status, priority, updatedAt])
   @@index([opportunityId])
+  @@index([orgId, outcomeStatus, maturesAt])
 }
 
 model OrganicIntegration {
@@ -2101,10 +2746,10 @@ model AccessControlRequest {
 // pending -> approved/rejected -> consumed. El action/resource quedan ligados
 // al tenant para impedir reutilización cruzada o replay de un permiso.
 model SensitiveApprovalRequest {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   orgId           String
   action          String
-  status          String   @default("pending")
+  status          String    @default("pending")
   requesterUserId String
   decidedByUserId String?
   resourceType    String
@@ -2115,8 +2760,8 @@ model SensitiveApprovalRequest {
   decidedAt       DateTime?
   consumedAt      DateTime?
   expiresAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   requester User         @relation("SensitiveApprovalRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
@@ -2212,4 +2857,658 @@ model ActionItemHistory {
   @@index([orgId, actionItemId, createdAt])
   @@index([orgId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Telemetría de landings — docs/xarly/landings.md §3.3 (tres capas de datos).
+//
+//   LandingEvent  →  LandingDailyRollup  →  LandingPerformanceSnapshot
+//
+// `AcquisitionEvent` sigue siendo el registro de atribución y no se toca: su
+// índice `@@unique([campaignId, type, sessionId])` admite un evento por tipo y
+// sesión, lo que deduplica vistas y leads pero impide registrar doce
+// `form_field_blur` de la misma visita.
+// ---------------------------------------------------------------------------
+
+// Versión publicada e inmutable de una landing (§3.1). Modificar el hero crea
+// una versión nueva: la línea base de §3.4 compara versiones, nunca "el slug a
+// lo largo del tiempo". Es la única entidad de landing que sale de `Campaign`
+// en la fase 1 — una versión inmutable no puede vivir en un `Json` mutable.
+model LandingVersion {
+  id          String   @id @default(cuid())
+  orgId       String
+  campaignId  String
+  landingKey  String
+  version     Int
+  // sha256 del contenido publicado: dos publicaciones idénticas no crean
+  // versiones distintas y no parten la línea base sin motivo.
+  contentHash String
+  content     Json
+  // Slug vigente en el momento de publicar. Informativo para depurar; jamás
+  // se usa como identidad.
+  slug        String?
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  org      Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  events   LandingEvent[]
+  rollups  LandingDailyRollup[]
+  variants LandingVariant[]
+
+  @@unique([landingKey, version])
+  @@unique([landingKey, contentHash])
+  @@index([orgId, campaignId, publishedAt])
+}
+
+// Telemetría anónima de comportamiento (§7.1). Sin PII: se registra qué campo
+// se tocó y si se rellenó, nunca lo que se escribió en él.
+model LandingEvent {
+  id               String   @id @default(cuid())
+  orgId            String
+  campaignId       String
+  landingKey       String
+  landingVersionId String
+  experimentId     String?
+  variantId        String?
+  // Identidad persistente de visitante: pendiente de la decisión de cookies
+  // (§13). Hasta entonces se escribe `null` y la medición es por sesión.
+  visitorId        String?
+  sessionId        String
+  type             String
+  // Cadena vacía en los eventos que no son de campo, para que el índice único
+  // de deduplicación funcione: PostgreSQL admite múltiples NULL.
+  field            String   @default("")
+  // Si el campo se rellenó. Nunca su contenido.
+  filled           Boolean?
+  // Magnitud sin PII: milisegundos en el campo, porcentaje de scroll.
+  value            Int?
+  source           String   @default("direct")
+  medium           String?
+  utmCampaign      String?
+  content          String?
+  term             String?
+  referrer         String?
+  device           String?
+  occurredAt       DateTime
+  createdAt        DateTime @default(now())
+
+  org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign       Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  landingVersion LandingVersion @relation(fields: [landingVersionId], references: [id], onDelete: Cascade)
+
+  // Un evento por sesión, tipo y campo. Las tasas de §7.2 se calculan sobre
+  // sesiones expuestas, así que repetir un blur no debe pesar más; además
+  // acota el coste de una pestaña que dispare eventos en bucle.
+  @@unique([sessionId, type, field])
+  @@index([orgId, landingKey, occurredAt])
+  @@index([landingVersionId, type, occurredAt])
+}
+
+// Agregado por día × landing × versión × variante × origen × dispositivo.
+model LandingDailyRollup {
+  id               String   @id @default(cuid())
+  orgId            String
+  landingKey       String
+  landingVersionId String
+  // Cadena vacía = sin experimento activo (mismo motivo que `field`).
+  variantId        String   @default("")
+  day              DateTime @db.Date
+  source           String   @default("direct")
+  device           String   @default("unknown")
+  sessions         Int      @default(0)
+  views            Int      @default(0)
+  scroll50         Int      @default(0)
+  scroll90         Int      @default(0)
+  ctaClicks        Int      @default(0)
+  formStarts       Int      @default(0)
+  formSubmits      Int      @default(0)
+  // Por campo: expuestos, interactuaron, completaron, errores y ms medios.
+  // Es la exposición real de §7.2, sin la que "abandonos tras el campo X"
+  // premia siempre al último campo del formulario.
+  fieldStats       Json?
+  computedAt       DateTime @default(now())
+
+  org            Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  landingVersion LandingVersion @relation(fields: [landingVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([landingKey, landingVersionId, variantId, day, source, device])
+  @@index([orgId, day])
+}
+
+// Embudo económico calculado para la interfaz. La página lee snapshots; nunca
+// reconstruye el embudo desde eventos brutos en cada carga.
+//
+// Los contadores son opcionales a propósito: `null` significa "sin medición" y
+// `0` significa "se midió y salió cero" (§2). No son intercambiables y la capa
+// de datos es el único sitio donde esa distinción se puede garantizar.
+model LandingPerformanceSnapshot {
+  id                  String   @id @default(cuid())
+  orgId               String
+  campaignId          String
+  landingKey          String
+  periodStart         DateTime
+  periodEnd           DateTime
+  visits              Int?
+  leads               Int?
+  qualified           Int?
+  opportunities       Int?
+  sales               Int?
+  revenueCents        Int?
+  // Fracción 0..1 de leads con atribución conocida en el período.
+  attributionCoverage Float?
+  // insufficient | maturing | mature
+  maturity            String   @default("insufficient")
+  // none | low | medium | high
+  confidence          String   @default("none")
+  baseline            Json?
+  funnel              Json?
+  computedAt          DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([landingKey, periodStart, periodEnd])
+  @@index([orgId, computedAt])
+}
+
+// Chequeo programado de salud técnica por landing (landings.md §7.3). Alimenta
+// el diagnóstico "tráfico sin leads" y, sobre todo, descarta causas técnicas
+// antes de culpar al mensaje (§6): acusar al copy de un hero que tarda seis
+// segundos en pintarse es diagnosticar al revés.
+//
+// No se usa PageSpeed/CrUX: son datos de campo que exigen tráfico real y una
+// landing de pyme casi nunca los tiene, así que devolverían "sin datos" para
+// siempre. Se mide lo que sí se puede medir de forma determinista.
+model LandingHealthCheck {
+  id             String   @id @default(cuid())
+  orgId          String
+  campaignId     String
+  landingKey     String
+  url            String
+  // Estado HTTP de la landing. Un 5xx es la causa más obvia de "llega tráfico
+  // y no convierte", y hoy nadie la vigila.
+  statusCode     Int?
+  // Time to first byte en milisegundos.
+  ttfbMs         Int?
+  // Milisegundos hasta recibir el documento completo.
+  totalMs        Int?
+  // Peso del documento y de la imagen principal, en bytes.
+  documentBytes  Int?
+  heroImageBytes Int?
+  // Si el documento declara viewport móvil.
+  mobileReady    Boolean?
+  // ok | slow | broken | unknown
+  verdict        String   @default("unknown")
+  error          String?
+  checkedAt      DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, landingKey, checkedAt])
+}
+
+// Variante de landing — docs/xarly/landings.md §5.4 y §9.
+//
+// Una variante SIEMPRE nace con justificación escrita ("el 67% abandona en el
+// campo email; esta variante lo hace opcional"), nunca como cambio cosmético
+// sin hipótesis. Por eso `justification` es obligatoria: sin ella no hay nada
+// que aprender del experimento, gane o pierda.
+//
+// El experimento se apoya en `RevenueExperiment*`, que ya existe. Aquí solo
+// vive lo propio de landings: de qué versión nace, qué cambia y en qué estado
+// del ciclo de vida (§5.5) está.
+model LandingVariant {
+  id                String    @id @default(cuid())
+  orgId             String
+  campaignId        String
+  landingKey        String
+  // Versión inmutable de la que parte la variante. El experimento compara
+  // versiones, nunca "el slug a lo largo del tiempo" (§3.1).
+  baseVersionId     String
+  key               String
+  name              String
+  justification     String
+  // Diagnóstico que la originó, cuando nace de uno.
+  sourceDiagnosis   String?
+  // Parche semántico sobre el contenido de la versión base: qué cambia y nada
+  // más. No guarda HTML ejecutable.
+  patch             Json
+  // generated | pending_approval | active | winner | loser | inconclusive | discarded
+  status            String    @default("generated")
+  experimentId      String?
+  // Fila correspondiente en RevenueExperimentVariant, para leer resultados.
+  variantRecordId   String?
+  approvalRequestId String?
+  createdById       String?
+  decidedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  org         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign    Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  baseVersion LandingVersion @relation(fields: [baseVersionId], references: [id], onDelete: Cascade)
+  createdBy   User?          @relation("LandingVariantCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([landingKey, key])
+  @@index([orgId, status, updatedAt])
+  @@index([campaignId, status])
+}
+
+// Decisión de autonomía sobre una landing — docs/xarly/landings.md §10.
+//
+// Una fila por decisión, exista o no efecto real. El modo sombra (ads.md §10.2)
+// guarda exactamente lo mismo que una ejecución salvo el efecto: qué habría
+// hecho, con qué datos, bajo qué versión de política y qué ocurrió después.
+//
+// `outcome` se rellena al terminar el período de observación. Nunca contiene
+// ahorros contrafactuales: no se sabe qué habría pasado por el otro camino, y
+// afirmarlo sería inventar el único número que nadie puede comprobar.
+model LandingAutonomyDecision {
+  id         String @id @default(cuid())
+  orgId      String
+  campaignId String
+  landingKey String
+
+  // Diagnóstico que la originó y nivel de autonomía efectivo (N1|N2|N3).
+  diagnosisType String?
+  level         String
+  // shadow | proposed | approved | applied | rolled_back | blocked | expired
+  status        String  @default("shadow")
+
+  // Qué cambia: uno de los tipos permitidos en §10, o uno prohibido que se
+  // registra igualmente para dejar constancia de que se bloqueó.
+  changeType  String
+  payload     Json
+  // Parche inverso, para poder revertir sin adivinar el estado anterior.
+  revertPatch Json?
+
+  // Guardarraíles evaluados, uno a uno, con su resultado.
+  guardrails    Json
+  blockedReason String?
+  // Versión de las reglas con las que se decidió: sin ella, un histórico de
+  // decisiones no se puede interpretar cuando la política cambia.
+  policyVersion String
+
+  // Evidencia congelada en el momento de decidir.
+  evidence Json
+
+  // Métrica de seguridad y su valor al aplicar: si cae, se revierte solo.
+  safetyMetric     String?
+  safetyBaseline   Float?
+  observationUntil DateTime?
+
+  outcome       Json?
+  humanFeedback String?
+
+  actorUserId  String?
+  appliedAt    DateTime?
+  rolledBackAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  actor    User?        @relation("LandingAutonomyActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, status, createdAt])
+  @@index([landingKey, status])
+}
+
+// Oportunidad de contenido detectada en conversaciones reales — el Radar de
+// `docs/xarly/pantallas.md` §1 y `semana.md` día 1.
+//
+// La regla que gobierna el modelo: **toda oportunidad guarda de dónde salió**.
+// `sourceRefs` lleva los ids internos de las llamadas y conversaciones que la
+// sustentan, para poder auditar el origen sin duplicar el texto (README:
+// trazabilidad). Una oportunidad sin refs verificables no se persiste: sería
+// una idea inventada con aspecto de dato.
+//
+// El texto seudonimizado no se guarda aquí: `summary` y `evidenceSummary` son
+// paráfrasis agregadas, nunca transcripción cruda.
+// Agregado por periodo x canal (organico.md §10). La pagina LEE snapshots, no
+// recalcula el embudo en cada carga: mismo patron que landings.md §3.3.
+//
+// `presence` es lo unico que cambia de significado segun el canal —
+// impresiones de Search Console, alcance de posts, vistas de ficha, prospectos
+// encontrados— y por eso lleva su unidad al lado en vez de fingir que todos
+// los canales miden lo mismo.
+// Instancia de fuente vertical de una organizacion (organico.md §10).
+//
+// Es lo que convierte el nivel 1 de personalizacion (plantilla sectorial) en el
+// nivel 2 (datos reales del negocio): el contenido deja de ser una plantilla y
+// pasa a hablar del partido que acaba de terminar o del inmueble que se acaba
+// de publicar.
+//
+// Emite acontecimientos que se convierten en `OrganicOpportunity` con
+// `sourceKind: vertical_event`, y de ahi entran en la misma cola priorizada que
+// las senales de canal y la caza de Xarly (§5.5). Sin motor paralelo.
+// Aprendizaje de los descartes (organico.md fase 3).
+//
+// Cada rechazo con motivo ajusta el peso de ese tipo de recomendacion para la
+// organizacion. Si alguien descarta cinco veces seguidas "demanda sin
+// contenido" porque ya la cubre con otra pieza, seguir poniendola arriba es
+// no escuchar. El peso solo reordena: nunca silencia una recomendacion, porque
+// el motivo de ayer puede no valer manana.
+model OrganicRecommendationWeight {
+  id        String @id @default(cuid())
+  orgId     String
+  /// Tipo de diagnostico al que se aplica el peso.
+  diagnosis String
+
+  dispatched  Int      @default(0)
+  dismissed   Int      @default(0)
+  /// Multiplicador de prioridad entre 0.3 y 1.5; 1 es neutro.
+  weight      Float    @default(1)
+  /// Ultimos motivos de descarte, para poder explicarle al usuario por que
+  /// esta recomendacion ha bajado en la lista.
+  lastReasons String[] @default([])
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, diagnosis])
+}
+
+model VerticalConnector {
+  id        String @id @default(cuid())
+  orgId     String
+  projectId String
+
+  /// Modulo vertical al que pertenece: gimnasio, clinica, deporte…
+  moduleKey String
+  name      String
+  /// webhook | api | feed | manual
+  kind      String @default("webhook")
+
+  /// Endpoint del cliente cuando se consulta activamente (kind: api | feed).
+  endpoint         String?
+  /// Credencial cifrada con la misma caja que el resto de integraciones.
+  secretEnc        String?
+  /// Secreto compartido para validar la firma de un webhook entrante.
+  webhookSecretEnc String?
+
+  /// pending | active | error | disabled
+  status         String    @default("pending")
+  lastEventAt    DateTime?
+  lastError      String?
+  eventsReceived Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project OrganicProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  events  VerticalEvent[]
+
+  @@index([orgId, status])
+  @@index([projectId, moduleKey])
+}
+
+// Acontecimiento recibido de un conector. Se guarda crudo antes de convertirlo
+// en oportunidad: si la regla cambia, los eventos pasados se pueden reprocesar
+// sin volver a pedirselos al cliente.
+model VerticalEvent {
+  id          String @id @default(cuid())
+  orgId       String
+  connectorId String
+
+  /// Clave del acontecimiento segun el modulo: match_finished, listing_published…
+  eventKey      String
+  /// Identificador del hecho en el sistema de origen: la deduplicacion real.
+  externalId    String
+  /// Carga util tal como llego, sin normalizar.
+  payload       Json
+  /// received | matched | ignored | failed
+  status        String  @default("received")
+  /// Oportunidad creada a partir de el, si alguna regla lo recogio.
+  opportunityId String?
+  /// Por que se ignoro, cuando se ignoro.
+  reason        String?
+
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  org       Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  connector VerticalConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  // Un reintento del cliente no puede duplicar el acontecimiento.
+  @@unique([connectorId, externalId])
+  @@index([orgId, status, occurredAt])
+}
+
+// Lo que GA4 y el Perfil de Empresa entregan, un día por fila (organico.md
+// fase 1 de §11).
+//
+// Se guarda el dato diario crudo y no solo el agregado del periodo porque el
+// snapshot de canal se reconstruye entero cada hora: si las visitas vivieran
+// solo ahi, cada reconstruccion las borraria hasta la siguiente sincronizacion
+// —el mismo agujero que ya obligo a aplicar las horas en un paso aparte—. Con
+// el diario, cualquier periodo se recalcula sumando y sin volver a pedirle nada
+// a Google.
+//
+// `page` es "" cuando la metrica no es por pagina (la ficha de Google no lo
+// es). Un NULL no serviria: en PostgreSQL dos NULL no colisionan y la clave
+// unica dejaria entrar duplicados del mismo dia.
+model OrganicTrafficDaily {
+  id        String @id @default(cuid())
+  orgId     String
+  projectId String
+
+  /// ga4 | google_business_profile
+  provider String
+  /// Dia en UTC a medianoche.
+  date     DateTime
+  /// Canal del embudo: search | social | gbp | unattributed
+  channel  String
+  /// Ruta de la pagina de destino; "" cuando la metrica no es por pagina.
+  page     String   @default("")
+
+  // `null` es "esta fuente no entrega esta metrica", no cero.
+  sessions        Int?
+  engagedSessions Int?
+  /// Vistas de la ficha de Google (impresiones en Busqueda y en Maps).
+  views           Int?
+  /// Llamadas pulsadas desde la ficha.
+  calls           Int?
+  /// Clics al sitio web desde la ficha.
+  websiteClicks   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project OrganicProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, provider, date, channel, page])
+  @@index([orgId, date])
+  @@index([projectId, channel, date])
+}
+
+model OrganicChannelSnapshot {
+  id        String @id @default(cuid())
+  orgId     String
+  projectId String
+
+  /// search | social | gbp | prospecting | unattributed
+  channel     String
+  periodKey   String
+  periodDays  Int
+  periodStart DateTime
+
+  // `null` es "sin medicion". Un 0 diria que se midio y no hubo nada.
+  presence      Int?
+  presenceUnit  String?
+  visits        Int?
+  leads         Int?
+  qualified     Int?
+  opportunities Int?
+  sales         Int?
+  revenueCents  Int?
+  /// Horas estimadas invertidas: el gasto del organico es tiempo (§5.2).
+  hoursInvested Float?
+
+  /// insufficient | maturing | mature
+  cohortStatus String   @default("insufficient")
+  computedAt   DateTime @default(now())
+
+  org     Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project OrganicProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, channel, periodKey])
+  @@index([orgId, periodKey])
+}
+
+model ContentOpportunity {
+  id                   String   @id @default(cuid())
+  orgId                String
+  // objection | faq | competitor | pre_purchase | emotional | success_story
+  type                 String
+  title                String
+  summary              String
+  // El objetivo elegible al generar la campaña (chip de la tarjeta).
+  objective            String?
+  // Cuántas menciones la sustentan y en cuántas conversaciones.
+  evidenceCount        Int
+  conversationsScanned Int      @default(0)
+  // Paráfrasis agregada mostrada en "ver evidencias". Nunca cita literal: eso
+  // exige `ContactConsent` y aprobación expresa.
+  evidenceSummary      String?
+  // { calls: string[], conversations: string[] }
+  sourceRefs           Json
+  // proposed | generated | dismissed
+  status               String   @default("proposed")
+  // Lunes de la semana analizada, para no repetir el análisis ni mezclar semanas.
+  weekOf               DateTime
+  dismissedReason      String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  org          Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  ContentPiece ContentPiece[]
+
+  @@index([orgId, weekOf, status])
+  @@index([orgId, status, createdAt])
+}
+
+// Pieza de contenido generada desde una oportunidad — `pantallas.md` §2 y §3.
+//
+// Persiste la pieza y su trazabilidad: de qué oportunidad nació, con qué perfil
+// de voz se escribió y qué decidió la persona que la revisó. Los motivos de
+// rechazo se guardan desde el día uno aunque el aprendizaje se explote después
+// (semana.md día 4): sin histórico no hay nada que aprender más adelante.
+model ContentPiece {
+  id            String  @id @default(cuid())
+  orgId         String
+  opportunityId String?
+  // Campaña destino: de ella salen la landing y el UTM de la pieza.
+  campaignId    String?
+
+  // post | carousel | reel_script
+  format          String
+  // Canales de publicación: un mismo post va a Instagram y LinkedIn a la vez,
+  // y Metricool crea un borrador por canal con el UTM propio de la pieza.
+  channels        String[] @default([])
+  objective       String?
+  // Estructura propia de cada formato: {text} · {slides[]} · {hook, body, cta}
+  body            Json
+  // Evidencias que justifican la pieza, al pie (paráfrasis, nunca literal).
+  evidenceSummary String?
+  // Chequeo de especificidad (idea 27): qué frases genéricas se marcaron, cuáles
+  // se sustituyeron y con qué dato de la base de conocimiento. Viaja con la
+  // pieza porque quien aprueba necesita ver los huecos que quedaron sin dato.
+  specificity     Json?
+  // Con qué versión del perfil de voz se escribió, para poder auditar por qué
+  // una pieza suena distinta a otra.
+  voiceVersion    String?
+
+  // draft | pending_approval | approved | rejected | published
+  status          String  @default("draft")
+  rejectionReason String?
+  // Si una persona la editó antes de aprobar: es una de las tres métricas del
+  // MVP ("% aprobado sin editar").
+  editedByHuman   Boolean @default(false)
+  // Minutos que se estima que ahorró frente a escribirla a mano.
+  minutesSaved    Int?
+
+  // UTM propio de la pieza: sin él, dos posts de la misma campaña y canal son
+  // indistinguibles y "leads por pieza" (§4) no se puede calcular.
+  utmContent      String?
+  externalDraftId String?
+  imageUrl        String?
+  // Locución del guion de Reel (idea 8): audio generado con el stack TTS
+  // propio. Vive en columna, como la imagen, porque el reproductor y el
+  // borrador la necesitan sin abrir el cuerpo de la pieza.
+  audioUrl        String?
+  // Informe del editor adversario (idea 21): PII enmascarada, vaguedades
+  // sustituidas o marcadas, y qué le vio el crítico. Se guarda con la pieza
+  // porque es lo que la Sala enseña para poder decidir con criterio.
+  reviewReport    Json?
+
+  createdById String?
+  decidedAt   DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org         Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  opportunity ContentOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  campaign    Campaign?           @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  events      ContentPieceEvent[]
+
+  @@index([orgId, status, createdAt])
+  @@index([orgId, opportunityId])
+  @@index([orgId, utmContent])
+}
+
+// Historial de una pieza y comentarios sobre ella — `pantallas.md` §3.
+//
+// Una sola tabla para las dos cosas a propósito: el comentario de un cliente y
+// el "lo aprobó Marta el martes" se leen juntos, en la misma columna de la
+// Sala. Separarlos obligaría a ordenar dos listas por fecha en cada consulta
+// para volver a mezclarlas.
+model ContentPieceEvent {
+  id          String   @id @default(cuid())
+  orgId       String
+  pieceId     String
+  // comment | submitted | edited | approved | rejected | published | generated
+  kind        String
+  message     String?
+  // Quién actuó. `actorUserId` cuando fue alguien del equipo; `actorLabel`
+  // cuando fue un cliente desde el enlace público, que no tiene usuario.
+  actorUserId String?
+  actorLabel  String?
+  meta        Json?
+  createdAt   DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  piece ContentPiece @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, pieceId, createdAt])
+}
+
+// Enlace público de solo-aprobación para clientes de agencias (plan Agency) —
+// `roadmap.md` fase 3.
+//
+// El secreto se enseña una vez al crearlo y en la base solo vive su huella:
+// quien acceda a la base de datos no puede aprobar contenido en nombre de un
+// cliente. Caduca siempre: un enlace de aprobación eterno es una puerta
+// abierta que nadie recuerda haber dejado.
+model ContentApprovalLink {
+  id          String    @id @default(cuid())
+  orgId       String
+  tokenHash   String    @unique
+  label       String?
+  createdById String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, revokedAt])
 }

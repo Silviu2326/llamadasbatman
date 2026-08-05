@@ -4,6 +4,7 @@ import {
   RiArrowLeftLine, RiPlayLine, RiEditLine, RiBookOpenLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import { OUTCOME_COLOR, outcomeLabel } from '../lib/callOutcome'
 import { useI18n } from '../i18n'
 import '../dashboard.css'
 
@@ -17,7 +18,8 @@ const STATUS = {
 
 const TABS = ['Conversaciones', 'Rendimiento', 'Configuración', 'Playbooks']
 
-const OUTCOME_LABEL = { meeting_scheduled: 'Reunión agendada', interested: 'Interesado', rejected: 'No interesado', callback: 'Seguimiento' }
+// Etiquetas y colores salen de src/lib/callOutcome.js — antes este mapa
+// etiquetaba `rejected` y `callback`, que el backend no escribe nunca.
 
 // Ítems del tab "Configuración". Los que corresponden a columnas propias de
 // Agent (voiceId, personality) se guardan ahí; el resto (límites operativos,
@@ -347,8 +349,8 @@ export default function AgentDetailPage() {
                     {recentCalls.map((c, i) => {
                       const name = c.lead?.name ?? 'Sin contacto'
                       const seconds = c.durationSeconds ?? 0
-                      const result = OUTCOME_LABEL[c.outcome] ?? 'Sin resultado'
-                      const clr = c.outcome === 'meeting_scheduled' ? 'var(--success)' : c.outcome === 'interested' ? 'var(--info)' : c.outcome === 'rejected' ? 'var(--danger)' : 'var(--dim)'
+                      const result = outcomeLabel(c.outcome)
+                      const clr = OUTCOME_COLOR[c.outcome] ?? 'var(--dim)'
                       return (
                         <div key={c.id} role="button" tabIndex="0" onClick={() => navigate(`/llamadas/${c.id}`)} onKeyDown={e => e.key === 'Enter' && navigate(`/llamadas/${c.id}`)} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 130px 80px 120px', gap: 0, minWidth: 430, padding: '11px 16px', borderBottom: i < recentCalls.length - 1 ? '1px solid var(--line)' : 'none', alignItems: 'center', cursor: 'pointer' }}>
                           <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>

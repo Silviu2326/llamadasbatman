@@ -463,3 +463,139 @@
   .social-campaign-destination { align-items: flex-start; flex-wrap: wrap; }
   .social-campaign-destination small { width: 100%; margin-left: 19px; }
 }
+
+/* Radar de oportunidades — docs/xarly/pantallas.md §1, la pantalla estrella. */
+.radar-section { border-color: var(--cyan-soft, var(--line-2)); }
+.radar-section .social-section-heading h2 { font-size: 15px; line-height: 1.35; max-width: 780px; }
+.radar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 11px; margin-top: 12px; }
+.radar-card { display: flex; flex-direction: column; gap: 9px; padding: 14px; border: 1px solid var(--line-2); border-left: 3px solid var(--dim); border-radius: 11px; background: var(--surface); }
+.radar-card.tone-warn { border-left-color: var(--warn); }
+.radar-card.tone-info { border-left-color: var(--cyan); }
+.radar-card.tone-success { border-left-color: var(--success); }
+.radar-type { color: var(--warn); font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
+.radar-card.tone-info .radar-type { color: var(--cyan); }
+.radar-card.tone-success .radar-type { color: var(--success); }
+.radar-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.radar-objective { padding: 2px 8px; border: 1px solid var(--line-2); border-radius: 20px; color: var(--muted); font-size: 8.5px; font-weight: 700; white-space: nowrap; }
+.radar-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.radar-summary { color: var(--text-strong); font-size: 12px; line-height: 1.5; }
+.radar-fields { display: grid; gap: 6px; margin: 0; }
+.radar-fields div { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 8px; }
+.radar-fields dt { color: var(--dim); font-size: 9.5px; }
+.radar-fields dd { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.radar-link { margin-left: 6px; padding: 0; border: 0; color: var(--cyan-soft); background: none; font: inherit; font-size: 10px; text-decoration: underline; cursor: pointer; }
+.radar-card footer { display: flex; gap: 7px; justify-content: flex-end; margin-top: auto; }
+.radar-empty { margin: 12px 0 0; padding: 14px; border: 1px dashed var(--line-2); border-radius: 10px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.radar-evidence { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface-3); }
+.radar-evidence-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.radar-evidence-head strong { color: var(--text-strong); font-size: 11px; }
+.radar-evidence-head button { border: 0; color: var(--dim); background: none; cursor: pointer; }
+.radar-evidence p { margin: 6px 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.radar-evidence small { color: var(--dim); font-size: 9px; }
+
+/* Estudio, sala de aprobación y resultados — pantallas.md §2, §3 y §4. */
+.studio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 11px; margin-top: 12px; }
+.studio-piece { display: flex; flex-direction: column; gap: 9px; padding: 13px; border: 1px solid var(--line-2); border-radius: 11px; background: var(--surface); }
+.studio-piece header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-format { color: var(--accent-soft, var(--cyan)); font-size: 9px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
+.studio-saved { color: var(--dim); font-size: 9px; }
+.studio-body { max-height: 220px; margin: 0; padding: 10px; overflow-y: auto; border-radius: 8px; background: var(--surface-3); color: var(--muted); font-family: inherit; font-size: 10.5px; line-height: 1.55; white-space: pre-wrap; }
+.studio-setup { display: flex; flex-direction: column; gap: 11px; margin-top: 12px; padding: 14px; border: 1px dashed var(--line-2); border-radius: 11px; background: var(--surface); }
+.studio-setup-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.studio-setup-head strong { display: block; color: var(--text-strong); font-size: 11.5px; }
+.studio-setup-head p { margin: 5px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+.studio-setup-head small { display: block; margin-top: 5px; color: var(--dim); font-size: 9px; }
+.studio-setup-fields label { display: flex; flex-direction: column; gap: 5px; max-width: 260px; color: var(--muted); font-size: 9.5px; }
+.studio-setup-fields select { padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface-3); color: var(--text); font: inherit; font-size: 10px; }
+.studio-setup fieldset { padding: 0; border: 0; }
+.studio-setup legend { margin-bottom: 6px; color: var(--muted); font-size: 9.5px; }
+.studio-setup-actions { display: flex; justify-content: flex-end; }
+.studio-image { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.studio-image img { width: 34px; height: 34px; object-fit: cover; border: 1px solid var(--line-2); border-radius: 6px; }
+.studio-image .social-text-button { padding: 4px 0; font-size: 9px; white-space: nowrap; cursor: pointer; }
+.studio-image .social-text-button.disabled, .studio-image .social-text-button:disabled { opacity: .5; pointer-events: none; }
+/* Chequeo de especificidad (idea 27): plegado por defecto —el detalle solo
+   interesa cuando se duda del texto— y con el aviso distinto del acierto. */
+.studio-specificity { display: flex; flex-direction: column; gap: 5px; }
+.studio-specificity summary { cursor: pointer; font-size: 9px; font-weight: 700; }
+.studio-specificity summary.is-ok { color: var(--success); }
+.studio-specificity summary.is-warn { color: var(--warn); }
+.studio-specificity ul { margin: 5px 0 0; padding-left: 15px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.studio-specificity li { margin-bottom: 3px; }
+.studio-specificity strong { color: var(--text-strong); }
+.studio-specificity em { color: var(--dim); font-style: normal; }
+.studio-specificity small { display: block; margin-top: 4px; color: var(--dim); font-size: 8.5px; }
+
+.studio-piece footer { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: auto; }
+.studio-piece footer small { flex: 1; color: var(--dim); font-size: 9px; line-height: 1.4; }
+.studio-state { color: var(--success); font-size: 9.5px; font-weight: 800; }
+
+.approval-piece { margin-top: 11px; padding: 13px; border: 1px solid var(--line-2); border-radius: 11px; }
+.approval-piece header { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 8px; }
+.approval-piece header strong { color: var(--text-strong); font-size: 11px; }
+.approval-origin { color: var(--dim); font-size: 9.5px; }
+.approval-edited { padding: 1px 7px; border-radius: 20px; background: var(--surface-3); color: var(--warn); font-size: 8.5px; font-weight: 800; }
+.approval-editor { width: 100%; padding: 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface-3); color: var(--text); font: inherit; font-size: 10.5px; line-height: 1.55; resize: vertical; }
+.approval-piece footer { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
+.approval-reject { margin-top: 10px; padding: 11px; border: 1px dashed var(--line-2); border-radius: 9px; }
+.approval-reject > span { display: block; margin-bottom: 8px; color: var(--muted); font-size: 10px; }
+.approval-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.approval-reasons button { padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 20px; background: transparent; color: var(--muted); font: inherit; font-size: 9.5px; cursor: pointer; }
+.approval-reasons button.is-selected { border-color: var(--accent-soft, var(--cyan)); color: var(--text-strong); background: var(--surface-3); }
+.approval-reject input { width: 100%; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface-3); color: var(--text); font: inherit; font-size: 10px; }
+.approval-reject-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
+
+.results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 9px; margin-top: 12px; }
+.results-grid span { display: block; padding: 11px; border: 1px solid var(--line-2); border-radius: 9px; }
+.results-grid small { display: block; color: var(--dim); font-size: 9px; }
+.results-grid strong { display: block; margin-top: 4px; color: var(--text-strong); font-size: 17px; }
+.results-grid em { display: block; margin-top: 3px; color: var(--dim); font-size: 9px; font-style: normal; }
+.results-table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 10px; }
+.results-table th { padding: 6px 8px; border-bottom: 1px solid var(--line-2); color: var(--dim); font-size: 9px; text-align: left; }
+.results-table td { padding: 7px 8px; border-bottom: 1px solid var(--line-2); color: var(--muted); }
+.results-caveats { margin: 10px 0 0; padding-left: 16px; color: var(--dim); font-size: 9.5px; line-height: 1.55; }
+
+/* Editor adversario (idea 21): lo que no se ve leyendo la pieza. La PII
+   enmascarada no va dentro de un <details> a propósito — es lo único de esta
+   pantalla que hay que leer sí o sí antes de aprobar. */
+.studio-critic { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.studio-critic .is-alert { margin: 0; padding: 7px 9px; border-radius: 8px; background: var(--surface-3); color: var(--warn); font-size: 9.5px; line-height: 1.5; font-weight: 700; }
+.studio-critic summary { cursor: pointer; color: var(--muted); font-size: 9px; font-weight: 700; }
+.studio-critic ul { margin: 5px 0 0; padding-left: 15px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.studio-critic small { display: block; margin-top: 4px; color: var(--dim); font-size: 8.5px; }
+
+/* Locución (idea 8) y slides con plantilla de marca (idea 7). */
+.studio-audio { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.studio-audio audio { width: 100%; height: 32px; }
+.studio-audio small { color: var(--dim); font-size: 9px; }
+.studio-audio small.studio-audio-stale { color: var(--warn); }
+.studio-slides { display: flex; gap: 7px; overflow-x: auto; margin-top: 8px; padding-bottom: 4px; }
+.studio-slides img { width: 96px; height: 96px; border: 1px solid var(--line-2); border-radius: 8px; object-fit: cover; flex: 0 0 auto; }
+.studio-slides small { color: var(--dim); font-size: 8.5px; }
+.studio-missing { margin: 8px 0 0; color: var(--dim); font-size: 9.5px; line-height: 1.5; }
+
+/* Historial y comentarios de una pieza (§3). */
+.approval-history { margin-top: 10px; padding: 10px; border: 1px solid var(--line-2); border-radius: 9px; }
+.approval-history ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.approval-history li { color: var(--muted); font-size: 9.5px; line-height: 1.5; }
+.approval-history li.is-empty { color: var(--dim); }
+.approval-history strong { color: var(--text-strong); }
+.approval-history em { display: block; color: var(--dim); font-size: 8.5px; font-style: normal; }
+.approval-comment { display: flex; gap: 7px; margin-top: 9px; }
+.approval-comment input { flex: 1; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface-3); color: var(--text); font: inherit; font-size: 10px; }
+
+/* Libro de marca (idea 7) y enlaces de aprobación (fase 3). */
+.brand-kit { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 12px; }
+.brand-kit label { display: flex; flex-direction: column; gap: 5px; color: var(--dim); font-size: 9px; }
+.brand-kit input[type="color"] { width: 54px; height: 30px; padding: 0; border: 1px solid var(--line-2); border-radius: 7px; background: transparent; cursor: pointer; }
+.brand-kit input[type="url"] { width: 260px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface-3); color: var(--text); font: inherit; font-size: 10px; }
+.approval-links { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-2); }
+.approval-links-head { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
+.approval-links-head strong { color: var(--text-strong); font-size: 11px; }
+.approval-link-new { margin: 9px 0 0; padding: 9px 11px; border: 1px dashed var(--line-2); border-radius: 9px; }
+.approval-link-new code { display: block; color: var(--text-strong); font-size: 10px; word-break: break-all; }
+.approval-link-new small { display: block; margin-top: 5px; color: var(--warn); font-size: 9px; }
+.approval-links ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.approval-links li { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; }
+.approval-links li.is-empty { color: var(--dim); }
+.approval-links em { color: var(--dim); font-size: 9px; font-style: normal; }

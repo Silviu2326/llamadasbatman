@@ -18,6 +18,14 @@
   scrollbar-color: var(--line-2) transparent;
 }
 
+/* Un panel con scroll que ademas es columna flex encoge a sus hijos en vez de
+   desbordar, porque flex-shrink vale 1 por defecto. Eso recortaba el Centro de
+   accion (perdia la fila de botones) y la cabecera de Llamadas. En un
+   contenedor scrollable el contenido nunca debe encogerse: debe hacer scroll.
+   Inerte cuando el contenedor no es flex, y cualquier hijo que de verdad
+   necesite crecer puede seguir declarandolo con mas especificidad. */
+.dark-scroll > * { flex-shrink: 0; }
+
 .dark-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -38,6 +46,7 @@
 
 /* ── Responsive dashboard layout ─────────────────────────────────────────── */
 .db-pad { padding: 22px 24px; }
+
 
 .db-kpi-row {
   display: flex;
@@ -395,17 +404,21 @@
   box-shadow: 0 0 0 4px #fbbf241a;
 }
 
-.action-center-source-live {
+/* Estos modificadores tinen el PUNTO de 7px, no la pildora entera. El
+   modificador vive en el contenedor (ActionCenter.jsx:507), asi que sin el
+   descendiente pintaban la pildora de verde solido y dejaban el texto en gris
+   sobre verde: ilegible. */
+.action-center-source-live .action-center-source-dot {
   background: var(--success);
   box-shadow: 0 0 0 4px #34d3991a;
 }
 
-.action-center-source-error {
+.action-center-source-error .action-center-source-dot {
   background: var(--danger-soft);
   box-shadow: 0 0 0 4px #fb71851a;
 }
 
-.action-center-source-demo {
+.action-center-source-demo .action-center-source-dot {
   background: var(--violet);
   box-shadow: 0 0 0 4px #a78bfa1a;
 }

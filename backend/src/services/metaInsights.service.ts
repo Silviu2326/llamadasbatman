@@ -7,6 +7,7 @@ interface InsightsRow {
   spend?: string
   impressions?: string
   clicks?: string
+  frequency?: string
   actions?: Array<{ action_type: string; value: string }>
 }
 
@@ -23,7 +24,9 @@ export async function fetchAndStoreInsights(orgId: string, campaignId: string) {
   const token = await getDecryptedToken(orgId)
   if (!token) return null
 
-  const fields = 'spend,impressions,clicks,actions'
+  // `frequency` es imprescindible para el diagnóstico de fatiga creativa: sin
+  // ella una caída de CTR no se puede distinguir de un mensaje que nunca funcionó.
+  const fields = 'spend,impressions,clicks,frequency,actions'
   const res = await fetch(
     `https://graph.facebook.com/${GRAPH_VERSION}/${campaign.metaAdSetId}/insights?date_preset=today&fields=${fields}&access_token=${token}`
   )
@@ -40,6 +43,9 @@ export async function fetchAndStoreInsights(orgId: string, campaignId: string) {
   const clicks = parseInt(row.clicks ?? '0', 10)
   const leadsCount = parseInt(row.actions?.find((a) => a.action_type === 'lead')?.value ?? '0', 10)
   const costPerLeadCents = leadsCount > 0 ? Math.round(spendCents / leadsCount) : null
+  // Si Meta no la devuelve queda `null` — "sin medición", no frecuencia cero.
+  const parsedFrequency = row.frequency != null ? parseFloat(row.frequency) : NaN
+  const frequency = Number.isFinite(parsedFrequency) ? parsedFrequency : null
 
   return prisma.adInsightSnapshot.create({
     data: {
@@ -51,6 +57,7 @@ export async function fetchAndStoreInsights(orgId: string, campaignId: string) {
       clicks,
       leadsCount,
       costPerLeadCents,
+      frequency,
     },
   })
 }

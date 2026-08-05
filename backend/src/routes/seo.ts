@@ -10,12 +10,14 @@ import {
   generateSeoArticle,
   generateSeoReport,
   keywordGap,
+  latestReport,
   listHistory,
   listProjects,
   listStaleArticles,
   publishArticle,
   rankHistory,
   refreshArticle,
+  reportById,
   saveReport,
   searchConsolePerformance,
   SeoAiUnavailable,
@@ -90,6 +92,22 @@ export async function seoRoutes(app: FastifyInstance) {
       computeAlerts(orgId, cleanUrl),
     ])
     return reply.send({ data: items, alerts })
+  })
+
+  // El informe vivía en `localStorage` del navegador: se perdía al cambiar de
+  // equipo y dos personas del mismo negocio veían cosas distintas. Se lee de
+  // `SeoReport`, que es donde ya se guardaba (`organico.md` fase 0).
+  app.get('/reports/latest', async (request, reply) => {
+    const { orgId } = request.user as JWTUser
+    const { url } = (request.query ?? {}) as { url?: string }
+    return reply.send({ data: await latestReport(orgId, url?.trim() || undefined) })
+  })
+
+  app.get<{ Params: { id: string } }>('/reports/:id', async (request, reply) => {
+    const { orgId } = request.user as JWTUser
+    const report = await reportById(orgId, request.params.id)
+    if (!report) return reply.status(404).send({ error: 'Informe no encontrado' })
+    return reply.send({ data: report })
   })
 
   app.post<{ Params: { id: string } }>('/reports/:id/share', async (request, reply) => {

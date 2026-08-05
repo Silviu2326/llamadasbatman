@@ -3,6 +3,7 @@ import { CallStatus, Prisma } from '@prisma/client'
 import { enqueueAutomationEvent } from '../jobs/automationRunner'
 import { ensureConversationForLead } from './conversations.service'
 import { logSalesActivity } from '../lib/salesActivity'
+import { CALL_OUTCOMES, normalizeCallOutcome } from '../lib/callOutcome'
 
 interface CallFilters {
   agentId?: string
@@ -28,6 +29,20 @@ export class InvalidVoiceContextError extends Error {
   constructor(message = 'Invalid voice resource context') {
     super(message)
     this.name = 'InvalidVoiceContextError'
+  }
+}
+
+/**
+ * `Call.outcome` alimenta el embudo económico de Ads: un valor desconocido no
+ * se degrada a `none` porque eso convertiría una llamada cualificada en una
+ * llamada sin resultado y falsearía el CPQL. Se rechaza en la frontera.
+ */
+export class InvalidCallOutcomeError extends Error {
+  readonly statusCode = 400
+
+  constructor(received: string) {
+    super(`Resultado de llamada no reconocido: "${received}". Valores admitidos: ${CALL_OUTCOMES.join(', ')}`)
+    this.name = 'InvalidCallOutcomeError'
   }
 }
 
@@ -211,6 +226,14 @@ export async function ingestCall(
     campaignId: data.campaignId,
   })
   if (!validContext) throw new InvalidVoiceContextError()
+
+  // Un proveedor externo puede enviar su propio vocabulario. Se traduce al
+  // canónico o se rechaza; nunca se guarda tal cual.
+  if (data.outcome != null) {
+    const normalized = normalizeCallOutcome(data.outcome)
+    if (!normalized) throw new InvalidCallOutcomeError(String(data.outcome))
+    data = { ...data, outcome: normalized }
+  }
 
   let created = false
   let call = data.externalCallId
