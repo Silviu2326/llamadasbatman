@@ -167,7 +167,7 @@ export default function OrganicOnboarding({ onComplete }) {
         {step === 'business' && (
           <>
             <h2>Cuéntame sobre tu negocio</h2>
-            <p className="organic-onboarding-help">Con esto Xarly ya puede empezar a investigar. Lo específico de tu sector viene después.</p>
+            <p className="organic-onboarding-help">Con esto Vendrava ya puede empezar a investigar. Lo específico de tu sector viene después.</p>
             <label>Nombre del negocio<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
             <label>Página web<input value={form.website} onChange={e => setForm({ ...form, website: e.target.value })} placeholder="tunegocio.com" /></label>
             <label>Ciudades donde operas<input value={form.locations} onChange={e => setForm({ ...form, locations: e.target.value })} placeholder="Valencia, Castellón" /></label>
@@ -208,7 +208,7 @@ export default function OrganicOnboarding({ onComplete }) {
 
         {step === 'sector' && (
           <>
-            <h2>Qué ha entendido Xarly</h2>
+            <h2>Qué ha entendido Vendrava</h2>
             {!investigation && (
               <button type="button" className="organic-button secondary" disabled={busy} onClick={runInvestigation}>
                 <RiSearchEyeLine /> {busy ? 'Analizando tu web…' : 'Analizar mi web'}
@@ -318,9 +318,9 @@ export default function OrganicOnboarding({ onComplete }) {
 
       {/* Derecha — vista previa viva */}
       <aside className="organic-onboarding-preview">
-        <h3><RiEyeLine /> Lo que hará Xarly</h3>
+        <h3><RiEyeLine /> Lo que hará Vendrava</h3>
         {chosenEvents.length === 0
-          ? <p>Según vayas marcando acontecimientos, aquí verás qué publicará Xarly y cuándo.</p>
+          ? <p>Según vayas marcando acontecimientos, aquí verás qué publicará Vendrava y cuándo.</p>
           : allEvents.filter(event => chosenEvents.includes(`${event.moduleKey}:${event.key}`)).map(event => (
               <div key={`${event.moduleKey}:${event.key}`} className="organic-preview-event">
                 <strong>{event.label}</strong>

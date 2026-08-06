@@ -3,7 +3,7 @@ import { QUALIFYING_CALL_OUTCOMES } from '../lib/callOutcome'
 import { getTrafficByChannel } from './organicGoogleIngest.service'
 
 /**
- * Embudo orgánico unificado y snapshots por canal — `docs/xarly/organico.md`
+ * Embudo orgánico unificado y snapshots por canal — `docs/vendrava/organico.md`
  * §5.3 y §10.
  *
  *   presencia → visita → lead → cualificado → oportunidad → venta
@@ -321,7 +321,7 @@ export function buildOrganicNarrative(input: {
     })
   }
 
-  // Que paso con lo que Xarly recomendo. Sin esta seccion el informe solo
+  // Que paso con lo que Vendrava recomendo. Sin esta seccion el informe solo
   // demuestra que se dijo algo, no que sirviera de algo.
   if (input.outcomes && (input.outcomes.evaluated.length || input.outcomes.maturing)) {
     const done = input.outcomes.evaluated

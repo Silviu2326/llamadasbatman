@@ -4,7 +4,7 @@ import { getDataQuality } from './adDataQuality.service'
 
 /**
  * Política de optimización y aprobación humana de decisiones — Fase 3 de
- * `docs/xarly/ads.md`.
+ * `docs/vendrava/ads.md`.
  *
  * La progresión que exige la §10.1 es obligatoria y no se puede saltar:
  *

@@ -4,7 +4,7 @@ import { getDecryptedToken } from './metaAdAccount.service'
 import { fetchWithTimeout } from '../lib/integrationRuntime'
 
 /**
- * Devolución de señal a Meta por **Conversions API** (`docs/xarly/ads.md` §7
+ * Devolución de señal a Meta por **Conversions API** (`docs/vendrava/ads.md` §7
  * y Fase 2). Nunca la antigua Offline Conversions API.
  *
  * Lo que cambia frente a la versión anterior, que enviaba y olvidaba:

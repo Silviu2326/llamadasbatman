@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma'
 import { QUALIFYING_CALL_OUTCOMES } from '../lib/callOutcome'
 
 /**
- * Capas 2 y 3 de docs/xarly/landings.md §3.3.
+ * Capas 2 y 3 de docs/vendrava/landings.md §3.3.
  *
  *   LandingEvent  →  LandingDailyRollup  →  LandingPerformanceSnapshot
  *

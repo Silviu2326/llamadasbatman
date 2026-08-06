@@ -3,7 +3,7 @@ import { connectOptionalRedis, reportQueueError } from '../lib/optionalRedis'
 import { runWeeklyContentCadence } from '../services/contentCadence.service'
 
 /**
- * Cadencia semanal del Radar — `docs/xarly/roadmap.md` fase 3.
+ * Cadencia semanal del Radar — `docs/vendrava/roadmap.md` fase 3.
  *
  * Los lunes por la mañana se regeneran las oportunidades y el perfil de voz de
  * cada organización con material, y se avisa de lo que hay. Hasta aquí el

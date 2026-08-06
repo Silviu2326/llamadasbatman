@@ -3,7 +3,7 @@ import { META_OAUTH_SCOPES } from './metaAdAccount.service'
 import { getCapiHealth } from './metaConversions.service'
 
 /**
- * Fase 0 de `docs/xarly/ads.md`: antes de mostrar una métrica profunda o de
+ * Fase 0 de `docs/vendrava/ads.md`: antes de mostrar una métrica profunda o de
  * permitir una decisión, hay que poder afirmar qué datos tenemos y cuáles no.
  *
  * La regla que gobierna todo este servicio: `null` significa "no se ha

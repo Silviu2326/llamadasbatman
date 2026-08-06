@@ -216,6 +216,28 @@ export function promoteOrganicAutonomyKind(kind) {
   return requestJson(`/api/organic/autonomy/kinds/${encodeURIComponent(kind)}/promote`, { method: 'POST' })
 }
 
+/**
+ * Degradar un tipo de acción. El endpoint existía desde el primer día y ninguna
+ * pantalla lo llamaba: se podía subir el permiso de una capacidad pero no
+ * bajarlo, así que el único camino de vuelta era el freno de emergencia, que
+ * para todo el sistema. Bajar un solo tipo es una decisión mucho más pequeña.
+ */
+export function demoteOrganicAutonomyKind(kind, reason) {
+  return requestJson(`/api/organic/autonomy/kinds/${encodeURIComponent(kind)}/demote`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+/**
+ * Vuelve a pasar el diagnóstico y regenera la cola priorizada. Sin esto la
+ * lista solo cambiaba cuando algo del backend la recalculaba por su cuenta:
+ * sincronizabas una fuente y las recomendaciones seguían siendo las de antes.
+ */
+export function refreshOrganicRecommendations() {
+  return requestJson('/api/organic/recommendations/refresh', { method: 'POST' })
+}
+
 export function createOrganicProject(payload = {}) {
   return requestJson('/api/organic/project', {
     method: 'POST',

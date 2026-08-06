@@ -8,7 +8,7 @@ import { createEmailDraft } from './mauticSync.service'
 import { isOrganicEvent } from './organicChannels.service'
 
 /**
- * Sala de aprobación — `docs/xarly/pantallas.md` §3.
+ * Sala de aprobación — `docs/vendrava/pantallas.md` §3.
  *
  * Sustituye al botón suelto de "crear borrador" por una cola con tres acciones.
  * Dos decisiones del documento que aquí son código:

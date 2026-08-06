@@ -113,7 +113,7 @@ enum GrowthProgramType {
 model Organization {
   id                 String   @id @default(cuid())
   // Ajustes por organización. Hoy guarda el perfil de voz del dueño
-  // (docs/xarly/semana.md día 3), regenerado semanalmente.
+  // (docs/vendrava/semana.md día 3), regenerado semanalmente.
   settings           Json?
   name               String
   plan               String   @default("free")
@@ -449,11 +449,11 @@ model Campaign {
   metaAdSetId         String?
   metaAdId            String?
   landingSlug         String?        @unique
-  // Identidad estable de la landing (docs/xarly/landings.md §3.1). El slug
+  // Identidad estable de la landing (docs/vendrava/landings.md §3.1). El slug
   // puede cambiar, reutilizarse o apuntar a otro contenido; la telemetría
   // nunca cuelga de él. Se genera en la primera publicación.
   landingKey          String?        @unique
-  // Ciclo de vida de la landing (docs/xarly/landings.md §5.5), distinto del
+  // Ciclo de vida de la landing (docs/vendrava/landings.md §5.5), distinto del
   // `status` de la campaña: una campaña activa puede tener su landing en
   // revisión, en experimento o archivada. Gobierna qué aparece en "Atención
   // requerida" y qué puede tocar N3.
@@ -902,7 +902,7 @@ model AdInsightSnapshot {
   campaign Campaign     @relation(fields: [campaignId], references: [id])
 }
 
-// Fase 0 de docs/xarly/ads.md: antes de mostrar una métrica profunda o de
+// Fase 0 de docs/vendrava/ads.md: antes de mostrar una métrica profunda o de
 // permitir una decisión, la página debe poder afirmar qué datos tiene y
 // cuáles le faltan. Una fila por organización, reescrita por el job
 // data-quality-check; `computedAt` dice si el propio diagnóstico está viejo.
@@ -964,7 +964,7 @@ model AdDataQualityStatus {
   @@index([orgId, computedAt])
 }
 
-// Una observación de Xarly sobre una campaña: qué ha detectado, con qué datos,
+// Una observación de Vendrava sobre una campaña: qué ha detectado, con qué datos,
 // con cuánta confianza y qué recomienda. Es el registro que exige ads.md §11 —
 // la lógica no puede esconderse dentro de `Automation.actions`, porque después
 // nadie puede auditar por qué se decidió algo.
@@ -985,7 +985,7 @@ model AdDecision {
   diagnosis String
 
   /// De donde nace la decision: ads | search | social | gbp | prospecting |
-  /// xarly_hunt | vertical_event. Sin esto habria que duplicar el motor de
+  /// vendrava_hunt | vertical_event. Sin esto habria que duplicar el motor de
   /// decisiones por producto, y con el la cola es unica (organico.md §5.5).
   channel         String  @default("ads")
   /// Brazo donde se ejecuta: seo | social | prospecting | landings | ads
@@ -1111,7 +1111,7 @@ model AdConversionSignal {
 }
 
 // Política de optimización de una organización (ads.md §11): qué se optimiza,
-// hasta dónde puede llegar Xarly solo y con qué límites. Existe para que la
+// hasta dónde puede llegar Vendrava solo y con qué límites. Existe para que la
 // autonomía sea una decisión explícita y versionada, no un valor por defecto
 // escondido en el código.
 model AdOptimizationPolicy {
@@ -2339,7 +2339,7 @@ model OrganicProject {
   isActive              Boolean  @default(true)
 
   // ── Perfil del onboarding adaptativo (organico.md §4) ────────────────────
-  // No es solo configuracion de /organic: este perfil alimenta a todo Xarly
+  // No es solo configuracion de /organic: este perfil alimenta a todo Vendrava
   // (organico, ads, landings y la caza de oportunidades). Se hace una vez.
   //
   // `sectors` es una lista y no un campo: una empresa puede ser a la vez
@@ -2419,13 +2419,13 @@ model OrganicContentRule {
 
 /// La oportunidad unica del circuito organico. Nacia solo de consultas de
 /// Search Console; con `channel` y `sourceKind` acepta tambien angulos de
-/// redes, fichas de Google, lotes de prospeccion, la caza de Xarly y los
+/// redes, fichas de Google, lotes de prospeccion, la caza de Vendrava y los
 /// acontecimientos de los conectores verticales (organico.md §10).
 model OrganicOpportunity {
   id                  String   @id @default(cuid())
-  /// search | social | gbp | prospecting | xarly_hunt | vertical_event
+  /// search | social | gbp | prospecting | vendrava_hunt | vertical_event
   channel             String   @default("search")
-  /// query | post_angle | gbp | prospecting | xarly_hunt | vertical_event
+  /// query | post_angle | gbp | prospecting | vendrava_hunt | vertical_event
   sourceKind          String   @default("query")
   /// Evento del conector vertical que la origino, si aplica.
   connectorId         String?
@@ -2860,7 +2860,7 @@ model ActionItemHistory {
 }
 
 // ---------------------------------------------------------------------------
-// Telemetría de landings — docs/xarly/landings.md §3.3 (tres capas de datos).
+// Telemetría de landings — docs/vendrava/landings.md §3.3 (tres capas de datos).
 //
 //   LandingEvent  →  LandingDailyRollup  →  LandingPerformanceSnapshot
 //
@@ -3049,7 +3049,7 @@ model LandingHealthCheck {
   @@index([orgId, landingKey, checkedAt])
 }
 
-// Variante de landing — docs/xarly/landings.md §5.4 y §9.
+// Variante de landing — docs/vendrava/landings.md §5.4 y §9.
 //
 // Una variante SIEMPRE nace con justificación escrita ("el 67% abandona en el
 // campo email; esta variante lo hace opcional"), nunca como cambio cosmético
@@ -3096,7 +3096,7 @@ model LandingVariant {
   @@index([campaignId, status])
 }
 
-// Decisión de autonomía sobre una landing — docs/xarly/landings.md §10.
+// Decisión de autonomía sobre una landing — docs/vendrava/landings.md §10.
 //
 // Una fila por decisión, exista o no efecto real. El modo sombra (ads.md §10.2)
 // guarda exactamente lo mismo que una ejecución salvo el efecto: qué habría
@@ -3157,7 +3157,7 @@ model LandingAutonomyDecision {
 }
 
 // Oportunidad de contenido detectada en conversaciones reales — el Radar de
-// `docs/xarly/pantallas.md` §1 y `semana.md` día 1.
+// `docs/vendrava/pantallas.md` §1 y `semana.md` día 1.
 //
 // La regla que gobierna el modelo: **toda oportunidad guarda de dónde salió**.
 // `sourceRefs` lleva los ids internos de las llamadas y conversaciones que la
@@ -3183,7 +3183,7 @@ model LandingAutonomyDecision {
 //
 // Emite acontecimientos que se convierten en `OrganicOpportunity` con
 // `sourceKind: vertical_event`, y de ahi entran en la misma cola priorizada que
-// las senales de canal y la caza de Xarly (§5.5). Sin motor paralelo.
+// las senales de canal y la caza de Vendrava (§5.5). Sin motor paralelo.
 // Aprendizaje de los descartes (organico.md fase 3).
 //
 // Cada rechazo con motivo ajusta el peso de ese tipo de recomendacion para la

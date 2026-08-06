@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createPseudonymizer, findResidualPii } from '../lib/pseudonymize'
 
 /**
- * Seudonimización antes del LLM (`docs/xarly/README.md`): no negociable.
+ * Seudonimización antes del LLM (`docs/vendrava/README.md`): no negociable.
  *
  * Si algo de aquí se rompe, datos personales de clientes reales salen hacia un
  * tercero. Estas pruebas son la línea que impide que eso pase por descuido.

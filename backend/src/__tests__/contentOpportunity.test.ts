@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { OPPORTUNITY_TYPES, findLiteralQuote, verifyOpportunity, weekOf } from '../services/contentOpportunity.service'
 
 /**
- * Verificación de oportunidades del Radar (`docs/xarly/pantallas.md` §1).
+ * Verificación de oportunidades del Radar (`docs/vendrava/pantallas.md` §1).
  *
  * Lo que protegen estas pruebas es la frase que sostiene toda la pantalla:
  * "8 menciones en 12 llamadas". Si ese número puede salir de ids inventados, la

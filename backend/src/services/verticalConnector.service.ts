@@ -4,7 +4,7 @@ import { encryptToken, decryptToken } from '../lib/tokenCrypto'
 import { getModule } from '../data/verticalModules'
 
 /**
- * Conectores verticales — `docs/xarly/organico.md` §4.9 (nivel 2) y §10.
+ * Conectores verticales — `docs/vendrava/organico.md` §4.9 (nivel 2) y §10.
  *
  * Es lo que convierte la plantilla sectorial en datos reales del negocio: el
  * contenido deja de hablar en abstracto y pasa a hablar del partido que acaba

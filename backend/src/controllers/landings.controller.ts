@@ -12,7 +12,7 @@ import { VariantError } from '../services/landingVariants.service'
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
 /**
- * Lectura de la página `/landings` (docs/xarly/landings.md §5). Devuelve
+ * Lectura de la página `/landings` (docs/vendrava/landings.md §5). Devuelve
  * snapshots ya calculados por el job: la página no reconstruye el embudo desde
  * eventos brutos en cada carga.
  *

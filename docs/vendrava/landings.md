@@ -1,4 +1,4 @@
-# Xarly Landings — especificación de la página y del optimizador
+# Vendrava Landings — especificación de la página y del optimizador
 
 Instrucción de producto para la página de Landings y webs. La página no debe
 ser un catálogo de enlaces con dos KPI: es el punto medio de todos los
@@ -237,7 +237,7 @@ La página debe poder explicar un caso como este:
 
 > La landing "instalacion-rapida" convierte al 2,1% (por debajo de su línea
 > base del 3,4%). El 68% de quienes llegaron al campo "presupuesto estimado"
-> abandonaron en él. Xarly recomienda hacerlo opcional. Impacto estimado:
+> abandonaron en él. Vendrava recomienda hacerlo opcional. Impacto estimado:
 > 6–11 leads/mes (≈ 2–4 oportunidades según tu tasa de cualificación).
 > Confianza: media (214 sesiones en 14 días).
 
@@ -262,12 +262,12 @@ La página responde, en orden:
 2. ¿Dónde debo actuar primero?
 3. ¿Qué landing produce compradores, no solo leads?
 4. ¿Dónde se pierde la gente en cada una?
-5. ¿Qué recomienda Xarly y por qué?
+5. ¿Qué recomienda Vendrava y por qué?
 
 ### 5.1 Atención requerida (arriba, antes del listado)
 
 Tres o cuatro tarjetas máximo. El usuario no revisa veinte filas para
-descubrir qué pasa; Xarly le dice dónde actuar primero:
+descubrir qué pasa; Vendrava le dice dónde actuar primero:
 
 ```text
 1 landing perdiendo cualificados
@@ -317,7 +317,7 @@ bruta, vistas y CTR quedan como señales diagnósticas.
 - La creación nueva parte de una **oportunidad o campaña**: ángulo, objeción
   a resolver, objetivo — y genera la landing con bloques (hero, prueba
   social, FAQ viva, CTA) usando voz del dueño + especificidad verificada
-  (servicios compartidos con Xarly orgánico).
+  (servicios compartidos con Vendrava orgánico).
 - Una **variante** siempre nace con justificación escrita ("el ángulo
   'rapidez' gana en ads; esta variante lo lleva al hero"), nunca como cambio
   cosmético sin hipótesis.
@@ -357,7 +357,7 @@ CTR alto en origen + rebote alto en destino es una señal, no una prueba:
 también puede ser carga lenta, mala visualización móvil, segmentación
 incorrecta, clics accidentales, oferta poco creíble o formulario agresivo.
 
-Para diagnosticar, Xarly compara además:
+Para diagnosticar, Vendrava compara además:
 
 ```text
 ángulo etiquetado del anuncio · promesa principal del anuncio ·
@@ -525,7 +525,7 @@ nunca cambiar una landing durante una campaña crítica sin permiso
 - Contratos §3 (identidad/versión, sesión/visitante, tres capas, línea base)
   — bloqueantes. Incluye `LandingVersion` como tabla propia (§12).
 - Telemetría §7 + embudo económico reutilizando la tubería
-  UTM/`AcquisitionEvent` de Xarly.
+  UTM/`AcquisitionEvent` de Vendrava.
 - Banda de integridad y reglas `null` ≠ `0` en la página; eliminar
   `adAssets.visits` como fuente de visitas (doble verdad frente a
   `AcquisitionEvent`, hoy leída en `funnels.service.ts`).

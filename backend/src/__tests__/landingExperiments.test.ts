@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { assignVariantKey, twoProportionZ } from '../services/landingExperiments.service'
 
 /**
- * Reglas del A/B de docs/xarly/landings.md §9. Lo que protegen estas pruebas
+ * Reglas del A/B de docs/vendrava/landings.md §9. Lo que protegen estas pruebas
  * es la frase que más daño haría si dejara de cumplirse: **nunca una ganadora
  * con 17 visitas**.
  */

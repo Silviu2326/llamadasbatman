@@ -1,5 +1,5 @@
 /**
- * Biblioteca de módulos verticales — `docs/xarly/organico.md` §4.5.
+ * Biblioteca de módulos verticales — `docs/vendrava/organico.md` §4.5.
  *
  * La idea que sostiene todo el onboarding: **cada módulo es datos, no código**.
  * Añadir el sector "clínicas" debe ser escribir un objeto aquí, no tocar
@@ -95,7 +95,7 @@ const SPORT: VerticalModule = {
           type: 'boolean',
           // §8: sin este permiso declarado, ninguna pieza publica nombres ni
           // fotos de personas. No es una preferencia, es la base jurídica.
-          help: 'Sin este permiso, Xarly no publicará nombres ni fotos de personas.',
+          help: 'Sin este permiso, Vendrava no publicará nombres ni fotos de personas.',
           required: true,
         },
       ],

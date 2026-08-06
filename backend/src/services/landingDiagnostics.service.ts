@@ -3,7 +3,7 @@ import { computeBaseline, describeBaseline, type LandingBaseline } from './landi
 import { latestHealthByLanding } from './landingHealth.service'
 
 /**
- * Los tres diagnósticos N1 del MVP — docs/xarly/landings.md §4.
+ * Los tres diagnósticos N1 del MVP — docs/vendrava/landings.md §4.
  *
  * Todos siguen el mismo patrón: **detectar → explicar → demostrar → recomendar
  * → permitir actuar**. Un diagnóstico sin evidencia y sin impacto estimado no

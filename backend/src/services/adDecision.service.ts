@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma'
 import { getDataQuality } from './adDataQuality.service'
 
 /**
- * Registro de decisiones de Xarly (`docs/xarly/ads.md` §11).
+ * Registro de decisiones de Vendrava (`docs/vendrava/ads.md` §11).
  *
  * Toda regla que observe algo escribe aquí, y solo aquí. Nada ejecuta una
  * llamada a Meta desde este servicio: `AdAction` y sus guardarraíles llegan en
@@ -132,7 +132,7 @@ export async function recordDecision(input: DecisionInput) {
     dispatchContext: (input.dispatchContext ?? undefined) as Prisma.InputJsonValue | undefined,
     estimatedHours: input.estimatedHours ?? null,
     priorityScore: input.priorityScore ?? null,
-    // Fase 1: Xarly observa y explica. No propone ejecutar nada todavía.
+    // Fase 1: Vendrava observa y explica. No propone ejecutar nada todavía.
     status: input.status ?? 'advisory',
     mode: input.mode ?? 'shadow',
     autonomyLevel: input.autonomyLevel ?? 'N1',

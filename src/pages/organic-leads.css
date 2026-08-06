@@ -393,3 +393,115 @@
 .organic-page-row strong { overflow: hidden; color: var(--text-2); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .organic-page-row em { color: var(--accent-faint); font-size: 9.5px; font-style: normal; }
 .organic-panel .organic-piece-head:has(+ .organic-page-row) { grid-template-columns: minmax(0, 1.6fr) 100px 90px 110px; }
+
+/* ── Cabecera, pestañas y cifras secundarias ────────────────────────────────
+   La cabecera era la más pobre del producto: un icono de 21px y el título, sin
+   subtítulo ni distintivo. La navegación interna eran cuatro anclas para trece
+   paneles. Se alinea con el resto (Landings, SEO, Ads): distintivo de marca,
+   subtítulo y pestañas. */
+
+.organic-topbar { align-items: flex-start; }
+.organic-heading { gap: 15px; min-width: 0; align-items: center; }
+.organic-brand-icon {
+  display: grid; place-items: center;
+  width: 48px; height: 48px; flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--success) 45%, transparent);
+  border-radius: 15px;
+  color: #fff;
+  background: linear-gradient(148deg, var(--success-deep), var(--accent-deep) 82%);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--success) 22%, transparent), inset 0 1px 0 #ffffff26;
+}
+.organic-brand-icon svg { width: 23px; height: 23px; color: #fff; }
+.organic-heading > div { min-width: 0; }
+.organic-heading h1 { font-size: 25px; letter-spacing: -1px; line-height: 1.1; }
+.organic-heading p { max-width: 520px; margin: 6px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+
+.organic-tabs {
+  display: flex; align-items: center; gap: 2px;
+  margin: 0 0 16px; padding: 4px;
+  border: 1px solid var(--line-2); border-radius: 12px;
+  background: linear-gradient(180deg, var(--surface), var(--surface-soft));
+  overflow-x: auto; scrollbar-width: thin;
+}
+.organic-tabs button {
+  display: inline-flex; align-items: center; gap: 7px;
+  flex: 0 0 auto;
+  padding: 9px 13px;
+  border: 1px solid transparent; border-radius: 9px;
+  color: var(--dim); background: transparent;
+  font: inherit; font-size: 10.5px; font-weight: 750;
+  white-space: nowrap; cursor: pointer;
+  transition: color .16s ease, background .16s ease, border-color .16s ease;
+}
+.organic-tabs button svg { width: 14px; height: 14px; opacity: .85; }
+.organic-tabs button:hover { color: var(--text-2); background: var(--surface-hover); }
+.organic-tabs button.active {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--text-strong);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-bg) 62%, transparent), color-mix(in srgb, var(--accent-bg) 34%, transparent));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.organic-tabs button.active svg { color: var(--accent-faint); opacity: 1; }
+.organic-tabs button b {
+  display: grid; place-items: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 7px;
+  color: var(--muted); background: var(--surface-hover);
+  font-size: 8.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.organic-tabs button.active b { color: var(--violet-soft); background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.organic-tabs button:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+
+/* Chip de icono en las cabeceras de panel, como en el resto del producto. */
+.organic-panel-header h2 { display: flex; align-items: center; gap: 9px; }
+.organic-panel-icon {
+  display: grid; place-items: center;
+  width: 26px; height: 26px; flex: 0 0 auto;
+  border: 1px solid var(--line-2); border-radius: 8px;
+  color: var(--accent-faint); background: color-mix(in srgb, var(--accent-bg) 42%, transparent);
+}
+.organic-panel-icon svg { width: 14px; height: 14px; }
+
+/* Cifras medidas que no caben en las cuatro tarjetas grandes. */
+.organic-secondary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 12px; }
+.organic-secondary > div { padding: 11px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); }
+.organic-secondary span { display: block; color: var(--dim); font-size: 9px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; }
+.organic-secondary strong { display: block; margin-top: 5px; color: var(--text-strong); font-size: 17px; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.organic-secondary .is-missing strong, .organic-secondary > div.is-missing strong { color: var(--dim); font-size: 11px; font-style: italic; font-weight: 600; letter-spacing: 0; }
+.organic-secondary-signal { border-left: 2px solid var(--success) !important; }
+.organic-secondary-signal strong { color: var(--success) !important; font-size: 13px !important; font-style: normal !important; text-transform: capitalize; }
+
+.organic-empty-inline { margin: 0; padding: 18px 14px; color: var(--dim); font-size: 10.5px; line-height: 1.6; text-align: center; }
+
+/* Subir y bajar permiso conviven en la misma tarjeta de la sala de autonomía. */
+.organic-autonomy-kind-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
+.organic-autonomy-kind-actions .organic-button { min-height: 29px; padding: 0 10px; font-size: 10px; }
+
+@media (max-width: 680px) {
+  .organic-heading { align-items: flex-start; }
+  .organic-heading h1 { font-size: 21px; }
+  .organic-secondary { grid-template-columns: 1fr; }
+}
+
+/* ── Mismo marco que la página de SEO ───────────────────────────────────────
+   Organic Leads y SEO son las dos caras del mismo trabajo y se salta de una a
+   otra por el sidebar, pero no coincidían: aquí el relleno vivía en el shell
+   —así que el contenido acababa 60px más estrecho y 30px desplazado— y la
+   cabecera tenía menos hueco por debajo. Se adopta el marco de SEO, que es la
+   referencia: relleno en la página, shell solo para centrar, y las mismas
+   medidas de cabecera. */
+
+.organic-page { padding: 28px 32px 52px; }
+.organic-shell { padding: 0; }
+.organic-topbar { align-items: center; gap: 20px; margin-bottom: 18px; }
+.organic-heading p { max-width: 640px; }
+
+@media (max-width: 960px) {
+  .organic-page { padding: 24px 20px 44px; }
+  .organic-shell { padding: 0; }
+}
+@media (max-width: 680px) {
+  .organic-page { padding: 20px 13px 36px; }
+  .organic-shell { padding: 0; }
+  .organic-topbar { align-items: flex-start; }
+}

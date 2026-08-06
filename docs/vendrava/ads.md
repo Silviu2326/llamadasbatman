@@ -1,16 +1,16 @@
-# Xarly Ads — especificación de la página y del optimizador
+# Vendrava Ads — especificación de la página y del optimizador
 
 Este documento es la instrucción de producto para construir y evolucionar la
 página de Ads. La página no debe convertirse en otro panel de métricas de Meta
 ni en un simple wizard que publica campañas.
 
-> **Xarly Ads no optimiza anuncios. Optimiza compradores.**
+> **Vendrava Ads no optimiza anuncios. Optimiza compradores.**
 
 La tesis es el circuito cerrado:
 
 ```text
 anuncio → landing → lead → llamada IA → lead cualificado → oportunidad → venta
-       ↘ métricas de Meta          ↗ señal económica y aprendizaje de Xarly
+       ↘ métricas de Meta          ↗ señal económica y aprendizaje de Vendrava
 ```
 
 Meta sabe quién hizo clic o rellenó un formulario. Vendrava debe saber quién
@@ -44,7 +44,7 @@ sea trazable de principio a fin.
 - enlaza con el wizard, la cuenta de Meta y el detalle de campaña.
 
 La evolución requerida es convertir esa vista en un centro de decisiones de
-Xarly. En particular:
+Vendrava. En particular:
 
 - el KPI principal deja de ser el CPL y pasa a ser el avance hacia comprador;
 - el panel de recomendación explica una decisión con evidencia y confianza;
@@ -84,7 +84,7 @@ El MVP solo necesita tres diagnósticos accionables:
    en proporción razonable, pero la landing convierte por debajo de su línea
    base o de campañas comparables.
 
-Los tres diagnósticos empiezan en N1: Xarly recomienda y explica; la persona
+Los tres diagnósticos empiezan en N1: Vendrava recomienda y explica; la persona
 decide. La generación automática de nuevas variantes puede esperar.
 
 ## 4. Diseño de `/ads`
@@ -94,7 +94,7 @@ La página debe responder, en este orden, a cinco preguntas:
 1. ¿Puedo confiar en los datos?
 2. ¿Qué está pasando ahora?
 3. ¿Qué campaña genera compradores, no solo leads?
-4. ¿Qué recomienda Xarly y por qué?
+4. ¿Qué recomienda Vendrava y por qué?
 5. ¿Qué puedo aprobar, pausar o revisar?
 
 ### 4.1 Cabecera y estado de conexión
@@ -139,7 +139,7 @@ Estados recomendados:
 
 Un snapshot es una observación, no la verdad definitiva. Una venta puede
 aparecer semanas después y debe actualizar la atribución de la cohorte sin
-reescribir el histórico de lo que Xarly sabía en cada momento.
+reescribir el histórico de lo que Vendrava sabía en cada momento.
 
 ### 4.3 Resumen superior
 
@@ -228,9 +228,9 @@ La elegibilidad no se decide solo con “20 leads al mes”. Se calcula con:
 - latencia media entre pasos;
 - confianza estadística mínima definida por la política.
 
-Si hay pocas ventas, Meta puede seguir optimizando a lead mientras Xarly usa
+Si hay pocas ventas, Meta puede seguir optimizando a lead mientras Vendrava usa
 cualificación y ventas para diagnosticar y recomendar. La UI debe mostrar
-ambas cosas: `Meta optimiza a: Lead` y `Xarly evalúa hasta: Venta`.
+ambas cosas: `Meta optimiza a: Lead` y `Vendrava evalúa hasta: Venta`.
 
 Meta puede limitar el aprendizaje de un conjunto cuando no alcanza el volumen
 de eventos de optimización que necesita semanalmente. Esto debe tratarse como
@@ -267,7 +267,7 @@ mostrar:
 - botón de aprobar, rechazar, poner en sombra, ejecutar o parar;
 - enlace a evidencias y al log de auditoría.
 
-### 4.6 Panel “Qué recomienda Xarly”
+### 4.6 Panel “Qué recomienda Vendrava”
 
 Sustituir la recomendación genérica de “proteger el CPL” por una tarjeta de
 decisión con esta anatomía:
@@ -321,7 +321,7 @@ En la parte inferior de `/ads`, mostrar un resumen en lenguaje de negocio:
 - qué cambió;
 - qué campaña produjo la señal más profunda;
 - dónde se perdió el embudo;
-- qué decisión tomó Xarly o dejó pendiente;
+- qué decisión tomó Vendrava o dejó pendiente;
 - qué datos siguen inmaduros;
 - qué probar la semana siguiente.
 
@@ -466,7 +466,7 @@ Ejemplos:
 - sin volumen fiable: solo alertas de integridad y N1, sin redistribución.
 
 La señal devuelta a Meta puede ser `Lead`, `Schedule` o la señal de calidad
-que la integración soporte. Xarly debe conservar cualificación y venta para
+que la integración soporte. Vendrava debe conservar cualificación y venta para
 diagnóstico aunque Meta no tenga suficiente volumen para optimizar directamente
 a ellas.
 
@@ -514,7 +514,7 @@ No recomendar aumentar gasto si el negocio no puede atender la demanda.
 
 ### 10.1 Niveles
 
-- **N1 — sugerir:** Xarly calcula, explica y pide una decisión humana.
+- **N1 — sugerir:** Vendrava calcula, explica y pide una decisión humana.
 - **N2 — aprobar:** una persona aprueba una acción concreta y acotada con un
   clic; queda registrada la versión de la política.
 - **N3 — canario automático:** solo para reglas demostradas, con presupuesto,
@@ -651,7 +651,7 @@ probable”.
 - mostrar salud de CAPI y señal más profunda elegible;
 - calcular CPL, CPQL y CAC objetivo desde margen y tasas reales.
 
-**Salida:** Xarly puede comparar el coste de un lead con el valor de un
+**Salida:** Vendrava puede comparar el coste de un lead con el valor de un
 comprador.
 
 ### Fase 3 — Recomendar
@@ -685,7 +685,7 @@ comprador.
 ### Fase 6 — Experimentar y escalar
 
 - experimentos aleatorizados y bandits;
-- variantes de creatividad desde ángulos del Radar de Xarly;
+- variantes de creatividad desde ángulos del Radar de Vendrava;
 - reparto por rendimiento marginal;
 - propuestas de contenido orgánico ganador para Ads;
 - benchmarks agregados por sector cuando exista suficiente volumen.
@@ -808,6 +808,6 @@ calcula sobre el total de intentos, no sobre los aceptados. Sigue devolviendo
 Los tres últimos puntos de la Fase 6 necesitan el motor de contenido de
 [`organico.md`](organico.md), que todavía no existe:
 
-- variantes de creatividad desde los ángulos del Radar de Xarly;
+- variantes de creatividad desde los ángulos del Radar de Vendrava;
 - propuestas de contenido orgánico ganador para Ads;
 - benchmarks agregados por sector.

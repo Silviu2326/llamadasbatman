@@ -5,7 +5,7 @@ import {
 } from '../services/contentSpecificity.service'
 
 /**
- * Chequeo de especificidad — idea 27 y día 3 de `docs/xarly/semana.md`.
+ * Chequeo de especificidad — idea 27 y día 3 de `docs/vendrava/semana.md`.
  *
  * Lo que se prueba aquí es la promesa entera: lo genérico se marca, se sustituye
  * **solo** con datos de la base de conocimiento, y nada se inventa cuando no los

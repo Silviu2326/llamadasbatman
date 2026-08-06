@@ -464,7 +464,7 @@
   .social-campaign-destination small { width: 100%; margin-left: 19px; }
 }
 
-/* Radar de oportunidades — docs/xarly/pantallas.md §1, la pantalla estrella. */
+/* Radar de oportunidades — docs/vendrava/pantallas.md §1, la pantalla estrella. */
 .radar-section { border-color: var(--cyan-soft, var(--line-2)); }
 .radar-section .social-section-heading h2 { font-size: 15px; line-height: 1.35; max-width: 780px; }
 .radar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 11px; margin-top: 12px; }

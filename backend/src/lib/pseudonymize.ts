@@ -1,5 +1,5 @@
 /**
- * Seudonimización antes del LLM — `docs/xarly/README.md`, no negociable.
+ * Seudonimización antes del LLM — `docs/vendrava/README.md`, no negociable.
  *
  * Nombres, teléfonos, emails, DNI y direcciones se sustituyen por tokens
  * (`[CLIENTE_1]`, `[TEL_1]`) en el texto que sale hacia el modelo. **El mapeo no

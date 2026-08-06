@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma'
 import { getCampaignAttribution } from './adAttribution.service'
 
 /**
- * Aprender a propósito — Fase 6 y §12 de `docs/xarly/ads.md`.
+ * Aprender a propósito — Fase 6 y §12 de `docs/vendrava/ads.md`.
  *
  * La advertencia central del documento: **la distribución normal de Meta no es
  * un A/B**. Meta entrega más impresiones a lo que predice que va a funcionar,

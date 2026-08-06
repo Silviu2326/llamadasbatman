@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma'
 import { NO_CONTACT_CALL_OUTCOMES, QUALIFYING_CALL_OUTCOMES } from '../lib/callOutcome'
 
 /**
- * Cierra el embudo económico de `docs/xarly/ads.md` §4.4:
+ * Cierra el embudo económico de `docs/vendrava/ads.md` §4.4:
  *
  *   clic → lead → contactado → cualificado → oportunidad → venta
  *

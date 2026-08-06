@@ -4,7 +4,7 @@ import { recordDecision } from './adDecision.service'
 /**
  * Guardarraíles de gasto: tope diario de la cuenta y CPL máximo por campaña.
  *
- * Hasta la Fase 3 de `docs/xarly/ads.md` estas reglas **pausaban campañas en
+ * Hasta la Fase 3 de `docs/vendrava/ads.md` estas reglas **pausaban campañas en
  * Meta automáticamente**, sin aprobación humana, sin modo sombra, sin cooldown
  * y sin entrada de auditoría. Eso es autonomía N3 de facto, y el documento la
  * reserva para reglas ya demostradas, con canario y botón de parada.

@@ -6,7 +6,7 @@ import { attributionCoverage, isDataRepairRule, isOrganicAutonomyRule } from './
 import { getPolicy } from './adPolicy.service'
 
 /**
- * Autonomía por regla — Fase 5 de `docs/xarly/ads.md`.
+ * Autonomía por regla — Fase 5 de `docs/vendrava/ads.md`.
  *
  * Dos ideas gobiernan este servicio, ambas de la §10.1:
  *

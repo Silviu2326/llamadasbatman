@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma'
 
 /**
- * Línea base de una landing — docs/xarly/landings.md §3.4.
+ * Línea base de una landing — docs/vendrava/landings.md §3.4.
  *
  * "Degradada frente a línea base" solo significa algo si la comparación tiene
  * reglas explícitas. Las de aquí:

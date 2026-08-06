@@ -10,7 +10,7 @@ import { getRemoteStatus } from './metaCampaignBuilder.service'
 import { fetchWithTimeout } from '../lib/integrationRuntime'
 
 /**
- * Ejecución de acciones aprobadas — Fase 4 de `docs/xarly/ads.md`.
+ * Ejecución de acciones aprobadas — Fase 4 de `docs/vendrava/ads.md`.
  *
  * La regla que gobierna este servicio: **los guardarraíles se vuelven a
  * comprobar en el momento de ejecutar**, no solo al aprobar. Entre una cosa y
@@ -92,7 +92,7 @@ async function checkExecutionGuardrails(
       rule: 'autonomy_level',
       passed: policy.autonomyLevel !== 'N1',
       detail: policy.autonomyLevel === 'N1'
-        ? 'La autonomía está en N1: Xarly solo sugiere. Súbela a N2 para poder ejecutar acciones aprobadas.'
+        ? 'La autonomía está en N1: Vendrava solo sugiere. Súbela a N2 para poder ejecutar acciones aprobadas.'
         : `Autonomía en ${policy.autonomyLevel}.`,
     },
     {

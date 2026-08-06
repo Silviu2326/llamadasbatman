@@ -3,7 +3,7 @@ import { classifyChannel, isOrganicEvent, type OrganicChannel } from './organicC
 
 /**
  * De dónde vino este lead, en concreto — criterio de aceptación de §13 de
- * `docs/xarly/organico.md`:
+ * `docs/vendrava/organico.md`:
  *
  * > "puede seguir un lead desde keyword, post, ficha, prospección o
  * > acontecimiento vertical hasta llamada, cualificación y venta"

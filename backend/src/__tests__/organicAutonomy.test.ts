@@ -21,7 +21,7 @@ import { setKillSwitch } from '../services/adPolicy.service'
 import { cleanupOrgs, createTestOrg, createTestUser } from './testHelpers'
 
 /**
- * Fase 4 de `docs/xarly/organico.md`: autonomía limitada.
+ * Fase 4 de `docs/vendrava/organico.md`: autonomía limitada.
  *
  * Estas pruebas existen para que aflojar la frontera de §9 sea un acto
  * consciente y visible en el diff. Lo que protegen: que N3 no publique

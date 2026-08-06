@@ -1,7 +1,7 @@
 import { prisma } from '../src/lib/prisma'
 
 /**
- * Dataset sintético para el Radar (`docs/xarly/pantallas.md` §1).
+ * Dataset sintético para el Radar (`docs/vendrava/pantallas.md` §1).
  *
  * `roadmap.md` ya anticipaba este riesgo: sin transcripciones, el Radar sale
  * vacío y no hay forma de saber si el detector funciona o si simplemente no

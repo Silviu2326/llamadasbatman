@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { RiAlertLine, RiArrowGoBackLine, RiLockLine, RiPlayCircleLine, RiShieldCheckLine } from 'react-icons/ri'
 
-// Acciones aprobadas pendientes de ejecutar — Fase 4 de docs/xarly/ads.md.
+// Acciones aprobadas pendientes de ejecutar — Fase 4 de docs/vendrava/ads.md.
 //
 // La confirmación no es un "¿estás seguro?": enseña alcance, impacto y lo que
 // NO se recupera aunque se compense. Una acción es compensable, no reversible,

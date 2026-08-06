@@ -51,3 +51,69 @@
 @media (prefers-reduced-motion: reduce) {
   .capture-journey-step { transition: none; }
 }
+
+/* ── Contrato de cabecera del recorrido de captación ────────────────────────
+   Campañas, Ads, Redes sociales, Prospect Finder, Landings y Funnels son seis
+   pantallas distintas, pero comparten esta barra y se salta entre ellas desde
+   ella misma. Cada una traía su propio relleno de página, su propia altura de
+   cabecera y su propio tamaño de título, así que la barra caía a seis alturas
+   distintas —60px entre la más alta y la más baja— y cambiar de página daba un
+   brinco.
+
+   Aquí se fija lo único que tiene que coincidir: el relleno de la página, la
+   caja del título y el hueco hasta la barra. Por debajo de la barra cada
+   página sigue siendo la que es.
+
+   El selector va con la clase repetida a propósito. Cada página importa su CSS
+   y el de esta barra en un orden distinto —`Campaigns.jsx` carga el suyo
+   DESPUÉS—, así que con especificidad normal el contrato ganaba en unas
+   pantallas y perdía en otras, que es peor que no tenerlo. Repetir la clase lo
+   hace determinista sin depender del orden de importación. */
+
+.campaign-page.campaign-page,
+.ads-dashboard.ads-dashboard,
+.social-page.social-page,
+.prospect-page.prospect-page,
+.landings-page.landings-page,
+.funnels-page.funnels-page {
+  padding-top: 30px;
+  padding-right: 36px;
+  padding-left: 36px;
+}
+
+.campaign-page-header.campaign-page-header,
+.ads-dashboard-header.ads-dashboard-header,
+.social-header.social-header,
+.prospect-header.prospect-header,
+.landings-header.landings-header,
+.funnels-header.funnels-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 62px;
+  margin-bottom: 18px;
+}
+
+/* El título manda en la altura de la cabecera: si uno mide 43px y otro 24px,
+   ninguna alineación posterior salva el salto. */
+.campaign-page-header.campaign-page-header h1,
+.ads-dashboard-header.ads-dashboard-header h1,
+.social-header.social-header h1,
+.prospect-header.prospect-header h1,
+.landings-header.landings-header h1,
+.funnels-header.funnels-header h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: -.7px;
+}
+
+@media (max-width: 900px) {
+  .campaign-page.campaign-page,
+  .ads-dashboard.ads-dashboard,
+  .social-page.social-page,
+  .prospect-page.prospect-page,
+  .landings-page.landings-page,
+  .funnels-page.funnels-page { padding-right: 20px; padding-left: 20px; }
+}

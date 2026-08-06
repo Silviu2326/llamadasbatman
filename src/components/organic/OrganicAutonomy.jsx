@@ -9,11 +9,11 @@ import {
 } from 'react-icons/ri'
 
 /**
- * Sala de autonomía — `docs/xarly/organico.md` §9 y fase 4 de §11.
+ * Sala de autonomía — `docs/vendrava/organico.md` §9 y fase 4 de §11.
  *
  * Lo que esta pantalla tiene que dejar claro, en este orden:
  *
- * 1. **Qué puede hacer Xarly solo y qué no.** La lista de §9 es cerrada y se
+ * 1. **Qué puede hacer Vendrava solo y qué no.** La lista de §9 es cerrada y se
  *    enseña entera, incluidos los tipos que todavía no tienen ejecución: un
  *    hueco silencioso se lee como "esto ya funciona".
  * 2. **Por qué está en el nivel en el que está.** Cada tipo dice qué le falta
@@ -28,7 +28,7 @@ import {
  */
 
 const LEVEL_COPY = {
-  N1: { label: 'N1 · sugerir', detail: 'Xarly calcula y explica; decide siempre una persona.' },
+  N1: { label: 'N1 · sugerir', detail: 'Vendrava calcula y explica; decide siempre una persona.' },
   N2: { label: 'N2 · aprobar', detail: 'Una persona aprueba cada acción concreta con un clic.' },
   N3: { label: 'N3 · automático', detail: 'Solo la lista cerrada de §9, con cooldown y freno.' },
 }
@@ -49,7 +49,7 @@ function LevelBadge({ level }) {
   return <span className={`organic-autonomy-level is-${level.toLowerCase()}`} title={copy.detail}>{copy.label}</span>
 }
 
-export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleShadow, onRun, onApprove, onReject, onPromote }) {
+export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleShadow, onRun, onApprove, onReject, onPromote, onDemote }) {
   const [rejecting, setRejecting] = useState('')
   const [reason, setReason] = useState('')
   if (!state) return null
@@ -61,8 +61,8 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
     <section id="organic-autonomy" className="organic-panel organic-autonomy">
       <header className="organic-panel-header">
         <div>
-          <h2>Sala de autonomía</h2>
-          <p>Qué puede hacer Xarly sin preguntar, qué se ha ganado ese permiso y qué se comprobó antes de cada acción.</p>
+          <h2><span className="organic-panel-icon"><RiShieldKeyholeLine /></span>Sala de autonomía</h2>
+          <p>Qué puede hacer Vendrava sin preguntar, qué se ha ganado ese permiso y qué se comprobó antes de cada acción.</p>
         </div>
         <span className="organic-panel-note">{state.policyVersion}</span>
       </header>
@@ -137,10 +137,23 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
             {kind.promotion?.blockers?.length
               ? <ul className="organic-autonomy-blockers">{kind.promotion.blockers.map(item => <li key={item}>{item}</li>)}</ul>
               : <p className="organic-autonomy-ready">Se ha ganado subir a {kind.promotion?.eligibleFor}.</p>}
-            {kind.promotion?.eligibleFor && (
-              <button type="button" className="organic-button secondary" disabled={busy} onClick={() => onPromote(kind.kind)}>
-                Subir a {kind.promotion.eligibleFor}
-              </button>
+            {/* Subir y bajar en la misma tarjeta: el camino de vuelta existía
+                en el backend pero no en la pantalla, así que para retirar un
+                permiso concreto había que usar el freno de emergencia, que
+                para el sistema entero. */}
+            {(kind.promotion?.eligibleFor || kind.effectiveLevel !== 'N1') && (
+              <footer className="organic-autonomy-kind-actions">
+                {kind.promotion?.eligibleFor && (
+                  <button type="button" className="organic-button secondary" disabled={busy} onClick={() => onPromote(kind.kind)}>
+                    Subir a {kind.promotion.eligibleFor}
+                  </button>
+                )}
+                {kind.effectiveLevel !== 'N1' && onDemote && (
+                  <button type="button" className="organic-button ghost" disabled={busy} onClick={() => onDemote(kind.kind)}>
+                    Bajar permiso
+                  </button>
+                )}
+              </footer>
             )}
           </article>
         ))}
@@ -148,7 +161,7 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
 
       {decisions.length > 0 && (
         <div className="organic-autonomy-decisions">
-          <h3>Qué ha decidido Xarly</h3>
+          <h3>Qué ha decidido Vendrava</h3>
           {decisions.map(decision => {
             const status = STATUS_COPY[decision.status] ?? STATUS_COPY.advisory
             const pending = ['advisory', 'pending_approval', 'shadow'].includes(decision.status)

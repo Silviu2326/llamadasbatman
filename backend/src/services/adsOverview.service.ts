@@ -38,7 +38,7 @@ function getCreativeCopy(adAssets: unknown) {
 
 /**
  * Divide dos magnitudes devolviendo `null` cuando el denominador no permite
- * calcular nada. Ver `docs/xarly/ads.md` §4.3: `null` es "sin medición" y `0`
+ * calcular nada. Ver `docs/vendrava/ads.md` §4.3: `null` es "sin medición" y `0`
  * es "se midió y salió cero"; no son intercambiables.
  */
 function ratio(numerator: number, denominator: number): number | null {
@@ -47,7 +47,7 @@ function ratio(numerator: number, denominator: number): number | null {
 }
 
 /**
- * Vista de operación Ads. Devuelve el contrato de `docs/xarly/ads.md` §6.1:
+ * Vista de operación Ads. Devuelve el contrato de `docs/vendrava/ads.md` §6.1:
  * estado de la cuenta con sus permisos reales, integridad de los datos,
  * señales rápidas separadas de las cohortes maduras, y la política de
  * autonomía vigente.

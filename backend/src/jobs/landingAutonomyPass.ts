@@ -4,7 +4,7 @@ import { runAutonomyPass } from '../services/landingAutonomy.service'
 import { organizationsWithLandings } from '../services/landingPerformance.service'
 
 /**
- * Pasada diaria de autonomía (docs/xarly/landings.md §10).
+ * Pasada diaria de autonomía (docs/vendrava/landings.md §10).
  *
  * Hace dos cosas: propone (o registra en sombra) los cambios que N3 podría
  * hacer, y cierra el período de observación de los ya aplicados, revirtiendo

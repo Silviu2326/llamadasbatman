@@ -3,7 +3,7 @@ import { getConnectorHealth } from './verticalConnector.service'
 import { getIngestFreshness } from './organicGoogleIngest.service'
 
 /**
- * Integridad de las fuentes orgánicas — Fase 0 de `docs/xarly/organico.md`.
+ * Integridad de las fuentes orgánicas — Fase 0 de `docs/vendrava/organico.md`.
  *
  * El defecto que repara: hoy la página promete paneles (`potentialCustomers`,
  * `competitorGap`, `demand`…) que ningún endpoint envía, así que se renderizan
@@ -69,8 +69,16 @@ export async function getOrganicDataQuality(orgId: string, projectId: string | n
       where: { orgId, type: { in: ['landing_view', 'landing_lead'] } },
     }),
     prisma.organization.findUnique({ where: { id: orgId }, select: { metricoolEnabled: true } }),
+    // La frescura solo decora la banda de integridad («último dato el X»). Iba
+    // dentro del Promise.all sin red: cuando la consulta falló —la tabla de
+    // ingesta no existía todavía en la base— se llevó por delante la calidad de
+    // datos, y con ella el overview y la sala de autonomía, que devolvieron 500.
+    // Una decoración no puede tumbar el centro de mando: degrada a vacío.
     projectId
-      ? getIngestFreshness(orgId, projectId)
+      ? getIngestFreshness(orgId, projectId).catch((error) => {
+        console.warn('[OrganicDataQuality] frescura de ingesta no disponible:', (error as Error).message)
+        return new Map<string, { lastDate: Date | null; rows: number }>()
+      })
       : Promise.resolve(new Map<string, { lastDate: Date | null; rows: number }>()),
   ])
 

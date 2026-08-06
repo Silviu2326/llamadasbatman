@@ -5,7 +5,7 @@ import { createPseudonymizer, findResidualPii } from '../lib/pseudonymize'
 
 /**
  * Detector de oportunidades de contenido — el Radar de
- * `docs/xarly/pantallas.md` §1 y `semana.md` día 1.
+ * `docs/vendrava/pantallas.md` §1 y `semana.md` día 1.
  *
  * Tres reglas que definen si esta pantalla vale algo:
  *

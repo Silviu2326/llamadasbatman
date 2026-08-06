@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma'
 import { createPseudonymizer } from '../lib/pseudonymize'
 
 /**
- * Voz del dueño — `docs/xarly/semana.md` día 3.
+ * Voz del dueño — `docs/vendrava/semana.md` día 3.
  *
  * Perfil de estilo extraído de las intervenciones del **lado del negocio** en
  * las transcripciones: muletillas, longitud de frase, expresiones y trato.

@@ -1,4 +1,4 @@
-# Xarly — mapa de pantallas del MVP
+# Vendrava — mapa de pantallas del MVP
 
 Todo vive en la página actual de Redes sociales (`/redes-sociales`,
 `ConectarRedesPage.jsx`), reorganizada en cuatro vistas. No se crean rutas

@@ -1,5 +1,5 @@
 /**
- * Minutos estimados por formato — `docs/xarly/organico.md` §5.2.
+ * Minutos estimados por formato — `docs/vendrava/organico.md` §5.2.
  *
  * El gasto del orgánico es tiempo, no euros: sin estos números no existe el
  * coste por cualificado en tiempo, que es la métrica que sustituye al CAC

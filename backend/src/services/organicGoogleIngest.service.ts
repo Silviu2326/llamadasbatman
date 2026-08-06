@@ -10,7 +10,7 @@ import {
 import type { OrganicChannel } from './organicChannels.service'
 
 /**
- * Ingesta de GA4 y del Perfil de Empresa — fase 1 de `docs/xarly/organico.md`.
+ * Ingesta de GA4 y del Perfil de Empresa — fase 1 de `docs/vendrava/organico.md`.
  *
  * Las dos integraciones se conectaban y se quedaban en discovery: la banda de
  * integridad las declaraba "conectadas, sin ingesta" y el embudo decía *sin

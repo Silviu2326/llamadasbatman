@@ -9,7 +9,7 @@ import {
 } from '../services/landingTelemetry.service'
 
 /**
- * Contratos de docs/xarly/landings.md §3.1 y §3.2. Son bloqueantes de la fase
+ * Contratos de docs/vendrava/landings.md §3.1 y §3.2. Son bloqueantes de la fase
  * 1: sin identidad de versión estable y sin exclusión de tráfico automático,
  * los diagnósticos parecen precisos partiendo de datos sucios — peor que no
  * tener diagnósticos (§12).

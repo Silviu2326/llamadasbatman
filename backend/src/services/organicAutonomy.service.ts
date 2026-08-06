@@ -11,7 +11,7 @@ import * as ingest from './organicGoogleIngest.service'
 import * as seo from './seoAgency.service'
 
 /**
- * Autonomía limitada del orgánico — fase 4 de `docs/xarly/organico.md` §9 y §11.
+ * Autonomía limitada del orgánico — fase 4 de `docs/vendrava/organico.md` §9 y §11.
  *
  * Tres reglas gobiernan este servicio y ninguna es negociable:
  *
@@ -606,7 +606,7 @@ export async function effectiveLevel(orgId: string, kind: string, config: Organi
  * Registra la decisión sobre una acción propuesta y, si procede, la ejecuta.
  *
  * - guardarraíl en rojo → `blocked`, nunca se ejecuta;
- * - N1 → `advisory`: Xarly explica y espera una persona;
+ * - N1 → `advisory`: Vendrava explica y espera una persona;
  * - N2 → `pending_approval`: la persona la aprueba con un clic;
  * - N3 en sombra → `shadow`: se escribe lo que **haría**, sin hacerlo;
  * - N3 en vivo → se ejecuta y queda `executed` o `failed`.
@@ -643,8 +643,8 @@ export async function decide(orgId: string, action: ProposedAction) {
     explanation: action.summary,
     // Se describe lo que haría, nunca lo que "habría ahorrado" (§10.2 de ads).
     recommendation: level === 'N3' && config.shadowMode
-      ? `En modo sombra: Xarly habría ejecutado «${definition.label}» sin tocar nada.`
-      : `Xarly puede ejecutar «${definition.label}» cuando una persona lo apruebe.`,
+      ? `En modo sombra: Vendrava habría ejecutado «${definition.label}» sin tocar nada.`
+      : `Vendrava puede ejecutar «${definition.label}» cuando una persona lo apruebe.`,
     hypotheticalAction: { kind: action.kind, scope: action.scope, target: action.target, payload: action.payload },
     evidence: { ...action.evidence, guardrails: checks, policyVersion: AUTONOMY_POLICY_VERSION },
     cohortStatus: 'insufficient',

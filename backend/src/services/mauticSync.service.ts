@@ -1045,7 +1045,7 @@ export async function claimEmailTemplate(orgId: string, externalId: string, name
 
 /**
  * Crea en Mautic la plantilla de email de una pieza aprobada — atomización de
- * la fase 2 (`docs/xarly/roadmap.md`, idea 8).
+ * la fase 2 (`docs/vendrava/roadmap.md`, idea 8).
  *
  * Se crea **despublicada y vinculada a la organización** en el mismo paso: una
  * plantilla creada sin binding sería una plantilla huérfana que cualquier otra

@@ -1,5 +1,5 @@
 /**
- * Telemetría de la landing pública — docs/xarly/landings.md §7.
+ * Telemetría de la landing pública — docs/vendrava/landings.md §7.
  *
  * Envía comportamiento, nunca contenido: qué campo se tocó y si quedó relleno,
  * jamás lo que se escribió en él. El servidor deduplica por sesión, tipo y

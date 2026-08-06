@@ -3,7 +3,7 @@
  *
  *   anuncio Meta → lead → llamada IA → cualificación → oportunidad → venta
  *
- * Sin esto no hay forma de construir el embudo económico de `docs/xarly/ads.md`:
+ * Sin esto no hay forma de construir el embudo económico de `docs/vendrava/ads.md`:
  * la base local está vacía y una cuenta de Meta real tardaría semanas en
  * producir cohortes maduras.
  *
@@ -18,7 +18,7 @@
  *   Campaña A: leads a 12 €, cualificados a 75 €, 0 ventas.
  *   Campaña B: leads a 19 €, cualificados a 38 €, 3 ventas, CAC 126 €.
  *
- * Meta declararía ganadora la A. Xarly debe recomendar la B.
+ * Meta declararía ganadora la A. Vendrava debe recomendar la B.
  *
  *   npm run db:seed:ads              siembra (borra antes lo ya sembrado)
  *   npm run db:seed:ads -- --clean   solo borra
@@ -31,7 +31,14 @@ import { META_OAUTH_SCOPES } from '../src/services/metaAdAccount.service'
 const prisma = new PrismaClient()
 
 /** Todo lo sembrado lleva este prefijo en el id para poder retirarlo entero. */
-const PREFIX = 'xarly-dev'
+const PREFIX = 'vendrava-dev'
+
+/**
+ * Prefijos anteriores. La limpieza filtra por prefijo, así que al renombrarlo
+ * las filas ya sembradas con el nombre viejo se habrían quedado huérfanas —y
+ * un nuevo sembrado las habría duplicado en vez de reemplazarlas.
+ */
+const LEGACY_PREFIXES = ['xarly-dev']
 
 // 28 días para que las cohortes de venta puedan madurar de verdad: con 14 no
 // existiría ningún lead de 14 días dentro de la ventana y el CAC nunca sería
@@ -237,17 +244,17 @@ async function resolveOrgId(): Promise<string> {
  * datos de otra organización.
  */
 async function clean(orgId: string) {
-  const idFilter = { startsWith: `${PREFIX}-` }
+  const idFilter = { OR: [PREFIX, ...LEGACY_PREFIXES].map(prefix => ({ id: { startsWith: `${prefix}-` } })) }
   const deletions: Array<[string, Prisma.BatchPayload]> = [
-    ['Opportunity', await prisma.opportunity.deleteMany({ where: { orgId, id: idFilter } })],
-    ['ContactConsent', await prisma.contactConsent.deleteMany({ where: { orgId, id: idFilter } })],
-    ['Meeting', await prisma.meeting.deleteMany({ where: { orgId, id: idFilter } })],
-    ['AcquisitionEvent', await prisma.acquisitionEvent.deleteMany({ where: { orgId, id: idFilter } })],
-    ['Call', await prisma.call.deleteMany({ where: { orgId, id: idFilter } })],
-    ['AdInsightSnapshot', await prisma.adInsightSnapshot.deleteMany({ where: { orgId, id: idFilter } })],
-    ['Lead', await prisma.lead.deleteMany({ where: { orgId, id: idFilter } })],
-    ['Campaign', await prisma.campaign.deleteMany({ where: { orgId, id: idFilter } })],
-    ['MetaAdAccount', await prisma.metaAdAccount.deleteMany({ where: { orgId, id: idFilter } })],
+    ['Opportunity', await prisma.opportunity.deleteMany({ where: { orgId, ...idFilter } })],
+    ['ContactConsent', await prisma.contactConsent.deleteMany({ where: { orgId, ...idFilter } })],
+    ['Meeting', await prisma.meeting.deleteMany({ where: { orgId, ...idFilter } })],
+    ['AcquisitionEvent', await prisma.acquisitionEvent.deleteMany({ where: { orgId, ...idFilter } })],
+    ['Call', await prisma.call.deleteMany({ where: { orgId, ...idFilter } })],
+    ['AdInsightSnapshot', await prisma.adInsightSnapshot.deleteMany({ where: { orgId, ...idFilter } })],
+    ['Lead', await prisma.lead.deleteMany({ where: { orgId, ...idFilter } })],
+    ['Campaign', await prisma.campaign.deleteMany({ where: { orgId, ...idFilter } })],
+    ['MetaAdAccount', await prisma.metaAdAccount.deleteMany({ where: { orgId, ...idFilter } })],
   ]
   const removed = deletions.filter(([, result]) => result.count > 0)
   if (removed.length) {

@@ -77,7 +77,7 @@ export default function MetaAccountPage() {
         body: JSON.stringify(engaged ? { resume: true } : { reason: 'Parada desde la cuenta de Meta' }),
       })
       if (!res.ok) throw new Error()
-      setMessage(engaged ? 'Autonomía reanudada.' : 'Autonomía parada: Xarly no ejecutará ninguna acción.')
+      setMessage(engaged ? 'Autonomía reanudada.' : 'Autonomía parada: Vendrava no ejecutará ninguna acción.')
       await loadQuality()
     } catch {
       setMessage('No se pudo cambiar el estado de la autonomía.')
@@ -321,7 +321,7 @@ export default function MetaAccountPage() {
               <section className="ads-autonomy" style={{ marginTop: 12 }}>
                 <div className="ads-section-head">
                   <div>
-                    <h2>Autonomía de Xarly</h2>
+                    <h2>Autonomía de Vendrava</h2>
                     <p>
                       Nivel <b>{quality.policy?.autonomyLevel ?? 'N1'}</b> en modo <b>{quality.policy?.mode ?? 'shadow'}</b>.
                       {quality.policy?.killSwitch === 'engaged'

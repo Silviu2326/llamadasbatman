@@ -11,7 +11,7 @@ import { publishCarouselSlides } from './brandCarousel.service'
 import { VoiceoverFailure, estimateSeconds, synthesizeVoiceover, voiceoverScript } from './contentVoiceover.service'
 
 /**
- * Estudio — `docs/xarly/pantallas.md` §2.
+ * Estudio — `docs/vendrava/pantallas.md` §2.
  *
  * De una oportunidad salen las tres piezas del MVP: post, carrusel y guion de
  * Reel. Cada una guarda las evidencias que la justifican y con qué versión del

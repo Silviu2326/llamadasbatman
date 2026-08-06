@@ -15,7 +15,7 @@ import { getOrganicDataQuality } from '../services/organicDataQuality.service'
 import { cleanupOrgs, createTestOrg } from './testHelpers'
 
 /**
- * Ingesta de GA4 y del Perfil de Empresa — fase 1 de `docs/xarly/organico.md`.
+ * Ingesta de GA4 y del Perfil de Empresa — fase 1 de `docs/vendrava/organico.md`.
  *
  * No se puede llamar a Google desde aquí: hace falta una cuenta real conectada.
  * Lo que sí se prueba es todo lo que rodea a esa llamada, que es donde vive la

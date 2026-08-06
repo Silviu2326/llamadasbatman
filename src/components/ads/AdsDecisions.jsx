@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { RiAlertLine, RiCheckboxCircleLine, RiCheckLine, RiCloseLine, RiErrorWarningLine, RiEyeLine, RiInformationLine } from 'react-icons/ri'
 import { COHORT_LABEL, SIGNAL_LABEL } from './AdsFunnel'
 
-// Tarjeta de decisión de docs/xarly/ads.md §4.6. Cada observación debe
+// Tarjeta de decisión de docs/vendrava/ads.md §4.6. Cada observación debe
 // contestar qué, por qué, con qué datos y qué riesgo tiene.
 //
 // Aprobar NO ejecuta nada en Meta: registra la acción con sus guardarraíles y
@@ -160,7 +160,7 @@ export default function AdsDecisions({ decisions, policy, onDecide, busyId }) {
     return (
       <div className="ads-recommendation-empty">
         <RiCheckboxCircleLine />
-        <p>Xarly no ha detectado ningún problema que merezca una recomendación en este período.</p>
+        <p>Vendrava no ha detectado ningún problema que merezca una recomendación en este período.</p>
       </div>
     )
   }
@@ -169,7 +169,7 @@ export default function AdsDecisions({ decisions, policy, onDecide, busyId }) {
     <div className="ads-decision-list">
       {decisions.map(decision => <DecisionCard key={decision.id} decision={decision} onDecide={onDecide} busyId={busyId} />)}
       <p className="ads-decision-policy">
-        Autonomía <b>{policy?.autonomyLevel ?? 'N1'}</b> en modo <b>{policy?.mode ?? 'shadow'}</b>: Xarly calcula y explica,
+        Autonomía <b>{policy?.autonomyLevel ?? 'N1'}</b> en modo <b>{policy?.mode ?? 'shadow'}</b>: Vendrava calcula y explica,
         la decisión es tuya. Aprobar deja la acción registrada y pendiente; no modifica nada en Meta todavía.
         {policy?.killSwitch === 'engaged' && ' La autonomía está parada por decisión del equipo.'}
       </p>

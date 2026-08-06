@@ -5,7 +5,7 @@ import { writeAuditLog } from '../lib/audit'
 import { LANDING_LIFECYCLE, VARIANT_STATUS, VariantError } from './landingVariants.service'
 
 /**
- * A/B server-side de landings — docs/xarly/landings.md §9.
+ * A/B server-side de landings — docs/vendrava/landings.md §9.
  *
  * A diferencia del orgánico, aquí el A/B es estadísticamente honesto: mismo
  * tráfico y asignación aleatoria en el servidor. Las tres reglas que hacen que

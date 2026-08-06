@@ -5,7 +5,7 @@ import { runAutonomyPass } from '../services/organicAutonomy.service'
 import { enforceAutonomyGuardrails } from '../services/adRuleAutonomy.service'
 
 /**
- * Pasada diaria de autonomía orgánica — `docs/xarly/organico.md` §9 y §11.
+ * Pasada diaria de autonomía orgánica — `docs/vendrava/organico.md` §9 y §11.
  *
  * Hace las dos mitades en el orden que importa:
  *

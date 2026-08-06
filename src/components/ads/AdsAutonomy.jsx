@@ -1,6 +1,6 @@
 import { RiArrowUpCircleLine, RiFlaskLine, RiLockLine, RiShutDownLine } from 'react-icons/ri'
 
-// Autonomía por regla — Fase 5 de docs/xarly/ads.md.
+// Autonomía por regla — Fase 5 de docs/vendrava/ads.md.
 //
 // Se muestra regla a regla, no como un interruptor global, porque una regla
 // demostrada no dice nada sobre otra recién escrita. Y cuando una no puede

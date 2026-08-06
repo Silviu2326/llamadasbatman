@@ -170,7 +170,7 @@ const PIPELINE_LABEL = {
 }
 
 /**
- * Radar de oportunidades — `docs/xarly/pantallas.md` §1, la pantalla estrella.
+ * Radar de oportunidades — `docs/vendrava/pantallas.md` §1, la pantalla estrella.
  *
  * Dos reglas de producto viven aquí:
  *
@@ -1469,6 +1469,13 @@ export default function ConectarRedesPage() {
         </div>
       </header>
 
+      {/* La barra del recorrido va pegada a la cabecera, como en las otras
+          cinco pantallas que la comparten. Con el banner por delante bajaba
+          56px cuando Metricool estaba desconectado, y el salto al cambiar de
+          página dependía de si había aviso o no. El banner es contenido de
+          esta página, así que va debajo. */}
+      <CaptureJourney active="attract" />
+
       <DataStatusBanner
         status={connectionStatus}
         message={connectionError || statusMessage(connectionStatus, { live: 'Metricool conectado: tus redes están listas para operar.', disconnected: 'Metricool está desconectado; conecta una cuenta para publicar.', demo: 'Modo demo explícito: no se publicará contenido real.', empty: 'Metricool está disponible, pero todavía no hay canales conectados.' })}
@@ -1476,8 +1483,6 @@ export default function ConectarRedesPage() {
         onAction={connectionStatus === 'disconnected' ? connect : undefined}
         actionLabel="Conectar Metricool"
       />
-
-      <CaptureJourney active="attract" />
 
       <RadarPanel
         data={radar}

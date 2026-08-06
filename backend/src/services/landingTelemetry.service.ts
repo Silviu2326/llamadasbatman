@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 
 /**
- * Telemetría de landings — docs/xarly/landings.md §3 y §7.
+ * Telemetría de landings — docs/vendrava/landings.md §3 y §7.
  *
  * Dos responsabilidades:
  *

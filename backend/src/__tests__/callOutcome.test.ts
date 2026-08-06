@@ -9,7 +9,7 @@ import {
 } from '../lib/callOutcome'
 
 /**
- * `Call.outcome` es la base del embudo económico de Ads (docs/xarly/ads.md
+ * `Call.outcome` es la base del embudo económico de Ads (docs/vendrava/ads.md
  * §4.4). Estas pruebas fijan el vocabulario para que nadie vuelva a introducir
  * valores que no se escriben nunca: antes de cerrarlo, tres pantallas
  * filtraban por `rejected` y `callback` y contaban cero para siempre.

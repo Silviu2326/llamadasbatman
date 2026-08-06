@@ -1,6 +1,6 @@
 import { RiAlertLine, RiCheckboxCircleLine, RiErrorWarningLine, RiQuestionLine, RiShieldCheckLine } from 'react-icons/ri'
 
-// Banda de integridad de docs/xarly/ads.md §4.2. Va antes de los KPI a
+// Banda de integridad de docs/vendrava/ads.md §4.2. Va antes de los KPI a
 // propósito: la página no puede pedir confianza en una cifra sin haber dicho
 // primero si puede confiar en los datos con los que la calculó.
 

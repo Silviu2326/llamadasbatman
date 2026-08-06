@@ -3,7 +3,7 @@ import { connectOptionalRedis, reportQueueError } from '../lib/optionalRedis'
 import { organizationsWithLandings, refreshLandingPerformance } from '../services/landingPerformance.service'
 
 /**
- * Agregado diario de la telemetría de landings (docs/xarly/landings.md §3.3).
+ * Agregado diario de la telemetría de landings (docs/vendrava/landings.md §3.3).
  *
  * La página lee snapshots, nunca eventos brutos: sin este job, cada carga de
  * /landings recorrería la tabla de eventos entera. Recalcula los últimos 28

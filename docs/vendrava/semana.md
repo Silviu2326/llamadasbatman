@@ -1,4 +1,4 @@
-# Xarly — esta semana (5–9 agosto 2026)
+# Vendrava — esta semana (5–9 agosto 2026)
 
 Objetivo de la semana: **el Radar funcionando de verdad** — la pantalla
 estrella con oportunidades reales extraídas de llamadas, CRM e inbox, y el

@@ -5,7 +5,7 @@ import { writeAuditLog } from '../lib/audit'
 import { diagnoseOrganization, type LandingDiagnosis } from './landingDiagnostics.service'
 
 /**
- * Variantes de landing — docs/xarly/landings.md §5.4 y §5.5.
+ * Variantes de landing — docs/vendrava/landings.md §5.4 y §5.5.
  *
  * Regla que gobierna todo el fichero: **una variante siempre nace con
  * justificación escrita**, nunca como cambio cosmético sin hipótesis. Sin

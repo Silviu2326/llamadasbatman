@@ -1,4 +1,4 @@
-# Xarly Orgánico — especificación de la página y del centro de mando
+# Vendrava Orgánico — especificación de la página y del centro de mando
 
 Instrucción de producto para la página de Captación orgánica (`/organic`). La
 página no debe ser otro panel de "visibilidad SEO" con puntuaciones sin
@@ -6,7 +6,7 @@ consecuencia: es el **centro de mando del circuito orgánico completo** —
 Landings y webs, Buscador de prospectos, Redes sociales y SEO son sus cuatro
 brazos ejecutores.
 
-> **Xarly Orgánico no optimiza visibilidad. Optimiza compradores que llegan
+> **Vendrava Orgánico no optimiza visibilidad. Optimiza compradores que llegan
 > sin pagar por ellos.**
 
 La tesis es el mismo circuito cerrado de `ads.md`, con tráfico no pagado:
@@ -82,7 +82,7 @@ Debe cambiar (defectos reales observados, no propuestas):
   ingesta no hay visitas orgánicas reales ni señal local.
 - No existe la vista de centro de mando: la página habla de "oportunidades
   SEO" pero no ve redes, prospección ni landings.
-- **No hay onboarding**: el proyecto se crea con una URL y nada más. Xarly no
+- **No hay onboarding**: el proyecto se crea con una URL y nada más. Vendrava no
   sabe qué vende el negocio, a quién, ni qué acontecimientos le importan. El
   onboarding adaptativo (§4) es la puerta de entrada que falta.
 
@@ -130,7 +130,7 @@ Los tres diagnósticos accionables del MVP (todos N1 — recomendar y explicar):
    landing de destino o intención del tráfico.
 2. **Demanda detectada sin pieza que la capture.** Search Console muestra
    impresiones crecientes en queries donde no hay artículo, landing ni ficha
-   optimizada — o la caza de Xarly (llamadas/CRM/inbox, `README.md`) detecta
+   optimizada — o la caza de Vendrava (llamadas/CRM/inbox, `README.md`) detecta
    una objeción repetida sin contenido que la responda. Enruta a `/seo`
    (artículo), `/redes-sociales` (post) o `/landings` (landing) según la
    intención.
@@ -141,14 +141,14 @@ Los tres diagnósticos accionables del MVP (todos N1 — recomendar y explicar):
 ## 4. Onboarding adaptativo y paquetes verticales
 
 No hay un formulario distinto para cada sector ni uno gigante con cien
-preguntas. El onboarding es **adaptativo**: empieza siendo universal, Xarly
+preguntas. El onboarding es **adaptativo**: empieza siendo universal, Vendrava
 investiga el negocio y, cuando identifica el sector, carga automáticamente un
 módulo especializado.
 
 ```text
 Datos básicos del negocio
         ↓
-Xarly analiza web, redes, productos y herramientas conectadas
+Vendrava analiza web, redes, productos y herramientas conectadas
         ↓
 Detecta sector, modelo de negocio y acontecimientos importantes
         ↓
@@ -156,11 +156,11 @@ El usuario confirma o corrige
         ↓
 Se carga el formulario especializado
         ↓
-Xarly crea el calendario, las fuentes y las automatizaciones
+Vendrava crea el calendario, las fuentes y las automatizaciones
 ```
 
 El resultado no es solo la configuración de `/organic`: el perfil que produce
-(sector, modelo, fuentes, acontecimientos, tono) alimenta a todo Xarly —
+(sector, modelo, fuentes, acontecimientos, tono) alimenta a todo Vendrava —
 orgánico, ads, landings y la caza de oportunidades. Se hace una vez.
 
 Así no se crea una plataforma "para pádel". Se crea una plataforma universal
@@ -190,9 +190,9 @@ Y un campo abierto:
 
 > Describe tu negocio como se lo explicarías a un nuevo empleado.
 
-### 4.2 Pantalla 2 — Xarly investiga el negocio
+### 4.2 Pantalla 2 — Vendrava investiga el negocio
 
-Con la web introducida, Xarly analiza: textos de la página, productos y
+Con la web introducida, Vendrava analiza: textos de la página, productos y
 servicios, publicaciones anteriores, tipo de clientes, ubicación, calendario,
 herramientas utilizadas, temas frecuentes, formatos publicados, tono y
 competidores. Y devuelve:
@@ -330,7 +330,7 @@ el embudo económico de siempre.
 
 ### 4.5 Los paquetes verticales
 
-Xarly tiene una biblioteca interna de módulos:
+Vendrava tiene una biblioteca interna de módulos:
 
 ```text
 Deporte · Inmobiliaria · Restauración · Clínicas · Gimnasios · Academias ·
@@ -372,14 +372,14 @@ Tres columnas:
 7. Activación
 ```
 
-**Centro — formulario dinámico.** Las preguntas cambian según lo que Xarly
+**Centro — formulario dinámico.** Las preguntas cambian según lo que Vendrava
 va descubriendo:
 
 > Hemos detectado partidos y clasificaciones en tu sistema. ¿Quieres que
-> Xarly genere contenido cuando ocurra alguno de estos eventos?
+> Vendrava genere contenido cuando ocurra alguno de estos eventos?
 
 **Derecha — vista previa viva.** Mientras el usuario configura, ve lo que
-Xarly hará:
+Vendrava hará:
 
 ```text
 Partido programado
@@ -401,7 +401,7 @@ usando el stack STT/TTS propio):
 > — Tenemos ligas de clubes. Los resultados se cargan al terminar y queremos
 > publicar el marcador y la clasificación.
 
-Xarly convierte esa explicación en configuración:
+Vendrava convierte esa explicación en configuración:
 
 ```text
 Fuente detectada: base de datos de partidos
@@ -415,7 +415,7 @@ técnicos como webhook, trigger o endpoint.
 
 ### 4.8 Detección progresiva
 
-Xarly no pretende conocer todo desde el primer día. El sistema se especializa
+Vendrava no pretende conocer todo desde el primer día. El sistema se especializa
 con el uso:
 
 > Hemos observado que publicas resultados los domingos. ¿Quieres que creemos
@@ -434,7 +434,7 @@ evidencia, nunca como configuración silenciosa.
 |---|---|---|
 | **1. Plantilla sectorial** | "Soy una inmobiliaria de Valencia" → configuración inicial del módulo vertical, para empezar rápido. | Fase 1 |
 | **2. Conectores reales** | CRM, calendario, partidos, inventario o agenda conectados; el contenido usa datos propios. | Fases 1–2 |
-| **3. Comportamiento aprendido** | Xarly descubre qué acontecimientos importan, qué publicaciones funcionan, qué temas producen leads, cuándo publicar y qué formatos generan ventas. | Fase 3 |
+| **3. Comportamiento aprendido** | Vendrava descubre qué acontecimientos importan, qué publicaciones funcionan, qué temas producen leads, cuándo publicar y qué formatos generan ventas. | Fase 3 |
 | **4. Automatización** | El sistema ejecuta flujos autorizados sin intervención. | Fase 4 |
 
 ### 4.10 Ejemplo completo: PadelTop
@@ -442,7 +442,7 @@ evidencia, nunca como configuración silenciosa.
 Durante el onboarding:
 
 ```text
-Xarly detecta:
+Vendrava detecta:
   Sector principal: deporte        Subsector: pádel
   Modelo: software para clubes
   Datos disponibles: partidos, resultados y clasificaciones
@@ -461,7 +461,7 @@ Después pregunta:
 Después:
 
 ```text
-¿Qué debe hacer Xarly?
+¿Qué debe hacer Vendrava?
 Partido programado        → crear previa
 Partido finalizado        → crear marcador
 Clasificación actualizada → crear carrusel
@@ -480,7 +480,7 @@ Contenido sensible  → aprobación obligatoria
 
 Pantalla final:
 
-> **Tu sistema de contenido está preparado.** Xarly vigilará 6 tipos de
+> **Tu sistema de contenido está preparado.** Vendrava vigilará 6 tipos de
 > acontecimientos, generará 4 formatos y solicitará aprobación únicamente en
 > 2 situaciones.
 
@@ -504,7 +504,7 @@ La página responde, en este orden, a cinco preguntas:
 1. ¿Puedo confiar en los datos? (¿qué canales están midiendo de verdad?)
 2. ¿Qué está pasando ahora en cada canal?
 3. ¿Qué canal produce compradores, no solo tráfico o leads?
-4. ¿Qué recomienda Xarly, por qué y en qué brazo se ejecuta?
+4. ¿Qué recomienda Vendrava, por qué y en qué brazo se ejecuta?
 5. ¿Qué puedo aprobar, delegar o descartar?
 
 ### 5.1 Cabecera y banda de integridad
@@ -590,7 +590,7 @@ descartadas, recomendación, confianza y enlace a evidencias. Las líneas base
 siguen las reglas de `landings.md` §3.4 (ventana madura, mínimo de volumen,
 ajuste por mezcla) aplicadas por canal.
 
-### 5.5 Panel "Qué recomienda Xarly"
+### 5.5 Panel "Qué recomienda Vendrava"
 
 Misma anatomía de tarjeta de decisión que `ads.md` §4.6, con el destino de
 ejecución explícito:
@@ -618,7 +618,7 @@ campaña, `/prospectos` con sector y ciudad, `/landings` con la oportunidad.
 Nunca un botón que "ya lo hace todo" desde el centro de mando.
 
 Este panel es la desembocadura común de tres corrientes: las señales de
-canal (Search Console, Metricool, GBP), la caza de Xarly sobre
+canal (Search Console, Metricool, GBP), la caza de Vendrava sobre
 llamadas/CRM/inbox (`README.md`) y los **acontecimientos de los conectores
 verticales** (§4.4: partido finalizado, nueva vivienda, ayuda publicada…).
 Todas entran en la misma cola priorizada con su evidencia.
@@ -652,7 +652,7 @@ evalúa antes de su ventana de maduración declarada.
 
 En la parte inferior, el mismo informe de negocio que `ads.md` §4.8, en
 lenguaje humano: qué cambió, qué canal produjo la señal más profunda, dónde
-se perdió el embudo, qué recomendó Xarly y qué se hizo, qué datos siguen
+se perdió el embudo, qué recomendó Vendrava y qué se hizo, qué datos siguen
 inmaduros, qué probar la semana siguiente. Existe desde la fase 1 — es la
 demostración de valor antes de cualquier autonomía. Comparte formato y motor
 con el informe de Ads: dos plumas, una redacción.
@@ -844,7 +844,7 @@ Cambios mínimos, en orden de necesidad:
 | Entidad | Cambio |
 |---|---|
 | `OrganicProject` | Guardar el perfil del onboarding: sectores (múltiples), modelo de negocio, objetivo, respuestas del módulo, nivel de personalización alcanzado. |
-| `OrganicOpportunity` | Generalizar: hoy solo nace de queries de Search Console. Añadir `channel` y `sourceKind` (query, post_angle, gbp, prospecting, xarly_hunt, **vertical_event**) para que sea la oportunidad única del circuito. |
+| `OrganicOpportunity` | Generalizar: hoy solo nace de queries de Search Console. Añadir `channel` y `sourceKind` (query, post_angle, gbp, prospecting, vendrava_hunt, **vertical_event**) para que sea la oportunidad única del circuito. |
 | `OrganicAction` | Convertirla en el registro medible: brazo destino, pieza resultante, métrica objetivo, ventana de maduración, resultado observado. |
 | `SocialPostRecord` (nuevo, mínimo) | Post creado vía Vendrava: canal, fecha, campaña, UTMs, oportunidad de origen, id externo de Metricool. Sin él no hay atribución social. |
 | `OrganicChannelSnapshot` (nuevo) | Agregado por período × canal: presencia, visitas, leads, cualificados, ventas, horas estimadas. La página lee snapshots, no recalcula en cada carga (mismo patrón que `landings.md` §3.3). |
@@ -899,7 +899,7 @@ canal mide con cobertura declarada.
 - ranking económico por canal y pieza con horas invertidas;
 - panel de recomendaciones con prioridad económica y `dispatch` a los brazos
   con contexto cargado;
-- integración con la caza de Xarly y con los acontecimientos verticales: las
+- integración con la caza de Vendrava y con los acontecimientos verticales: las
   tres corrientes en la misma cola priorizada (§5.5);
 - **conectores reales del nivel 2** (§4.9): primer `VerticalConnector` con
   API/feed del cliente (p. ej. partidos de PadelTop) emitiendo
@@ -922,7 +922,7 @@ reales del negocio.
   que funcionan, temas que producen leads, horarios), siempre por el panel de
   recomendaciones.
 
-**Salida:** Xarly puede demostrar qué recomendaciones funcionaron, con
+**Salida:** Vendrava puede demostrar qué recomendaciones funcionaron, con
 cohortes, no con anécdotas — y se especializa con el uso.
 
 ### Fase 4 — Autonomía limitada
@@ -1223,7 +1223,7 @@ un dato.
 
 **De la fase 3**
 
-- **Detección progresiva** (§4.8) y nivel 3 de personalización: que Xarly
+- **Detección progresiva** (§4.8) y nivel 3 de personalización: que Vendrava
   proponga reglas nuevas al observar el comportamiento — *"publicas resultados
   los domingos, ¿creamos un resumen semanal cada lunes?"*. Necesita histórico
   real de publicaciones para tener algo que observar, así que depende de que el
@@ -1272,7 +1272,7 @@ dependiendo de datos que solo llegan con cuentas reales conectadas:
   nada que ver con el cambio.
 - Hay datos de desarrollo sembrados: `npm run db:seed:ads` crea el circuito de
   Ads; el tráfico orgánico de prueba (61 leads en cuatro canales) se creó a mano
-  con ids prefijados `xarly-org-`.
+  con ids prefijados `vendrava-org-`.
 - El motor de contenido (`ContentOpportunity`, `ContentPiece`,
   `contentStudio.service.ts`) lo construye otra línea de trabajo. El orgánico lo
   **lee**, no lo reimplementa. Antes de tocarlo, coordinarse. La fase 4 lo lee

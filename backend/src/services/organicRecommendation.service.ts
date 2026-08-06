@@ -5,7 +5,7 @@ import { hoursForPieces } from '../data/effortEstimates'
 import { getWeights, recordDispatchedAction, recordFeedback } from './organicOutcome.service'
 
 /**
- * Diagnósticos y cola de recomendaciones del orgánico — `docs/xarly/organico.md`
+ * Diagnósticos y cola de recomendaciones del orgánico — `docs/vendrava/organico.md`
  * §3 y §5.5.
  *
  * Los tres diagnósticos del MVP:
@@ -283,7 +283,7 @@ export async function runOrganicDiagnostics(orgId: string, periodKey = '90d', pe
 
 /**
  * Cola priorizada del §5.5: las tres corrientes juntas y ordenadas por valor
- * económico. Las oportunidades de contenido de la caza de Xarly entran como
+ * económico. Las oportunidades de contenido de la caza de Vendrava entran como
  * una fuente más, sin duplicar su modelo.
  */
 export async function listOrganicRecommendations(orgId: string, limit = 20) {
@@ -302,7 +302,7 @@ export async function listOrganicRecommendations(orgId: string, limit = 20) {
       orderBy: [{ priorityScore: 'desc' }, { createdAt: 'desc' }],
       take: limit,
     }),
-    // La caza de Xarly sobre llamadas, CRM e inbox ya produce oportunidades:
+    // La caza de Vendrava sobre llamadas, CRM e inbox ya produce oportunidades:
     // se leen, no se reimplementan.
     prisma.contentOpportunity.findMany({
       where: { orgId, status: 'proposed' },
@@ -331,7 +331,7 @@ export async function listOrganicRecommendations(orgId: string, limit = 20) {
 
   const fromHunt = (huntOpportunities as Array<{ id: string; title: string; evidenceCount: number; evidenceSummary: string | null }>).map(item => ({
     id: item.id,
-    stream: 'xarly_hunt' as const,
+    stream: 'vendrava_hunt' as const,
     diagnosis: 'content_opportunity',
     channel: 'social',
     title: item.title,

@@ -126,7 +126,7 @@ function CampaignRow({ campaign, onOpen, onToggleStatus }) {
     <div className="campaign-progress-cell"><div><span>{campaign.progress}%</span><small>{campaign.progress === 100 ? 'Completada' : campaign.progress ? 'En curso' : 'Sin iniciar'}</small></div><div className="campaign-progress"><i style={{ width: `${campaign.progress}%`, background: type.color }} /></div></div>
     <strong className="campaign-number-cell">{campaign.totalLeads.toLocaleString(localeCode(getLocale()))}</strong>
     <div className="campaign-response-cell"><strong>{campaign.contacted.toLocaleString(localeCode(getLocale()))}</strong><span>{campaign.conversionLabel}</span></div>
-    <span>{campaign.agent?.name || 'Sin agente'}</span>
+    <span className="campaign-agent-cell">{campaign.agent?.name || 'Sin agente'}</span>
     <div className="campaign-row-actions"><button className="campaign-icon-button" title={campaign.status === 'active' ? 'Pausar campaña' : 'Activar campaña'} onClick={event => { event.stopPropagation(); onToggleStatus(campaign) }}>{campaign.status === 'active' ? <RiPauseCircleLine /> : <RiPlayCircleLine />}</button><button className="campaign-icon-button" title="Abrir campaña" onClick={event => { event.stopPropagation(); onOpen(campaign.id) }}><RiArrowRightLine /></button></div>
   </article>
 }

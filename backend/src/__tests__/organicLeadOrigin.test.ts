@@ -5,7 +5,7 @@ import { getLeadOrganicOrigin } from '../services/organicLeadOrigin.service'
 import { cleanupOrgs, createTestLead, createTestOrg } from './testHelpers'
 
 /**
- * Criterio de aceptación de §13 de `docs/xarly/organico.md`: seguir un lead
+ * Criterio de aceptación de §13 de `docs/vendrava/organico.md`: seguir un lead
  * desde la keyword, el post, la ficha, la prospección o el acontecimiento
  * vertical que lo trajo.
  *

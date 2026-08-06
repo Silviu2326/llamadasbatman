@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma'
 import { computeBaseline, describeBaseline } from './landingBaseline.service'
 
 /**
- * Informe por landing en euros — docs/xarly/landings.md §11, fase 4.
+ * Informe por landing en euros — docs/vendrava/landings.md §11, fase 4.
  *
  * "X cualificados, CAC Y, mejor variante Z". El informe existe para responder a
  * la pregunta del dueño del negocio, que no es cuál es la tasa de rebote sino

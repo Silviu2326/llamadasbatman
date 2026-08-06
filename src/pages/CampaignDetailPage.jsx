@@ -256,9 +256,9 @@ function EconomyTab({ campaignId }) {
     )}
 
     <section className="campaign-detail-card">
-      <div className="campaign-detail-card-header"><div><h2>Qué ha observado Xarly</h2><p>Historial completo, incluidas las decisiones ya resueltas.</p></div></div>
+      <div className="campaign-detail-card-header"><div><h2>Qué ha observado Vendrava</h2><p>Historial completo, incluidas las decisiones ya resueltas.</p></div></div>
       {decisions.length === 0
-        ? <div className="campaign-composer-empty"><span>Xarly no ha registrado ninguna observación sobre esta campaña.</span></div>
+        ? <div className="campaign-composer-empty"><span>Vendrava no ha registrado ninguna observación sobre esta campaña.</span></div>
         : <div className="campaign-timeline campaign-decision-log">
             {decisions.map(d => (
               <div className="campaign-timeline-item" key={d.id} style={{ '--timeline-color': d.severity === 'critical' ? 'var(--danger-soft)' : d.severity === 'warning' ? 'var(--warn-soft)' : 'var(--info)' }}>

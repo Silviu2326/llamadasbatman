@@ -361,12 +361,19 @@ export async function getOrganicOverview(orgId: string, options: { period?: stri
         ],
         // Mismo criterio que el embudo (`isOrganicEvent`): un `landing_lead`
         // de una campaña de pago no es un lead orgánico.
-        NOT: {
-          OR: [
-            { medium: { in: ['paid_social', 'cpc', 'ppc', 'paid', 'display', 'retargeting'] } },
-            { source: { in: ['meta', 'facebook_ads', 'google_ads', 'adwords', 'tiktok_ads'] } },
-          ],
-        },
+        //
+        // Se excluye medio a medio en vez de con un `NOT` sobre el OR entero.
+        // Con el `NOT` agrupado, un evento SIN medio quedaba fuera: en SQL
+        // `medium IN (...)` es NULL cuando `medium` es NULL, y `NOT NULL` no es
+        // verdadero, así que la fila se descartaba. Los `prospect_import` no
+        // tienen medio por naturaleza, de modo que la prospección nunca llegaba
+        // a contarse como lead orgánico —la tarjeta enseñaba menos leads que el
+        // embudo de justo debajo, que sí usa `isOrganicEvent` y trata el nulo
+        // como cadena vacía.
+        AND: [
+          { OR: [{ medium: null }, { medium: { notIn: ['paid_social', 'cpc', 'ppc', 'paid', 'display', 'retargeting'] } }] },
+          { source: { notIn: ['meta', 'facebook_ads', 'google_ads', 'adwords', 'tiktok_ads'] } },
+        ],
       },
       select: { leadId: true },
       distinct: ['leadId'],

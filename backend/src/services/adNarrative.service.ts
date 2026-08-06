@@ -2,7 +2,7 @@ import type { CampaignAttribution } from './adAttribution.service'
 import type { DataQualityIssue } from './adDataQuality.service'
 
 /**
- * Informe semanal narrado de `docs/xarly/ads.md` §4.8. Debe existir desde la
+ * Informe semanal narrado de `docs/vendrava/ads.md` §4.8. Debe existir desde la
  * Fase 1, antes de que haya autonomía: es la forma de demostrar valor sin
  * pedir permiso para actuar.
  *
@@ -143,17 +143,17 @@ export function buildWeeklyNarrative(input: {
     })
   }
 
-  // 3. Qué decidió Xarly o dejó pendiente
+  // 3. Qué decidió Vendrava o dejó pendiente
   const critical = decisions.filter(decision => decision.severity === 'critical')
   sections.push({
     key: 'decisions',
-    title: 'Qué observó Xarly',
+    title: 'Qué observó Vendrava',
     body: decisions.length
-      ? `Xarly ha registrado ${decisions.length === 1 ? '1 observación' : `${decisions.length} observaciones`}` +
+      ? `Vendrava ha registrado ${decisions.length === 1 ? '1 observación' : `${decisions.length} observaciones`}` +
         `${critical.length ? `, ${critical.length} de ellas graves` : ''}: ` +
         `${decisions.slice(0, 3).map(decision => `“${decision.title}”`).join('; ')}. ` +
-        'Ninguna se ha ejecutado: Xarly está en modo consultivo y todas esperan una decisión humana.'
-      : 'Xarly no ha detectado ningún problema que merezca una recomendación en este período.',
+        'Ninguna se ha ejecutado: Vendrava está en modo consultivo y todas esperan una decisión humana.'
+      : 'Vendrava no ha detectado ningún problema que merezca una recomendación en este período.',
   })
 
   // 4. Qué datos siguen inmaduros

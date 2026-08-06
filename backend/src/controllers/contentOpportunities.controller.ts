@@ -4,7 +4,7 @@ import * as radar from '../services/contentOpportunity.service'
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
 /**
- * El Radar (`docs/xarly/pantallas.md` §1). La lectura es barata —lee lo ya
+ * El Radar (`docs/vendrava/pantallas.md` §1). La lectura es barata —lee lo ya
  * analizado—; el refresco es el que llama al modelo y por eso exige permiso de
  * coste, igual que el generador de contenido.
  */

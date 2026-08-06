@@ -4,10 +4,10 @@ import { checkOrganizationLandings } from '../services/landingHealth.service'
 import { organizationsWithLandings } from '../services/landingPerformance.service'
 
 /**
- * Chequeo diario de salud técnica por landing (docs/xarly/landings.md §7.3).
+ * Chequeo diario de salud técnica por landing (docs/vendrava/landings.md §7.3).
  *
  * Su valor no es el informe de velocidad: es que el diagnóstico de mensaje (§6)
- * pueda descartar antes las causas técnicas. Sin esto, Xarly recomendaría
+ * pueda descartar antes las causas técnicas. Sin esto, Vendrava recomendaría
  * reescribir un hero que en realidad tarda seis segundos en pintarse.
  */
 const QUEUE_NAME = 'landing-health-check'

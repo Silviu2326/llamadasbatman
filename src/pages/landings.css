@@ -218,10 +218,13 @@
 .landings-kpi-icon { display: grid; place-items: center; width: 37px; height: 37px; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--kpi-color) 38%, transparent); border-radius: 10px; color: var(--kpi-color); background: color-mix(in srgb, var(--kpi-color) 12%, transparent); }
 .landings-kpi-icon svg { width: 18px; height: 18px; }
 .landings-kpi div:nth-child(2) { min-width: 0; }
-.landings-kpi span, .landings-kpi strong, .landings-kpi small { display: block; }
-.landings-kpi span { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.landings-kpi strong { margin-top: 2px; color: var(--text-strong); font-size: 21px; letter-spacing: -.65px; }
-.landings-kpi small { margin-top: 3px; color: var(--dim); font-size: 8.5px; }
+/* Acotado al bloque de texto: `.landings-kpi span` también alcanzaba al chip
+   del icono —un <span> hermano— y le ganaba a `.landings-kpi-icon`, dejándolo
+   en `display: block` con el icono pegado al borde de arriba. */
+.landings-kpi > div span, .landings-kpi > div strong, .landings-kpi > div small { display: block; }
+.landings-kpi > div span { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.landings-kpi > div strong { margin-top: 2px; color: var(--text-strong); font-size: 21px; letter-spacing: -.65px; }
+.landings-kpi > div small { margin-top: 3px; color: var(--dim); font-size: 8.5px; }
 .landings-kpi-spark { position: absolute; right: 12px; bottom: 12px; display: flex; align-items: flex-end; gap: 3px; width: 41px; height: 24px; opacity: .7; }
 .landings-kpi-spark i { display: block; width: 5px; border-radius: 5px; background: var(--kpi-color); }
 .landings-kpi-spark i:nth-child(1) { height: 8px; }.landings-kpi-spark i:nth-child(2) { height: 13px; }.landings-kpi-spark i:nth-child(3) { height: 10px; }.landings-kpi-spark i:nth-child(4) { height: 18px; }.landings-kpi-spark i:nth-child(5) { height: 23px; }

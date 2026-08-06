@@ -10,7 +10,7 @@ import {
 } from '../services/contentApproval.service'
 
 /**
- * Reglas del Estudio y la Sala (`docs/xarly/pantallas.md` §2 y §3).
+ * Reglas del Estudio y la Sala (`docs/vendrava/pantallas.md` §2 y §3).
  */
 
 test('la atomización produce las seis piezas de la fase 2', () => {

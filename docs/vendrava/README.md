@@ -1,6 +1,6 @@
-# Xarly — agencia de contenido: plan de ejecución
+# Vendrava — agencia de contenido: plan de ejecución
 
-Xarly es el nombre de trabajo del motor "agencia de contenido" que sustituye
+Vendrava es el nombre de trabajo del motor "agencia de contenido" que sustituye
 al generador actual de la página de Redes sociales (`ConectarRedesPage`).
 Visión completa: [`../ideas-agencia-contenido.md`](../ideas-agencia-contenido.md).
 Orden de construcción acordado: **11 + 13 + 23 + 27 → 8 → 16 → 19**

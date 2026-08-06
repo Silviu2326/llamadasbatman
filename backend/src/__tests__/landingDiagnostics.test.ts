@@ -4,7 +4,7 @@ import { channelMix, mixDistance } from '../services/landingBaseline.service'
 import { opportunitiesFrom, priorityOf, termOverlap, terms } from '../services/landingDiagnostics.service'
 
 /**
- * Reglas de la fase 2 de docs/xarly/landings.md: línea base (§3.4) y prioridad
+ * Reglas de la fase 2 de docs/vendrava/landings.md: línea base (§3.4) y prioridad
  * económica de los diagnósticos (§5.1). Lo que se protege aquí es la honestidad
  * de los números, que es lo único que hace útil a esta página.
  */

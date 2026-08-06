@@ -1,6 +1,6 @@
 import { RiArrowRightSLine, RiFilterLine } from 'react-icons/ri'
 
-// Embudo económico de docs/xarly/ads.md §4.4. Su trabajo no es enseñar
+// Embudo económico de docs/vendrava/ads.md §4.4. Su trabajo no es enseñar
 // números bonitos, sino dejar ver en qué paso concreto deja de avanzar el
 // dinero, y decir hasta dónde llega hoy la señal fiable.
 
@@ -39,7 +39,7 @@ export default function AdsFunnel({ funnel, deepestEligibleSignal, eligibilityRe
           <p>Del clic al comprador, en los últimos {periodDays} días.</p>
         </div>
         <span className="ads-funnel-signal">
-          <RiFilterLine /> Xarly evalúa hasta: <b>{SIGNAL_LABEL[deepestEligibleSignal] ?? 'sin señal'}</b>
+          <RiFilterLine /> Vendrava evalúa hasta: <b>{SIGNAL_LABEL[deepestEligibleSignal] ?? 'sin señal'}</b>
         </span>
       </div>
 
@@ -69,9 +69,9 @@ export default function AdsFunnel({ funnel, deepestEligibleSignal, eligibilityRe
       </ol>
 
       <footer className="ads-funnel-foot">
-        {/* Meta optimiza a lead porque es la señal que puede medir; Xarly llega
+        {/* Meta optimiza a lead porque es la señal que puede medir; Vendrava llega
             más lejos. Mostrar ambas evita la impresión de que discrepan. */}
-        <p><b>Meta optimiza a:</b> Lead · <b>Xarly evalúa hasta:</b> {SIGNAL_LABEL[deepestEligibleSignal] ?? '—'}</p>
+        <p><b>Meta optimiza a:</b> Lead · <b>Vendrava evalúa hasta:</b> {SIGNAL_LABEL[deepestEligibleSignal] ?? '—'}</p>
         {eligibilityReason && <p className="ads-funnel-reason">{eligibilityReason}</p>}
         {leak && (
           <p className="ads-funnel-leak">

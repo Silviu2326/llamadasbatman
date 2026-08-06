@@ -1,4 +1,4 @@
-# Xarly — roadmap técnico por fases
+# Vendrava — roadmap técnico por fases
 
 Orden acordado: **11 + 13 + 23 + 27 → 8 → 16 → 19**. Cada fase termina con
 algo usable por la organización demo; ninguna fase depende de una posterior.

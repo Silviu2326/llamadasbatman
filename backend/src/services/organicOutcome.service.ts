@@ -3,9 +3,9 @@ import { QUALIFYING_CALL_OUTCOMES } from '../lib/callOutcome'
 import { classifyChannel, isOrganicEvent, type OrganicChannel } from './organicChannels.service'
 
 /**
- * Cerrar el bucle — fase 3 de `docs/xarly/organico.md`.
+ * Cerrar el bucle — fase 3 de `docs/vendrava/organico.md`.
  *
- * Xarly debe poder demostrar **qué recomendaciones funcionaron, con cohortes y
+ * Vendrava debe poder demostrar **qué recomendaciones funcionaron, con cohortes y
  * no con anécdotas**. Para eso hacen falta tres cosas, y las tres se hacen
  * aquí:
  *

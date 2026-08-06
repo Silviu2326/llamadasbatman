@@ -5,7 +5,7 @@ import * as ctrl from '../controllers/contentOpportunities.controller'
 import * as studio from '../controllers/contentStudio.controller'
 
 /**
- * Radar de oportunidades de contenido (`docs/xarly/pantallas.md` §1).
+ * Radar de oportunidades de contenido (`docs/vendrava/pantallas.md` §1).
  *
  * `refresh` analiza conversaciones con un LLM, así que exige el mismo permiso
  * de coste que el generador de `/api/metricool/ai/generate`.

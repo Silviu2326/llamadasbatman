@@ -350,7 +350,7 @@ export default function AdsPage() {
         <aside className="ads-intelligence"><section className="ads-selection"><div className="ads-rail-title"><RiLineChartLine /><h2>Campaña seleccionada</h2></div>{selectedCampaign ? <><strong>{selectedCampaign.name}</strong><p>{selectedCampaign.objective || 'Sin objetivo definido.'}</p><dl><div><dt>Leads</dt><dd>{selectedCampaign.period.leadsCount ?? noMeasurement}</dd></div><div><dt>Reuniones</dt><dd>{selectedCampaign.meetingsScheduled}</dd></div><div><dt>Límite CPL</dt><dd>{formatCents(selectedCampaign.maxCostPerLeadCents, true, locale)}</dd></div></dl>
           {/* Cuando el anuncio funciona y la conversión no, el diagnóstico vive
               en la landing: se abre allí con el contexto ya cargado
-              (docs/xarly/landings.md §11, fase 2). */}
+              (docs/vendrava/landings.md §11, fase 2). */}
           <Link className="ads-landing-link" to={`/landings?campaign=${selectedCampaign.id}`}>Ver la landing de esta campaña <RiArrowRightLine /></Link><div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
           {!selectedCampaign.metaCampaignId ? <button className="ads-action primary wide" onClick={() => manageCampaign('publish')} disabled={managingCampaign}><RiRocketLine /> {managingCampaign ? 'Enviando…' : 'Publicar borrador en Meta'}</button> : selectedCampaign.crmStatus === 'active' || selectedCampaign.status === 'active' ? <button className="ads-action secondary wide" onClick={() => manageCampaign('pause')} disabled={managingCampaign}><RiPauseCircleLine /> {managingCampaign ? 'Pausando…' : 'Pausar en Meta'}</button> : <button className="ads-action primary wide" onClick={() => manageCampaign('activate')} disabled={managingCampaign}><RiPlayCircleLine /> {managingCampaign ? 'Activando…' : 'Activar en Meta'}</button>}
           <button className="ads-action secondary wide" onClick={syncSelectedCampaign} disabled={managingCampaign}><RiRefreshLine /> Sincronizar estado</button>
@@ -359,7 +359,7 @@ export default function AdsPage() {
         <section className="ads-recommendation-panel">
           <div className="ads-section-head">
             <div>
-              <h2>Qué recomienda Xarly</h2>
+              <h2>Qué recomienda Vendrava</h2>
               <p>Cada observación dice con qué datos se hizo, cuánta confianza tiene y qué la limita.</p>
             </div>
             <RiSparkling2Line />
@@ -374,7 +374,7 @@ export default function AdsPage() {
         busyId={decidingId}
       />
       <AdsNarrative narrative={overview.weeklyNarrative} />
-      <p className="ads-circuit"><span>Gobierno</span><small>Hasta dónde puede llegar Xarly sin preguntar</small></p>
+      <p className="ads-circuit"><span>Gobierno</span><small>Hasta dónde puede llegar Vendrava sin preguntar</small></p>
       <AdsAutonomy
         rules={rules}
         policy={overview.policy}

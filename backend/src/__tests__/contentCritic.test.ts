@@ -9,7 +9,7 @@ import { estimateSeconds, voiceoverScript, wavFromPcm16 } from '../services/cont
 import { hashToken } from '../services/contentApprovalLink.service'
 
 /**
- * Reglas de la fase 2 y la fase 3 de `docs/xarly/roadmap.md`: editor adversario,
+ * Reglas de la fase 2 y la fase 3 de `docs/vendrava/roadmap.md`: editor adversario,
  * chequeo de especificidad, plantilla de marca, locución y cadencia semanal.
  */
 

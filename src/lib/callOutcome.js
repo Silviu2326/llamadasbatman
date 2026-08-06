@@ -18,7 +18,7 @@ export const CALL_OUTCOME = {
   UNKNOWN: 'unknown',
 }
 
-/** Resultados que cualifican un lead (docs/xarly/ads.md §4.4). */
+/** Resultados que cualifican un lead (docs/vendrava/ads.md §4.4). */
 export const QUALIFYING_CALL_OUTCOMES = [
   CALL_OUTCOME.MEETING_SCHEDULED,
   CALL_OUTCOME.TRANSFERRED_TO_HUMAN,

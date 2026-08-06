@@ -3,9 +3,9 @@ import { fetchWithTimeout } from '../lib/integrationRuntime'
 import { VERTICAL_MODULES, detectSectors, getModule, type VerticalModule } from '../data/verticalModules'
 
 /**
- * Onboarding adaptativo — `docs/xarly/organico.md` §4.
+ * Onboarding adaptativo — `docs/vendrava/organico.md` §4.
  *
- * El recorrido: formulario universal → Xarly investiga el negocio → detecta
+ * El recorrido: formulario universal → Vendrava investiga el negocio → detecta
  * sector con confianza → el usuario confirma o corrige → cargan las preguntas
  * de ese sector → se activan las reglas del núcleo universal.
  *
@@ -95,7 +95,7 @@ function textFromHtml(html: string): string {
 }
 
 /**
- * Pantalla 2: Xarly investiga el negocio y propone sectores con su confianza.
+ * Pantalla 2: Vendrava investiga el negocio y propone sectores con su confianza.
  *
  * Lee la web de verdad y puntúa contra el vocabulario de cada módulo. Devuelve
  * los términos encontrados para que la confianza sea **defendible**: el usuario
@@ -279,7 +279,7 @@ export async function completeOnboarding(orgId: string, choices: RuleChoice[]) {
       formats: formats.size,
       approvals: needsApproval.length,
       sentence:
-        `Xarly vigilará ${rules.length} tipo${rules.length === 1 ? '' : 's'} de acontecimientos, ` +
+        `Vendrava vigilará ${rules.length} tipo${rules.length === 1 ? '' : 's'} de acontecimientos, ` +
         `generará ${formats.size} formato${formats.size === 1 ? '' : 's'} y solicitará aprobación ` +
         // "situación" pierde la tilde en plural: "situaciones", no "situaciónes".
         `en ${needsApproval.length} ${needsApproval.length === 1 ? 'situación' : 'situaciones'}.`,
@@ -290,7 +290,7 @@ export async function completeOnboarding(orgId: string, choices: RuleChoice[]) {
 }
 
 /**
- * Vista previa viva (§4.6, columna derecha): qué hará Xarly con lo configurado
+ * Vista previa viva (§4.6, columna derecha): qué hará Vendrava con lo configurado
  * hasta ahora. Se calcula desde las reglas elegidas, no desde un ejemplo fijo.
  */
 export function previewTimeline(moduleKey: string, eventKeys: string[]) {

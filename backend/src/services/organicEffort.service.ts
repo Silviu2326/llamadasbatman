@@ -4,7 +4,7 @@ import { minutesForFormat, hoursForProspects } from '../data/effortEstimates'
 import { classifyChannel, isOrganicEvent, type OrganicChannel } from './organicChannels.service'
 
 /**
- * Horas invertidas y ranking por pieza — `docs/xarly/organico.md` §5.2 y §5.4.
+ * Horas invertidas y ranking por pieza — `docs/vendrava/organico.md` §5.2 y §5.4.
  *
  * El gasto del orgánico es tiempo, así que "coste por cualificado en tiempo" es
  * lo que aquí sustituye al CAC. Hasta ahora las horas se rellenaban a mano;

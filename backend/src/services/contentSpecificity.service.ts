@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma'
 
 /**
  * Chequeo de especificidad — idea 27, la casilla que faltaba de
- * `docs/xarly/semana.md` día 3.
+ * `docs/vendrava/semana.md` día 3.
  *
  * El prompt ya prohibía inventar cifras. Eso evita la mentira, pero no evita lo
  * otro: la frase de folleto que no dice nada ("amplia experiencia", "precios

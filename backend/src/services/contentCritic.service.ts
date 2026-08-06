@@ -3,7 +3,7 @@ import { findResidualPii } from '../lib/pseudonymize'
 import { BrandFact, SpecificityFlag, pieceTextFields, reviewPieceBody } from './contentSpecificity.service'
 
 /**
- * Editor adversario — idea 21, `docs/xarly/roadmap.md` fase 2.
+ * Editor adversario — idea 21, `docs/vendrava/roadmap.md` fase 2.
  *
  * Ninguna pieza se enseña sin pasar por aquí. El orden no es casual:
  *

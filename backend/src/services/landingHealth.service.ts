@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma'
 
 /**
- * Salud técnica de la landing — docs/xarly/landings.md §7.3.
+ * Salud técnica de la landing — docs/vendrava/landings.md §7.3.
  *
  * Su papel en el producto no es informar de velocidad: es **descartar causas
  * técnicas antes de diagnosticar mensaje** (§6). Acusar al copy de un hero que

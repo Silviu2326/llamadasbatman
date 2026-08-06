@@ -84,7 +84,7 @@ export async function getFunnelsOverview(orgId: string) {
     // Las visitas son las que se midieron y nada más. `adAssets.visits` era un
     // contador escrito a mano que aquí se SUMABA a los eventos reales: una
     // campaña con 200 visitas heredadas y 30 medidas mostraba 230. Es la doble
-    // fuente de verdad que señala docs/xarly/landings.md §12.
+    // fuente de verdad que señala docs/vendrava/landings.md §12.
     //
     // Sin eventos el valor es `null` —sin medición—, nunca `0`: una campaña
     // anterior a la atribución no midió cero visitas, no midió ninguna.

@@ -4,7 +4,7 @@ import { writeAuditLog } from '../lib/audit'
 import { VariantError } from './landingVariants.service'
 
 /**
- * Prueba social de la landing — docs/xarly/landings.md §5.4.
+ * Prueba social de la landing — docs/vendrava/landings.md §5.4.
  *
  * La regla es corta y no admite atajos: **solo clientes ganados, con
  * `ContactConsent` y aprobación expresa**.

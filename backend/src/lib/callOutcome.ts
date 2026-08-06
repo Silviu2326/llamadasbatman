@@ -56,7 +56,7 @@ export const CALL_OUTCOMES = Object.values(CALL_OUTCOME) as readonly CallOutcome
 
 /**
  * Resultados que cualifican un lead — la definición de "resultado de llamada
- * válido" de `docs/xarly/ads.md` §4.4.
+ * válido" de `docs/vendrava/ads.md` §4.4.
  *
  * Deliberadamente NO incluye `interested` de forma implícita por ser positivo:
  * está aquí porque el lead conversó y expresó intención. Lo que queda fuera es

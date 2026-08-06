@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { AUTONOMOUS_CHANGES, HUMAN_ONLY_CHANGES, SENSITIVE_CONTENT_RULES } from '../services/landingAutonomy.service'
 
 /**
- * Guardarraíles de docs/xarly/landings.md §10.
+ * Guardarraíles de docs/vendrava/landings.md §10.
  *
  * Estas pruebas existen para que aflojar un guardarraíl sea un acto consciente
  * y visible en el diff, no un efecto colateral de "mejorar" una expresión

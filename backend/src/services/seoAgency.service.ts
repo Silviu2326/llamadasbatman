@@ -68,6 +68,9 @@ export interface SeoReport extends SeoAiPlan {
   generatedAt: string
 }
 
+/** Informe leído de BD: lleva el id de la fila para poder compartirlo. */
+export type StoredSeoReport = SeoReport & { reportId: string }
+
 let anthropicClient: Anthropic | null = null
 
 function getAnthropicClient() {
@@ -541,24 +544,27 @@ export async function saveReport(orgId: string, report: SeoReport, auto = false)
  * al limpiar el almacenamiento. El informe ya se persistía en `SeoReport` desde
  * el primer día: solo faltaba una forma de leerlo (`organico.md` §7.3).
  */
-export async function latestReport(orgId: string, url?: string): Promise<SeoReport | null> {
+export async function latestReport(orgId: string, url?: string): Promise<StoredSeoReport | null> {
   const row = await prisma.seoReport.findFirst({
     where: { orgId, ...(url ? { url } : {}) },
     orderBy: { createdAt: 'desc' },
     select: { id: true, report: true, createdAt: true },
   })
   if (!row?.report) return null
-  return row.report as unknown as SeoReport
+  // El id de la fila viaja con el informe. Sin él la pantalla no sabía qué
+  // informe tenía delante y el botón «compartir» acababa generando el enlace
+  // del más reciente aunque estuvieras viendo uno antiguo del historial.
+  return { ...(row.report as unknown as SeoReport), reportId: row.id }
 }
 
 /** Un informe concreto del historial, para poder volver a uno anterior. */
-export async function reportById(orgId: string, id: string): Promise<SeoReport | null> {
+export async function reportById(orgId: string, id: string): Promise<StoredSeoReport | null> {
   const row = await prisma.seoReport.findFirst({
     where: { id, orgId },
-    select: { report: true },
+    select: { id: true, report: true },
   })
   if (!row?.report) return null
-  return row.report as unknown as SeoReport
+  return { ...(row.report as unknown as SeoReport), reportId: row.id }
 }
 
 export async function listHistory(orgId: string, url?: string) {

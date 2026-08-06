@@ -3,7 +3,7 @@ import { ECONOMICS_PERIOD_DAYS, getCampaignAttribution, type CampaignAttribution
 import { expireDecisions, recordDecision } from './adDecision.service'
 
 /**
- * Los tres diagnósticos del MVP de `docs/xarly/ads.md` §3:
+ * Los tres diagnósticos del MVP de `docs/vendrava/ads.md` §3:
  *
  *   1. Gasto sin leads cualificados
  *   2. Fatiga creativa

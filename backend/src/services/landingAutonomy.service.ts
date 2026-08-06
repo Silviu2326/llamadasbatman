@@ -7,7 +7,7 @@ import { computeBaseline } from './landingBaseline.service'
 import { diagnoseOrganization, type LandingDiagnosis } from './landingDiagnostics.service'
 
 /**
- * Autonomía de landings — docs/xarly/landings.md §10.
+ * Autonomía de landings — docs/vendrava/landings.md §10.
  *
  * Tres capas, y ninguna es opcional:
  *
