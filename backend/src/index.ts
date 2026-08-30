@@ -73,6 +73,7 @@ import { outcomesRoutes } from './routes/outcomes'
 import { studioRoutes } from './routes/studio'
 import { websiteIntakeRoutes } from './routes/websiteIntake'
 import { webConnectionsRoutes } from './routes/webConnections'
+import { webEventsRoutes } from './routes/webEvents'
 import { studioReviewPublicRoutes } from './routes/studioReviewPublic'
 import { marketplaceRoutes } from './routes/marketplace'
 import { organizationsRoutes } from './routes/organizations'
@@ -269,6 +270,7 @@ async function build() {
   await app.register(studioRoutes, { prefix: '/api/studio' })
   await app.register(websiteIntakeRoutes, { prefix: '/api/intake' })
   await app.register(webConnectionsRoutes, { prefix: '/api/web-connections' })
+  await app.register(webEventsRoutes, { prefix: '/api/web-events' })
   await app.register(studioReviewPublicRoutes, { prefix: '/api/public/studio-review' })
   await app.register(marketplaceRoutes, { prefix: '/api/marketplace' })
   await app.register(organizationsRoutes, { prefix: '/api/organizations' })

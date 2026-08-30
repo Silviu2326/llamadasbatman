@@ -27,3 +27,23 @@ CREATE INDEX "WebsiteConnection_orgId_status_idx" ON "WebsiteConnection"("orgId"
 ALTER TABLE "WebsiteConnection"
   ADD CONSTRAINT "WebsiteConnection_orgId_fkey"
   FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE TABLE "WebsiteEvent" (
+    "id" TEXT NOT NULL,
+    "connectionId" TEXT NOT NULL,
+    "eventName" TEXT NOT NULL,
+    "path" TEXT,
+    "referrer" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "WebsiteEvent_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "WebsiteEvent_connectionId_occurredAt_idx" ON "WebsiteEvent"("connectionId", "occurredAt");
+CREATE INDEX "WebsiteEvent_eventName_occurredAt_idx" ON "WebsiteEvent"("eventName", "occurredAt");
+
+ALTER TABLE "WebsiteEvent"
+  ADD CONSTRAINT "WebsiteEvent_connectionId_fkey"
+  FOREIGN KEY ("connectionId") REFERENCES "WebsiteConnection"("id") ON DELETE CASCADE ON UPDATE CASCADE;

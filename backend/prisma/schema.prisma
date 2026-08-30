@@ -468,9 +468,28 @@ model WebsiteConnection {
   updatedAt         DateTime @updatedAt
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  events WebsiteEvent[]
 
   @@unique([orgId, domain])
   @@index([orgId, status])
+}
+
+// Eventos mínimos de la capa universal. No se guardan valores de formularios
+// ni IPs: solo señales operativas anonimizadas para medir captación.
+model WebsiteEvent {
+  id           String   @id @default(cuid())
+  connectionId String
+  eventName    String
+  path         String?
+  referrer     String?
+  metadata     Json?
+  occurredAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  connection WebsiteConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, occurredAt])
+  @@index([eventName, occurredAt])
 }
 
 // Preferencias por usuario para /configuracion. Separado de User porque son

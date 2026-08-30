@@ -80,9 +80,12 @@ function capabilitiesFor(technology: string, mode: WebsiteConnectionMode): Capab
 
 function scriptInstall(siteKey: string) {
   const scriptUrl = process.env.VENDRAVA_WEB_CLIENT_URL?.trim() || 'https://cdn.vendrava.com/web-client.js'
+  const eventUrl = process.env.VENDRAVA_WEB_EVENTS_URL?.trim()
+    || `${process.env.PUBLIC_HOST?.trim() || 'https://api.vendrava.com'}/api/web-events/collect`
   return {
     scriptUrl,
-    snippet: `<script defer src="${scriptUrl}" data-vendrava-site="${siteKey}"></script>`,
+    eventUrl,
+    snippet: `<script defer src="${scriptUrl}" data-vendrava-site="${siteKey}" data-vendrava-endpoint="${eventUrl}"></script>`,
   }
 }
 
@@ -173,4 +176,25 @@ export async function updateWebsiteConnection(params: { orgId: string; id: strin
 
 export function isWebsiteConnectionMode(value: unknown): value is WebsiteConnectionMode {
   return typeof value === 'string' && (WEBSITE_CONNECTION_MODES as readonly string[]).includes(value)
+}
+
+export async function recordWebsiteEvent(input: { siteKey: string; eventName: string; path?: string; referrer?: string; origin?: string }) {
+  const connection = await prisma.websiteConnection.findUnique({ where: { siteKey: input.siteKey }, select: { id: true, domain: true } })
+  if (!connection) return false
+  if (input.origin) {
+    try {
+      if (domainOf(input.origin) !== connection.domain) return false
+    } catch {
+      return false
+    }
+  }
+  await prisma.websiteEvent.create({
+    data: {
+      connectionId: connection.id,
+      eventName: input.eventName.slice(0, 80),
+      path: input.path?.slice(0, 1_000) || null,
+      referrer: input.referrer?.slice(0, 1_000) || null,
+    },
+  })
+  return true
 }
