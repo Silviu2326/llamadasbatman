@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   RiCheckboxCircleLine, RiErrorWarningLine, RiExternalLinkLine, RiKey2Line,
-  RiLoader4Line, RiPlugLine, RiShieldFlashLine,
+  RiGlobalLine, RiLoader4Line, RiPlugLine, RiShieldFlashLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -261,6 +262,7 @@ function ProviderCard({ provider, onChanged, canManage }) {
 }
 
 export default function ConnectionsCenterPage() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [providers, setProviders] = useState([])
   const [listState, setListState] = useState('loading') // loading | ready | empty | error
@@ -300,6 +302,7 @@ export default function ConnectionsCenterPage() {
             <p>Cada proveedor externo de la plataforma: su estado, lo que sabe hacer, lo que consume este mes y tus propias claves (BYOK).</p>
           </div>
         </div>
+        <button type="button" className="conn-button primary" onClick={() => navigate('/conexiones/web')}><RiGlobalLine /> Conectar una web</button>
       </header>
 
       {listState === 'loading' && <div className="conn-state" role="status"><RiLoader4Line className="conn-spin" /><strong>Cargando proveedores…</strong></div>}

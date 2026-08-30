@@ -64,6 +64,7 @@ const AssetsLibraryPage = lazy(() => import('./pages/AssetsLibraryPage'))
 const MicroappsCatalogPage = lazy(() => import('./pages/MicroappsCatalogPage'))
 const MicroappRunnerPage = lazy(() => import('./pages/MicroappRunnerPage'))
 const ConnectionsCenterPage = lazy(() => import('./pages/ConnectionsCenterPage'))
+const WebsiteConnectionsPage = lazy(() => import('./pages/WebsiteConnectionsPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
 import SongStudioPage from './pages/SongStudioPage'
@@ -158,6 +159,7 @@ export default function App() {
             <Route path="/microapps" element={<MicroappsCatalogPage />} />
             <Route path="/microapps/:id" element={<MicroappRunnerPage />} />
             <Route path="/conexiones" element={<ConnectionsCenterPage />} />
+            <Route path="/conexiones/web" element={<WebsiteConnectionsPage />} />
             <Route path="/studio" element={<StudioPage />} />
             <Route path="/studio/:id" element={<StudioPage />} />
             <Route path="/marketplace" element={<MarketplacePage />} />

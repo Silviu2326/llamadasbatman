@@ -160,6 +160,7 @@ const NAVIGATION_REQUIREMENTS = {
   // coste que /prospectos. No hay un "microapps.read" en la política actual.
   '/microapps': { anyOf: ['jobs.read', 'costs.request'] },
   '/conexiones': ['integrations.read'],
+  '/conexiones/web': ['integrations.read'],
   '/studio': ['social.read'],
   '/marketplace': ['integrations.read'],
   '/growth': ['growth.read'],
