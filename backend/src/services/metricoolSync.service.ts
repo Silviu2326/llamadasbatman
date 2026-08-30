@@ -7,6 +7,8 @@ import {
   responseErrorCode,
 } from '../lib/integrationRuntime'
 import { resolveOrganizationCredentialConfig } from './organizationCredentials.service'
+import { checkAssetsConsentForPublication } from './consent.service'
+import { emitOutcome } from './outcomes.service'
 
 const DEFAULT_BASE_URL = 'https://app.metricool.com/api'
 const DEFAULT_TIMEZONE = 'Europe/Madrid'
@@ -207,19 +209,43 @@ export async function createDraftPost(
      * cubre `approveAndDraft`.
      */
     instagramType?: 'POST' | 'STORY' | 'REEL'
+    /**
+     * Assets de la pieza (imagen/audio), si el llamante los conoce. Solo se
+     * usan para el guard de consentimiento de identidad (08-SEGURIDAD §2.3):
+     * si su cadena (el asset o un antecesor) apunta a un ConsentGrant
+     * revocado/caducado o fuera de alcance para los canales de destino, la
+     * publicación se bloquea. Sin assets o sin consentGrantId en la cadena
+     * (lo normal hoy) el comportamiento no cambia en nada.
+     */
+    imageAssetId?: string
+    audioAssetId?: string
   },
   orgId?: string,
 ) {
   const config = await getConfig(orgId)
   if (!config) return null
+  // Guard de publicación (08 §2.3): un consentimiento revocado no sale a redes.
+  const guardedAssetIds = [content.imageAssetId, content.audioAssetId].filter((id): id is string => Boolean(id))
+  if (orgId && guardedAssetIds.length) {
+    const consent = await checkAssetsConsentForPublication({ orgId, assetIds: guardedAssetIds, channels: content.platforms.map(normalizedPlatform) })
+    if (!consent.valid) {
+      throw new Error(`Publicación bloqueada por consentimiento de identidad${consent.subjectName ? ` de «${consent.subjectName}»` : ''}: ${consent.reason ?? 'consentimiento no válido'}`)
+    }
+  }
+  // Publicación desatendida. Por defecto la pieza aterriza como borrador y una
+  // persona le da a publicar en Metricool; con METRICOOL_AUTO_PUBLISH=true sale
+  // sola en la fecha programada, sin lectura humana.
+  // ponytail: un interruptor global — si algún día hace falta por cliente, el
+  // sitio es `getConfig`, que ya resuelve por organización.
+  const live = process.env.METRICOOL_AUTO_PUBLISH === 'true'
   const date = publicationDate(content.scheduledAt, config.timezone)
   const media = content.imageUrl ? [await normalizeMedia(content.imageUrl, orgId)] : []
   const posts = await Promise.all(content.platforms.map(async platform => {
     const network = normalizedPlatform(platform)
     const landingUrl = buildAttributedLandingUrl(content.attribution, platform)
     const payload = {
-      autoPublish: false,
-      draft: true,
+      autoPublish: live,
+      draft: !live,
       media,
       mediaAltText: [],
       providers: [{ network }],
@@ -242,5 +268,14 @@ export async function createDraftPost(
     return responseData(await res.json().catch(() => null))
   }))
   if (posts.some(post => !post)) return null
+  // North star (09 §5): una pieza que llega a redes es un resultado. Nunca
+  // lanza, y solo se emite con org conocida (el modo legacy por env no la tiene).
+  if (orgId) {
+    await emitOutcome({
+      orgId,
+      kind: 'asset_published',
+      sourceRef: { campaignId: content.attribution.campaignId, platforms: content.platforms, utmContent: content.attribution.utmContent ?? null },
+    })
+  }
   return posts.length === 1 ? posts[0] : { campaignId: content.attribution.campaignId, posts }
 }

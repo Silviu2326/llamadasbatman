@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RiArrowRightLine, RiCheckLine, RiCompass3Line, RiEyeLine, RiSearchEyeLine } from 'react-icons/ri'
+import './organic-components.css'
 import { apiFetch } from '../../lib/api'
 
 // Onboarding adaptativo de organico.md §4.6: tres columnas — pasos, formulario

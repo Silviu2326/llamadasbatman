@@ -7,10 +7,15 @@ import { logOperational, safeOperationalError } from './observability/operationa
 
 let stopWorkerHeartbeat: (() => void) | null = null
 let stopping = false
+// PostgreSQL-backed jobs use unref'ed polling timers so they never keep the
+// API process alive accidentally. The dedicated worker is a long-lived
+// process by definition, so it needs one explicit keep-alive handle.
+const workerKeepAlive = setInterval(() => undefined, 60_000)
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (stopping) return
   stopping = true
+  clearInterval(workerKeepAlive)
   stopWorkerHeartbeat?.()
   stopWorkerHeartbeat = null
   logOperational('info', 'worker.shutdown', { worker: 'dedicated-worker', status: signal })
@@ -24,6 +29,34 @@ async function startWorkers(): Promise<void> {
   startOrchestrationWorker()
   logOperational('info', 'worker.component.started', { worker: 'orchestration' })
 
+  // Plataforma abierta: adapters y ejecutores deben estar registrados ANTES
+  // de que el jobDispatcher reclame filas, o los kinds quedarían sin ejecutor.
+  const { ensureProvidersRegistered } = await import('./providers')
+  ensureProvidersRegistered()
+  logOperational('info', 'worker.component.started', { worker: 'providers' })
+
+  // Polling de respaldo de trabajos asíncronos en Magnific: el webhook es el
+  // camino normal; esto rescata los que se pierden.
+  const { pollPendingMagnificJobs, pollPendingRunwayJobs } = await import('./routes/providerWebhooks')
+  const magnificPollTimer = setInterval(() => {
+    pollPendingMagnificJobs().catch((error: unknown) => {
+      logOperational('error', 'worker.magnific.poll_failed', {
+        worker: 'providers',
+        errorCode: error instanceof Error ? error.message.slice(0, 120) : 'UNKNOWN',
+      })
+    })
+  }, 5 * 60_000)
+  magnificPollTimer.unref()
+  const runwayPollTimer = setInterval(() => {
+    pollPendingRunwayJobs().catch((error: unknown) => {
+      logOperational('error', 'worker.runway.poll_failed', {
+        worker: 'providers',
+        errorCode: error instanceof Error ? error.message.slice(0, 120) : 'UNKNOWN',
+      })
+    })
+  }, Math.max(10_000, Number(process.env.RUNWAY_POLL_INTERVAL_MS ?? 30_000)))
+  runwayPollTimer.unref()
+
   await Promise.all([
     import('./jobs/automationRunner'),
     import('./jobs/leadCallDispatch'),
@@ -32,6 +65,7 @@ async function startWorkers(): Promise<void> {
     import('./jobs/outboxDispatcher'),
     import('./jobs/temporalEventScheduler'),
     import('./jobs/importJobRunner'),
+    import('./jobs/leadEnrichment'),
     import('./jobs/campaignSendRunner'),
     import('./jobs/salesSequenceRunner'),
     import('./jobs/seoAuditRefresh'),
@@ -40,6 +74,9 @@ async function startWorkers(): Promise<void> {
     import('./jobs/landingAutonomyPass'),
     import('./jobs/organicAutonomyPass'),
     import('./jobs/contentWeeklyRefresh'),
+    import('./jobs/whiteLabelTraining'),
+    import('./jobs/jobDispatcher'),
+    import('./jobs/flowRunner'),
   ])
 
   // The heartbeat starts after all worker modules have loaded. A partially

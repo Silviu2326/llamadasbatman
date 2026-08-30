@@ -59,6 +59,14 @@ export {
 export { requireEntitlement, type EntitlementOptions } from './requireEntitlement'
 
 export {
+  CONSUMPTION_RESOURCES,
+  assertConsumptionLimit,
+  consumptionSnapshot,
+  consumptionUsage,
+  type ConsumptionResource,
+} from './consumption'
+
+export {
   APPROVAL_RULES,
   SENSITIVE_ACTIONS,
   ApprovalPolicyError,

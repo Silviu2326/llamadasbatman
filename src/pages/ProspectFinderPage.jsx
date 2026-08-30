@@ -10,9 +10,9 @@ import { useI18n } from '../i18n'
 import { DEMO_MODE } from '../lib/dataMode'
 import { downloadCsv } from '../lib/csv'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
-import prospectCompass from '../assets/prospect-compass.png'
-import CaptureJourney from '../components/capture/CaptureJourney'
+import ProductPageHeader from '../components/ui/ProductPageHeader'
 import './prospect.css'
+import './growth-visual-standard.css'
 
 const SORT_OPTIONS = [
   { value: 'quickScore', label: 'Oportunidad' },
@@ -94,6 +94,7 @@ export default function ProspectFinderPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [autoAudit, setAutoAudit] = useState(false)
   const [autoCall, setAutoCall] = useState(false)
+  const [autoEmail, setAutoEmail] = useState(false)
   const campaignSelectRef = useRef(null)
 
   useEffect(() => {
@@ -255,15 +256,24 @@ export default function ProspectFinderPage() {
           enrich: true,
           autoAudit,
           autoCall,
+          // El email frío necesita hallazgos: sin auditar no hay nada cierto
+          // que escribir, así que activarlo activa también la auditoría.
+          autoEmail: autoEmail && autoAudit,
           items,
         }),
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(getApiError(body, 'No se pudieron importar los prospectos seleccionados'))
+      const detail = [
+        body.skipped ? `${body.skipped} ya estaban en tu CRM y se omitieron.` : '',
+        body.emailed ? `${body.emailed} recibieron email frío escrito desde su auditoría.` : '',
+        // Los fallos se dicen con motivo: "3 sin email" no deja hacer nada.
+        body.emailFailures?.length ? `${body.emailFailures.length} sin email: ${[...new Set(body.emailFailures.map(item => item.reason))].slice(0, 2).join(' · ')}` : '',
+      ].filter(Boolean).join(' ')
       setNotice({
         type: 'import',
         title: `${body.imported || 0} prospectos importados en ${selectedCampaign?.name || 'la campaña'}`,
-        detail: body.skipped ? `${body.skipped} ya estaban en tu CRM y se omitieron de forma segura.` : 'La lista ya está disponible para seguimiento comercial.',
+        detail: detail || 'La lista ya está disponible para seguimiento comercial.',
         campaignId,
       })
       const processedIds = new Set(items.map(item => item.placeId))
@@ -293,18 +303,8 @@ export default function ProspectFinderPage() {
 
   return (
     <div className="prospect-page dark-scroll">
-      <header className="prospect-header">
-        <div className="prospect-title">
-          <div className="prospect-mark"><img src={prospectCompass} alt="" /><RiCompass3Line /></div>
-          <div><span className="prospect-overline">{locale === 'en' ? 'Revenue intelligence' : 'Inteligencia comercial'}</span><h1>Prospect Finder</h1><p>{locale === 'en' ? 'Find opportunities and activate them within a campaign.' : 'Encuentra oportunidades y actívalas dentro de una campaña.'}</p></div>
-        </div>
-        <div className="prospect-header-meta">
-          <span className="prospect-live"><i /> {locale === 'en' ? 'Search engine ready' : 'Motor de búsqueda listo'}</span>
-          <span className="prospect-kicker-stat"><strong>{results.length || '—'}</strong> {locale === 'en' ? 'prospects found' : 'prospectos encontrados'}</span>
-        </div>
-      </header>
+      <ProductPageHeader Icon={RiCompass3Line} title="Prospect Finder" description={locale === 'en' ? 'Find opportunities and activate them within a campaign.' : 'Encuentra oportunidades y actívalas dentro de una campaña.'} />
 
-      <CaptureJourney active="attract" />
 
       <section className="prospect-search-card" aria-labelledby="prospect-search-title">
         <div className="search-card-copy">
@@ -395,6 +395,9 @@ export default function ProspectFinderPage() {
                 <div className="prospect-import-actions">
                   <label><input type="checkbox" checked={autoAudit} onChange={event => setAutoAudit(event.target.checked)} /> Auditar al importar</label>
                   <label><input type="checkbox" checked={autoCall} onChange={event => setAutoCall(event.target.checked)} /> Activar llamada</label>
+                  <label title={autoAudit ? 'Escribe a cada prospecto con los hallazgos de su propia auditoría.' : 'Necesita "Auditar al importar": sin hallazgos no hay email que escribir.'}>
+                    <input type="checkbox" checked={autoEmail && autoAudit} disabled={!autoAudit} onChange={event => setAutoEmail(event.target.checked)} /> Email frío desde la auditoría
+                  </label>
                   <button className="prospect-import-button" type="button" disabled={!selected.size || importing} onClick={handleImport} aria-busy={importing}>
                     {importing ? <RiLoader4Line className="prospect-spin" /> : <RiUploadCloud2Line />}
                     {importing ? 'Importando…' : !campaignId && selected.size ? 'Selecciona campaña' : 'Importar seleccionados'}

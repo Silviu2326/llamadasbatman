@@ -63,6 +63,24 @@ export async function leadsRoutes(app: FastifyInstance) {
       requireEntitlement('crm'),
     ],
   }, ctrl.audit as any)
+  // Email frío escrito desde la auditoría. Redactar cuesta una llamada al
+  // modelo (costs.request) pero no sale nada; enviar sí escribe a una persona
+  // y exige además el permiso de contacto.
+  app.post('/:id/outbound-email/draft', {
+    preHandler: [
+      requirePermission('leads.write', { scope: 'org' }),
+      requirePermission('costs.request', { scope: 'org' }),
+      requireEntitlement('crm'),
+    ],
+  }, ctrl.draftOutboundEmail as any)
+  app.post('/:id/outbound-email/send', {
+    preHandler: [
+      requirePermission('leads.contact', { scope: 'org' }),
+      requirePermission('conversations.write', { scope: 'org' }),
+      requirePermission('costs.request', { scope: 'org' }),
+      requireEntitlement('crm'),
+    ],
+  }, ctrl.sendOutboundEmail as any)
   app.post('/:id/notes', canMutateOrg, ctrl.createNote as any)
   app.post('/:id/files', canMutateOrg, ctrl.uploadFile as any)
   app.post('/:id/send-email', {

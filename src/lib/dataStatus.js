@@ -5,6 +5,28 @@ export function classifyFetchError(error) {
     : 'error'
 }
 
+/**
+ * Fallos que se arreglan solos si se vuelve a preguntar en un segundo.
+ *
+ * El Postgres de la plataforma es serverless y suspende el cómputo tras unos
+ * minutos sin tráfico: la primera petición después de esa pausa puede fallar al
+ * conectar, y `middlewares/authenticate.ts` la devuelve como 503 con el código
+ * DATABASE_UNAVAILABLE. Lo mismo pasa mientras el backend se reinicia, cuando el
+ * proxy de desarrollo responde 5xx porque nadie escucha todavía. En los tres
+ * casos no hay nada que «comprobar»: hay que reintentar.
+ */
+export function isRetryableDataError(error) {
+  if (error?.code === 'DATABASE_UNAVAILABLE') return true
+  const status = Number(error?.status)
+  if (Number.isFinite(status)) return status >= 500 && status !== 501
+  return classifyFetchError(error) === 'disconnected'
+}
+
+/** Espera creciente entre reintentos, en milisegundos. */
+export function retryDelayMs(attempt) {
+  return [700, 1600, 3200][attempt] ?? 3200
+}
+
 // A successful HTTP response is not automatically a live data state.  A
 // number of endpoints legitimately return an empty object/array when the
 // integration is connected but has not produced activity yet.  Keeping this

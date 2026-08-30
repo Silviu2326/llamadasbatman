@@ -160,8 +160,8 @@ export async function enqueueConversionSignal(input: EnqueueInput) {
  * se guardan en la fila en vez de propagarse, para que el outbox decida si
  * reintenta según `status` y `attempts`.
  */
-export async function deliverConversionSignal(signalId: string) {
-  const signal = await prisma.adConversionSignal.findUnique({ where: { id: signalId } })
+export async function deliverConversionSignal(orgId: string, signalId: string) {
+  const signal = await prisma.adConversionSignal.findFirst({ where: { id: signalId, orgId } })
   if (!signal || signal.status !== 'pending') return signal
   if (signal.attempts >= MAX_ATTEMPTS) {
     return prisma.adConversionSignal.update({
@@ -261,7 +261,7 @@ export async function deliverConversionSignal(signalId: string) {
 async function sendStage(input: EnqueueInput) {
   try {
     const signal = await enqueueConversionSignal(input)
-    if (signal?.status === 'pending') return deliverConversionSignal(signal.id)
+    if (signal?.status === 'pending') return deliverConversionSignal(signal.orgId, signal.id)
     return signal
   } catch (error) {
     console.warn(`[MetaConversions] ${input.stage} error:`, (error as Error).message)
@@ -317,7 +317,7 @@ export async function retryPendingSignals(orgId: string, limit = 25) {
     take: limit,
     select: { id: true },
   })
-  for (const signal of pending) await deliverConversionSignal(signal.id)
+  for (const signal of pending) await deliverConversionSignal(orgId, signal.id)
   return pending.length
 }
 

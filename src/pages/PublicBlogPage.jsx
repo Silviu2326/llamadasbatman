@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { renderMarkdown } from '../lib/simpleMarkdown'
+import PageLoadingState from '../components/ui/PageLoadingState'
 
 // Blog público de una landing: lista de artículos y detalle. El detalle fija
 // title y meta description para que Google indexe cada artículo.
@@ -33,6 +34,8 @@ export function PublicBlogIndexPage() {
   const { slug } = useParams()
   const { data: articles, error, loading } = useBlogFetch(`/api/public/seo/blog/${encodeURIComponent(slug ?? '')}`)
 
+  if (loading) return <PageLoadingState label="Cargando blog" />
+
   return (
     <div style={styles.page}>
       <header style={{ marginBottom: 24 }}>
@@ -58,6 +61,8 @@ export function PublicBlogPostPage() {
   const { data: article, error, loading } = useBlogFetch(
     `/api/public/seo/blog/${encodeURIComponent(slug ?? '')}/${encodeURIComponent(articleSlug ?? '')}`
   )
+
+  if (loading) return <PageLoadingState label="Cargando artículo" />
 
   useEffect(() => {
     if (!article?.name) return undefined

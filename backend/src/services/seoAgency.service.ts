@@ -2,18 +2,19 @@
  * "Agencia SEO" bajo demanda: reutiliza la auditoría heurística de
  * digitalAudit.service (un fetch al HTML público) y añade la capa que haría
  * una agencia — checklist técnico priorizado, estudio de keywords, plan de
- * contenidos y SEO local — redactada por Claude. Sin CLAUDE_API_KEY degrada
+ * contenidos y SEO local — redactada por DeepSeek. Sin DEEPSEEK_API_KEY degrada
  * a un plan determinista basado en plantillas por sector/ciudad.
  */
 import { randomBytes } from 'node:crypto'
 import { lookup } from 'node:dns/promises'
 import tls from 'node:tls'
-import Anthropic from '@anthropic-ai/sdk'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { auditBusiness, DigitalAuditResult } from './digitalAudit.service'
 import { createKnowledgeBase, updateKnowledgeBase } from './knowledge.service'
+import { reviewArticleText } from './contentCritic.service'
+import { askJson, askText, fastModel, isDeepseekConfigured, smartModel } from '../lib/deepseek'
 import { querySearchAnalytics } from './organicGoogleIntegration.service'
 import { ingestLead } from './leadIngestion.service'
 
@@ -63,7 +64,7 @@ export interface SeoReport extends SeoAiPlan {
   checklist: SeoChecklistItem[]
   site?: SiteCrawl | null
   webVitals?: WebVitals | null
-  provider: 'claude' | 'fallback'
+  provider: 'deepseek' | 'fallback'
   model: string
   generatedAt: string
 }
@@ -71,16 +72,18 @@ export interface SeoReport extends SeoAiPlan {
 /** Informe leído de BD: lleva el id de la fila para poder compartirlo. */
 export type StoredSeoReport = SeoReport & { reportId: string }
 
-let anthropicClient: Anthropic | null = null
-
-function getAnthropicClient() {
-  const apiKey = process.env.CLAUDE_API_KEY
-  if (!apiKey) return null
-  if (!anthropicClient) {
-    const timeoutSeconds = Number(process.env.CLAUDE_TIMEOUT_SECONDS ?? 30)
-    anthropicClient = new Anthropic({ apiKey, timeout: timeoutSeconds * 1000 })
-  }
-  return anthropicClient
+/**
+ * Reparto de modelos en SEO:
+ *
+ * - **JSON con criterio** (plan de keywords, keyword gap) → razonador. Elegir
+ *   qué keywords ataca un negocio pequeño es un juicio, no una extracción.
+ * - **Texto libre** (artículo, refresco) → modelo rápido, y no por precio: el
+ *   razonador escribe su cadena de pensamiento antes de contestar, y en una
+ *   respuesta sin estructura no hay JSON del que recortarla. Un artículo que
+ *   empieza con el razonamiento del modelo es un artículo roto.
+ */
+function aiAvailable(): boolean {
+  return isDeepseekConfigured()
 }
 
 export function buildChecklist(audit: DigitalAuditResult): SeoChecklistItem[] {
@@ -153,22 +156,14 @@ export function buildFallbackPlan(input: SeoReportInput, checklist: SeoChecklist
   }
 }
 
-function parseJsonObject(text: string) {
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  if (start < 0 || end <= start) throw new Error('La respuesta IA no contiene JSON válido')
-  return JSON.parse(text.slice(start, end + 1)) as unknown
-}
-
-async function enhanceWithClaude(
+async function enhanceWithAi(
   input: SeoReportInput,
   audit: DigitalAuditResult,
   checklist: SeoChecklistItem[],
   fallback: SeoAiPlan
-): Promise<{ plan: SeoAiPlan; provider: 'claude' | 'fallback'; model: string }> {
-  const client = getAnthropicClient()
-  const model = process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6'
-  if (!client) return { plan: fallback, provider: 'fallback', model: 'deterministic-v1' }
+): Promise<{ plan: SeoAiPlan; provider: 'deepseek' | 'fallback'; model: string }> {
+  const model = smartModel()
+  if (!aiAvailable()) return { plan: fallback, provider: 'fallback', model: 'deterministic-v1' }
 
   const failed = checklist.filter((c) => !c.ok).map((c) => c.label)
   const prompt = `
@@ -193,15 +188,16 @@ Devuelve exactamente esta estructura (todo en español):
 Las keywords deben ser realistas para un negocio pequeño (long-tail incluida), sin volúmenes inventados. No prometas posiciones ni plazos garantizados.
 `
 
-  const response = await client.messages.create({
+  const raw = await askJson<unknown>({
     model,
-    max_tokens: 2500,
+    maxTokens: 2500,
+    label: 'seo:plan',
     system: 'Responde en español y valida mentalmente que el JSON cumple la estructura pedida.',
-    messages: [{ role: 'user', content: prompt }],
+    prompt,
   })
-  const text = response.content.find((block) => block.type === 'text')?.text ?? ''
-  const plan = aiPlanSchema.parse(parseJsonObject(text))
-  return { plan, provider: 'claude', model }
+  if (!raw) throw new Error('La IA no devolvió un plan válido')
+  const plan = aiPlanSchema.parse(raw)
+  return { plan, provider: 'deepseek', model }
 }
 
 // ---------------------------------------------------------------------------
@@ -491,16 +487,16 @@ export async function generateSeoReport(input: SeoReportInput, opts: { skipAi?: 
   const fallback = buildFallbackPlan(input, checklist)
 
   let plan = fallback
-  let provider: 'claude' | 'fallback' = 'fallback'
+  let provider: 'deepseek' | 'fallback' = 'fallback'
   let model = 'deterministic-v1'
   if (!opts.skipAi) {
     try {
-      const enhanced = await enhanceWithClaude(input, audit, checklist, fallback)
+      const enhanced = await enhanceWithAi(input, audit, checklist, fallback)
       plan = enhanced.plan
       provider = enhanced.provider
       model = enhanced.model
     } catch (error) {
-      console.warn('[SeoAgency] Claude no disponible; usando plan determinista:', (error as Error).message)
+      console.warn('[SeoAgency] la IA no devolvió plan; usando el determinista:', (error as Error).message)
     }
   }
 
@@ -630,6 +626,17 @@ function rowFromOpportunity(metadata: Prisma.JsonValue, query: string): SearchCo
   }
 }
 
+function opportunityScore(row: SearchConsoleRow): number {
+  const impressions = Math.max(0, row.impressions)
+  const clicks = Math.max(0, row.clicks)
+  const position = row.position ?? 30
+  // Una consulta en segunda página tiene más recorrido que una ya asentada
+  // en top 3; los clics observados siguen pesando para no premiar solo el
+  // volumen bruto de impresiones.
+  const positionFactor = position >= 4 && position <= 20 ? 1.5 : position > 20 ? 0.9 : 0.25
+  return impressions * positionFactor + clicks * 10
+}
+
 export async function searchConsolePerformance(orgId: string, keywords: string[]) {
   const integration = await prisma.organicIntegration.findFirst({
     where: { orgId, provider: 'search_console', status: 'connected' },
@@ -653,6 +660,15 @@ export async function searchConsolePerformance(orgId: string, keywords: string[]
       .slice(0, 3),
   }))
   const topQueries = [...rows].sort((a, b) => b.clicks - a.clicks).slice(0, 10)
+  const isPlannedQuery = (query: string) => normalized.some((keyword) => query.toLowerCase().includes(keyword) || keyword.includes(query.toLowerCase()))
+  const quickWins = rows
+    .filter((row) => row.impressions > 0 && row.position != null && row.position >= 4 && row.position <= 20)
+    .sort((a, b) => opportunityScore(b) - opportunityScore(a))
+    .slice(0, 30)
+  const contentGaps = rows
+    .filter((row) => row.impressions > 0 && (row.position == null || row.position > 10) && !isPlannedQuery(row.query))
+    .sort((a, b) => opportunityScore(b) - opportunityScore(a))
+    .slice(0, 30)
 
   return {
     connected: !!integration,
@@ -660,6 +676,8 @@ export async function searchConsolePerformance(orgId: string, keywords: string[]
     totalQueries: rows.length,
     matched,
     topQueries,
+    quickWins,
+    contentGaps,
   }
 }
 
@@ -672,7 +690,7 @@ export async function searchConsolePerformance(orgId: string, keywords: string[]
 export class SeoAiUnavailable extends Error {
   code = 'SEO_AI_NOT_CONFIGURED'
   constructor() {
-    super('La redacción de contenidos necesita la IA configurada (CLAUDE_API_KEY).')
+    super('La redacción de contenidos necesita la IA configurada (DEEPSEEK_API_KEY).')
   }
 }
 
@@ -683,12 +701,16 @@ export interface SeoArticleInput {
   business?: string
   sector?: string
   city?: string
+  mode?: 'activa' | 'pasiva'
+  brief?: string
+  audience?: string
+  tone?: string
+  cta?: string
 }
 
 export async function generateSeoArticle(orgId: string, input: SeoArticleInput) {
-  const client = getAnthropicClient()
-  if (!client) throw new SeoAiUnavailable()
-  const model = process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6'
+  if (!aiAvailable()) throw new SeoAiUnavailable()
+  const model = fastModel()
 
   // Enlazado interno: la IA conoce los artículos ya publicados y sugiere
   // cómo enlazarlos entre sí — el interlinking es de lo que más posiciona.
@@ -707,36 +729,54 @@ Eres el redactor SEO senior de Vendrava. Escribe un artículo completo en españ
 - Negocio: ${input.business || 'no indicado'}
 - Sector: ${input.sector || 'no indicado'}
 - Ciudad: ${input.city || 'no indicada'}
+- Modo SEO: ${input.mode === 'activa' ? 'activa, orientada a servicio y conversión' : 'pasiva, orientada a autoridad e información'}
+- Audiencia: ${input.audience || 'no indicada'}
+- Brief aportado por el negocio: ${input.brief || 'no indicado'}
+- Tono: ${input.tone || 'profesional y claro'}
+- CTA preferida: ${input.cta || 'no indicada'}
 ${existing.length ? `- Otros artículos ya publicados del mismo negocio: ${existing.map((a) => `"${a.name}"`).join(', ')}` : ''}
 
 Requisitos:
 - 700-1100 palabras, estructura H2/H3, párrafos cortos.
 - La keyword principal en el primer párrafo, en al menos un H2 y de forma natural (sin keyword stuffing).
 - Cierra con una llamada a la acción hacia el negocio.
+${input.mode === 'activa' ? '- Prioriza objeciones, beneficios verificables, confianza y una CTA concreta sin promesas absolutas.' : '- Prioriza explicación clara, ejemplos prácticos, preguntas frecuentes y enlaces internos sugeridos.'}
 ${existing.length ? '- Termina con una sección "## Enlaces internos sugeridos" que liste a qué artículos ya publicados enlazar desde este texto y con qué anchor text.' : ''}
 - Empieza con una línea "META: <meta description de 120-155 caracteres>" y después el artículo.
 - No inventes datos, estadísticas con fuente ni testimonios.
 `
 
-  const response = await client.messages.create({
+  const text = (await askText({
     model,
-    max_tokens: 4000,
+    maxTokens: 4000,
+    label: 'seo:article',
     system: 'Responde solo con la línea META y el artículo en Markdown, sin comentarios adicionales.',
-    messages: [{ role: 'user', content: prompt }],
-  })
-  const text = response.content.find((block) => block.type === 'text')?.text?.trim() ?? ''
+    prompt,
+  }))?.trim() ?? ''
   if (text.length < 300) throw new Error('La IA devolvió un artículo demasiado corto')
 
   const metaMatch = text.match(/^META:\s*(.+)$/m)
   const metaDescription = metaMatch?.[1]?.trim() ?? null
-  const content = text.replace(/^META:.*$/m, '').trim()
+  const draft = text.replace(/^META:.*$/m, '').trim()
+
+  // El artículo pasa por el mismo panel creativo que las piezas de redes antes
+  // de guardarse. Era el único contenido del producto que se publicaba con una
+  // sola pasada del modelo, y desde que `write_article` puede publicarlo solo
+  // esa pasada única era también la última lectura que tenía.
+  const reviewed = await reviewArticleText(draft)
 
   const article = await createKnowledgeBase(orgId, {
     name: input.title,
     type: 'seo-article',
-    content,
+    content: reviewed.text,
   })
-  return { articleId: article.id, name: article.name, metaDescription, model }
+  return {
+    articleId: article.id,
+    name: article.name,
+    metaDescription,
+    model,
+    review: reviewed.report,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1040,9 +1080,8 @@ const keywordGapSchema = z.object({
 })
 
 export async function keywordGap(ownKeywords: string[], competitorUrls: string[]) {
-  const client = getAnthropicClient()
-  if (!client) throw new SeoAiUnavailable()
-  const model = process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6'
+  if (!aiAvailable()) throw new SeoAiUnavailable()
+  const model = smartModel()
 
   const signals = await Promise.all(
     [...new Set(competitorUrls.map((u) => u.trim()).filter(Boolean))].slice(0, 3).map(fetchCompetitorSignals)
@@ -1061,14 +1100,15 @@ Identifica hasta 12 keywords o temas que los competidores atacan y el cliente NO
 Devuelve exactamente: {"gaps":[{"keyword":"...","competitor":"dominio del competidor","rationale":"por qué es una oportunidad"}]}
 Solo keywords realistas deducibles de las señales — no inventes datos de volumen.
 `
-  const response = await client.messages.create({
+  const raw = await askJson<unknown>({
     model,
-    max_tokens: 1500,
+    maxTokens: 1500,
+    label: 'seo:keyword-gap',
     system: 'Responde en español con el JSON pedido.',
-    messages: [{ role: 'user', content: prompt }],
+    prompt,
   })
-  const text = response.content.find((block) => block.type === 'text')?.text ?? ''
-  return keywordGapSchema.parse(parseJsonObject(text))
+  if (!raw) throw new Error('La IA no devolvió el análisis de keywords')
+  return keywordGapSchema.parse(raw)
 }
 
 // ---------------------------------------------------------------------------
@@ -1135,9 +1175,8 @@ export async function listStaleArticles(orgId: string) {
 }
 
 export async function refreshArticle(orgId: string, articleId: string) {
-  const client = getAnthropicClient()
-  if (!client) throw new SeoAiUnavailable()
-  const model = process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6'
+  if (!aiAvailable()) throw new SeoAiUnavailable()
+  const model = fastModel()
 
   const article = await prisma.knowledgeBase.findFirst({
     where: { id: articleId, orgId, type: 'seo-article', isActive: true },
@@ -1145,16 +1184,13 @@ export async function refreshArticle(orgId: string, articleId: string) {
   })
   if (!article?.content) return null
 
-  const response = await client.messages.create({
+  const text = (await askText({
     model,
-    max_tokens: 4000,
+    maxTokens: 4000,
+    label: 'seo:refresh',
     system: 'Responde solo con el artículo actualizado en Markdown, sin comentarios adicionales.',
-    messages: [{
-      role: 'user',
-      content: `Actualiza este artículo SEO para que vuelva a estar fresco: revisa afirmaciones que suenen desactualizadas, mejora la estructura si hace falta y mantén la keyword y el tono. Conserva el idioma original.\n\n# ${article.name}\n\n${article.content.slice(0, 12_000)}`,
-    }],
-  })
-  const text = response.content.find((block) => block.type === 'text')?.text?.trim() ?? ''
+    prompt: `Actualiza este artículo SEO para que vuelva a estar fresco: revisa afirmaciones que suenen desactualizadas, mejora la estructura si hace falta y mantén la keyword y el tono. Conserva el idioma original.\n\n# ${article.name}\n\n${article.content.slice(0, 12_000)}`,
+  }))?.trim() ?? ''
   if (text.length < 300) throw new Error('La IA devolvió un refresco demasiado corto')
 
   await updateKnowledgeBase(orgId, article.id, { content: text })

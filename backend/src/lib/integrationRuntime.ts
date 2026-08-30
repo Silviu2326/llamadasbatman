@@ -239,6 +239,42 @@ export async function fetchWithTimeout(
   }
 }
 
+/** Lee un body remoto con límite duro y deadline total. `fetch()` resuelve al
+ * recibir cabeceras, por lo que su timeout por sí solo no protege una descarga
+ * que gotea bytes indefinidamente ni un body mayor de lo anunciado. */
+export async function readResponseBufferLimited(
+  response: Response,
+  maxBytes: number,
+  timeoutMs = MAX_TIMEOUT_MS,
+): Promise<Buffer> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) throw new Error('RESPONSE_LIMIT_INVALID')
+  const declared = Number(response.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > maxBytes) throw new Error('RESPONSE_BODY_TOO_LARGE')
+  if (!response.body) return Buffer.alloc(0)
+
+  const reader = response.body.getReader()
+  const chunks: Buffer[] = []
+  let total = 0
+  let timeout: NodeJS.Timeout | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error('RESPONSE_BODY_TIMEOUT')), Math.max(1_000, Math.min(MAX_TIMEOUT_MS, timeoutMs)))
+    timeout.unref?.()
+  })
+  try {
+    while (true) {
+      const part = await Promise.race([reader.read(), deadline])
+      if (part.done) break
+      total += part.value.byteLength
+      if (total > maxBytes) throw new Error('RESPONSE_BODY_TOO_LARGE')
+      chunks.push(Buffer.from(part.value))
+    }
+    return Buffer.concat(chunks, total)
+  } finally {
+    if (timeout) clearTimeout(timeout)
+    await reader.cancel().catch(() => undefined)
+  }
+}
+
 export async function responseErrorCode(response: Response): Promise<string> {
   const text = (await response.text().catch(() => '')).slice(0, 4_000)
   const safe = redactProviderError(text)

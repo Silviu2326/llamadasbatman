@@ -99,7 +99,6 @@ export function DeliverabilityPanel() {
           <h2>Entregabilidad</h2>
           <p>Si tus emails no llegan a bandeja de entrada, ninguna otra métrica importa.</p>
         </div>
-        <button className="email-button ghost" onClick={load}><RiRefreshLine /> Actualizar</button>
       </div>
 
       <div className="email-deliver-grid">
@@ -224,7 +223,6 @@ export function SubscribersPanel({ onNotice }) {
           <h2>Suscriptores</h2>
           <p>Quién ha dado permiso para recibir cada categoría. Es la misma lista que consulta la barrera de envío.</p>
         </div>
-        <button className="email-button ghost" onClick={() => { loadRows(); loadSummary() }}><RiRefreshLine /> Actualizar</button>
       </div>
 
       {purposes.length > 0 && (
@@ -438,7 +436,6 @@ export function InboxPanel() {
           <h2>Bandeja de entrada</h2>
           <p>Respuestas de email de tus contactos, con el hilo completo y el lead asociado.</p>
         </div>
-        <button className="email-button ghost" onClick={load}><RiRefreshLine /> Actualizar</button>
       </div>
 
       {state === 'loading' ? <p className="email-campaigns-loading">Cargando bandeja…</p>
@@ -613,7 +610,6 @@ export function TrackingPanel() {
           <h2>Seguimiento de envíos</h2>
           <p>Un registro por destinatario: qué le llegó, cuándo, si lo abrió y por qué falló.</p>
         </div>
-        <button className="email-button ghost" onClick={load}><RiRefreshLine /> Actualizar</button>
       </div>
 
       <div className="email-toolbar">

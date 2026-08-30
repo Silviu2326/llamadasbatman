@@ -1,8 +1,10 @@
 import { prisma } from '../lib/prisma'
+import { Prisma } from '@prisma/client'
 import type { LeadStatus, MarketingCampaign } from '@prisma/client'
 import { writeAuditLog } from '../lib/audit'
 import * as mauticSync from './mauticSync.service'
 import { assertEmailSendAllowed } from '../lib/emailCompliance'
+import { assignVariantKey } from './landingExperiments.service'
 
 /**
  * EM-104/EM-105/EM-106/EM-107: proyección operativa en el CRM de una campaña
@@ -58,16 +60,83 @@ interface CreateDraftInput {
   objective?: string
 }
 
+/**
+ * EM-113: una variante de la prueba A/B. El asunto no se guarda aquí a
+ * propósito — vive en la plantilla de Mautic, que es quien lo envía. Duplicarlo
+ * daría dos fuentes de verdad y la pantalla acabaría enseñando un asunto que no
+ * es el que salió.
+ */
+export interface CampaignVariant {
+  key: string
+  templateExternalId: string
+  /** Campaña remota de esta variante; se rellena al publicar. */
+  externalCampaignId?: string | null
+}
+
+export const MAX_CAMPAIGN_VARIANTS = 4
+
 interface UpdateCampaignInput {
   objective?: string
   audienceDefinition?: AudienceDefinition
   templateBindingId?: string
+  variantDefinition?: CampaignVariant[] | null
   sender?: string
   replyTo?: string
   timezone?: string
   scheduledStartAt?: string | null
   scheduledEndAt?: string | null
   attributionWindowDays?: number
+}
+
+/** Lee `variantDefinition` sin confiar en su forma: JSON libre en base. */
+export function readVariants(campaign: MarketingCampaign): CampaignVariant[] | null {
+  const raw = campaign.variantDefinition
+  if (!Array.isArray(raw) || raw.length < 2) return null
+  const variants: CampaignVariant[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
+    const record = entry as Record<string, unknown>
+    const key = typeof record.key === 'string' ? record.key.trim() : ''
+    const templateExternalId = typeof record.templateExternalId === 'string' ? record.templateExternalId.trim() : ''
+    if (!key || !templateExternalId) return null
+    variants.push({
+      key,
+      templateExternalId,
+      externalCampaignId: typeof record.externalCampaignId === 'string' ? record.externalCampaignId : null,
+    })
+  }
+  return variants
+}
+
+/**
+ * Variantes efectivas: las de la prueba, o una sola implícita con la plantilla
+ * de siempre. El resto del servicio trabaja con esta lista y no necesita saber
+ * si hay experimento — la campaña de una versión es el caso de una variante.
+ */
+function resolveVariants(campaign: MarketingCampaign): Array<{ key: string | null; templateExternalId: string; externalCampaignId?: string | null }> {
+  const variants = readVariants(campaign)
+  if (variants) return variants
+  return [{ key: null, templateExternalId: campaign.templateBindingId ?? '', externalCampaignId: campaign.externalCampaignId }]
+}
+
+/** Valida forma y propiedad; lanza si algo no cuadra. */
+async function assertVariantsOwned(orgId: string, variants: CampaignVariant[]): Promise<void> {
+  if (variants.length < 2 || variants.length > MAX_CAMPAIGN_VARIANTS) {
+    throw new CampaignStateError(`Una prueba A/B necesita entre 2 y ${MAX_CAMPAIGN_VARIANTS} variantes.`)
+  }
+  const keys = new Set<string>()
+  const templates = new Set<string>()
+  for (const variant of variants) {
+    if (!variant.key?.trim()) throw new CampaignStateError('Cada variante necesita una clave.')
+    if (keys.has(variant.key)) throw new CampaignStateError(`Clave de variante repetida: ${variant.key}.`)
+    keys.add(variant.key)
+    if (!variant.templateExternalId?.trim()) throw new CampaignStateError(`La variante ${variant.key} necesita plantilla.`)
+    // Dos variantes con la misma plantilla no son una prueba: darían siempre
+    // empate y consumirían audiencia sin aprender nada.
+    if (templates.has(variant.templateExternalId)) throw new CampaignStateError('Dos variantes no pueden usar la misma plantilla.')
+    templates.add(variant.templateExternalId)
+    if (!(await mauticSync.isTemplateOwnedByOrg(orgId, variant.templateExternalId))) throw new TemplateOwnershipError()
+  }
 }
 
 export async function listCampaigns(orgId: string): Promise<MarketingCampaign[]> {
@@ -134,10 +203,23 @@ export async function updateCampaign(
     if (!binding) throw new TemplateOwnershipError()
   }
 
+  if (input.variantDefinition) {
+    if (existing.status !== 'draft' && existing.status !== 'validating' && existing.status !== 'ready' && existing.status !== 'error') {
+      throw new CampaignStateError('El reparto de una prueba A/B no se puede cambiar con la campaña ya publicada.')
+    }
+    await assertVariantsOwned(orgId, input.variantDefinition)
+  }
+
   const data: Record<string, unknown> = {}
   if (input.objective !== undefined) data.objective = input.objective
   if (input.audienceDefinition !== undefined) data.audienceDefinition = input.audienceDefinition
   if (input.templateBindingId !== undefined) data.templateBindingId = input.templateBindingId
+  if (input.variantDefinition !== undefined) {
+    data.variantDefinition = input.variantDefinition ?? Prisma.DbNull
+    // La variante A pasa a ser la plantilla base para que validar, reconciliar
+    // y el resto del código que solo conoce `templateBindingId` sigan valiendo.
+    if (input.variantDefinition?.length) data.templateBindingId = input.variantDefinition[0].templateExternalId
+  }
   if (input.sender !== undefined) data.sender = input.sender
   if (input.replyTo !== undefined) data.replyTo = input.replyTo
   if (input.timezone !== undefined) data.timezone = input.timezone
@@ -172,7 +254,16 @@ export async function validateCampaign(orgId: string, id: string): Promise<{ val
   if (!campaign.name?.trim()) missing.push('name')
   const audience = campaign.audienceDefinition as AudienceDefinition | null
   if (!audience || Object.keys(audience).length === 0) missing.push('audienceDefinition')
-  if (!campaign.templateBindingId || !(await mauticSync.isTemplateOwnedByOrg(orgId, campaign.templateBindingId))) {
+  const variants = readVariants(campaign)
+  if (variants) {
+    // Toda variante tiene que seguir siendo de la organización: una plantilla
+    // desvinculada entre la configuración y la publicación invalida la prueba.
+    for (const variant of variants) {
+      if (!(await mauticSync.isTemplateOwnedByOrg(orgId, variant.templateExternalId))) {
+        missing.push(`variant:${variant.key}`)
+      }
+    }
+  } else if (!campaign.templateBindingId || !(await mauticSync.isTemplateOwnedByOrg(orgId, campaign.templateBindingId))) {
     missing.push('templateBindingId')
   }
   if (!campaign.sender) missing.push('sender')
@@ -288,30 +379,15 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
 
   try {
 
-  if (!campaign.templateBindingId || !(await mauticSync.isTemplateOwnedByOrg(orgId, campaign.templateBindingId))) {
-    return failCampaignPublication(campaign, actorUserId, 'La plantilla ya no pertenece a esta organización')
+  // Una campaña de una versión es el caso de una variante: el bucle es el
+  // mismo, así que no hay dos caminos de publicación que mantener.
+  const variants = resolveVariants(campaign)
+  for (const variant of variants) {
+    if (!variant.templateExternalId || !(await mauticSync.isTemplateOwnedByOrg(orgId, variant.templateExternalId))) {
+      return failCampaignPublication(campaign, actorUserId, 'La plantilla ya no pertenece a esta organización')
+    }
   }
-
-  let remoteCampaign = campaign.externalCampaignId
-    ? await mauticSync.getConfiguredEmailCampaign(orgId, campaign.externalCampaignId, campaign.templateBindingId)
-    : null
-  if (!remoteCampaign && !campaign.externalCampaignId) {
-    remoteCampaign = await mauticSync.createConfiguredEmailCampaign(
-      orgId,
-      campaign.name,
-      campaign.objective ?? undefined,
-      campaign.templateBindingId
-    )
-  }
-  if (!remoteCampaign) {
-    return failCampaignPublication(
-      campaign,
-      actorUserId,
-      'Mautic no confirmó una campaña con la plantilla configurada; no se ha publicado ni enviado ningún email',
-      campaign.externalCampaignId ?? undefined
-    )
-  }
-  const externalCampaignId = String(remoteCampaign.id)
+  const variantKeys = variants.map(variant => variant.key).filter((key): key is string => Boolean(key))
 
   // Lista completa de la audiencia (no la muestra de 5 de previewAudience) —
   // mismo `where` compartido vía buildAudienceWhere.
@@ -320,16 +396,21 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
 
   let skipped = 0
   let alreadyEnrolled = 0
-  const deliveryByLeadId = new Map<string, string>()
+  // El reparto es determinista por `campaña:lead`: republicar reparte igual y
+  // un lead no cambia de variante a mitad de la prueba.
+  const deliveriesByVariant = new Map<string, Map<string, string>>(variants.map(variant => [variant.key ?? '', new Map()]))
   for (const lead of audienceLeads) {
     if (!lead.email) { skipped++; continue }
     const decision = await assertEmailSendAllowed(orgId, lead.id, 'marketing')
     if (!decision.allowed) { skipped++; continue }
+    const assignedKey = variantKeys.length ? assignVariantKey(`${id}:${lead.id}`, variantKeys) : null
+    const variant = variants.find(candidate => candidate.key === assignedKey) ?? variants[0]
     const delivery = await mauticSync.createEmailDelivery(orgId, lead.id, {
       campaignId: id,
-      templateExternalId: campaign.templateBindingId,
+      templateExternalId: variant.templateExternalId,
       toAddress: lead.email,
       idempotencyScope: `campaign:${id}`,
+      variantKey: variant.key ?? null,
     })
     if (delivery.status === 'accepted' || delivery.status === 'delivered') {
       alreadyEnrolled++
@@ -339,53 +420,86 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
       skipped++
       continue
     }
-    deliveryByLeadId.set(lead.id, delivery.id)
+    deliveriesByVariant.get(variant.key ?? '')!.set(lead.id, delivery.id)
   }
 
-  const enrollment = await mauticSync.enrollLeadsInConfiguredCampaign(
-    orgId,
-    externalCampaignId,
-    campaign.templateBindingId,
-    [...deliveryByLeadId.keys()]
-  )
-  if (enrollment.failedLeadIds.length || enrollment.error) {
-    return failCampaignPublication(
-      campaign,
-      actorUserId,
-      enrollment.error || 'Mautic no confirmó que todos los contactos se añadieran a la campaña',
-      externalCampaignId
+  const publishedVariants: CampaignVariant[] = []
+  const resolvedExternalIds: string[] = []
+  const enrolledDeliveryIds: string[] = []
+  for (const variant of variants) {
+    const deliveryByLeadId = deliveriesByVariant.get(variant.key ?? '')!
+    const variantName = variant.key ? `${campaign.name} · ${variant.key}` : campaign.name
+
+    let remoteCampaign = variant.externalCampaignId
+      ? await mauticSync.getConfiguredEmailCampaign(orgId, variant.externalCampaignId, variant.templateExternalId)
+      : null
+    if (!remoteCampaign && !variant.externalCampaignId) {
+      remoteCampaign = await mauticSync.createConfiguredEmailCampaign(
+        orgId,
+        variantName,
+        campaign.objective ?? undefined,
+        variant.templateExternalId
+      )
+    }
+    if (!remoteCampaign) {
+      return failCampaignPublication(
+        campaign,
+        actorUserId,
+        'Mautic no confirmó una campaña con la plantilla configurada; no se ha publicado ni enviado ningún email',
+        variant.externalCampaignId ?? undefined
+      )
+    }
+    const externalCampaignId = String(remoteCampaign.id)
+
+    const enrollment = await mauticSync.enrollLeadsInConfiguredCampaign(
+      orgId,
+      externalCampaignId,
+      variant.templateExternalId,
+      [...deliveryByLeadId.keys()]
     )
-  }
+    if (enrollment.failedLeadIds.length || enrollment.error) {
+      return failCampaignPublication(
+        campaign,
+        actorUserId,
+        enrollment.error || 'Mautic no confirmó que todos los contactos se añadieran a la campaña',
+        externalCampaignId
+      )
+    }
 
-  const unsyncedDeliveryIds = enrollment.unsyncedLeadIds
-    .map(leadId => deliveryByLeadId.get(leadId))
-    .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
-  await mauticSync.markCampaignDeliveriesFailed(
-    unsyncedDeliveryIds,
-    'CONTACT_NOT_SYNCED',
-    'El lead no tiene un contacto Mautic de esta organización verificable'
-  )
-  skipped += enrollment.unsyncedLeadIds.length
-
-  const publishedRemote = await mauticSync.publishConfiguredEmailCampaign(
-    orgId,
-    externalCampaignId,
-    campaign.templateBindingId,
-    campaign.scheduledStartAt?.toISOString(),
-    campaign.scheduledEndAt?.toISOString()
-  )
-  if (!publishedRemote) {
-    return failCampaignPublication(
-      campaign,
-      actorUserId,
-      'Mautic no confirmó la publicación de la campaña configurada; no se marcará como activa',
-      externalCampaignId
+    const unsyncedDeliveryIds = enrollment.unsyncedLeadIds
+      .map(leadId => deliveryByLeadId.get(leadId))
+      .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+    await mauticSync.markCampaignDeliveriesFailed(
+      unsyncedDeliveryIds,
+      'CONTACT_NOT_SYNCED',
+      'El lead no tiene un contacto Mautic de esta organización verificable'
     )
-  }
+    skipped += enrollment.unsyncedLeadIds.length
 
-  const enrolledDeliveryIds = enrollment.enrolledLeadIds
-    .map(leadId => deliveryByLeadId.get(leadId))
-    .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+    const publishedRemote = await mauticSync.publishConfiguredEmailCampaign(
+      orgId,
+      externalCampaignId,
+      variant.templateExternalId,
+      campaign.scheduledStartAt?.toISOString(),
+      campaign.scheduledEndAt?.toISOString()
+    )
+    if (!publishedRemote) {
+      return failCampaignPublication(
+        campaign,
+        actorUserId,
+        'Mautic no confirmó la publicación de la campaña configurada; no se marcará como activa',
+        externalCampaignId
+      )
+    }
+
+    enrolledDeliveryIds.push(
+      ...enrollment.enrolledLeadIds
+        .map(leadId => deliveryByLeadId.get(leadId))
+        .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+    )
+    resolvedExternalIds.push(externalCampaignId)
+    if (variant.key) publishedVariants.push({ key: variant.key, templateExternalId: variant.templateExternalId, externalCampaignId })
+  }
   await mauticSync.markCampaignDeliveriesAccepted(enrolledDeliveryIds)
 
   const now = new Date()
@@ -394,7 +508,10 @@ export async function publishCampaign(orgId: string, actorUserId: string, id: st
   await prisma.marketingCampaign.updateMany({
     where: { id, orgId },
     data: {
-      externalCampaignId,
+      // La campaña remota de la variante A hace de principal: pausar y
+      // reconciliar siguen teniendo un id al que apuntar.
+      externalCampaignId: resolvedExternalIds[0] ?? null,
+      ...(publishedVariants.length ? { variantDefinition: publishedVariants as unknown as Prisma.InputJsonValue } : {}),
       audienceSnapshotCount: audienceLeads.length,
       status: nextStatus,
       publishedAt: now,
@@ -431,8 +548,15 @@ export async function pauseCampaign(orgId: string, actorUserId: string, id: stri
     throw new CampaignStateError('La campaña todavía no se ha publicado en Mautic')
   }
 
-  const ok = await mauticSync.pauseCampaign(orgId, campaign.externalCampaignId)
-  if (!ok) throw new CampaignStateError('No se pudo pausar la campaña en Mautic')
+  // Con prueba A/B hay una campaña remota por variante: pausar solo la
+  // principal dejaría la otra enviando, que es lo contrario de lo que espera
+  // quien pulsa "pausar".
+  const remoteIds = [...new Set(
+    (readVariants(campaign)?.map(variant => variant.externalCampaignId).filter((value): value is string => Boolean(value)) ?? [])
+      .concat(campaign.externalCampaignId)
+  )]
+  const results = await Promise.all(remoteIds.map(remoteId => mauticSync.pauseCampaign(orgId, remoteId)))
+  if (results.some(ok => !ok)) throw new CampaignStateError('No se pudo pausar la campaña en Mautic')
 
   await prisma.marketingCampaign.updateMany({ where: { id, orgId }, data: { status: 'paused' } })
   const updated = await findOwned(orgId, id)

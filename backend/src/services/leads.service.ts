@@ -5,6 +5,7 @@ import { auditBusiness } from './digitalAudit.service'
 import { getPresignedUrl, putObject } from '../lib/s3'
 import { syncContact } from './mauticSync.service'
 import { writeAuditLog } from '../lib/audit'
+import { triggerContextualMicroapps } from '../microapps/contextualAutomation'
 import { logSalesActivity } from '../lib/salesActivity'
 import { orchestrateNewLead, ChannelConsentInput } from './conversations.service'
 import { getLeadOrganicOrigin } from './organicLeadOrigin.service'
@@ -275,6 +276,7 @@ export async function createLead(orgId: string, actorUserId: string | null | und
   await orchestrateNewLead(orgId, lead.id, consent).catch((error) => {
     console.error('[Leads] orchestration failed:', (error as Error).message)
   })
+  await triggerContextualMicroapps({ orgId, event: 'after_create', entity: { leadId: lead.id, accountId: lead.accountId ?? undefined }, createdById: actorUserId ?? undefined }).catch(error => console.error('[microapps] contextual after_create trigger failed', error))
 
   return lead
 }
@@ -468,11 +470,16 @@ export async function auditLead(
     gbpPhotosCount: customFields.photosCount as number | undefined,
   })
 
-  await prisma.lead.update({
+  const updated = await prisma.lead.update({
     where: { id },
     data: { customFields: { ...customFields, website: website ?? null, digitalAudit: result } as any },
   })
   await prisma.leadAudit.create({ data: { orgId, leadId: id, result: result as any } })
+
+  // La auditoría solo sirve si llega a donde se escribe. Al re-sincronizar,
+  // `syncContact` sube los hallazgos como campos personalizados y una
+  // plantilla de Mautic ya puede decir algo cierto de este negocio.
+  await syncContact(updated).catch(() => {})
 
   return result
 }

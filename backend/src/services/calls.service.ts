@@ -4,6 +4,19 @@ import { enqueueAutomationEvent } from '../jobs/automationRunner'
 import { ensureConversationForLead } from './conversations.service'
 import { logSalesActivity } from '../lib/salesActivity'
 import { CALL_OUTCOMES, normalizeCallOutcome } from '../lib/callOutcome'
+import { recordWhiteLabelVoiceUsage } from './whiteLabel.service'
+import { recordUsage } from '../lib/usage'
+import { triggerContextualMicroapps } from '../microapps/contextualAutomation'
+
+/**
+ * Coste de voz para Vendrava en céntimos por minuto (IA + telefonía).
+ * Coherente con los 0,06 $/min de growthPredictor.service.ts; configurable
+ * por env cuando cambien las tarifas. Ledger: FUNDAMENTOS §3.
+ */
+function voiceCostPerMinuteCents(): number {
+  const raw = Number(process.env.VOICE_COST_PER_MINUTE_CENTS)
+  return Number.isFinite(raw) && raw >= 0 ? raw : 6
+}
 
 interface CallFilters {
   agentId?: string
@@ -289,6 +302,10 @@ export async function ingestCall(
     throw new InvalidVoiceContextError('Voice call context does not match the existing call')
   }
 
+  // Duración que la fila ya tenía antes de este evento: es lo que protege el
+  // ledger de apuntar dos veces la misma llamada cuando el proveedor reintenta.
+  const previousDuration = created ? null : call.durationSeconds
+
   // A provider can retry after the Call row was committed but before the
   // downstream work finished. Reconcile the fields supplied by the retry so
   // a partial first attempt can be repaired without regressing a richer
@@ -313,6 +330,26 @@ export async function ingestCall(
         startedAt: data.startedAt ? new Date(data.startedAt) : undefined,
         endedAt: data.endedAt ? new Date(data.endedAt) : undefined,
       },
+    })
+  }
+
+  // Ledger de consumo (FUNDAMENTOS §3): la llamada se apunta UNA sola vez, en
+  // el momento en que su duración pasa de desconocida (null/0) a definitiva.
+  // Este es el único punto del backend que persiste `durationSeconds`, y los
+  // reintentos del webhook o de la voz en vivo caen en `previousDuration > 0`.
+  const closedDuration = call.durationSeconds ?? 0
+  if (closedDuration > 0 && (previousDuration ?? 0) <= 0) {
+    await recordUsage({
+      orgId,
+      provider: 'twilio+voz',
+      capability: call.direction === 'inbound' ? 'call.inbound' : 'call.outbound',
+      quantity: closedDuration,
+      unit: 'seconds',
+      costCents: (closedDuration / 60) * voiceCostPerMinuteCents(),
+      billingMode: 'managed',
+      rateVersion: '2026-08',
+      idempotencyKey: `call:${call.id}:duration-final`,
+      meta: { callId: call.id, ...(call.amdResult != null ? { amdResult: call.amdResult } : {}) },
     })
   }
 
@@ -419,6 +456,7 @@ export async function ingestCall(
 
   // Update lead status to contacted if it was new
   if (created) {
+    await recordWhiteLabelVoiceUsage(orgId, call.durationSeconds)
     await prisma.lead.updateMany({
       where: { id: data.leadId, orgId, status: 'new' },
       data: { status: 'contacted' },
@@ -454,6 +492,12 @@ export async function ingestCall(
     outcome: effectiveOutcome ?? 'none',
     durationSeconds: call.durationSeconds,
   }, eventId)
+
+  await triggerContextualMicroapps({
+    orgId,
+    event: 'after_call',
+    entity: { callId: call.id, leadId: data.leadId, conversationId: conversation.id },
+  }).catch(error => console.error('[microapps] contextual after_call trigger failed', error))
 
   return call
 }

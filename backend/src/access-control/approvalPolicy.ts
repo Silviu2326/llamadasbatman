@@ -16,6 +16,7 @@ export const SENSITIVE_ACTIONS = [
   'organic_publish',
   'social_publish',
   'mass_contact',
+  'agentic_accept',
 ] as const
 
 export type SensitiveAction = (typeof SENSITIVE_ACTIONS)[number]
@@ -66,6 +67,14 @@ const RULES: Readonly<Record<SensitiveAction, ApprovalRule>> = Object.freeze({
     action: 'mass_contact',
     operationPermission: 'leads.contact',
     approvalPermission: 'leads.contact.approve',
+    operationScope: 'org',
+    approvalScope: 'org',
+    separationOfDuties: true,
+  }),
+  agentic_accept: Object.freeze({
+    action: 'agentic_accept',
+    operationPermission: 'automations.write',
+    approvalPermission: 'automations.publish',
     operationScope: 'org',
     approvalScope: 'org',
     separationOfDuties: true,

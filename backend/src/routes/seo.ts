@@ -181,7 +181,7 @@ export async function seoRoutes(app: FastifyInstance) {
 
   app.post('/content', canAnalyze, async (request, reply) => {
     const { orgId } = request.user as JWTUser
-    const { title, keyword, format, business, sector, city } = (request.body ?? {}) as Record<string, string | undefined>
+    const { title, keyword, format, business, sector, city, mode, brief, audience, tone, cta } = (request.body ?? {}) as Record<string, string | undefined>
     if (!title?.trim() || !keyword?.trim()) {
       return reply.status(400).send({ error: 'title y keyword son obligatorios' })
     }
@@ -193,6 +193,11 @@ export async function seoRoutes(app: FastifyInstance) {
         business: business?.trim() || undefined,
         sector: sector?.trim() || undefined,
         city: city?.trim() || undefined,
+        mode: mode === 'activa' || mode === 'pasiva' ? mode : undefined,
+        brief: brief?.trim() || undefined,
+        audience: audience?.trim() || undefined,
+        tone: tone?.trim() || undefined,
+        cta: cta?.trim() || undefined,
       })
       return reply.send({ data: article })
     } catch (error) {

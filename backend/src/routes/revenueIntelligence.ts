@@ -20,6 +20,13 @@ export async function revenueIntelligenceRoutes(app: FastifyInstance) {
   const canApproveMemory = { preHandler: [requirePermission('memory.approve', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
   const canReadGovernance = { preHandler: [requirePermission('governance.read', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
   const canWriteGovernance = { preHandler: [requirePermission('governance.write', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
+  const canReadBusinessIntelligence = { preHandler: [requirePermission('organization.read', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
+  const canReadInvestigations = { preHandler: [requirePermission('organization.read', { scope: 'org' }), requirePermission('jobs.read', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
+  const canResearch = { preHandler: [requirePermission('organization.read', { scope: 'org' }), requirePermission('costs.request', { scope: 'org' }), requireEntitlement('revenue_intelligence'), requireEntitlement('microapps')] }
+
+  app.get('/business-context', canReadBusinessIntelligence, ctrl.getBusinessContext)
+  app.get('/investigations', canReadInvestigations, ctrl.listInvestigations)
+  app.post('/investigations', canResearch, ctrl.startInvestigation)
 
   app.get('/next-actions', canReadNextActions, ctrl.listNextActions)
   app.post('/next-actions/refresh', canWriteNextActions, ctrl.refreshNextActions)

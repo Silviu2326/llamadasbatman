@@ -1,0 +1,82 @@
+/* Shared visual contract for every entity page inside Ventas.
+   The compact scale, quiet surfaces and violet focus mirror Recursos IA. */
+:is(
+  .agent-detail-page,
+  .call-detail-page,
+  .lead-detail-page,
+  .accounts-page,
+  .sales-detail-page,
+  .kb-article-page
+) {
+  width: 100%;
+  max-width: 1160px;
+  min-width: 0;
+  margin-inline: auto;
+  color: var(--text);
+  background: var(--bg);
+  font-family: Inter, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+}
+
+:is(
+  .agent-detail-page,
+  .call-detail-page,
+  .lead-detail-page,
+  .accounts-page,
+  .sales-detail-page,
+  .kb-article-page
+) h1 {
+  color: var(--text-strong);
+  font-size: clamp(24px, 2.35vw, 30px) !important;
+  font-weight: 820 !important;
+  line-height: 1.08;
+  letter-spacing: -.72px;
+}
+
+:is(
+  .agent-detail-page,
+  .call-detail-page,
+  .lead-detail-page,
+  .accounts-page,
+  .sales-detail-page,
+  .kb-article-page
+) :is(h2, h3) {
+  color: var(--text-strong);
+  letter-spacing: -.18px;
+}
+
+:is(
+  .agent-detail-page,
+  .call-detail-page,
+  .lead-detail-page,
+  .accounts-page,
+  .sales-detail-page,
+  .kb-article-page
+) :is(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+:is(
+  .agent-detail-page,
+  .call-detail-page,
+  .lead-detail-page,
+  .accounts-page,
+  .sales-detail-page,
+  .kb-article-page
+) :is(input, select, textarea):focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--line-2));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+@media (max-width: 720px) {
+  :is(
+    .agent-detail-page,
+    .call-detail-page,
+    .lead-detail-page,
+    .accounts-page,
+    .sales-detail-page,
+    .kb-article-page
+  ) h1 {
+    font-size: 24px !important;
+  }
+}

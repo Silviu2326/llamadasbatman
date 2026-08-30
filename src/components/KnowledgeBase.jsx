@@ -2,22 +2,21 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { DEMO_MODE } from '../lib/dataMode'
-import { classifyFetchError, statusMessage } from '../lib/dataStatus'
+import { classifyFetchError, isRetryableDataError, retryDelayMs, statusMessage } from '../lib/dataStatus'
 import DataStatusBanner from './ui/DataStatusBanner'
 import {
-  RiBookReadLine, RiAddLine, RiDownloadLine, RiSearchLine,
-  RiMoreLine, RiStarFill,
-  RiArrowLeftSLine, RiArrowRightSLine, RiArrowRightLine,
-  RiBook2Line, RiEyeLine, RiThumbUpLine, RiEdit2Line,
+  RiBookReadLine, RiAddLine, RiMoreLine, RiSearchLine,
+  RiBook2Line, RiStarFill, RiArrowLeftSLine, RiArrowRightSLine, RiArrowRightLine,
+  RiEyeLine, RiEdit2Line,
   RiPriceTag3Line, RiShieldLine, RiGroupLine, RiFlowChart,
-  RiTrophyLine, RiPlugLine, RiShoppingCart2Line, RiAddCircleLine,
-  RiSparklingLine, RiPhoneLine, RiDeleteBin6Line,
+  RiTrophyLine, RiPlugLine, RiShoppingCart2Line,
+  RiAddCircleLine, RiSparklingLine, RiBuilding2Line, RiRobot2Line,
+  RiDeleteBin6Line, RiFileTextLine, RiLink,
   RiUploadCloud2Line, RiCheckLine, RiCloseLine, RiLoader4Line, RiErrorWarningLine,
 } from 'react-icons/ri'
 import { HiChevronDown } from 'react-icons/hi'
 import '../dashboard.css'
 import './knowledge-base.css'
-import knowledgeHeroImage from '../assets/knowledge-hero.png'
 import NewArticuloModal from '../modals/NewArticuloModal'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
@@ -68,7 +67,7 @@ function mapArticle(a) {
 
 // ─── category sidebar defs ─────────────────────────────────────────────────────
 const CAT_DEFS = [
-  { label: 'Todas las categorías', IconEl: RiBookReadLine,      color: 'var(--violet-deep)' },
+  { label: 'Todas las categorías', IconEl: RiBookReadLine,       color: 'var(--violet-deep)' },
   { label: 'Producto',             IconEl: RiBook2Line,         color: 'var(--violet-deep)' },
   { label: 'Servicios',            IconEl: RiShieldLine,        color: 'var(--cyan-deep)' },
   { label: 'Precios y planes',     IconEl: RiPriceTag3Line,     color: 'var(--success-deep)' },
@@ -79,6 +78,9 @@ const CAT_DEFS = [
   { label: 'Recursos de ventas',   IconEl: RiShoppingCart2Line, color: 'var(--warn)' },
 ]
 
+// Tres reintentos con espera creciente cubren ~5,5 s: el hueco que deja el
+// backend al reiniciarse y el que tarda el Postgres serverless en despertar.
+const MAX_DATA_RETRIES = 3
 const KB_PAGE_SIZE = 8
 
 // ─── CatItem ───────────────────────────────────────────────────────────────────
@@ -139,7 +141,7 @@ function ArticleRow({ art, onClick, onDelete }) {
       style={{
         // minmax() en vez de anchos fijos: 446px de columnas rígidas desbordaban
         // el panel central en cuanto la ventana bajaba de ~1100px.
-        display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(84px, 160px) minmax(84px, 170px) minmax(40px, 80px) 36px',
+        display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(84px, 160px) minmax(84px, 170px) 36px',
         alignItems: 'center', gap: 12,
         padding: '12px 16px',
         background: hov ? 'var(--surface)' : 'transparent',
@@ -184,9 +186,6 @@ function ArticleRow({ art, onClick, onDelete }) {
         <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}>{art.author}</p>
         <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--dim)' }}>{art.date}</p>
       </div>
-
-      {/* Visits */}
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--dim)', textAlign: 'right' }}>{art.visits}</p>
 
       {/* More menu */}
       <div ref={menuRef} style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
@@ -308,35 +307,81 @@ export default function KnowledgeBase() {
   const [dataStatus, setDataStatus] = useState('loading')
   const [dataError, setDataError] = useState('')
 
+  // Un corte transitorio —el backend reiniciándose, o el Postgres serverless
+  // despertando tras suspenderse por inactividad— dejaba la pantalla parada en
+  // «comprueba el backend» pese a que un segundo después ya respondía. Se
+  // reintenta con espera creciente y solo se avisa si el corte persiste.
   useEffect(() => {
     let active = true
+    let timer = null
+
+    async function readOnce() {
+      const response = await apiFetch('/api/knowledge')
+      if (response.ok) return response.json()
+      const body = await response.json().catch(() => ({}))
+      const error = new Error(`knowledge_${response.status}`)
+      error.status = response.status
+      error.code = body?.code
+      error.serverMessage = typeof body?.error === 'string' ? body.error : ''
+      throw error
+    }
+
+    function report(error) {
+      if (DEMO_MODE) {
+        setRaw(DEMO_RAW)
+        setDataStatus('demo')
+        setDataError('Modo demo explícito: se muestran artículos locales de ejemplo.')
+        return
+      }
+      setRaw([])
+      if (error?.status === 403 && error?.code === 'PLAN_CAPABILITY_REQUIRED') {
+        setDataStatus('plan')
+        setDataError('La Base de conocimiento no está incluida en el plan activo de esta organización.')
+        return
+      }
+      if (error?.status === 401) {
+        setDataStatus('disconnected')
+        setDataError('La sesión ya no es válida. Vuelve a iniciar sesión para consultar tus artículos.')
+        return
+      }
+      if (error?.code === 'DATABASE_UNAVAILABLE') {
+        setDataStatus('disconnected')
+        setDataError('La base de datos sigue sin responder después de varios intentos. Vuelve a probar en un minuto.')
+        return
+      }
+      if (Number(error?.status) >= 500) {
+        setDataStatus('disconnected')
+        setDataError('El servicio de datos no responde después de varios intentos. Comprueba que el backend esté levantado.')
+        return
+      }
+      const status = classifyFetchError(error)
+      setDataStatus(status)
+      setDataError(error?.serverMessage || statusMessage(status, { error: 'No se pudo cargar la base de conocimiento.' }))
+    }
+
+    function attempt(retry) {
+      readOnce()
+        .then(data => {
+          if (!active) return
+          const next = Array.isArray(data) ? data : []
+          setRaw(DEMO_MODE ? (next.length ? next : DEMO_RAW) : next)
+          setDataStatus(DEMO_MODE ? 'demo' : next.length ? 'live' : 'empty')
+        })
+        .catch(error => {
+          if (!active) return
+          // El modo demo no espera: sus datos son locales.
+          if (!DEMO_MODE && retry < MAX_DATA_RETRIES && isRetryableDataError(error)) {
+            timer = setTimeout(() => { if (active) attempt(retry + 1) }, retryDelayMs(retry))
+            return
+          }
+          report(error)
+        })
+    }
+
     setDataStatus('loading')
     setDataError('')
-    apiFetch('/api/knowledge')
-      .then(r => {
-        if (!r.ok) throw new Error(`knowledge_${r.status}`)
-        return r.json()
-      })
-      .then(data => {
-        if (!active) return
-        const next = Array.isArray(data) ? data : []
-        setRaw(DEMO_MODE ? (next.length ? next : DEMO_RAW) : next)
-        setDataStatus(DEMO_MODE ? 'demo' : next.length ? 'live' : 'empty')
-      })
-      .catch(error => {
-        if (!active) return
-        if (DEMO_MODE) {
-          setRaw(DEMO_RAW)
-          setDataStatus('demo')
-          setDataError('Modo demo explícito: se muestran artículos locales de ejemplo.')
-          return
-        }
-        setRaw([])
-        const status = classifyFetchError(error)
-        setDataStatus(status)
-        setDataError(statusMessage(status, { error: 'No se pudo cargar la base de conocimiento.' }))
-      })
-    return () => { active = false }
+    attempt(0)
+    return () => { active = false; if (timer) clearTimeout(timer) }
   }, [refreshKey])
 
   const articles = useMemo(() => raw.map(mapArticle), [raw])
@@ -377,7 +422,7 @@ export default function KnowledgeBase() {
   const popular = useMemo(() => articles.slice(0, 5).map((a, i) => ({
     rank: i + 1,
     title: a.title,
-    views: '—',
+    views: a.type || 'General',
     rankColor: ['var(--violet-deep)','var(--success-deep)','var(--info-deep)','var(--warn-deep)','var(--success)'][i],
   })), [articles])
 
@@ -462,10 +507,17 @@ export default function KnowledgeBase() {
       <DataStatusBanner
         status={dataStatus}
         message={dataError || statusMessage(dataStatus, { live: 'Artículos reales sincronizados con tu organización.', empty: 'La conexión está disponible, pero todavía no hay artículos.', demo: 'Modo demo explícito: los artículos mostrados son ejemplos locales.' })}
-        onRetry={dataStatus === 'error' || dataStatus === 'disconnected' ? () => setRefreshKey(key => key + 1) : undefined}
-        onAction={dataStatus === 'empty' || dataStatus === 'demo' ? () => setShowNewArticle(true) : dataStatus === 'disconnected' ? () => window.location.assign('/configuracion') : undefined}
-        actionLabel={dataStatus === 'disconnected' ? 'Configurar conexión' : 'Crear artículo'}
+        onRetry={['error', 'disconnected'].includes(dataStatus) ? () => setRefreshKey(key => key + 1) : undefined}
+        onAction={dataStatus === 'empty' || dataStatus === 'demo' ? () => setShowNewArticle(true) : ['disconnected', 'plan'].includes(dataStatus) ? () => window.location.assign('/configuracion') : undefined}
+        actionLabel={['disconnected', 'plan'].includes(dataStatus) ? 'Revisar configuración' : 'Crear artículo'}
       />
+
+      <section className="kb-source-bridge" aria-label="Conexión con agentes y datos de empresa">
+        <div><RiBookReadLine /><span><strong>Knowledge Base</strong><small>Procesos, documentos y respuestas detalladas</small></span></div><i>+</i>
+        <button type="button" onClick={() => navigate('/informacion-empresa')}><RiBuilding2Line /><span><strong>Información de empresa</strong><small>Precios, ofertas y condiciones con prioridad</small></span><RiArrowRightLine /></button><i>+</i>
+        <button type="button" onClick={() => navigate('/agentes')}><RiRobot2Line /><span><strong>Agentes IA</strong><small>Instrucciones y voz de cada agente</small></span><RiArrowRightLine /></button>
+        <b><RiCheckLine /> Contexto listo para llamadas</b>
+      </section>
 
       {showNewArticle && <NewArticuloModal onClose={() => setShowNewArticle(false)} onSuccess={() => { setShowNewArticle(false); setRefreshKey(k => k + 1) }} />}
       {showUploadPanel && <UploadPanel onClose={() => setShowUploadPanel(false)} onComplete={() => { setRefreshKey(k => k + 1) }} />}
@@ -554,15 +606,14 @@ export default function KnowledgeBase() {
           {/* Column headers — .panel-desktop los oculta por debajo de 768px,
               donde knowledge-base.css ya colapsa cada fila a tarjeta. */}
           <div className="panel-desktop" style={{
-            display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(84px, 160px) minmax(84px, 170px) minmax(40px, 80px) 36px',
+            display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(84px, 160px) minmax(84px, 170px) 36px',
             gap: 12, padding: '8px 16px',
             borderBottom: '1px solid var(--line)', flexShrink: 0,
           }}>
-            {['Artículo', 'Categoría', 'Creado', 'Visitas', ''].map((h, i) => (
+            {['Artículo', 'Categoría', 'Creado', ''].map((h, i) => (
               <p key={i} style={{
                 margin: 0, fontSize: 11, fontWeight: 600, color: 'var(--dim)',
                 textTransform: 'uppercase', letterSpacing: 0.4,
-                textAlign: i === 3 ? 'right' : 'left',
               }}>{h}</p>
             ))}
           </div>
@@ -623,7 +674,7 @@ export default function KnowledgeBase() {
               {[
                 { IconEl: RiBook2Line,   color: 'var(--violet-deep)', bg: 'var(--violet-deep)', val: String(raw.length),   lbl: 'Artículos' },
                 { IconEl: RiEyeLine,     color: 'var(--cyan)', bg: 'var(--cyan-deep)', val: String(uniqueTypes),   lbl: 'Categorías' },
-                { IconEl: RiThumbUpLine, color: 'var(--success-soft)', bg: 'var(--success-deep)', val: '—',                   lbl: 'Útiles' },
+                // Sin tracking de vistas ni de "útil", no hay tercera métrica que enseñar.
                 { IconEl: RiEdit2Line,   color: 'var(--warn-soft)', bg: 'var(--warn-deep)', val: String(thisMonth),     lbl: 'Nuevos este\nmes' },
               ].map((s, i) => (
                 <div key={i} style={{

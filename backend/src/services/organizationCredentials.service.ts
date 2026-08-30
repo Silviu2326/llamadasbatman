@@ -1,18 +1,33 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { getOrganizationIntegrationOverride, redactProviderError } from '../lib/integrationRuntime'
-import { credentialMetadata, decryptOrganizationCredential, encryptOrganizationCredential } from '../lib/organizationCredentialsCrypto'
+import { mergeCredentialProviders, normalizeCredentialFields } from '../lib/integrationCatalog'
+import { credentialCiphertextNeedsReencryption, credentialMetadata, decryptOrganizationCredential, decryptSecretWithKeyring, encryptOrganizationCredential } from '../lib/organizationCredentialsCrypto'
+import { byokProviderIds } from '../providers/registry'
 
+// Proveedores legacy sin descriptor en el registro de src/providers. La lista
+// de admitidos real es la unión de estos con byokProviderIds(): ver
+// supportedOrganizationCredentialProviders().
 export const ORGANIZATION_CREDENTIAL_PROVIDERS = [
   'metricool',
   'mautic',
   'twilio',
+  'telegram',
   // Google OAuth application credentials are optional per organization. The
   // usual SaaS deployment keeps the OAuth client global, while tenant tokens
   // remain in OrganicIntegration; this provider enables stricter per-tenant
   // isolation when customers bring their own Google OAuth app.
   'google',
 ] as const
+
+/**
+ * Unión perezosa (legacy + registro BYOK) calculada en cada validación: los
+ * adapters se registran al arrancar y congelar la lista en un const de módulo
+ * dejaría fuera a los registrados después de la primera importación.
+ */
+export function supportedOrganizationCredentialProviders(): string[] {
+  return mergeCredentialProviders(ORGANIZATION_CREDENTIAL_PROVIDERS, byokProviderIds())
+}
 
 export type OrganizationCredentialProvider = typeof ORGANIZATION_CREDENTIAL_PROVIDERS[number]
 export type OrganizationCredentialInput = {
@@ -31,9 +46,9 @@ export type ResolvedOrganizationCredential = {
   recordId?: string
 }
 
-function provider(value: string): OrganizationCredentialProvider {
-  if (!(ORGANIZATION_CREDENTIAL_PROVIDERS as readonly string[]).includes(value)) throw new Error('INTEGRATION_PROVIDER_NOT_SUPPORTED')
-  return value as OrganizationCredentialProvider
+function provider(value: string): string {
+  if (!supportedOrganizationCredentialProviders().includes(value)) throw new Error('INTEGRATION_PROVIDER_NOT_SUPPORTED')
+  return value
 }
 
 function slot(value: string | undefined): string {
@@ -45,6 +60,23 @@ function slot(value: string | undefined): string {
 function assertSecretDocument(value: Record<string, unknown>): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('INTEGRATION_CREDENTIALS_REQUIRED')
   if (JSON.stringify(value).length > 32_000) throw new Error('INTEGRATION_CREDENTIALS_TOO_LARGE')
+}
+
+async function lazilyReencryptCredential(
+  orgId: string,
+  recordId: string,
+  previousCiphertext: string,
+  secrets: Record<string, unknown>,
+): Promise<string> {
+  if (!credentialCiphertextNeedsReencryption(previousCiphertext)) return previousCiphertext
+  const nextCiphertext = encryptOrganizationCredential(secrets)
+  // Compare-and-swap: una edición concurrente de la credencial siempre gana;
+  // el recifrado de una lectura antigua nunca puede restaurar el secreto viejo.
+  await prisma.organizationIntegrationCredential.updateMany({
+    where: { id: recordId, orgId, secretEnc: previousCiphertext },
+    data: { secretEnc: nextCiphertext },
+  }).catch(() => undefined)
+  return nextCiphertext
 }
 
 export async function getOrganizationCredential(
@@ -59,7 +91,9 @@ export async function getOrganizationCredential(
   })
   if (!record || record.status === 'revoked' || !record.secretEnc) return null
   try {
-    return { record, secrets: decryptOrganizationCredential(record.secretEnc) }
+    const secrets = decryptOrganizationCredential(record.secretEnc)
+    const secretEnc = await lazilyReencryptCredential(orgId, record.id, record.secretEnc, secrets)
+    return { record: { ...record, secretEnc }, secrets }
   } catch (error) {
     await prisma.organizationIntegrationCredential.updateMany({
       where: { id: record.id, orgId },
@@ -172,4 +206,82 @@ export async function revokeOrganizationCredential(orgId: string, rawProvider: s
     data: { status: 'revoked', secretEnc: null, revokedAt: new Date(), lastError: null },
   })
   return record.count === 1
+}
+
+// Descifra tolerando ambos formatos guardados: el JSON de campos habitual y
+// el string plano cifrado con el keyring canónico (encryptSecretWithKeyring).
+function decryptCredentialFieldsOrNull(secretEnc: string): Record<string, string> | null {
+  try {
+    return normalizeCredentialFields(decryptOrganizationCredential(secretEnc))
+  } catch {
+    try {
+      return normalizeCredentialFields(decryptSecretWithKeyring(secretEnc))
+    } catch {
+      return null
+    }
+  }
+}
+
+/**
+ * Descifra el slot "default" sin marcar uso: lo necesita el botón "probar"
+ * del Centro de conexiones, que decide markUsed/markError según el resultado
+ * real de la prueba y no según el descifrado.
+ */
+export async function decryptDefaultOrganizationCredential(
+  orgId: string,
+  rawProvider: string,
+): Promise<Record<string, string> | null> {
+  const providerName = provider(rawProvider)
+  const record = await prisma.organizationIntegrationCredential.findUnique({
+    where: { orgId_provider_slot: { orgId, provider: providerName, slot: 'default' } },
+  })
+  if (!record || record.status === 'revoked' || !record.secretEnc) return null
+  const fields = decryptCredentialFieldsOrNull(record.secretEnc)
+  if (!fields) {
+    // Mismo marcado de error que getOrganizationCredential: la credencial
+    // queda visible como rota en el catálogo en lugar de fallar en silencio.
+    await prisma.organizationIntegrationCredential.updateMany({
+      where: { id: record.id, orgId },
+      data: { status: 'error', lastError: 'credential_decrypt_failed' },
+    }).catch(() => undefined)
+    return null
+  }
+  await lazilyReencryptCredential(orgId, record.id, record.secretEnc, fields)
+  return fields
+}
+
+/**
+ * Resolución BYOK para el router de proveedores (src/providers/credentials.ts
+ * la importa dinámicamente con este nombre exacto). Devuelve el objeto de
+ * campos del slot por defecto conectado, marcando el uso, o null cuando no
+ * hay credencial utilizable o el descifrado falla.
+ */
+export async function getDecryptedOrganizationCredential(
+  orgId: string,
+  providerId: string,
+): Promise<Record<string, string> | null> {
+  const fields = await decryptDefaultOrganizationCredential(orgId, providerId)
+  if (!fields) return null
+  await markOrganizationCredentialUsed(orgId, providerId)
+  return fields
+}
+
+/**
+ * Consumo del mes natural en curso agrupado por proveedor (03-PROVEEDORES §6)
+ * en una sola query groupBy sobre UsageRecord.
+ */
+export async function getMonthlyUsageByProvider(
+  orgId: string,
+): Promise<Record<string, { quantity: number; costCents: number }>> {
+  const now = new Date()
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const rows = await prisma.usageRecord.groupBy({
+    by: ['provider'],
+    where: { orgId, createdAt: { gte: monthStart } },
+    _sum: { quantity: true, costCents: true },
+  })
+  return Object.fromEntries(rows.map(row => [row.provider, {
+    quantity: Number(row._sum.quantity ?? 0),
+    costCents: Number(row._sum.costCents ?? 0),
+  }]))
 }

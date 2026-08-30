@@ -1,0 +1,465 @@
+/* Catálogo de microapps + runner genérico (docs/plataforma-abierta/07-MICROAPPS.md §3).
+   Misma familia visual que jobs-center.css / assets-library.css: variables del
+   tema, tarjetas con borde --line y acento por categoría. */
+
+.mapps-page{display:flex;flex:1;min-width:0;flex-direction:column;gap:16px;overflow-y:auto;padding:24px 24px 32px;color:var(--text);background:var(--bg);font-family:Inter,"SF Pro Display","Segoe UI",system-ui,sans-serif}
+.microapp-surface-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px}.microapp-surface-actions button{border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text);border-radius:9px;padding:8px 10px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}.microapp-primary-action{font-weight:700}.microapp-more-actions{position:relative}.microapp-more-actions summary{cursor:pointer;list-style:none;padding:8px}.microapp-more-actions summary::-webkit-details-marker{display:none}.microapp-more-actions>div{position:absolute;right:0;top:calc(100% + 5px);z-index:5;min-width:220px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 30px #0005}.microapp-more-actions button{display:flex;width:100%;justify-content:space-between;border:0;background:transparent;text-align:left}.microapp-more-actions small{color:var(--dim)}.microapp-surface-spin{animation:mapps-spin 1s linear infinite}.microapp-projections{display:grid;gap:10px;margin:12px 0;padding:14px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--surface) 88%,transparent)}.microapp-projections header{display:flex;justify-content:space-between;align-items:center}.microapp-projections h3{margin:0;font-size:14px}.microapp-projections header span{color:var(--dim)}.microapp-projections article{padding:10px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 5%,transparent)}.microapp-projections article.stale{opacity:.58;border-left-color:var(--warn)}.microapp-projections article div{display:flex;justify-content:space-between;gap:8px}.microapp-projections small{display:inline-flex;align-items:center;gap:4px;color:var(--dim)}.microapp-projections p{margin:5px 0 0;color:var(--muted);font-size:12px}
+.mapps-drawer-page{position:fixed;z-index:80;inset:0 0 0 auto;width:min(760px,100vw);max-width:100%;box-shadow:-24px 0 80px rgba(0,0,0,.38);border-left:1px solid color-mix(in srgb,var(--border) 70%,transparent);}
+.mapps-config-panel{max-width:760px}.mapps-config-panel>header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.mapps-config-panel>header h2{margin:0}.mapps-config-panel>header p{margin:5px 0;color:var(--muted);font-size:12px}
+
+/* Cabecera con arte generado (Magnific). El arte es oscuro en ambos temas, así
+   que los textos y el botón de la cabecera fijan colores claros propios en vez
+   de heredar las variables del tema. */
+.mapps-header{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;overflow:hidden;padding:26px 24px;border:1px solid var(--line);border-radius:16px;background-color:#080c14;background-size:cover;background-position:center right;background-repeat:no-repeat}
+.mapps-header::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,12,20,.94) 0%,rgba(8,12,20,.6) 55%,rgba(8,12,20,.12) 100%)}
+.mapps-header>*{position:relative;z-index:1}
+.mapps-header.collapsed{padding:12px 18px;align-items:center}
+.mapps-header.collapsed .mapps-title-icon{width:34px;height:34px;border-radius:9px}
+.mapps-header.collapsed .mapps-title-icon svg{width:17px;height:17px}
+.mapps-header.collapsed .mapps-title h1{font-size:18px}
+.mapps-header .mapps-title h1{color:#f4f6ff}
+.mapps-header .mapps-title p{color:rgba(213,221,240,.86)}
+.mapps-header .mapps-button.ghost{border-color:rgba(255,255,255,.22);background:rgba(8,12,20,.4);color:rgba(230,236,250,.92)}
+.mapps-header .mapps-button.ghost:hover{border-color:rgba(255,255,255,.4)}
+.mapps-title{display:flex;align-items:center;gap:14px}
+.mapps-title-icon{display:grid;width:46px;height:46px;place-items:center;border-radius:12px;color:#fff;background:linear-gradient(135deg,var(--accent-deep),var(--cyan-deep,var(--violet-deep)));box-shadow:0 0 18px color-mix(in srgb,var(--accent) 30%,transparent)}
+.mapps-title-icon svg{width:22px;height:22px}
+.mapps-title h1{margin:0;color:var(--text-strong);font-size:26px;letter-spacing:-.6px}
+.mapps-title p{margin:4px 0 0;max-width:640px;color:var(--muted);font-size:13px;line-height:1.5}
+
+.mapps-button{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s}
+.mapps-button svg{width:15px;height:15px}
+.mapps-button:hover{border-color:var(--line-hover,var(--line-2))}
+.mapps-button.ghost{background:transparent;color:var(--muted)}
+.mapps-button.secondary{background:var(--surface-2)}
+.mapps-button.primary{border:none;background:linear-gradient(90deg,var(--accent-deep),var(--violet-deep));color:#fff}
+.mapps-button:disabled{opacity:.45;cursor:not-allowed}
+
+.mapps-filters{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mapps-collection-row{display:flex;align-items:center;gap:8px;flex-basis:100%}
+.mapps-collection-row>span,.mapps-count{color:var(--dim);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.45px}
+.mapps-count{margin-left:auto;white-space:nowrap}
+.mapps-filter-chips{display:flex;gap:6px;flex-wrap:wrap}
+.mapps-filter-chips button{padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--muted);font:inherit;font-size:11.5px;cursor:pointer;transition:all .15s}
+.mapps-filter-chips button:hover{color:var(--text)}
+.mapps-filter-chips.compact button{padding:4px 10px;font-size:11px}
+.mapps-filter-chips button.active{border-color:color-mix(in srgb,var(--chip,var(--accent)) 45%,transparent);color:var(--text-strong);background:color-mix(in srgb,var(--chip,var(--accent)) 12%,transparent)}
+.mapps-search{display:flex;align-items:center;gap:8px;margin-left:auto;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--muted)}
+.mapps-search svg{width:15px;height:15px}
+.mapps-search input{width:260px;border:0;background:transparent;color:var(--text);font:inherit;font-size:12.5px;outline:none}
+
+/* Banner del pack activo: misma técnica que la cabecera (arte oscuro de
+   Magnific + overlay), visible solo cuando hay un filtro de pack aplicado. */
+.mapps-pack-banner{position:relative;display:grid;gap:3px;justify-items:start;align-content:center;overflow:hidden;min-height:88px;padding:16px 22px;border:1px solid var(--line);border-radius:14px;background-color:#080c14;background-size:cover;background-position:center right;background-repeat:no-repeat}
+.mapps-pack-banner::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,12,20,.92) 0%,rgba(8,12,20,.5) 55%,rgba(8,12,20,.08) 100%)}
+.mapps-pack-banner>*{position:relative;z-index:1}
+.mapps-pack-banner strong{color:#f4f6ff;font-size:17px;letter-spacing:-.3px}
+.mapps-pack-banner span{color:rgba(213,221,240,.82);font-size:12px}
+
+.mapps-state{display:grid;justify-items:center;gap:8px;padding:60px 24px;border:1px dashed var(--line);border-radius:14px;background:var(--surface);color:var(--muted);text-align:center}
+.mapps-state svg{width:30px;height:30px;color:var(--accent-soft,var(--accent))}
+.mapps-state strong{color:var(--text-strong);font-size:15px}
+.mapps-state span{max-width:560px;font-size:12.5px;line-height:1.55}
+.mapps-state.error svg{color:var(--danger-soft)}
+.mapps-spin{animation:mapps-spin .8s linear infinite}
+@keyframes mapps-spin{to{transform:rotate(360deg)}}
+
+/* Vista / limpiar / estanterías */
+.mapps-view-toggle{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.mapps-view-toggle button{display:grid;place-items:center;width:32px;height:32px;border:0;background:var(--surface);color:var(--muted);cursor:pointer}
+.mapps-view-toggle button+button{border-left:1px solid var(--line)}
+.mapps-view-toggle button.active{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text-strong)}
+.mapps-view-toggle svg{width:15px;height:15px}
+.mapps-count{display:inline-flex;align-items:center;gap:8px}
+.mapps-clear{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--muted);font:inherit;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;cursor:pointer}
+.mapps-clear:hover{color:var(--text)}
+.mapps-clear svg{width:12px;height:12px}
+.mapps-shelves,.mapps-results{display:grid;gap:22px}
+.mapps-shelf{display:grid;gap:10px}
+.mapps-shelf h2{display:flex;align-items:baseline;gap:8px;margin:0;color:var(--text-strong);font-size:14px;letter-spacing:-.2px}
+.mapps-shelf h2 svg{width:15px;height:15px;align-self:center;color:var(--accent-soft,var(--accent))}
+.mapps-shelf h2 small{color:var(--dim);font-size:11.5px;font-weight:500}
+.mapps-shelves{padding-bottom:22px;border-bottom:1px solid var(--line)}
+
+/* Grid de tarjetas: el nombre va primero; metadatos en una línea y una fila
+   de señales (qué pide, si actúa fuera, cuándo la usaste) para decidir sin
+   abrir el runner. El arte de categoría queda como franja fina. */
+.mapps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.mapps-grid.list{grid-template-columns:1fr;gap:8px}
+.mapps-card{position:relative;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);font:inherit;text-align:left;transition:border-color .15s,transform .15s,box-shadow .15s;content-visibility:auto;contain-intrinsic-size:260px}
+.mapps-card:hover{border-color:color-mix(in srgb,var(--cat,var(--accent)) 45%,transparent);transform:translateY(-2px);box-shadow:0 8px 24px color-mix(in srgb,var(--cat,var(--accent)) 10%,transparent)}
+.mapps-card.list{flex-direction:row;contain-intrinsic-size:120px}
+.mapps-card.list:hover{transform:none}
+.mapps-card-art{flex:0 0 auto;height:64px;border-bottom:1px solid var(--line);border-radius:13px 13px 0 0;background-color:#080c14;background-size:cover;background-position:center}
+.mapps-card:hover .mapps-card-art{border-bottom-color:color-mix(in srgb,var(--cat,var(--accent)) 35%,var(--line))}
+.mapps-card-body{display:flex;flex:1;min-width:0;flex-direction:column;gap:7px;padding:14px 16px}
+.mapps-card.list .mapps-card-body{padding:12px 16px;border-left:3px solid var(--cat,var(--accent));border-radius:13px 0 0 13px}
+.mapps-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+/* El nombre es el enlace principal: su ::after cubre toda la tarjeta para que
+   cualquier clic abra la microapp; estrella y CTA quedan por encima (z-index). */
+.mapps-card-open{flex:1;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.mapps-card-open strong{display:block;color:var(--text-strong);font-size:15px;line-height:1.3;letter-spacing:-.2px}
+.mapps-card:hover .mapps-card-open strong{color:var(--cat,var(--accent))}
+.mapps-card-open::after{content:"";position:absolute;inset:0;border-radius:14px}
+.mapps-card-open:focus-visible::after{outline:2px solid var(--accent);outline-offset:2px}
+.mapps-star{position:relative;z-index:1;display:grid;place-items:center;width:26px;height:26px;flex:0 0 auto;border:0;border-radius:7px;background:transparent;color:var(--dim);cursor:pointer}
+.mapps-star:hover{background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn)}
+.mapps-star.on{color:var(--warn)}
+.mapps-star svg{width:15px;height:15px}
+.mapps-card-promise{margin:0;flex:1;color:var(--muted);font-size:12.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.mapps-card.list .mapps-card-promise{-webkit-line-clamp:2}
+.mapps-card-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mapps-category{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;border:1px solid color-mix(in srgb,var(--cat,var(--muted)) 35%,transparent);background:color-mix(in srgb,var(--cat,var(--muted)) 10%,transparent);color:var(--cat,var(--muted));font-size:10px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.mapps-collection{color:var(--collection,var(--dim));font-size:10px;font-weight:700;letter-spacing:.35px;text-transform:uppercase}
+.mapps-freshness{display:inline-flex;align-items:center;gap:4px;color:var(--dim);font-size:10.5px}
+.mapps-freshness svg{width:12px;height:12px}
+.mapps-card-signals{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed var(--line-2,var(--line));font-size:11px}
+.mapps-inputs{flex-basis:100%;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapps-effects,.mapps-usage{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--dim);font-weight:600;white-space:nowrap}
+.mapps-effects svg,.mapps-usage svg{width:12px;height:12px}
+.mapps-effects.external{border-color:color-mix(in srgb,var(--warn) 45%,transparent);color:var(--warn);background:color-mix(in srgb,var(--warn) 7%,transparent)}
+.mapps-effects.approval{border-color:color-mix(in srgb,var(--danger) 40%,transparent);color:var(--danger-soft);background:color-mix(in srgb,var(--danger) 6%,transparent)}
+.mapps-usage.fresh{border-color:color-mix(in srgb,var(--success) 45%,transparent);color:var(--success)}
+.mapps-card-cta{position:relative;z-index:1;display:inline-flex;align-items:center;gap:3px;width:max-content;padding:0;border:0;background:none;color:var(--cat,var(--accent));font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.mapps-card-cta svg{width:14px;height:14px}
+.mapps-card.list .mapps-card-cta{position:absolute;right:16px;bottom:12px}
+.mapps-card.list .mapps-inputs{flex-basis:auto;max-width:46%}
+
+/* Skeletons de carga */
+.mapps-skeleton{pointer-events:none}
+.mapps-skeleton .mapps-card-art{background:var(--surface-2,var(--bg))}
+.mapps-sk-line{display:block;height:11px;border-radius:6px;background:linear-gradient(90deg,var(--surface-2,var(--bg)) 25%,color-mix(in srgb,var(--text) 6%,var(--surface-2,var(--bg))) 50%,var(--surface-2,var(--bg)) 75%);background-size:200% 100%;animation:mapps-shimmer 1.3s ease-in-out infinite}
+.mapps-sk-line.w60{width:60%;height:14px}.mapps-sk-line.w80{width:80%}.mapps-sk-line.w40{width:40%}
+@keyframes mapps-shimmer{to{background-position:-200% 0}}
+
+/* Runner */
+.mapps-runner-topbar{display:flex;align-items:center;gap:10px}
+.mapps-back{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+.mapps-back:hover{color:var(--text)}
+.mapps-back svg{width:15px;height:15px}
+
+.mapps-runner-header{position:relative;display:grid;gap:8px;justify-items:start;overflow:hidden;padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(150deg,color-mix(in srgb,var(--cat,var(--accent)) 6%,var(--surface)),var(--surface) 70%)}
+/* Arte de categoría (Magnific) fundido hacia la derecha: decora sin pelearse
+   con el texto en ninguno de los dos temas. */
+.mapps-runner-header::after{content:"";position:absolute;inset:0;background:var(--mapps-art,none) right center/auto 100% no-repeat;opacity:.5;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 40%,#000 85%);mask-image:linear-gradient(90deg,transparent 40%,#000 85%)}
+.mapps-runner-header>*{position:relative;z-index:1}
+.mapps-runner-header h1{margin:0;color:var(--text-strong);font-size:22px;letter-spacing:-.4px}
+.mapps-runner-header p{margin:0;max-width:720px;color:var(--muted);font-size:13px;line-height:1.55}
+.mapps-runner-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.mapps-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--surface-2,var(--surface));color:var(--dim);font-size:10.5px}
+.mapps-tag svg{width:12px;height:12px}
+.mapps-tag.selected{border-color:color-mix(in srgb,var(--collection) 42%,transparent);background:color-mix(in srgb,var(--collection) 8%,var(--surface));color:var(--collection)}
+.mapps-tag.warn{border-color:color-mix(in srgb,var(--warn) 40%,transparent);color:var(--warn)}
+
+.mapps-runner-layout{display:grid;grid-template-columns:minmax(300px,420px) minmax(0,1fr);gap:16px;align-items:start}
+.mapps-panel{display:grid;gap:12px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.mapps-panel>h2,.mapps-result-header h2{display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:11.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.mapps-panel h2 svg,.mapps-result-header h2 svg{width:14px;height:14px}
+.mapps-panel form{display:grid;gap:14px}
+
+.mapps-field{display:grid;gap:5px}
+.mapps-field>label{color:var(--text);font-size:12.5px;font-weight:600}
+.mapps-field input[type=text],.mapps-field input[type=password],.mapps-field input[type=number],.mapps-field input[type=url],.mapps-field textarea,.mapps-field select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line-control,var(--line));border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none;transition:border-color .15s}
+.mapps-field input:focus,.mapps-field textarea:focus,.mapps-field select:focus{border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.mapps-field textarea{resize:vertical;min-height:72px}
+.mapps-field-help{color:var(--dim);font-size:11px;line-height:1.4}
+.mapps-field-error{color:var(--danger-soft);font-size:11px;line-height:1.4}
+.mapps-field.has-error input,.mapps-field.has-error textarea,.mapps-field.has-error select{border-color:color-mix(in srgb,var(--danger) 55%,transparent)}
+.mapps-field-toggle label{display:flex;align-items:center;gap:8px;color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer}
+.mapps-field-toggle input{accent-color:var(--accent)}
+
+.mapps-agentic-config{display:grid;gap:10px;padding:12px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));border-radius:11px;background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.mapps-agentic-config>label{display:flex;align-items:flex-start;gap:9px;color:var(--text);font-size:12.5px;cursor:pointer}
+.mapps-agentic-config>label input{margin-top:3px;accent-color:var(--accent)}
+.mapps-agentic-config>label span{display:grid;gap:2px}
+.mapps-agentic-config>label small{color:var(--dim);font-size:11px;font-weight:400;line-height:1.4}
+.mapps-agentic-config>p{display:flex;align-items:flex-start;gap:6px;margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+.mapps-agentic-config>p svg{width:14px;height:14px;flex:0 0 auto;margin-top:1px;color:var(--accent)}
+.mapps-agentic-config>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mapps-agentic-config>div label{display:grid;gap:4px;color:var(--dim);font-size:10.5px;font-weight:700;text-transform:uppercase}
+.mapps-agentic-config>div input{min-width:0;padding:7px 8px;border:1px solid var(--line-control,var(--line));border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:12px}
+.mapps-agentic-config>div.mapps-agentic-install{display:flex;align-items:center;grid-template-columns:none;gap:10px;padding-top:8px;border-top:1px solid var(--line)}
+.mapps-agentic-install .mapps-button{padding:7px 11px;font-size:11.5px}
+
+.mapps-run-row{display:flex;gap:10px}
+.mapps-run-row .mapps-button{flex:1;justify-content:center}
+.mapps-estimate{margin:0;color:var(--text);font-size:12.5px}
+.mapps-estimate strong{color:var(--success);font-size:14px}
+.mapps-estimate small{display:block;margin-top:2px;color:var(--dim);font-size:11px}
+.mapps-run-message{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px;margin:0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger) 35%,transparent);border-radius:9px;background:color-mix(in srgb,var(--danger) 8%,transparent);color:var(--danger-soft);font-size:12.5px;line-height:1.5}
+.mapps-run-message svg{width:16px;height:16px;flex:0 0 auto;margin-top:1px}
+.mapps-run-message.warn{border-color:color-mix(in srgb,var(--warn) 40%,transparent);background:color-mix(in srgb,var(--warn) 8%,transparent);color:var(--warn)}
+.mapps-inline-link{border:0;background:none;padding:0;color:var(--info,var(--accent));font:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline}
+
+.mapps-progress{justify-items:center;text-align:center;padding:40px 20px}
+.mapps-progress svg{width:26px;height:26px;color:var(--accent-soft,var(--accent))}
+.mapps-progress strong{color:var(--text-strong);font-size:14px}
+.mapps-progress span{max-width:420px;color:var(--muted);font-size:12px;line-height:1.5}
+
+/* Resultado */
+.mapps-result-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mapps-result-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.mapps-result-tools .mapps-inline-link{display:inline-flex;align-items:center;gap:4px;text-decoration:none}
+.mapps-result-tools .mapps-inline-link:hover{text-decoration:underline}
+.mapps-muted{margin:0;color:var(--dim);font-size:12px}
+.mapps-stale{display:flex;align-items:flex-start;gap:6px;margin:0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:9px;background:color-mix(in srgb,var(--warn) 8%,transparent);color:var(--warn);font-size:12.5px;line-height:1.5}
+.mapps-stale svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px}
+
+.mapps-agentic-result{display:grid;gap:10px;padding:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.mapps-agentic-result>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mapps-agentic-result>header>div{display:grid;gap:2px}
+.mapps-agentic-result>header span{color:var(--dim);font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.mapps-agentic-result>header strong{color:var(--text-strong);font-size:15px}
+.mapps-agentic-result>p{margin:0;color:var(--text);font-size:12.5px;line-height:1.55}
+.mapps-agentic-result>div{display:grid;gap:5px;color:var(--text);font-size:12px}
+.mapps-agentic-result .mapps-agentic-revisions{padding:10px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));border-radius:9px;background:color-mix(in srgb,var(--accent) 4%,var(--bg))}
+.mapps-agentic-revisions li{display:grid;gap:2px}
+.mapps-agentic-revisions li b{color:var(--text)}
+.mapps-agentic-revisions li span{display:block}
+.mapps-agentic-result ul{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--muted);font-size:11.5px;line-height:1.45}
+.mapps-council-status{padding:4px 8px;border:1px solid var(--line);border-radius:99px;white-space:nowrap}
+.mapps-council-status.ready{border-color:color-mix(in srgb,var(--success) 45%,transparent);color:var(--success)}
+.mapps-council-status.blocked{border-color:color-mix(in srgb,var(--danger) 45%,transparent);color:var(--danger-soft)}
+.mapps-council-status.human_review{border-color:color-mix(in srgb,var(--warn) 45%,transparent);color:var(--warn)}
+.mapps-agentic-result details{border-top:1px solid var(--line);padding-top:8px}
+.mapps-agentic-result summary{color:var(--accent-soft,var(--accent));font-size:11.5px;font-weight:700;cursor:pointer}
+.mapps-council-round{display:grid;gap:8px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.mapps-council-round h4{margin:0;color:var(--text);font-size:12px}
+.mapps-council-round>div{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding-top:7px;border-top:1px dashed var(--line);font-size:11.5px}
+.mapps-council-round>div>span{color:var(--dim)}
+.mapps-council-round>div>ul{grid-column:1/-1}
+
+.mapps-data-object{display:grid;gap:10px}
+.mapps-data-section{display:grid;gap:6px}
+.mapps-data-section h4{margin:6px 0 0;color:var(--text-strong);font-size:14px;letter-spacing:-.2px}
+.mapps-data-section h5{margin:2px 0 0;color:var(--text);font-size:12.5px}
+.mapps-data-text{margin:0;color:var(--text);font-size:13px;line-height:1.6;white-space:pre-wrap}
+.mapps-data-list{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--text);font-size:12.5px;line-height:1.55}
+.mapps-data-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line-2,var(--line));font-size:12.5px}
+.mapps-data-row span{color:var(--muted)}
+.mapps-data-row strong{color:var(--text);font-weight:600;text-align:right;overflow-wrap:anywhere}
+.mapps-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.mapps-table{width:100%;border-collapse:collapse;font-size:12px}
+.mapps-table th{padding:8px 10px;border-bottom:1px solid var(--line);background:var(--surface-2,var(--bg));color:var(--dim);font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;text-align:left;white-space:nowrap}
+.mapps-table td{padding:8px 10px;border-bottom:1px solid var(--line-2,var(--line));color:var(--text);vertical-align:top}
+.mapps-table tr:last-child td{border-bottom:0}
+
+.mapps-evidence{display:grid;gap:8px;padding-top:12px;border-top:1px solid var(--line-2,var(--line))}
+.mapps-evidence h3{display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:11.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.mapps-evidence h3 svg{width:14px;height:14px}
+.mapps-evidence-item{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line-2,var(--line));border-radius:10px;background:var(--surface-2,var(--bg))}
+.mapps-evidence-item p{margin:0;color:var(--text);font-size:12.5px;line-height:1.5}
+.mapps-evidence-item>div{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mapps-evidence-confidence{color:var(--dim);font-size:11px;font-weight:600}
+.mapps-evidence-item a{display:inline-flex;align-items:center;gap:3px;color:var(--info,var(--accent));font-size:11.5px;text-decoration:none}
+.mapps-evidence-item a:hover{text-decoration:underline}
+.mapps-evidence-item a svg{width:12px;height:12px}
+
+.mapps-actions-row{display:flex;gap:8px;flex-wrap:wrap}
+.mapps-action-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--surface-2,var(--surface));color:var(--muted);font:inherit;font-size:11.5px;font-weight:600}
+.mapps-action-chip:disabled{cursor:not-allowed;opacity:.7}
+.mapps-action-chip.runnable{border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent-soft,var(--accent));cursor:pointer}
+.mapps-action-chip.runnable:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.mapps-action-chip svg{width:13px;height:13px}
+
+.mapps-run-history{gap:10px}
+.mapps-run-history>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mapps-run-history>header h2{display:flex;align-items:center;gap:7px;margin:0;color:var(--text-strong);font-size:14px}
+.mapps-run-history>header span{color:var(--dim);font-size:11px}
+.mapps-run-history-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px}
+.mapps-run-history-list>button{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2,var(--bg));color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.mapps-run-history-list>button:hover,.mapps-run-history-list>button.active{border-color:color-mix(in srgb,var(--accent) 52%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.mapps-run-history-list>button>span{display:grid;min-width:0;gap:2px}
+.mapps-run-history-list strong{overflow:hidden;font-size:11.5px;text-overflow:ellipsis;white-space:nowrap}
+.mapps-run-history-list small{color:var(--dim);font-size:10px}
+.mapps-run-history-list svg{width:13px;flex:0 0 auto;color:var(--accent)}
+
+@media (max-width:980px){
+  .mapps-runner-layout{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .mapps-page{padding:16px 12px 24px}
+  .mapps-search{margin-left:0;width:100%;order:-1}
+  .mapps-card.list{flex-direction:column}
+  .mapps-card.list .mapps-card-cta{position:static}
+  .mapps-card.list .mapps-inputs{max-width:none;flex-basis:100%}
+  .mapps-search input{width:100%}
+  .mapps-agentic-config>div{grid-template-columns:1fr}
+  .mapps-result-header{align-items:flex-start;flex-direction:column}
+  .mapps-result-tools{justify-content:flex-start}
+  .mapps-run-history-list{grid-template-columns:1fr}
+}
+
+/* ── Catálogo v2: más editorial, más fácil de escanear ────────────────────
+   El catálogo mantiene sus interacciones, pero gana una jerarquía clara:
+   hero protagonista, filtros contenidos en una única superficie y tarjetas
+   con más aire para que el nombre y la promesa sean lo primero que se lea. */
+.mapps-page {
+  gap: 20px;
+  padding: clamp(18px, 2.6vw, 32px) clamp(16px, 2.8vw, 36px) 40px;
+  background:
+    radial-gradient(circle at 88% 6%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 26%),
+    var(--bg);
+}
+
+.mapps-header {
+  min-height: 226px;
+  align-items: flex-end;
+  padding: clamp(24px, 4vw, 42px);
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
+  border-radius: 22px;
+  background-position: center right;
+  box-shadow: 0 22px 60px color-mix(in srgb, var(--shadow-color) 48%, transparent), inset 0 1px rgba(255,255,255,.06);
+}
+
+.mapps-header::before {
+  background:
+    linear-gradient(90deg, rgba(5, 9, 18, .97) 0%, rgba(5, 9, 18, .83) 34%, rgba(5, 9, 18, .3) 72%, rgba(5, 9, 18, .08) 100%),
+    linear-gradient(0deg, rgba(5, 9, 18, .55), transparent 64%);
+}
+
+.mapps-title { align-items: flex-start; gap: 16px; }
+.mapps-title-icon {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(112, 108, 255, .92), rgba(20, 205, 211, .72));
+  box-shadow: 0 12px 30px rgba(59, 105, 255, .3), inset 0 1px rgba(255,255,255,.32);
+}
+
+.mapps-title h1 {
+  max-width: 680px;
+  font-size: clamp(28px, 3.8vw, 42px);
+  line-height: 1.04;
+  letter-spacing: -.055em;
+}
+
+.mapps-title p {
+  max-width: 620px;
+  margin-top: 10px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.mapps-header .mapps-button.ghost {
+  padding: 9px 13px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.mapps-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 16px;
+  padding: 15px 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
+  box-shadow: var(--shadow-1);
+}
+
+.mapps-filter-chips { grid-column: 1 / -1; order: 2; gap: 7px; }
+.mapps-filter-chips button { padding: 7px 13px; border-radius: 10px; background: var(--surface-soft); }
+.mapps-filter-chips button.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip, var(--accent)) 15%, transparent); }
+
+.mapps-search {
+  grid-column: 1;
+  width: 100%;
+  max-width: 520px;
+  min-height: 38px;
+  margin-left: 0;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.mapps-search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.mapps-search input { width: 100%; }
+.mapps-view-toggle { grid-column: 2; align-self: center; }
+.mapps-view-toggle button { width: 38px; height: 38px; background: var(--bg); }
+
+.mapps-collection-row {
+  grid-column: 1 / -1;
+  order: 3;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.mapps-collection-row > span:first-child { color: var(--text-2); font-size: 10px; }
+.mapps-filter-chips.compact button { padding: 5px 10px; border-radius: 8px; }
+.mapps-count { color: var(--muted); font-size: 10.5px; }
+
+.mapps-shelves, .mapps-results { gap: 28px; }
+.mapps-shelf { gap: 12px; }
+.mapps-shelf h2 {
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-strong);
+  font-size: 15px;
+}
+.mapps-shelf h2 small { font-size: 11px; }
+
+.mapps-grid { grid-template-columns: repeat(auto-fill, minmax(292px, 1fr)); gap: 16px; }
+.mapps-card {
+  min-height: 304px;
+  border-color: color-mix(in srgb, var(--line) 92%, var(--accent) 8%);
+  border-radius: 17px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--surface) 96%, var(--cat, var(--accent)) 4%), var(--surface) 70%);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--shadow-color) 30%, transparent);
+}
+
+.mapps-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--cat, var(--accent)) 16%, var(--shadow-color));
+}
+
+.mapps-card-art {
+  height: 82px;
+  border-radius: 16px 16px 0 0;
+  background-position: center 42%;
+  opacity: .92;
+}
+
+.mapps-card-body { gap: 9px; padding: 17px 18px 16px; }
+.mapps-card-open strong { font-size: 15.5px; }
+.mapps-card-promise { font-size: 12.5px; line-height: 1.58; }
+.mapps-card-meta { gap: 7px; }
+.mapps-card-signals { margin-top: auto; padding-top: 10px; }
+.mapps-card-cta { margin-top: 2px; font-size: 12.5px; }
+
+.mapps-card.list { min-height: 0; }
+.mapps-card.list .mapps-card-body { padding: 14px 18px; }
+
+.mapps-pack-banner { min-height: 110px; border-radius: 17px; box-shadow: var(--shadow-1); }
+
+@media (max-width: 720px) {
+  .mapps-page { gap: 14px; padding: 14px 12px 28px; }
+  .mapps-header { min-height: 242px; align-items: flex-start; padding: 22px 20px; }
+  .mapps-title { margin-top: auto; }
+  .mapps-title h1 { font-size: 30px; }
+  .mapps-title p { font-size: 12.5px; }
+  .mapps-header .mapps-button.ghost { align-self: flex-start; }
+  .mapps-filters { grid-template-columns: 1fr auto; padding: 12px; }
+  .mapps-search { grid-column: 1 / -1; order: -1; max-width: none; }
+  .mapps-view-toggle { grid-column: 2; }
+  .mapps-filter-chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+  .mapps-filter-chips::-webkit-scrollbar { display: none; }
+  .mapps-collection-row { align-items: flex-start; flex-wrap: wrap; }
+  .mapps-collection-row .mapps-filter-chips { order: 2; flex-basis: 100%; }
+  .mapps-count { margin-left: auto; }
+  .mapps-grid { grid-template-columns: 1fr; gap: 12px; }
+  .mapps-card { min-height: 282px; }
+}
+
+.microapp-regenerate{margin-top:8px;border:0;background:transparent;color:var(--accent-soft);font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:0}
+
+@media (prefers-reduced-motion: reduce) {
+  .mapps-card { transition: none; }
+}

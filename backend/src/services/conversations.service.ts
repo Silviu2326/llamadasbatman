@@ -170,7 +170,7 @@ export async function ensureConversationForLead(orgId: string, leadId: string, c
   })
 }
 
-async function consentGranted(orgId: string, leadId: string, channel: string) {
+export async function consentGranted(orgId: string, leadId: string, channel: string) {
   const consent = await prisma.contactConsent.findFirst({
     where: { orgId, leadId, channel, purpose: 'contact' },
     orderBy: { occurredAt: 'desc' },

@@ -319,6 +319,22 @@ export async function history(
   }
 }
 
+export async function activity(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId, role } = request.user as JWTUser
+  try {
+    const rows = await pipelineService.getOpportunityActivity(orgId, { userId, role }, request.params.id)
+    return reply.send(rows)
+  } catch (err) {
+    if (err instanceof OpportunityNotFoundError) {
+      return reply.status(404).send({ error: 'Not found' })
+    }
+    throw err
+  }
+}
+
 // ─── OP-103: vista de lista ─────────────────────────────────────────────────
 
 export async function list(

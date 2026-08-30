@@ -372,12 +372,14 @@ export async function listOrganicRecommendations(orgId: string, limit = 20) {
 }
 
 /** Rutas de destino de cada brazo, con su contexto en la query. */
+// SEO y landings viven en «Web y SEO» y el brazo social es el estudio de la
+// propia página «Orgánico y social»: cada uno aterriza en su pestaña.
 const ARM_ROUTES: Record<string, string> = {
-  seo: '/seo',
-  social: '/redes-sociales',
-  prospecting: '/prospectos',
-  landings: '/landings',
-  ads: '/ads',
+  seo: '/captacion/convertir?tab=seo',
+  social: '/captacion/atraer/organico?tab=contenido',
+  prospecting: '/captacion/atraer/prospectos',
+  landings: '/captacion/convertir?tab=landings',
+  ads: '/captacion/atraer/ads',
 }
 
 /**
@@ -389,7 +391,7 @@ export async function dispatchRecommendation(orgId: string, decisionId: string) 
   const decision = await prisma.adDecision.findFirst({ where: { id: decisionId, orgId } })
   if (!decision) return null
   const arm = decision.dispatchArm ?? 'seo'
-  const base = ARM_ROUTES[arm] ?? '/organic'
+  const base = ARM_ROUTES[arm] ?? '/captacion/atraer/organico'
   const context = (decision.dispatchContext ?? {}) as Record<string, unknown>
 
   const params = new URLSearchParams({ from: 'organic', decisionId: decision.id })
@@ -417,7 +419,8 @@ export async function dispatchRecommendation(orgId: string, decisionId: string) 
   await recordFeedback(orgId, decision.diagnosis, 'dispatched')
 
   return {
-    url: `${base}?${params.toString()}`,
+    // La ruta del brazo ya puede llevar su pestaña en la query.
+    url: `${base}${base.includes('?') ? '&' : '?'}${params.toString()}`,
     arm,
     decisionId: decision.id,
     actionId: action?.id ?? null,

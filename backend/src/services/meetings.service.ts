@@ -5,6 +5,7 @@ import { writeAuditLog } from '../lib/audit'
 import { logSalesActivity } from '../lib/salesActivity'
 import * as tasksService from './tasks.service'
 import { scopedOwnerId, type DataActor } from '../lib/dataScope'
+import { emitOutcome } from './outcomes.service'
 
 function meetingOwner(actor: DataActor, permission: 'meetings.read' | 'meetings.write') {
   return scopedOwnerId(actor, permission)
@@ -271,6 +272,9 @@ export async function createMeeting(orgId: string, actorUserId: string, actorRol
       } as Prisma.InputJsonObject,
     },
   }).catch((err) => console.error('[meetings] error publicando meeting.created', err))
+
+  // North star (09 §5): reunión creada = resultado 'meeting_booked'. Nunca lanza.
+  await emitOutcome({ orgId, kind: 'meeting_booked', sourceRef: { meetingId: meeting.id, leadId: meeting.leadId } })
 
   return meeting
 }

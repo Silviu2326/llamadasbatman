@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 import * as settingsService from '../services/settings.service'
 import { z } from 'zod'
 import { parseRequest } from '../lib/validation'
+import * as businessProfileService from '../services/businessProfile.service'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -34,6 +35,42 @@ const organizationSchema = z.object({
   address: z.string().trim().max(500).optional().nullable(),
   currency: z.string().trim().regex(/^[A-Z]{3}$/, 'Usa un código ISO de tres letras').optional(),
 }).strict().refine(value => Object.values(value).some(item => item !== undefined), 'Incluye al menos un campo para actualizar')
+
+const nullableText = (max: number) => z.union([z.string().trim().max(max), z.null()]).transform(value => value || null)
+const offerSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  name: z.string().trim().max(160),
+  description: z.string().trim().max(2_000),
+  priceCents: z.number().int().min(0).max(1_000_000_000).nullable(),
+  currency: z.string().trim().regex(/^[A-Z]{3}$/),
+  billingPeriod: z.enum(['one_time', 'monthly', 'quarterly', 'yearly', 'custom']),
+  includes: z.array(z.string().trim().min(1).max(300)).max(20),
+  conditions: z.string().trim().max(2_000),
+  active: z.boolean(),
+}).strict()
+
+const businessProfileSchema = z.object({
+  company: z.object({
+    name: z.string().trim().min(1).max(160),
+    email: z.union([z.string().trim().email().max(254), z.literal(''), z.null()]).transform(value => value || null),
+    website: z.union([z.string().trim().url().max(2_048), z.literal(''), z.null()]).transform(value => value || null),
+    phone: nullableText(40),
+    industry: nullableText(120),
+    address: nullableText(500),
+    currency: z.string().trim().regex(/^[A-Z]{3}$/),
+  }).strict(),
+  description: z.string().trim().max(4_000),
+  idealCustomer: z.string().trim().max(4_000),
+  valueProposition: z.string().trim().max(4_000),
+  differentiators: z.array(z.string().trim().min(1).max(500)).max(20),
+  offers: z.array(offerSchema).max(50),
+  commercialGuardrails: z.object({
+    discountPolicy: z.string().trim().max(4_000),
+    paymentTerms: z.string().trim().max(4_000),
+    guarantees: z.string().trim().max(4_000),
+    forbiddenClaims: z.string().trim().max(4_000),
+  }).strict(),
+}).strict()
 
 export async function getMe(request: FastifyRequest, reply: FastifyReply) {
   const { userId } = request.user as JWTUser
@@ -123,6 +160,26 @@ export async function updateOrganization(
   if (!body) return
   const org = await settingsService.updateOrganization(orgId, body)
   return reply.send(org)
+}
+
+export async function getBusinessProfile(request: FastifyRequest, reply: FastifyReply) {
+  const { orgId } = request.user as JWTUser
+  const result = await businessProfileService.getBusinessProfile(orgId)
+  if (!result) return reply.status(404).send({ error: 'Not found' })
+  return reply.send(result)
+}
+
+export async function updateBusinessProfile(
+  request: FastifyRequest<{ Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, role } = request.user as JWTUser
+  if (role === 'viewer') return reply.status(403).send({ error: 'Viewers cannot modify organization settings' })
+  const body = parseRequest(reply, businessProfileSchema, request.body)
+  if (!body) return
+  const result = await businessProfileService.updateBusinessProfile(orgId, body)
+  if (!result) return reply.status(404).send({ error: 'Not found' })
+  return reply.send(result)
 }
 
 export async function getIntegrations(request: FastifyRequest, reply: FastifyReply) {

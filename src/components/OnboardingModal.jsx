@@ -28,7 +28,7 @@ const STEP_COPY_KEYS = {
 }
 
 const MODULE_LABEL_KEYS = {
-  dashboard: 'nav.dashboard', campaigns: 'nav.campaigns', ads: 'nav.ads', social: 'nav.social', 'prospect-finder': 'nav.prospectFinder', landings: 'nav.landings', funnels: 'nav.funnels', organic: 'nav.organicLeads', inbox: 'nav.inbox', calls: 'nav.calls', agents: 'nav.agents', playbooks: 'nav.playbooks', 'voice-test': 'nav.voiceTest', email: 'nav.emailMarketing', automations: 'nav.automations', growth: 'nav.growthHub', leads: 'nav.leads', pipeline: 'nav.pipeline', meetings: 'nav.meetings', 'revenue-intelligence': 'nav.revenueIntelligence', insights: 'nav.insights', knowledge: 'nav.knowledgeBase', settings: 'nav.settings', governance: 'nav.governance', 'access-control': 'nav.accessControl', 'ad-playbooks': 'nav.adRecipes',
+  dashboard: 'nav.dashboard', campaigns: 'nav.campaigns', ads: 'nav.ads', 'prospect-finder': 'nav.prospectFinder', landings: 'nav.landings', funnels: 'nav.funnels', organic: 'nav.organicLeads', inbox: 'nav.inbox', calls: 'nav.calls', agents: 'nav.agents', playbooks: 'nav.playbooks', 'voice-test': 'nav.voiceTest', email: 'nav.emailMarketing', automations: 'nav.automations', growth: 'nav.growthHub', leads: 'nav.leads', pipeline: 'nav.pipeline', meetings: 'nav.meetings', 'revenue-intelligence': 'nav.revenueIntelligence', insights: 'nav.insights', knowledge: 'nav.knowledgeBase', settings: 'nav.settings', governance: 'nav.governance', 'access-control': 'nav.accessControl', 'ad-playbooks': 'nav.adRecipes',
 }
 
 function OptionCard({ option, selected, onSelect, t }) {

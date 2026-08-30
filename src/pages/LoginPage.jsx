@@ -13,6 +13,7 @@ import {
   RiShieldCheckLine,
 } from 'react-icons/ri'
 import { useI18n } from '../i18n'
+import { useBrand } from '../lib/brand'
 
 const TRUST_ITEMS = [
   { icon: RiShieldCheckLine, key: 'protectedAccess' },
@@ -21,12 +22,17 @@ const TRUST_ITEMS = [
 ]
 
 function Brand({ compact = false }) {
+  const brand = useBrand()
   return (
     <div className={`login-brand${compact ? ' login-brand--compact' : ''}`}>
-      <span className="login-brand__mark" aria-hidden="true">
-        {[18, 28, 38, 30, 22].map((height, index) => <i key={index} style={{ '--brand-bar-height': `${height}px` }} />)}
-      </span>
-      <span>Vendrava</span>
+      {brand.logoUrl
+        ? <img src={brand.logoUrl} alt="" style={{ width: 34, height: 34, borderRadius: 9, objectFit: 'cover' }} />
+        : (
+          <span className="login-brand__mark" aria-hidden="true">
+            {[18, 28, 38, 30, 22].map((height, index) => <i key={index} style={{ '--brand-bar-height': `${height}px` }} />)}
+          </span>
+        )}
+      <span>{brand.brandName}</span>
     </div>
   )
 }
@@ -57,8 +63,9 @@ function SceneCard({ type, icon: Icon, title, detail, children }) {
 
 function Showcase() {
   const { t } = useI18n()
+  const brand = useBrand()
   return (
-    <section className="login-showcase" aria-label={`Vendrava, ${t('auth.conversationalIntelligence').toLowerCase()}`}>
+    <section className="login-showcase" aria-label={`${brand.brandName}, ${t('auth.conversationalIntelligence').toLowerCase()}`}>
       <div className="login-showcase__grid" aria-hidden="true" />
       <div className="login-showcase__glow login-showcase__glow--one" aria-hidden="true" />
       <div className="login-showcase__glow login-showcase__glow--two" aria-hidden="true" />
@@ -140,6 +147,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [showRecovery, setShowRecovery] = useState(false)
   const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [recoverySending, setRecoverySending] = useState(false)
+  const [recoverySent, setRecoverySent] = useState(false)
   const recoveryInputRef = useRef(null)
   const errorId = 'login-form-error'
   const recoveryDescriptionId = 'login-recovery-description'
@@ -152,6 +161,23 @@ export default function LoginPage() {
     const frame = requestAnimationFrame(() => recoveryInputRef.current?.focus())
     return () => cancelAnimationFrame(frame)
   }, [showRecovery])
+
+  async function sendRecovery() {
+    setRecoverySending(true)
+    try {
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: recoveryEmail.trim() }),
+      })
+    } catch {
+      // La respuesta es siempre la misma: no hay nada que contarle al usuario
+      // que no sea "revisa tu correo".
+    } finally {
+      setRecoverySending(false)
+      setRecoverySent(true)
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -171,7 +197,7 @@ export default function LoginPage() {
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || data.message || t('auth.invalidCredentials'))
-      login(data.token, data.user)
+      login(data.token, data.user, data.brand)
       navigate('/dashboard', { replace: true })
     } catch (submitError) {
       setError(submitError.message || t('auth.signInError'))
@@ -261,7 +287,27 @@ export default function LoginPage() {
                   aria-describedby={recoveryDescriptionId}
                   style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '8px 10px', border: '1px solid #b6c4ee', borderRadius: 8, color: '#14233d', background: '#fff', font: 'inherit' }}
                 />
-                <a href={supportMailto} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 36, padding: '0 12px', borderRadius: 8, color: '#fff', background: '#4858d9', fontWeight: 700, textDecoration: 'none' }}>{t('auth.openSupportEmail')}</a>
+                {/* Antes esto solo abría un mailto a soporte: ahora hay reseteo
+                    real (POST /api/auth/forgot-password), que responde igual
+                    exista o no la cuenta para no filtrar quién está registrado. */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    disabled={recoverySending || !recoveryEmail.trim()}
+                    onClick={sendRecovery}
+                    style={{ display: 'inline-flex', alignItems: 'center', minHeight: 36, padding: '0 12px', borderRadius: 8, color: '#fff', background: '#4858d9', fontWeight: 700, border: 'none', cursor: recoverySending ? 'progress' : 'pointer' }}
+                  >
+                    {recoverySending ? 'Enviando…' : locale === 'en' ? 'Email me a reset link' : 'Enviarme un enlace'}
+                  </button>
+                  <a href={supportMailto} style={{ color: '#4858d9', fontWeight: 600, fontSize: 12.5 }}>{t('auth.openSupportEmail')}</a>
+                </div>
+                {recoverySent && (
+                  <p style={{ margin: '10px 0 0', fontSize: 12.5, color: '#14233d' }}>
+                    {locale === 'en'
+                      ? 'If that email has an account, a reset link is on its way. It expires in one hour.'
+                      : 'Si ese email tiene cuenta, recibirás un enlace para restablecerla. Caduca en una hora.'}
+                  </p>
+                )}
               </section>
             )}
 
@@ -278,6 +324,10 @@ export default function LoginPage() {
             ))}
           </div>
 
+          <p className="login-legal">
+            {locale === 'en' ? "Don't have an account? " : '¿Aún no tienes cuenta? '}
+            <Link to="/registro" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Create one' : 'Créala aquí'}</Link>
+          </p>
           <p className="login-legal">
             {locale === 'en' ? 'By signing in you accept the ' : 'Al acceder aceptas los '}<Link to="/terminos" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Terms' : 'Términos'}</Link>{locale === 'en' ? ' and ' : ' y la '}<Link to="/privacidad" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Privacy Policy' : 'Privacidad'}</Link>.
           </p>

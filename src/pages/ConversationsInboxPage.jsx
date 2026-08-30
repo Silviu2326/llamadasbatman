@@ -7,6 +7,7 @@ import {
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import './conversations-inbox.css'
 
 const CHANNELS = [
@@ -218,6 +219,8 @@ export default function ConversationsInboxPage() {
       setBody(suggestion.text || '')
     } catch { setDetailState('error') } finally { setSuggesting(false) }
   }
+
+  if (listState === 'loading' && !conversations.length) return <PageLoadingState label="Cargando conversaciones" />
 
   return <main className="conversations-inbox-page">
     <div className="inbox-topbar"><select value={filters.status} onChange={event => setFilters(current => ({ ...current, status: event.target.value }))}><option value="">Todas las conversaciones</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><div className="topbar-actions"><button type="button" title="Buscar conversaciones" onClick={() => searchInputRef.current?.focus()}><RiSearchLine /></button></div></div>

@@ -2,7 +2,7 @@
 /* El titular medía hasta 43px. Es la única de las seis pantallas del recorrido
    que llevaba tamaño de portada, y por eso su cabecera quedaba 10px más alta
    que las demás y la barra de Planificar/Atraer/Convertir/Cerrar caía más abajo
-   al entrar aquí. El tamaño lo fija ahora el contrato de `capture-journey.css`. */
+   al entrar aquí. El tamaño lo fija ahora el contrato de cabecera de `pages/captacion/captacion.css`. */
 .campaign-page .campaign-page-header p { max-width: 670px; margin-top: 8px; color: var(--muted); font-size: 12px; }
 .campaign-page .campaign-metrics-row,.campaign-page .campaigns-layout { max-width: 1440px; margin-right: auto; margin-left: auto; }
 .campaign-page .campaign-metrics-row { margin-top: 0; }

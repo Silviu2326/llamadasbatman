@@ -21,6 +21,9 @@ import {
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import BusinessIntelligenceWorkspace from '../components/BusinessIntelligenceWorkspace'
+import PageLoadingState from '../components/ui/PageLoadingState'
+import ProductPageHeader from '../components/ui/ProductPageHeader'
 import './revenue-intelligence.css'
 
 const API_ROOT = '/api/revenue-intelligence'
@@ -301,7 +304,7 @@ function ExperimentModal({ saving, error, onClose, onSubmit }) {
   </div>
 }
 
-export default function RevenueIntelligencePage() {
+export default function RevenueIntelligencePage({ sectionNavigation = null }) {
   const { locale } = useI18n()
   const [nextActions, setNextActions] = useState([])
   const [experiments, setExperiments] = useState([])
@@ -422,11 +425,12 @@ export default function RevenueIntelligencePage() {
     }
   }
 
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading revenue intelligence' : 'Cargando inteligencia comercial'} />
+
   return <main className="ri-page">
-    <header className="ri-page-header">
-      <div className="ri-heading"><span className="ri-brand"><RiFlashlightLine aria-hidden="true" /></span><div><h1>{locale === 'en' ? 'Revenue intelligence' : 'Inteligencia comercial'}</h1><p>{locale === 'en' ? 'Prioritize the next move, measure what works and turn winning conversations into reviewable proposals.' : 'Prioriza el siguiente movimiento, mide qué funciona y convierte conversaciones ganadoras en propuestas revisables.'}</p></div></div>
-      <button type="button" className="ri-button subtle" disabled={loading || busyKey === 'refresh-actions'} onClick={loadWorkspace}><RiRefreshLine className={loading ? 'ri-spin' : ''} aria-hidden="true" />{locale === 'en' ? 'Refresh' : 'Actualizar'}</button>
-    </header>
+    <ProductPageHeader Icon={RiFlashlightLine} title={locale === 'en' ? 'Revenue intelligence' : 'Inteligencia comercial'} description={locale === 'en' ? 'Prioritize the next move, measure what works and turn winning conversations into reviewable proposals.' : 'Prioriza el siguiente movimiento, mide qué funciona y convierte conversaciones ganadoras en propuestas revisables.'} navigation={sectionNavigation} />
+
+    <BusinessIntelligenceWorkspace />
 
     <section className="ri-command" aria-label="Resumen de inteligencia comercial">
       <div><span>Centro de decisiones</span><h2>Acción con contexto, aprendizaje con control.</h2><p>Las recomendaciones no sustituyen al criterio del equipo: explican qué señal priorizan y dejan trazabilidad de cada decisión.</p></div>

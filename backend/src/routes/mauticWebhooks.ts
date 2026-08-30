@@ -271,7 +271,7 @@ export async function mauticWebhooksRoutes(app: FastifyInstance) {
           // Compat: se mantiene Lead.customFields.mauticActivity — es lo que
           // ya lee la vista de overview de Email marketing.
           if (type !== 'delivered' && type !== 'reply') {
-            await recordActivityByCrmLeadId(crmLeadId, type, detail, fingerprint).catch(() => {})
+            await recordActivityByCrmLeadId(leadOrg.orgId, crmLeadId, type, detail, fingerprint).catch(() => {})
           }
 
           // EM-102: EmailDelivery/EmailEvent normalizados, idempotentes.

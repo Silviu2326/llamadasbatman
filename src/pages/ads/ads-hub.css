@@ -1,0 +1,15 @@
+/* Marco de la página de Publicidad (Captación → Atraer → Ads). Adopta el
+   sistema gs-* compartido de Growth (growth-surface.css); aquí viven solo el
+   acento de la página y los detalles que el marco no cubre. Los paneles con
+   componentes nuevos (contexto de campaña, estructura, creatividades) traen
+   su CSS propio, y los componentes heredados siguen usando ads.css. */
+
+.ads-hub {
+  --gs-accent: var(--violet);
+  --gs-brand-from: var(--violet-deep);
+  --gs-brand-to: var(--accent-deep);
+}
+
+/* El separador de circuitos (Ahora / Resultado / Gobierno) viene de ads.css y
+   asume el fondo del dashboard viejo; dentro del marco gs solo necesita aire. */
+.ads-hub .ads-circuit { margin: 4px 0 -6px; }

@@ -1,52 +1,32 @@
 import type { CallContext } from '../intelligence/conversation/callContext'
-import { DeepgramElevenLabsSession } from '../pipelines/deepgramElevenLabs'
-import { RemoteVoiceEngineSession } from './remoteVoiceEngine'
-import { configuredVoiceArchitecture, voiceEngineToken, voiceEngineUrl } from './architecture'
+import { VendravaVoiceSession, vendravaVoiceConfigured, vendravaVoiceLanguageSupported } from '../pipelines/vendravaVoice'
+import { missingRuntimeCredentials, resolveAgentRuntime, runtimePipelineLabel, unsupportedRuntimeProviders } from '../runtimeConfig'
 import type { VoiceSession } from './voiceSession'
-export { configuredVoiceArchitecture } from './architecture'
-
-export type VoiceEngineMode = 'legacy' | 'remote'
-
-export interface VoicePipelineOverride {
-  stt?: 'whisper' | 'kyutai'
-  tts?: 'qwen' | 'chatterbox' | 'piper'
-}
-
-export function configuredVoiceEngineMode(): VoiceEngineMode {
-  const requested = process.env.VOICE_ENGINE_MODE?.trim().toLowerCase()
-  if (requested === 'legacy' && process.env.VOICE_ENGINE_ALLOW_PROPRIETARY === 'true') return 'legacy'
-  return 'remote'
-}
 
 /**
- * Connects the self-hosted engine before the media loop starts. The legacy
- * Deepgram/ElevenLabs path is deliberately opt-in so an unavailable local
- * engine cannot silently route customer audio to a proprietary provider.
+ * Un único pipeline bilingüe: Deepgram Flux Multilingual → Cerebras GPT-OSS
+ * 120B → Fish Audio S2.1 Pro.
  */
-export async function createVoiceSession(ctx: CallContext, systemPrompt: string, pipeline?: VoicePipelineOverride): Promise<VoiceSession> {
-  if (configuredVoiceEngineMode() === 'legacy') {
-    console.warn('[VOICE_ENGINE] proprietary legacy pipeline explicitly enabled call=%s', ctx.callSid)
-    return new DeepgramElevenLabsSession(ctx, systemPrompt)
+export async function createVoiceSession(ctx: CallContext, systemPrompt: string): Promise<VoiceSession> {
+  const runtime = resolveAgentRuntime(ctx.agentConfig)
+  const unsupported = unsupportedRuntimeProviders(runtime)
+  const missing = missingRuntimeCredentials(runtime)
+  if (unsupported.length) {
+    throw new Error(`Proveedores de voz no soportados: ${unsupported.join(', ')}`)
   }
-
-  const architecture = configuredVoiceArchitecture(ctx)
-  const remote = new RemoteVoiceEngineSession(ctx, systemPrompt, {
-    architecture,
-    url: voiceEngineUrl(architecture),
-    token: voiceEngineToken(architecture),
-    pipeline,
+  if (!vendravaVoiceConfigured(ctx.agentConfig)) {
+    throw new Error(`Faltan credenciales para el runtime seleccionado: ${missing.join(', ')}`)
+  }
+  if (!vendravaVoiceLanguageSupported(ctx.agentConfig)) {
+    // Mejor no llamar que llamar en el idioma equivocado con el guion de otro.
+    throw new Error(`El motor de voz solo admite inglés y español; el agente ${ctx.agentId} está en "${ctx.agentConfig?.identity?.agentAccent}"`)
+  }
+  console.info('[VOICE_ENGINE] %s call=%s', runtimePipelineLabel(runtime), ctx.callSid)
+  const voice = ctx.agentConfig?.voice
+  return new VendravaVoiceSession(ctx, systemPrompt, {
+    speculative: voice?.speculative ?? true,
+    voiceId: voice?.ttsVoiceId ?? '',
+    ttsModel: 's2.1-pro',
+    speed: voice?.speed ?? 1,
   })
-  try {
-    await remote.connect()
-    console.info('[VOICE_ENGINE] using self-hosted remote engine call=%s', ctx.callSid)
-    return remote
-  } catch (error) {
-    await remote.close().catch(() => {})
-    if (process.env.VOICE_ENGINE_ALLOW_PROPRIETARY === 'true' && process.env.VOICE_ENGINE_FALLBACK === 'true') {
-      console.warn('[VOICE_ENGINE] remote unavailable; falling back to legacy pipeline', error)
-      return new DeepgramElevenLabsSession(ctx, systemPrompt)
-    }
-    console.error('[VOICE_ENGINE] self-hosted engine unavailable; proprietary fallback is disabled')
-    throw error
-  }
 }

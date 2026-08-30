@@ -10,7 +10,6 @@ import DonutChart from './DonutChart'
 import IngresosChart from './IngresosChart'
 import AgentesTable from './AgentesTable'
 import AlertasIA from './AlertasIA'
-import LiveCallsWidget from './LiveCallsWidget'
 
 export default function WidgetRenderer({ widgetId, kpiData, stats }) {
   if (widgetId.startsWith('kpi_')) {
@@ -33,8 +32,6 @@ export default function WidgetRenderer({ widgetId, kpiData, stats }) {
       return <AgentesTable agents={stats?.agentLeaderboard} />
     case WIDGET_TYPES.ALERTAS_IA:
       return <AlertasIA />
-    case WIDGET_TYPES.LIVE_CALLS:
-      return <LiveCallsWidget />
     default:
       return null
   }

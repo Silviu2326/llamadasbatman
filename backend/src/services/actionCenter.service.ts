@@ -275,7 +275,7 @@ async function derivedItems(orgId: string): Promise<DerivedItems> {
       impact: { metric: 'cost', value: inactiveCampaignCount, label: 'Campañas activas sin conversión registrada' },
       owner: { type: 'team', label: 'Marketing / Growth' },
       cta: { label: 'Revisar campañas', method: 'navigate' },
-      target: { type: 'campaigns', path: '/campanas' },
+      target: { type: 'campaigns', path: '/captacion/planificar' },
     }))
   }
 
@@ -288,8 +288,8 @@ async function derivedItems(orgId: string): Promise<DerivedItems> {
       priority: priorityFromCount(overdueOrganicCount),
       impact: { metric: 'leads', value: overdueOrganicCount, label: 'Oportunidades orgánicas pendientes' },
       owner: { type: 'team', label: 'Marketing / Growth' },
-      cta: { label: 'Revisar Organic Leads', method: 'navigate' },
-      target: { type: 'organic', path: '/organic' },
+      cta: { label: 'Revisar Orgánico y social', method: 'navigate' },
+      target: { type: 'organic', path: '/captacion/atraer/organico?tab=acciones' },
     }))
   }
 

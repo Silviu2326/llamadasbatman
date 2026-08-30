@@ -4,6 +4,7 @@ import * as leadsService from '../services/leads.service'
 import { OwnershipError, LeadNotFoundError } from '../services/leads.service'
 import { enqueueLeadCall } from '../services/leadIngestion.service'
 import { sendEmailToLead, isTemplateOwnedByOrg, createEmailDelivery } from '../services/mauticSync.service'
+import * as outboundEmail from '../services/outboundEmail.service'
 import { assertEmailSendAllowed } from '../lib/emailCompliance'
 import { writeAuditLog } from '../lib/audit'
 import { prisma } from '../lib/prisma'
@@ -15,9 +16,11 @@ type JWTUser = { userId: string; orgId: string; role: string; email: string; wor
 
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted'] as const satisfies readonly LeadStatus[]
 
-// Importaciones muy grandes deben pasar por un flujo asíncrono (LE-06, P1);
-// mientras tanto se acota el tamaño de una importación síncrona.
-const MAX_IMPORT_ROWS = 2000
+// La importación ya es asíncrona (createImportJob + importJobRunner), así que
+// el tope solo protege el parseo en memoria antes de encolar: 25.000 filas son
+// ~5 MB, holgado frente al bodyLimit de 15 MB de index.ts. Las semillas de
+// registros públicos llegan en lotes de 10.000-20.000 y no deben partirse.
+const MAX_IMPORT_ROWS = 25_000
 
 const idParamsSchema = z.object({ id: z.string().trim().min(1).max(128) }).strict()
 
@@ -424,6 +427,67 @@ export async function audit(
   const result = await leadsService.auditLead(orgId, params.id, body)
   if (!result) return reply.status(404).send({ error: 'Not found' })
   return reply.send(result)
+}
+
+const outboundDraftSchema = z.object({ tone: z.string().trim().min(3).max(80).optional() }).strict()
+
+/** Redacta sin enviar: se puede pulsar tantas veces como haga falta. */
+export async function draftOutboundEmail(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, outboundDraftSchema, request.body ?? {})
+  if (!params || !body) return
+  try {
+    return reply.send(await outboundEmail.draftOutboundEmail(orgId, params.id, body))
+  } catch (err) {
+    if (err instanceof outboundEmail.OutboundEmailError) {
+      return reply.status(err.statusCode).send({ error: err.message, code: err.code })
+    }
+    throw err
+  }
+}
+
+const outboundSendSchema = z.object({
+  // Se acepta el borrador editado a mano: si alguien reescribe el email en la
+  // pantalla, se manda el suyo y no otro generado por detrás.
+  subject: z.string().trim().min(3).max(120).optional(),
+  body: z.string().trim().min(20).max(6_000).optional(),
+}).strict()
+
+export async function sendOutboundEmail(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, outboundSendSchema, request.body ?? {})
+  if (!params || !body) return
+  try {
+    const draft = await outboundEmail.draftOutboundEmail(orgId, params.id)
+    // La edición manual no salta el editor adversario: se vuelve a pasar por
+    // él antes de salir, igual que el texto del modelo.
+    const edited = body.subject || body.body
+      ? await outboundEmail.reviewEditedDraft(orgId, draft, { subject: body.subject, body: body.body })
+      : draft
+    const result = await outboundEmail.sendOutboundEmail(orgId, params.id, { draft: edited, actorUserId: userId })
+    await writeAuditLog({
+      orgId,
+      actorUserId: userId,
+      action: 'lead.outbound_email.send',
+      entityType: 'Lead',
+      entityId: params.id,
+      after: { deliveryId: result.deliveryId, subject: result.subject, status: result.status, edited: Boolean(body.subject || body.body) },
+    })
+    return reply.send(result)
+  } catch (err) {
+    if (err instanceof outboundEmail.OutboundEmailError) {
+      return reply.status(err.statusCode).send({ error: err.message, code: err.code })
+    }
+    throw err
+  }
 }
 
 export async function listFiles(

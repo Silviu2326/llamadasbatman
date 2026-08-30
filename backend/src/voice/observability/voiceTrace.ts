@@ -3,7 +3,8 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import type { CallContext } from '../intelligence/conversation/callContext'
 import type { VoiceExperimentSnapshot } from '../experiments/voiceExperiment'
-import { configuredVoiceArchitecture } from '../engine/architecture'
+import { DEFAULT_SETTINGS } from '../pipelines/vendravaProtocol'
+import { resolveAgentRuntime } from '../runtimeConfig'
 
 export type VoiceEventRole = 'system' | 'user' | 'assistant' | 'tool'
 
@@ -22,12 +23,14 @@ export type VoiceRuntimeSnapshot = {
   architecture: string
   engineVersion: string
   stt: { provider: string; model: string; language: string }
-  llm: { provider: string; model: string }
-  tts: { provider: string; model: string; voice: string }
+  llm: { provider: string; model: string; supervisor?: { provider: string; model: string; mode: string } }
+  tts: { provider: string; model: string; voice: string; speed: number }
   turnDetector: { provider: string; version: string }
   prosodyVersion: string
   salesBrainVersion: string
   playbookVersion: string
+  strategyId?: string
+  customPlaybookId?: string
   experiment?: VoiceExperimentSnapshot
   campaignId?: string
   agentId?: string
@@ -42,34 +45,41 @@ export function hashPrompt(prompt: string): string {
 }
 
 export function buildVoiceRuntimeSnapshot(ctx: CallContext, systemPrompt: string, experiment?: VoiceExperimentSnapshot | null): VoiceRuntimeSnapshot {
-  const proprietaryEnabled = process.env.VOICE_ENGINE_ALLOW_PROPRIETARY === 'true'
-  const legacyRequested = process.env.VOICE_ENGINE_MODE?.trim().toLowerCase() === 'legacy'
-  const remote = !(legacyRequested && proprietaryEnabled)
+  const runtime = resolveAgentRuntime(ctx.agentConfig)
+  const language = /^es\b/i.test(ctx.agentConfig?.identity?.agentAccent ?? '') ? 'es' : 'en'
+  const voice = runtime.tts.provider === 'minimax'
+    ? process.env.MINIMAX_VOICE_ID?.trim() || ctx.agentConfig?.voice?.ttsVoiceId || DEFAULT_SETTINGS.voiceId
+    : (language === 'es' ? process.env.FISH_VOICE_ID_ES : process.env.FISH_VOICE_ID_EN)?.trim() || ctx.agentConfig?.voice?.ttsVoiceId || DEFAULT_SETTINGS.voiceId
   return {
-    engineMode: remote ? 'remote' : 'legacy',
-    architecture: remote ? configuredVoiceArchitecture(ctx) : 'legacy',
-    engineVersion: process.env.VOICE_ENGINE_VERSION?.trim() || '2.1.0',
+    engineMode: 'vendrava',
+    architecture: 'modular',
+    engineVersion: process.env.VOICE_ENGINE_VERSION?.trim() || '3.0.0',
     stt: {
-      provider: process.env.VOICE_STT_PROVIDER?.trim() || (remote ? 'faster-whisper' : 'deepgram'),
-      model: process.env.VOICE_ENGINE_STT_MODEL?.trim() || (remote ? 'large-v3-turbo' : 'flux-general-multi'),
-      language: ctx.agentConfig?.identity.agentAccent?.trim() || process.env.VOICE_CALL_LANGUAGE?.trim() || process.env.VOICE_ENGINE_LANGUAGE?.trim() || process.env.DEEPGRAM_LANGUAGE?.trim() || 'es-ES',
+      provider: runtime.transcriptionStt.provider,
+      model: runtime.transcriptionStt.model,
+      language,
     },
     llm: {
-      provider: process.env.VOICE_LLM_PROVIDER?.trim() || (remote ? 'vllm-local' : 'cerebras'),
-      model: process.env.VOICE_ENGINE_LLM_MODEL?.trim() || process.env.CEREBRAS_MODEL?.trim() || (remote ? 'Qwen/Qwen3-8B' : 'llama-3.3-70b'),
+      provider: runtime.primaryLlm.provider,
+      model: runtime.primaryLlm.model,
+      // El guru corre en el hueco muerto mientras habla el agente.
+      supervisor: { provider: runtime.guru.provider, model: runtime.guru.model, mode: runtime.guru.enabled === false ? 'disabled' : 'async' },
     },
     tts: {
-      provider: process.env.VOICE_TTS_PROVIDER?.trim() || (remote ? 'piper' : 'elevenlabs'),
-      model: process.env.VOICE_ENGINE_PIPER_MODEL?.trim() || process.env.VOICE_ENGINE_QWEN3_MODEL?.trim() || process.env.ELEVENLABS_MODEL_ID?.trim() || (remote ? 'local' : 'eleven_flash_v2_5'),
-      voice: remote ? process.env.VOICE_ENGINE_VOICE || 'default' : ctx.agentConfig?.voice?.elevenLabsVoiceId || process.env.ELEVENLABS_VOICE_ID || 'default',
+      provider: runtime.tts.provider,
+      model: runtime.tts.model,
+      voice,
+      speed: ctx.agentConfig?.voice?.speed ?? DEFAULT_SETTINGS.speed,
     },
     turnDetector: {
-      provider: process.env.VOICE_TURN_PROVIDER?.trim() || (remote ? 'rms+smart-turn-optional' : 'deepgram-eot+rms'),
+      provider: `${runtime.transcriptionStt.provider}-semantic`,
       version: process.env.VOICE_TURN_VERSION?.trim() || '1',
     },
-    prosodyVersion: process.env.VOICE_PROSODY_VERSION?.trim() || '1',
-    salesBrainVersion: process.env.VOICE_SALES_BRAIN_VERSION?.trim() || 'legacy-guru-supervisor',
+    prosodyVersion: process.env.VOICE_PROSODY_VERSION?.trim() || 'derived-1',
+    salesBrainVersion: process.env.VOICE_SALES_BRAIN_VERSION?.trim() || 'vendrava-guru',
     playbookVersion: process.env.VOICE_PLAYBOOK_VERSION?.trim() || '1',
+    strategyId: ctx.agentConfig?.playbook.strategy || undefined,
+    customPlaybookId: ctx.agentConfig?.playbook.customPlaybookId || undefined,
     experiment: experiment ?? undefined,
     campaignId: ctx.campaignId || undefined,
     agentId: ctx.agentId || undefined,

@@ -1,0 +1,8 @@
+/* Estilos propios de los paneles centrales de Ads (Resumen, Medición,
+   Decisiones, Experimentos) que ni growth-surface.css ni ads.css cubren.
+   Prefijo ahc- (Ads Hub Core). */
+
+/* Un dato sin medir dentro de una casilla gs-stat no puede parecer un valor:
+   se rebaja tipográficamente igual que hacen gs-kpi.is-missing y
+   gs-mini.is-missing, que gs-stat no trae de serie. */
+.gs-stat.ahc-missing strong { color: var(--dim); font-size: 12px; font-style: italic; font-weight: 600; letter-spacing: 0 }

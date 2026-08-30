@@ -1,8 +1,10 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../lib/prisma'
 import * as metricool from '../services/metricoolSync.service'
-import { generateImageUrl, generateSocialContentPlan } from '../services/assetGenerator.service'
+// Alias: este controlador ya exporta un handler llamado `generateImage`.
+import { generateImage as generateAiImage, generateSocialContentPlan } from '../services/assetGenerator.service'
 import { saveUploadedImage } from '../services/generatedMedia.service'
+import { createAssetFromBuffer } from '../services/assets.service'
 import { z } from 'zod'
 import { parseRequest } from '../lib/validation'
 import type { PostCampaignAttribution } from '../services/socialTypes'
@@ -158,7 +160,23 @@ export async function uploadImage(
   if (!buffer.length || buffer.length > 8 * 1024 * 1024) return reply.status(400).send({ error: 'La imagen debe pesar entre 1 byte y 8 MB' })
   const saved = await saveUploadedImage(buffer)
   if (!saved) return reply.status(400).send({ error: 'Formato no soportado: sube una imagen PNG, JPEG o WebP' })
-  return reply.status(201).send({ imageUrl: saved.publicUrl })
+  // La imagen subida entra también en la biblioteca de activos (como ya hace
+  // la generada por IA): sin fila Asset el Creator Studio no puede entregarla
+  // como creatividad de Ads, solo publicarla en redes.
+  let assetId: string | null = null
+  try {
+    const asset = await createAssetFromBuffer({
+      orgId,
+      buffer,
+      kind: 'image',
+      provider: 'upload',
+      params: { source: 'creator-studio-upload', publicUrl: saved.publicUrl },
+    })
+    assetId = asset.id
+  } catch {
+    // La subida sigue sirviendo para publicar en redes aunque el registro falle.
+  }
+  return reply.status(201).send({ imageUrl: saved.publicUrl, assetId })
 }
 
 export async function generateImage(
@@ -172,8 +190,11 @@ export async function generateImage(
   if (!process.env.PUBLIC_HOST) return reply.status(409).send({ error: 'Falta la dirección pública del servidor de imágenes. Pide a tu administrador que la configure para poder generar imágenes.', code: 'PUBLIC_HOST_NOT_CONFIGURED' })
   const body = parseRequest(reply, aiImageSchema, request.body)
   if (!body) return
-  const imageUrl = await generateImageUrl(`Imagen para un post de redes sociales: ${body.prompt}. Fotografía profesional, sin texto sobreimpreso.`)
+  // Con orgId la imagen entra también en la biblioteca de activos y en el
+  // ledger de consumo (doble escritura, 02-FUNDAMENTOS §2.3). `assetId` es un
+  // campo adicional de la respuesta: los clientes actuales solo leen imageUrl.
+  const generated = await generateAiImage(`Imagen para un post de redes sociales: ${body.prompt}. Fotografía profesional, sin texto sobreimpreso.`, { orgId })
   // Fallo real del generador de imágenes, no configuración: se mantiene 502.
-  if (!imageUrl) return reply.status(502).send({ error: 'No se pudo generar la imagen. Intenta de nuevo.', code: 'IMAGE_GENERATION_FAILED' })
-  return reply.status(201).send({ imageUrl })
+  if (!generated) return reply.status(502).send({ error: 'No se pudo generar la imagen. Intenta de nuevo.', code: 'IMAGE_GENERATION_FAILED' })
+  return reply.status(201).send({ imageUrl: generated.imageUrl, assetId: generated.assetId })
 }

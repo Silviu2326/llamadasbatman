@@ -1,0 +1,5 @@
+.agency-limit-panel { margin: 0 22px 22px; }
+.agency-limit-panel .limit-editor { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.agency-limit-panel .limit-editor label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 700; }
+.agency-limit-panel .limit-editor input { width: 130px; }
+@media (max-width: 760px) { .agency-limit-panel { margin: 0 12px 12px; } .agency-limit-panel .limit-editor { align-items: stretch; flex-direction: column; } .agency-limit-panel .limit-editor input { width: 100%; } }

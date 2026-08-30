@@ -45,7 +45,8 @@ test('normaliza aliases, espacios y valores desconocidos cerrando por defecto', 
 
 test('la matriz de capacidades mantiene mínimo privilegio por plan', () => {
   assert.equal(hasCapability('free', 'crm'), true)
-  assert.equal(hasCapability('free', 'ads'), false)
+  assert.equal(hasCapability('free', 'ads'), true)
+  assert.equal(hasCapability('free', 'agents'), true)
   assert.equal(hasCapability('pro', 'ads'), true)
   assert.equal(hasCapability('pro', 'email_marketing'), false)
   assert.equal(hasCapability('completo', 'email_marketing'), true)

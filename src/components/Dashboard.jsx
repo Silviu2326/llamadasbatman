@@ -4,19 +4,16 @@ import { GridLayout } from 'react-grid-layout'
 import {
   RiPhoneLine, RiGroupLine, RiCalendarLine, RiPercentLine,
   RiMoneyDollarBoxLine, RiBriefcaseLine, RiLineChartLine,
-  RiCloseLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
 import { apiFetch } from '../lib/api'
 import { DEMO_MODE, getApiErrorMessage, isNonEmptyPayload } from '../lib/dataMode'
-import ExportDropdown from './ui/ExportDropdown'
 import DataStatusBanner from './ui/DataStatusBanner'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
 import { useAuth } from '../contexts/AuthContext'
-import { ALL_WIDGET_IDS, DEFAULT_COLS, GRID_WIDGET_IDS, KPI_WIDGET_IDS, KPI_INDEX_MAP } from '../dashboardConfig'
+import PageLoadingState from './ui/PageLoadingState'
+import { DEFAULT_COLS, GRID_WIDGET_IDS } from '../dashboardConfig'
 import KPICard from './KPICard'
-import EditModeButton from './dashboard/EditModeButton'
-import EditPanel from './dashboard/EditPanel'
 import ActionCenter from './dashboard/ActionCenter'
 import WidgetRenderer from './dashboard/WidgetRenderer'
 import SortableKPIRow from './dashboard/SortableKPIRow'
@@ -43,8 +40,7 @@ const KPI_BASE = [
 const KPI_IMAGES = [callsIcon, leadsIcon, meetingsIcon, conversionIcon, pipelineIcon, revenueIcon]
 const KPI_LABEL_KEYS = ['callsMade', 'contactedLeads', 'meetingsBooked', 'conversionRate', 'pipelineGenerated', 'attributedRevenue', 'systemRoi']
 // Destino al pinchar cada tarjeta KPI; null = sin página de detalle propia.
-const KPI_ROUTES = ['/llamadas', '/leads', '/reuniones', '/campanas', '/pipeline', '/pipeline', null]
-const PERIOD_OPTIONS = [7, 30, 90]
+const KPI_ROUTES = ['/llamadas', '/leads', '/reuniones', '/captacion/planificar', '/pipeline', '/pipeline', null]
 
 const MOCK_STATS = {
   totalCalls: 1248, totalLeads: 386, meetingsScheduled: 74, conversionRate: 18.6,
@@ -107,8 +103,7 @@ export default function Dashboard() {
   const [dataError, setDataError] = useState('')
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
-  const [period, setPeriod] = useState(7)
-  const [isEditMode, setIsEditMode] = useState(false)
+  const period = 7
   const [gridWidth, setGridWidth] = useState(0)
   const gridRef = useRef(null)
 
@@ -118,9 +113,6 @@ export default function Dashboard() {
     kpiOrder,
     updateLayout,
     updateKpiOrder,
-    addWidget,
-    removeWidget,
-    resetLayout,
   } = useDashboardLayout()
 
   useEffect(() => {
@@ -187,7 +179,7 @@ export default function Dashboard() {
   const localizedKpi = kpi.map((item, index) => ({
     ...item,
     label: t(`dashboard.${KPI_LABEL_KEYS[index] || 'callsMade'}`),
-    onClick: !isEditMode && KPI_ROUTES[index] ? () => navigate(KPI_ROUTES[index]) : undefined,
+    onClick: KPI_ROUTES[index] ? () => navigate(KPI_ROUTES[index]) : undefined,
   }))
 
   useLayoutEffect(() => {
@@ -209,11 +201,12 @@ export default function Dashboard() {
     }
   }, [])
 
-      const removedWidgets = ALL_WIDGET_IDS.filter(id => !activeWidgets.has(id))
   const activeGridIds = GRID_WIDGET_IDS.filter(id => activeWidgets.has(id))
 
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading dashboard' : 'Cargando dashboard'} />
+
   return (
-    <div className={`dark-scroll db-pad${isEditMode ? ' fixed-side-panel-offset' : ''}`} style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column', gap:16, minWidth:0 }}>
+    <div className="dark-scroll db-pad" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column', gap:16, minWidth:0 }}>
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
@@ -222,39 +215,9 @@ export default function Dashboard() {
           <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:'var(--text-strong)' }}>{locale === 'en' ? `Hello, ${user?.name || 'Sales Team'} 👋` : `Hola, ${user?.name || 'Equipo Comercial'} 👋`}</h1>
           <p style={{ margin:'3px 0 0', fontSize:12.5, color: 'var(--dim)' }}>{t('dashboard.todaySummary')}</p>
         </div>
-        <div className="dashboard-welcome-art"><img src={dashboardOrbit} alt="" /><span className={`dashboard-data-status dashboard-data-status-${dataSource}`}><i /> {dataStatusLabel}</span></div><div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-
-          <div role="group" aria-label={locale === 'en' ? 'Period' : 'Periodo'} style={{ display:'flex', background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius:9, padding:2, gap:2 }}>
-            {PERIOD_OPTIONS.map(d => (
-              <button
-                key={d}
-                onClick={() => setPeriod(d)}
-                style={{
-                  border:'none', borderRadius:7, padding:'5px 10px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-                  background: period === d ? 'var(--surface)' : 'transparent',
-                  color: period === d ? 'var(--text-strong)' : 'var(--dim)',
-                  boxShadow: period === d ? 'var(--shadow-1, 0 1px 3px rgba(0,0,0,.2))' : 'none',
-                }}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-
-          <ExportDropdown
-            filename="dashboard.csv"
-            data={kpi}
-            columns={[
-              { header:t('dashboard.metric'), getValue:k => k.label.replace('\n',' ') },
-              { header:t('dashboard.value'), getValue:k => k.value },
-              { header:t('dashboard.change'), getValue:k => k.pct },
-            ]}
-          />
-
-          <EditModeButton isEditMode={isEditMode} onClick={() => setIsEditMode(v => !v)} />
-
-        </div>
+        <div className="dashboard-welcome-art"><img src={dashboardOrbit} alt="" /><span className={`dashboard-data-status dashboard-data-status-${dataSource}`}><i /> {dataStatusLabel}</span></div>
       </div>
+
 
       <DataStatusBanner
         status={dataSource}
@@ -271,7 +234,7 @@ export default function Dashboard() {
         const steps = [
           { label: 'Crea tu primer agente', hint: 'Configura la voz que llamará por ti', to: '/agentes', done: agentCount > 0 },
           { label: 'Importa tus leads', hint: 'Sube tu CSV o añade contactos a mano', to: '/leads', done: (stats.totalLeads ?? 0) > 0 },
-          { label: 'Lanza tu primera campaña', hint: 'Agrupa tus leads y actívala', to: '/campanas', done: (stats.activeCampaigns ?? 0) > 0 },
+          { label: 'Lanza tu primera campaña', hint: 'Agrupa tus leads y actívala', to: '/captacion/planificar', done: (stats.activeCampaigns ?? 0) > 0 },
         ]
         if (steps.every(step => step.done)) return null
         return (
@@ -298,8 +261,7 @@ export default function Dashboard() {
         kpiData={localizedKpi}
         kpiOrder={kpiOrder}
         activeWidgets={activeWidgets}
-        isEditMode={isEditMode}
-        onRemove={removeWidget}
+        isEditMode={false}
         onReorder={updateKpiOrder}
       />
 
@@ -312,13 +274,6 @@ export default function Dashboard() {
               .sort((a, b) => a.y - b.y || a.x - b.x)
               .map(l => (
                 <div key={l.i} style={{ position:'relative' }}>
-                  {isEditMode && (
-                    <button
-                      className="widget-remove-btn"
-                      onClick={() => removeWidget(l.i)}
-                      title="Quitar widget"
-                    >×</button>
-                  )}
                   <WidgetRenderer widgetId={l.i} kpiData={localizedKpi} stats={stats} />
                 </div>
               ))
@@ -333,25 +288,14 @@ export default function Dashboard() {
             width={gridWidth}
             margin={[12, 12]}
             containerPadding={[0, 0]}
-            isDraggable={isEditMode}
-            isResizable={isEditMode}
+            isDraggable={false}
+            isResizable={false}
             isBounded={false}
             compactType={null}
             onLayoutChange={(newLayout) => updateLayout(newLayout)}
           >
             {activeGridIds.map(id => (
-              <div key={id} className={isEditMode ? 'widget-edit-mode' : 'widget-normal'} style={{ height:'100%' }}>
-                {isEditMode && (
-                  <button
-                    className="widget-remove-btn"
-                    onClick={() => removeWidget(id)}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    title="Quitar widget"
-                  >
-                    <RiCloseLine style={{ width:12, height:12 }} />
-                  </button>
-                )}
+              <div key={id} className="widget-normal" style={{ height:'100%' }}>
                 <div className="widget-content" style={{ height:'100%', display:'flex', flexDirection:'column' }}>
                   <WidgetRenderer widgetId={id} kpiData={localizedKpi} stats={stats} />
                 </div>
@@ -361,14 +305,6 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {isEditMode && (
-        <EditPanel
-          removedWidgets={removedWidgets}
-          onAddWidget={addWidget}
-          onClose={() => setIsEditMode(false)}
-          onReset={resetLayout}
-        />
-      )}
     </div>
   )
 }

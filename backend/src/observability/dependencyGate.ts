@@ -1,4 +1,5 @@
 export type DependencyName = 'DATABASE_URL' | 'REDIS_URL'
+import { isPostgresQueueBackend } from '../lib/queueBackend'
 
 export type DependencyCheck = {
   name: DependencyName
@@ -20,7 +21,7 @@ function present(environment: NodeJS.ProcessEnv, name: DependencyName): boolean 
 }
 
 export function checkRuntimeDependencies(environment: NodeJS.ProcessEnv = process.env): DependencyGateResult {
-  const redisRequired = environment.BACKGROUND_WORKERS_ENABLED !== 'false'
+  const redisRequired = environment.BACKGROUND_WORKERS_ENABLED !== 'false' && !isPostgresQueueBackend(environment)
   const checks: DependencyCheck[] = [
     {
       name: 'DATABASE_URL',
@@ -39,7 +40,9 @@ export function checkRuntimeDependencies(environment: NodeJS.ProcessEnv = proces
   ]
   const missing = checks.filter(check => check.required && !check.configured).map(check => check.name)
   const message = missing.length === 0
-    ? 'Prerrequisitos de runtime presentes: DATABASE_URL y Redis están configurados.'
+    ? redisRequired
+      ? 'Prerrequisitos de runtime presentes: DATABASE_URL y Redis están configurados.'
+      : 'Prerrequisitos de runtime presentes: DATABASE_URL y la cola PostgreSQL están configuradas.'
     : [
         'No se puede ejecutar QA de staging: faltan dependencias obligatorias.',
         ...checks.filter(check => missing.includes(check.name)).map(check => `- ${check.name}: ${check.remediation}`),

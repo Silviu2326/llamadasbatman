@@ -11,15 +11,20 @@ const CATEGORIAS = [
   'Procesos internos', 'Casos de éxito', 'Integraciones', 'Recursos de ventas',
 ]
 
-export default function NewArticuloModal({ onClose, onSuccess }) {
+export default function NewArticuloModal({ onClose, onSuccess, mode = 'article' }) {
   const { t, locale } = useI18n()
-  const [form, setForm] = useState({ title: '', category: 'Producto', description: '', author: '' })
+  const [form, setForm] = useState({ title: '', category: 'Producto', description: '', url: '', author: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
 
   async function handleSubmit() {
+    const missingContent = mode === 'url' ? !form.url.trim() : mode === 'text' ? !form.description.trim() : false
+    if (!form.title.trim() || missingContent) {
+      setError(mode === 'url' ? 'Añade un nombre y una URL válida.' : 'Añade un título y el contenido que deben conocer tus agentes.')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
@@ -27,8 +32,8 @@ export default function NewArticuloModal({ onClose, onSuccess }) {
         method: 'POST',
         body: JSON.stringify({
           name: form.title,
-          type: form.category,
-          content: form.description,
+          type: mode === 'url' ? 'url' : mode === 'text' ? 'document' : form.category,
+          content: mode === 'url' ? form.url : form.description,
         }),
       })
       if (!res.ok) { setError(t('modal.createError')); return }
@@ -37,13 +42,18 @@ export default function NewArticuloModal({ onClose, onSuccess }) {
     } catch { setError(t('modal.connectionError')) } finally { setSaving(false) }
   }
 
+  const title = mode === 'url' ? 'Añadir enlace' : mode === 'text' ? 'Pegar texto' : t('modal.newArticle')
+  const submitText = mode === 'url' ? 'Guardar enlace' : mode === 'text' ? 'Guardar contenido' : t('modal.createArticle')
+
   return (
-    <FormModal title={t('modal.newArticle')} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : t('modal.createArticle')}>
+    <FormModal title={title} onClose={onClose} onSubmit={handleSubmit} submitText={saving ? t('common.saving') : submitText}>
       {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
-      <FormInput label={t('modal.title')} value={form.title} onChange={e => update('title', e.target.value)} placeholder={locale === 'en' ? 'e.g. How does voice AI work?' : 'Ej. ¿Cómo funciona la IA de voz?'} required />
-      <FormSelect label={t('modal.category')} value={form.category} onChange={e => update('category', e.target.value)} options={CATEGORIAS} required />
-      <FormTextarea label={t('modal.summary')} value={form.description} onChange={e => update('description', e.target.value)} placeholder={locale === 'en' ? 'Write a summary of the content…' : 'Escribe un resumen del contenido…'} />
-      <FormInput label={t('modal.author')} value={form.author} onChange={e => update('author', e.target.value)} placeholder={locale === 'en' ? 'e.g. Product team' : 'Ej. Equipo de Producto'} />
+      <FormInput label={mode === 'url' ? 'Nombre del enlace' : t('modal.title')} value={form.title} onChange={e => update('title', e.target.value)} placeholder={mode === 'url' ? 'Ej. Centro de ayuda' : locale === 'en' ? 'e.g. How does voice AI work?' : 'Ej. Preguntas frecuentes de producto'} required />
+      {mode === 'article' ? <FormSelect label={t('modal.category')} value={form.category} onChange={e => update('category', e.target.value)} options={CATEGORIAS} required /> : null}
+      {mode === 'url'
+        ? <FormInput label="URL" type="url" value={form.url} onChange={e => update('url', e.target.value)} placeholder="https://..." required />
+        : <FormTextarea label={mode === 'text' ? 'Contenido' : t('modal.summary')} value={form.description} onChange={e => update('description', e.target.value)} placeholder={mode === 'text' ? 'Pega aquí el contenido que deben conocer tus agentes…' : locale === 'en' ? 'Write a summary of the content…' : 'Escribe un resumen del contenido…'} />}
+      {mode === 'article' ? <FormInput label={t('modal.author')} value={form.author} onChange={e => update('author', e.target.value)} placeholder={locale === 'en' ? 'e.g. Product team' : 'Ej. Equipo de Producto'} /> : null}
     </FormModal>
   )
 }

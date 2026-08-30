@@ -7,6 +7,7 @@ import {
   RiShieldKeyholeLine,
   RiStopCircleLine,
 } from 'react-icons/ri'
+import './organic-components.css'
 
 /**
  * Sala de autonomía — `docs/vendrava/organico.md` §9 y fase 4 de §11.

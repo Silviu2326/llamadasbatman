@@ -8,6 +8,7 @@ import {
 import { mapAutomation, stableIndex } from '../lib/automationMapping'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import '../dashboard.css'
+import PageLoadingState from '../components/ui/PageLoadingState'
 
 const TABS = ['Resumen', 'Historial', 'Configuración']
 
@@ -142,11 +143,7 @@ export default function AutomacionDetailPage() {
       .finally(() => setRunDetailLoading(false))
   }, [selectedRunId, id])
 
-  if (loading) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
-      {locale === 'en' ? 'Loading…' : 'Cargando…'}
-    </div>
-  )
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading automation' : 'Cargando automatización'} />
 
   if (!auto) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>

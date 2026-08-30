@@ -26,7 +26,6 @@ export const WIDGET_TYPES = {
   INGRESOS_CHART: 'ingresos_chart',
   AGENTES_TABLE: 'agentes_table',
   ALERTAS_IA: 'alertas_ia',
-  LIVE_CALLS: 'live_calls',
 }
 
 export const KPI_WIDGET_IDS = [
@@ -39,7 +38,6 @@ export const KPI_WIDGET_IDS = [
 ]
 
 export const GRID_WIDGET_IDS = [
-  WIDGET_TYPES.LIVE_CALLS,
   WIDGET_TYPES.RENDIMIENTO_CHART,
   WIDGET_TYPES.EMBUDO_CHART,
   WIDGET_TYPES.DONUT_CHART,
@@ -53,9 +51,7 @@ export const ALL_WIDGET_IDS = [...KPI_WIDGET_IDS, ...GRID_WIDGET_IDS]
 export const DEFAULT_COLS = 12
 
 export const DEFAULT_LAYOUT = [
-  { i: WIDGET_TYPES.LIVE_CALLS, x: 0, y: 0, w: 12, h: 2, minW: 3, minH: 2 },
-
-  { i: WIDGET_TYPES.RENDIMIENTO_CHART, x: 0, y: 2, w: 5, h: 3, minW: 2, minH: 2 },
+  { i: WIDGET_TYPES.RENDIMIENTO_CHART, x: 0, y: 0, w: 5, h: 3, minW: 2, minH: 2 },
   { i: WIDGET_TYPES.EMBUDO_CHART, x: 5, y: 2, w: 3, h: 3, minW: 2, minH: 2 },
   { i: WIDGET_TYPES.DONUT_CHART, x: 8, y: 2, w: 4, h: 3, minW: 2, minH: 2 },
 
@@ -80,7 +76,6 @@ export const WIDGET_META = {
   [WIDGET_TYPES.KPI_CONVERSION]: { label: 'Tasa de conversión', category: 'kpi', Icon: RiPercentLine },
   [WIDGET_TYPES.KPI_PIPELINE]: { label: 'Pipeline generado', category: 'kpi', Icon: RiMoneyDollarBoxLine },
   [WIDGET_TYPES.KPI_INGRESOS]: { label: 'Ingresos atribuidos', category: 'kpi', Icon: RiBriefcaseLine },
-  [WIDGET_TYPES.LIVE_CALLS]: { label: 'Llamadas en directo', category: 'alert', Icon: RiPhoneLine },
   [WIDGET_TYPES.RENDIMIENTO_CHART]: { label: 'Rendimiento general', category: 'chart', Icon: RiLineChartLine },
   [WIDGET_TYPES.EMBUDO_CHART]: { label: 'Embudo de conversiones', category: 'chart', Icon: RiFilterLine },
   [WIDGET_TYPES.DONUT_CHART]: { label: 'Llamadas por campaña', category: 'chart', Icon: RiPieChartLine },

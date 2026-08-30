@@ -18,17 +18,30 @@ import { z } from 'zod'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
+const knowledgeContextSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(180),
+  type: z.string().trim().max(60).optional(),
+  content: z.string().trim().max(5000),
+})
+
 const strategyInputSchema = z.object({
   vertical: z.string().trim().min(1).max(120),
   objetivo: z.string().trim().min(1).max(180),
   presupuestoMensual: z.coerce.number().positive().max(100000),
   audience: z.string().trim().max(160).optional(),
+  campaignFocus: z.string().trim().min(1).max(180),
+  destination: z.enum(['landing', 'website', 'whatsapp', 'calendar', 'app']),
+  knowledgeContext: knowledgeContextSchema.nullable().optional(),
 })
 
 const draftInputSchema = z.object({
   vertical: z.string().trim().max(120).optional(),
   objetivo: z.string().trim().max(180).optional(),
   audience: z.string().trim().max(160).nullable().optional(),
+  campaignFocus: z.string().trim().max(180).optional(),
+  destination: z.enum(['landing', 'website', 'whatsapp', 'calendar', 'app']).optional(),
+  knowledgeContext: knowledgeContextSchema.nullable().optional(),
   presupuesto: z.union([z.coerce.number().positive().max(100000), z.null()]).optional(),
   strategy: z.record(z.unknown()).nullable().optional(),
   creativeIndex: z.coerce.number().int().min(0).max(2).optional(),
@@ -108,6 +121,9 @@ const wizardInputSchema = z.object({
   objetivo: z.string().trim().min(1).max(180),
   presupuestoMensual: z.coerce.number().positive().max(100000),
   audience: z.string().trim().max(160).optional(),
+  campaignFocus: z.string().trim().min(1).max(180),
+  destination: z.enum(['landing', 'website', 'whatsapp', 'calendar', 'app']),
+  knowledgeContext: knowledgeContextSchema.nullable().optional(),
   strategy: z.record(z.unknown()).optional(),
   // El margen es opcional: obligarlo bloquearia crear campanas a quien aun no
   // lo sepa. Sin el, la campana existe pero no tiene objetivo de coste y la

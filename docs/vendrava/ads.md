@@ -762,7 +762,61 @@ integridad → observación → señal de ventas → recomendación → aprobaci
 ```
 
 
-## 16. Pendiente
+## 16. Campaña global y activaciones (2026-08-29)
+
+La página dejó de ser una colección de métricas de Meta y pasó a ser el
+centro de ejecución publicitaria de una **campaña global**. Tres niveles que
+no deben volver a mezclarse:
+
+```text
+Campaña global (Campaign: estrategia, oferta, presupuesto total, periodo, landing, meta)
+  └─ Activación Ads (AdActivation: presencia en meta|google, estado, presupuesto asignado)
+       ├─ Audiencias (AdAudience: reutilizables, con origen de datos y consentimiento)
+       ├─ Creatividades (CreativeBrief → Creator Studio → AdCreative con aprobación)
+       ├─ Anuncios publicados (metaAdId/adStatus + creatividad aprobada)
+       └─ Medición y optimización (todo lo anterior de este documento)
+```
+
+Nomenclatura fija para no llamar «campaña» a todo: Campaña global ·
+Activación Ads · Grupo de anuncios · Anuncio · Brief creativo · Creatividad ·
+Experimento.
+
+Decisiones de implementación:
+
+- `Campaign` **es** la campaña global. Ya era el contenedor transversal
+  (leads, llamadas, landing, piezas orgánicas); lo que se extrae es la
+  ejecución de canal. Sus campos `metaCampaignId/metaAdSetId/metaAdId/adStatus`
+  se conservan como almacenamiento del canal Meta y la activación `meta` se
+  deriva de ellos cuando no existe fila `AdActivation` propia
+  (`derivedFromLegacy: true`). No se creó una cadena paralela (§7).
+- El presupuesto distingue global (`Campaign.budgetCents`), asignado por
+  plataforma (`AdActivation.budgetCents`, con guardarraíl: la suma no puede
+  superar el global), gasto real (snapshots) y disponible.
+- El Creator Studio no compite con Ads: es la herramienta del átomo
+  Creatividades. Entra con el contexto bloqueado del brief (campaña,
+  audiencia, canal, CTA, destino, restricciones) y entrega la pieza como
+  `AdCreative` en borrador, que pasa por revisión y aprobación antes de poder
+  publicarse. `AdCreative.assetId` es referencia blanda a `Asset`, el mismo
+  criterio que `Asset.campaignId`.
+- La página `/captacion/atraer/ads` adopta el marco `gs-*` de Growth con seis
+  vistas en `?tab=` (Resumen · Estructura · Creatividades · Experimentos ·
+  Medición · Decisiones) y la campaña de trabajo en `?campaign=`. El estudio
+  se abre con `?studio=1&brief=`, así que sobrevive al refresh y es enlazable.
+- No debería trabajarse en Ads sin campaña global: el selector vive en la
+  barra de contexto siempre visible; Estructura y Creatividades exigen
+  selección, Resumen puede leer la organización entera.
+- Rutas nuevas bajo `/api/ads`: `global-campaigns`, `plan?campaignId=`,
+  `activations` (+`:id`), `audiences` (+`:id`, `:id/archive`), `briefs`
+  (+`:id`, `:id/status`), `creatives` (+`:id`, `:id/submit|approve|reject`).
+  Reutilizan `ads.read`/`ads.write` y el entitlement `ads`; ninguna crea filas
+  de `Campaign`, así que la cuota de campañas del plan no se ve afectada.
+
+Queda para una fase posterior: reparto automático de presupuesto entre
+activaciones, grupos de anuncios como entidad propia, bandits multicanal y la
+conexión real de Google Ads (la activación `google` existe como borrador
+honesto, sin datos inventados).
+
+## 17. Pendiente
 
 Estado a 5 de agosto de 2026. Las seis fases están construidas y la página
 `/ads` terminada, incluido su pase visual. Lo que sigue abierto:

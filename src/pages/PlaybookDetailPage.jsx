@@ -8,7 +8,9 @@ import {
 } from 'react-icons/ri'
 import { HiArrowUp } from 'react-icons/hi'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import '../dashboard.css'
+import './sales-detail-standard.css'
 
 const STATS = [
   { label:'Tasa de éxito', value:'28,4%', delta:'+3,2pp', up:true },
@@ -53,11 +55,7 @@ export default function PlaybookDetailPage() {
     }).catch(() => setLoading(false))
   }, [id])
 
-  if (loading) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
-      {locale === 'en' ? 'Loading…' : 'Cargando…'}
-    </div>
-  )
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading playbook' : 'Cargando playbook'} />
 
   if (!pb) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
@@ -66,7 +64,7 @@ export default function PlaybookDetailPage() {
   )
 
   return (
-    <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
+    <div className="sales-detail-page dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
 
       {/* Back */}
       <div style={{ padding:'20px clamp(12px,4vw,28px) 0', flexShrink:0 }}>
@@ -109,7 +107,7 @@ export default function PlaybookDetailPage() {
           </div>
 
           <div style={{ display:'flex', gap:8, flexShrink:0, flexWrap:'wrap' }}>
-            <button onClick={() => navigate('/campanas')} style={{
+            <button onClick={() => navigate('/captacion/planificar')} style={{
               display:'flex', alignItems:'center', gap:6,
               background:'linear-gradient(90deg,var(--accent-deep),var(--violet-deep))', border:'none',
               borderRadius:9, padding:'9px 16px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer',

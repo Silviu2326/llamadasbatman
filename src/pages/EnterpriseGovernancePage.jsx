@@ -17,6 +17,7 @@ import { apiFetch } from '../lib/api'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import './enterprise-governance.css'
 
 const POLICY_META = {
@@ -209,6 +210,8 @@ export default function EnterpriseGovernancePage() {
     { icon: RiTimeLine, label: 'Eventos auditados', value: overview.counts.auditEvents, description: 'eventos recientes registrados' },
   ], [overview.counts])
 
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading governance' : 'Cargando gobierno empresarial'} />
+
   async function savePolicy(key, input, onSuccess) {
     setSavingKey(key)
     setSaveError('')
@@ -237,7 +240,6 @@ export default function EnterpriseGovernancePage() {
   return <main className="governance-page">
     <header className="governance-header">
       <div className="governance-heading"><span className="governance-brand-icon"><RiGovernmentLine aria-hidden="true" /></span><div><h1>{locale === 'en' ? 'Enterprise governance' : 'Gobierno empresarial'}</h1><p>{locale === 'en' ? 'Protect consent, budget and operational decisions without taking people out of control.' : 'Protege consentimiento, presupuesto y decisiones operativas sin apartar a las personas del control.'}</p></div></div>
-      <button type="button" className="governance-button subtle" onClick={loadOverview} disabled={loading}><RiRefreshLine className={loading ? 'governance-spin' : ''} />{locale === 'en' ? 'Refresh' : 'Actualizar'}</button>
     </header>
 
     <section className="governance-command" aria-label="Principios de gobierno empresarial">
@@ -249,7 +251,7 @@ export default function EnterpriseGovernancePage() {
 
     {saveError ? <div className="governance-page-error" role="alert"><RiAlertLine aria-hidden="true" /><div><strong>No se guardó el cambio</strong><span>{saveError}</span></div><button type="button" onClick={() => setSaveError('')} aria-label="Cerrar aviso">×</button></div> : null}
 
-    {loading ? <section className="governance-state loading" aria-live="polite"><span /><p>Cargando las políticas de tu organización…</p></section> : loadError ? <section className="governance-state error" role="alert"><RiAlertLine aria-hidden="true" /><h2>No pudimos cargar el gobierno empresarial</h2><p>{loadError}</p><button type="button" className="governance-button subtle" onClick={loadOverview}><RiRefreshLine />Reintentar</button></section> : <>
+    {loadError ? <section className="governance-state error" role="alert"><RiAlertLine aria-hidden="true" /><h2>No pudimos cargar el gobierno empresarial</h2><p>{loadError}</p><button type="button" className="governance-button subtle" onClick={loadOverview}><RiRefreshLine />Reintentar</button></section> : <>
       <section className="governance-stats" aria-label="Resumen de operación gobernada">{governedWork.map(item => <StatCard key={item.label} {...item} />)}</section>
 
       <section className="governance-workspace">

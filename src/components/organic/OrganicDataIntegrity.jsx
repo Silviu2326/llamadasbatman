@@ -1,4 +1,5 @@
 import { RiAlertLine, RiCheckboxCircleLine, RiErrorWarningLine, RiPlugLine, RiShieldCheckLine, RiTimeLine } from 'react-icons/ri'
+import './organic-components.css'
 
 // Banda de integridad de organico.md §5.1. Va antes que cualquier número, por
 // el mismo motivo que en Ads: la página no puede pedir confianza en una cifra

@@ -53,6 +53,16 @@ export const AUTONOMOUS_KINDS = {
   REAUDIT_SEO: 'reaudit_seo',
   /** Refresco de un artículo existente sin cambiar sus afirmaciones. */
   REFRESH_ARTICLE: 'refresh_article',
+  /**
+   * Redactar y publicar un artículo pendiente del plan de contenidos.
+   *
+   * Va más allá de la lista de §9, que solo delegaba el *refresco* de textos ya
+   * existentes: esto escribe contenido nuevo sin que lo lea nadie. Se añadió a
+   * petición expresa del negocio. El listón de contenido sensible es el mismo
+   * que el del refresco — precios, garantías, afirmaciones legales o prueba
+   * social dejan el artículo escrito y sin publicar.
+   */
+  WRITE_ARTICLE: 'write_article',
   /** Respuesta a reseña con plantilla previamente aprobada. */
   REPLY_REVIEW: 'reply_review',
   /** Pieza de formato aprobado sobre datos confirmados de un conector. */
@@ -336,6 +346,52 @@ const KINDS: Record<string, KindDefinition> = {
         )
       }
       return { detail: `Artículo "${result.name}" refrescado sin introducir afirmaciones nuevas.`, data: { articleId: result.articleId } }
+    },
+  },
+
+  [AUTONOMOUS_KINDS.WRITE_ARTICLE]: {
+    label: 'Redactar y publicar un artículo del plan',
+    channel: 'search',
+    irreversibleEffects: [
+      'Compensar despublica el artículo, pero las visitas ya servidas y lo que Google haya indexado entretanto no se deshacen.',
+    ],
+    async execute({ orgId, payload }) {
+      const title = typeof payload.title === 'string' ? payload.title : null
+      const keyword = typeof payload.keyword === 'string' ? payload.keyword : null
+      if (!title || !keyword) throw new Error('La acción no lleva el título y la keyword que hay que redactar.')
+
+      const article = await seo.generateSeoArticle(orgId, {
+        title,
+        keyword,
+        format: typeof payload.format === 'string' ? payload.format : undefined,
+        business: typeof payload.business === 'string' ? payload.business : undefined,
+        sector: typeof payload.sector === 'string' ? payload.sector : undefined,
+        city: typeof payload.city === 'string' ? payload.city : undefined,
+      })
+
+      // Mismo listón que el refresco, y por el mismo motivo: lo que decide la
+      // frontera es el texto resultante, no la buena intención del prompt. Aquí
+      // no hay versión anterior contra la que comparar, así que se compara
+      // contra el vacío — cualquier afirmación sensible es una afirmación nueva.
+      const written = await prisma.knowledgeBase.findFirst({
+        where: { id: article.articleId, orgId },
+        select: { content: true },
+      })
+      const claims = newSensitiveClaims('', written?.content ?? '')
+      if (claims.length) {
+        // El artículo se queda escrito y despublicado: el trabajo del modelo no
+        // se tira, solo espera a que alguien lo lea.
+        throw new AutonomyBlockedError(
+          `El artículo "${article.name}" ${claims.join(' y ')}: queda redactado y sin publicar hasta que lo revise una persona.`,
+        )
+      }
+
+      const published = await seo.publishArticle(orgId, article.articleId)
+      if (!published) throw new Error('El artículo se redactó pero no se pudo publicar.')
+      return {
+        detail: `Artículo "${article.name}" redactado y publicado en /blog/${published.slug}.`,
+        data: { articleId: article.articleId, slug: published.slug },
+      }
     },
   },
 
@@ -942,6 +998,49 @@ export async function proposeActions(orgId: string): Promise<ProposedAction[]> {
       payload: { articleId: article.id, previousContent: current?.content ?? '' },
       evidence: { updatedAt: article.updatedAt },
     })
+  }
+
+  // 3 bis. Artículos que el plan de contenidos pide y todavía no existen.
+  //
+  // Uno por pasada a propósito: el plan trae hasta diez títulos y escribirlos
+  // todos de golpe llena el blog de texto que nadie ha leído en una tarde, que
+  // es exactamente el fallo que Google penaliza. Se compara por nombre porque
+  // es lo que `generateSeoArticle` guarda como `name` de la entrada.
+  const latest = await seo.latestReport(orgId)
+  const planItems = Array.isArray(latest?.contentPlan) ? latest.contentPlan : []
+  if (latest && planItems.length) {
+    const existing = await prisma.knowledgeBase.findMany({
+      where: { orgId, type: 'seo-article' },
+      select: { name: true },
+    })
+    const alreadyWritten = new Set(existing.map(entry => entry.name.trim().toLowerCase()))
+    const pending = planItems.find(item =>
+      typeof item?.title === 'string' &&
+      typeof item?.keyword === 'string' &&
+      !alreadyWritten.has(item.title.trim().toLowerCase()))
+
+    if (pending) {
+      const seoContext = await prisma.seoProject.findFirst({
+        where: { orgId, url: latest.url },
+        select: { business: true, sector: true, city: true },
+      })
+      proposals.push({
+        kind: AUTONOMOUS_KINDS.WRITE_ARTICLE,
+        title: `Escribir "${pending.title}"`,
+        summary: `El plan de contenidos de ${latest.url} incluye este artículo y todavía no está escrito. Se redacta para la keyword «${pending.keyword}» y se publica en el blog, salvo que el texto acabe mencionando precios, garantías, afirmaciones legales o prueba social.`,
+        scope: 'article',
+        target: null,
+        payload: {
+          title: pending.title,
+          keyword: pending.keyword,
+          format: pending.format,
+          business: seoContext?.business ?? undefined,
+          sector: seoContext?.sector ?? undefined,
+          city: seoContext?.city ?? undefined,
+        },
+        evidence: { url: latest.url, planSize: planItems.length, articlesWritten: existing.length },
+      })
+    }
   }
 
   // 4. Piezas de acontecimientos verticales confirmados con regla en `auto`.

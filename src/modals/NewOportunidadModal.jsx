@@ -113,7 +113,7 @@ export default function NewOportunidadModal({ onClose, onSuccess }) {
               border: leadMode === 'new' ? 'none' : '1px solid var(--line)',
             }}
           >
-            {t('modal.newLead')}
+            {t('modal.createNewLead')}
           </button>
           <button
             type="button"

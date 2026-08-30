@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api'
 import { DEMO_MODE } from '../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import DataStatusBanner from './ui/DataStatusBanner'
+import PageLoadingState from './ui/PageLoadingState'
 import {
   RiCalendar2Line, RiCalendarLine, RiGroupLine, RiMoneyDollarBoxLine,
   RiLineChartLine, RiFilterLine, RiDownloadLine, RiAddLine,
@@ -357,7 +358,7 @@ export default function Reuniones() {
     <div key="ac" style={{ display:'flex', gap:6, alignItems:'center' }}>
       {mtg.hasJoin && (
         <button
-          onClick={(e) => { e.stopPropagation(); window.open(mtg.meetingUrl || 'https://meet.google.com', '_blank') }}
+          onClick={(e) => { e.stopPropagation(); window.open(mtg.meetingUrl, '_blank', 'noopener') }}
           style={{ fontSize:10.5, padding:'4px 9px', background:'var(--accent-deep)', border:'none', borderRadius:7, color:'#fff', cursor:'pointer', fontWeight:700, whiteSpace:'nowrap' }}
         >
           Unirse
@@ -366,6 +367,8 @@ export default function Reuniones() {
       <RowMenu mtg={mtg} onDetail={m => navigate('/reuniones/' + m.id)} onReschedule={setRescheduleTarget} onCancel={setCancelTarget} />
     </div>,
   ]
+
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading meetings' : 'Cargando reuniones'} />
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0, overflow: 'hidden' }}>

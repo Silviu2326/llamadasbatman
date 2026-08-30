@@ -9,6 +9,7 @@ import '../dashboard.css'
 import './insights.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import { useThemeColors } from '../hooks/useTheme'
+import PageLoadingState from './ui/PageLoadingState'
 
 // Paleta categórica. Acaba en `fill` de Recharts (atributo SVG), donde var() no
 // resuelve, así que se construye con los tokens ya resueltos a hex.
@@ -124,9 +125,11 @@ export default function Insights() {
   const bestCampaign = stats?.callsByCampaign?.[0]
   const activeCampaigns = stats?.activeCampaigns ?? 0
 
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading insights' : 'Cargando insights'} />
+
   return <div className="dark-scroll insights-page">
     {DEMO_MODE && <div className="insights-demo-banner" role="status"><RiSparkling2Line /><div><strong>Estás viendo datos demo</strong><span>Sirven para explorar la experiencia. El modo demo se ha habilitado explícitamente.</span></div><button onClick={loadStats}><RiRefreshLine /> Intentar conexión real</button></div>}
-    <header className="insights-header"><div className="insights-heading"><div className="insights-brand-icon"><RiBarChartLine /></div><div><h1>{t('modules.insightsTitle')}</h1><p>{locale === 'en' ? 'Turn CRM activity into decisions that move the pipeline.' : 'Convierte la actividad de tu CRM en decisiones que mueven el pipeline.'}</p></div></div><div className="insights-header-actions"><button className="insights-button ghost" onClick={loadStats}><RiRefreshLine /> {t('calls.refresh')}</button></div></header>
+    <header className="insights-header"><div className="insights-heading"><div className="insights-brand-icon"><RiBarChartLine /></div><div><h1>{t('modules.insightsTitle')}</h1><p>{locale === 'en' ? 'Turn CRM activity into decisions that move the pipeline.' : 'Convierte la actividad de tu CRM en decisiones que mueven el pipeline.'}</p></div></div></header>
 
     <section className="insights-hero" aria-labelledby="insights-hero-title"><div className="insights-hero-copy"><div className="insights-hero-status"><i /> Lectura ejecutiva · datos actualizados</div><h2 id="insights-hero-title">Mira el patrón. Decide el siguiente movimiento.</h2><p>Una vista unificada de llamadas, reuniones, campañas y pipeline para entender qué está funcionando y dónde actuar ahora.</p><div className="insights-hero-actions"><button className="insights-button primary" onClick={() => document.querySelector('#insights-evidence')?.scrollIntoView({ behavior: 'smooth' })}><RiSparkling2Line /> Explorar señales</button><button className="insights-button secondary" onClick={() => document.querySelector('#insights-detail')?.scrollIntoView({ behavior: 'smooth' })}>Ver detalle <RiArrowRightSLine /></button></div><div className="insights-hero-meta"><span><RiCheckLine /> Datos agregados del CRM</span><span><RiTimeLine /> Actualización automática</span></div></div><div className="insights-hero-media"><img src={insightsHeroImage} alt="Capa visual de inteligencia sobre datos comerciales" /><div className="insights-hero-caption"><span>Revenue intelligence</span><strong>Observar · entender · actuar</strong></div></div></section>
 

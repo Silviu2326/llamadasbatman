@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
 import http from 'http'
+import { createHash } from 'node:crypto'
 import { WebSocketServer } from 'ws'
 
 import { initWebSockets, isRealtimeOriginAllowed } from './websockets/index'
@@ -20,6 +21,7 @@ import { prospectsRoutes } from './routes/prospects'
 import { campaignsRoutes } from './routes/campaigns'
 import { meetingsRoutes } from './routes/meetings'
 import { pipelineRoutes } from './routes/pipeline'
+import { growthPlanRoutes } from './routes/growthPlan'
 import { tasksRoutes } from './routes/tasks'
 import { playbooksRoutes } from './routes/playbooks'
 import { adPlaybooksRoutes } from './routes/adPlaybooks'
@@ -33,6 +35,7 @@ import { metricoolRoutes } from './routes/metricool'
 import { contentRoutes } from './routes/content'
 import { contentApprovalPublicRoutes } from './routes/contentApprovalPublic'
 import { publicMediaRoutes } from './routes/publicMedia'
+import { publicEmailOptOutRoutes } from './routes/publicEmailOptOut'
 import { automationsRoutes } from './routes/automations'
 import { knowledgeRoutes } from './routes/knowledge'
 import { dashboardRoutes } from './routes/dashboard'
@@ -57,6 +60,23 @@ import { orchestrationRoutes } from './routes/orchestration'
 import { integrationHealthRoutes } from './routes/integrationHealth'
 import { integrationCredentialsRoutes } from './routes/integrationCredentials'
 import { observabilityRoutes } from './routes/observability'
+import { whiteLabelRoutes } from './routes/whiteLabel'
+import { developerRoutes } from './routes/developer'
+import { telegramRoutes } from './routes/telegram'
+import { jobsRoutes } from './routes/jobs'
+import { assetsRoutes } from './routes/assets'
+import { providerWebhooksRoutes } from './routes/providerWebhooks'
+import { microappsRoutes } from './routes/microapps'
+import { capabilitiesRoutes } from './routes/capabilities'
+import { consentGrantsRoutes } from './routes/consentGrants'
+import { outcomesRoutes } from './routes/outcomes'
+import { studioRoutes } from './routes/studio'
+import { websiteIntakeRoutes } from './routes/websiteIntake'
+import { studioReviewPublicRoutes } from './routes/studioReviewPublic'
+import { marketplaceRoutes } from './routes/marketplace'
+import { organizationsRoutes } from './routes/organizations'
+import { flowsRoutes } from './routes/flows'
+import { ensureProvidersRegistered } from './providers'
 import { getOrCreateCorrelationId } from './lib/correlationId'
 import { getCorsOrigins, requireStrongSecret } from './lib/securityConfig'
 import { recordHttpRequest, recordWebhookRequest, webhookIdentity } from './observability/metrics'
@@ -65,7 +85,10 @@ import { safeOperationalError } from './observability/operationalLog'
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     payload: { userId: string; orgId: string; role: string; email: string; tokenType: 'access'; sessionId: string; workspaceScope?: 'own' | 'team' | 'org'; workspaceGrants?: Array<{ workspaceId: string; role: string; scope: 'own' | 'team' | 'org'; source: 'primary' | 'agency_config'; agencyOrgId?: string }> }
-    user:    { userId: string; orgId: string; role: string; email: string; tokenType: 'access'; sessionId: string; workspaceScope?: 'own' | 'team' | 'org'; workspaceGrants?: Array<{ workspaceId: string; role: string; scope: 'own' | 'team' | 'org'; source: 'primary' | 'agency_config'; agencyOrgId?: string }> }
+    // `payload` es lo que se firma y sigue siendo solo de sesión. `user` es lo
+    // que ve el resto del stack, y ahí también puede haber una clave de API:
+    // sin sessionId y con el id de la clave para trazarla.
+    user:    { userId: string; orgId: string; role: string; email: string; tokenType: 'access' | 'api_key'; sessionId?: string; apiKeyId?: string; workspaceScope?: 'own' | 'team' | 'org'; workspaceGrants?: Array<{ workspaceId: string; role: string; scope: 'own' | 'team' | 'org'; source: 'primary' | 'agency_config'; agencyOrgId?: string }> }
   }
 }
 
@@ -101,7 +124,23 @@ async function build() {
     },
   })
   await app.register(jwt, { secret: jwtSecret })
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
+  // Cuota por clave de API cuando la hay, y por IP en el resto. Sin esto todo
+  // el tráfico de un integrador (Zapier sale por IPs compartidas) caería en el
+  // mismo cubo y unas organizaciones limitarían a otras.
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    keyGenerator: request => {
+      const header = request.headers['x-api-key']
+      const direct = Array.isArray(header) ? header[0] : header
+      const authorization = request.headers.authorization
+      const bearer = typeof authorization === 'string' && authorization.startsWith('Bearer vk_')
+        ? authorization.slice(7)
+        : null
+      const key = typeof direct === 'string' && direct.startsWith('vk_') ? direct : bearer
+      return key ? `apikey:${createHash('sha256').update(key).digest('hex')}` : request.ip
+    },
+  })
 
   // x-www-form-urlencoded para Twilio webhooks
   app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => {
@@ -174,6 +213,7 @@ async function build() {
   await app.register(campaignsRoutes,  { prefix: '/api/campaigns' })
   await app.register(meetingsRoutes,   { prefix: '/api/meetings' })
   await app.register(pipelineRoutes,   { prefix: '/api/pipeline' })
+  await app.register(growthPlanRoutes, { prefix: '/api/growth-plan' })
   await app.register(tasksRoutes,      { prefix: '/api/tasks' })
   await app.register(playbooksRoutes,  { prefix: '/api/playbooks' })
   await app.register(adPlaybooksRoutes,{ prefix: '/api/ad-playbooks' })
@@ -188,6 +228,7 @@ async function build() {
   await app.register(contentRoutes,    { prefix: '/api/content' })
   await app.register(publicMediaRoutes,{ prefix: '/api/public/media' })
   await app.register(contentApprovalPublicRoutes, { prefix: '/api/public/content-approval' })
+  await app.register(publicEmailOptOutRoutes, { prefix: '/api/public/email' })
   await app.register(automationsRoutes,{ prefix: '/api/automations' })
   await app.register(knowledgeRoutes,  { prefix: '/api/knowledge' })
   await app.register(dashboardRoutes,  { prefix: '/api/dashboard' })
@@ -214,6 +255,27 @@ async function build() {
   await app.register(integrationHealthRoutes, { prefix: '/health' })
   await app.register(integrationCredentialsRoutes, { prefix: '/api/integration-credentials' })
   await app.register(observabilityRoutes, { prefix: '/health' })
+  await app.register(whiteLabelRoutes, { prefix: '/api/white-label' })
+  await app.register(developerRoutes,  { prefix: '/api/developer' })
+  await app.register(telegramRoutes, { prefix: '/api/telegram' })
+  await app.register(jobsRoutes, { prefix: '/api/jobs' })
+  await app.register(assetsRoutes, { prefix: '/api/assets' })
+  await app.register(providerWebhooksRoutes, { prefix: '/api/webhooks/providers' })
+  await app.register(microappsRoutes, { prefix: '/api/microapps' })
+  await app.register(capabilitiesRoutes, { prefix: '/api/capabilities' })
+  await app.register(consentGrantsRoutes, { prefix: '/api/consent-grants' })
+  await app.register(outcomesRoutes, { prefix: '/api/outcomes' })
+  await app.register(studioRoutes, { prefix: '/api/studio' })
+  await app.register(websiteIntakeRoutes, { prefix: '/api/intake' })
+  await app.register(studioReviewPublicRoutes, { prefix: '/api/public/studio-review' })
+  await app.register(marketplaceRoutes, { prefix: '/api/marketplace' })
+  await app.register(organizationsRoutes, { prefix: '/api/organizations' })
+  await app.register(flowsRoutes, { prefix: '/api/flows' })
+
+  // Adapters, contratos y ejecutores de la plataforma abierta. En la API es
+  // necesario para crear jobs (createJob valida que el kind tenga ejecutor) y
+  // para que el catálogo de conexiones vea a los proveedores.
+  ensureProvidersRegistered()
 
   return app
 }
@@ -222,7 +284,11 @@ async function main() {
   const app  = await build()
   const PORT = parseInt(process.env.PORT ?? '3000', 10)
 
-  await app.listen({ port: PORT, host: '0.0.0.0' })
+  // '::' escucha en IPv6 e IPv4 (dual-stack). Con '0.0.0.0' el navegador no
+  // conecta: en Windows `localhost` resuelve antes a ::1, y el WebSocket del
+  // simulador —que va directo al puerto, no por el proxy de Vite— fallaba sin
+  // llegar nunca al backend.
+  await app.listen({ port: PORT, host: process.env.HOST?.trim() || '::' })
 
   const httpServer = app.server as unknown as http.Server
 
@@ -253,7 +319,10 @@ async function main() {
     return token && /^[A-Za-z0-9._-]{1,4096}$/.test(token) ? token : null
   }
 
-  const rejectUpgrade = (socket: { write: (data: string) => boolean; destroy: () => void }, status: 401 | 403): void => {
+  const rejectUpgrade = (socket: { write: (data: string) => boolean; destroy: () => void }, status: 401 | 403, reason = ''): void => {
+    // Sin esta traza un upgrade rechazado es indistinguible de uno que nunca
+    // llegó: el socket se cierra sin dejar rastro en el log de peticiones.
+    console.warn('[WS] upgrade rechazado %d %s', status, reason)
     socket.write(`HTTP/1.1 ${status} ${status === 401 ? 'Unauthorized' : 'Forbidden'}\r\nConnection: close\r\n\r\n`)
     socket.destroy()
   }
@@ -273,20 +342,21 @@ async function main() {
       }).catch(() => rejectUpgrade(socket, 401))
     } else if (path === '/voice-sim/live') {
       const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin
-      if (!isRealtimeOriginAllowed(origin)) return rejectUpgrade(socket, 403)
+      console.log('[WS] upgrade %s origin=%s', path, origin ?? '(sin origin)')
+      if (!isRealtimeOriginAllowed(origin)) return rejectUpgrade(socket, 403, `origen ${origin}`)
       const token = protocolToken(req)
-      if (!token) return rejectUpgrade(socket, 401)
+      if (!token) return rejectUpgrade(socket, 401, 'sin token en el subprotocolo')
       try {
         const principal = app.jwt.verify<VoiceSimulationPrincipal>(token)
-        if (!validPrincipal(principal)) return rejectUpgrade(socket, 401)
+        if (!validPrincipal(principal)) return rejectUpgrade(socket, 401, 'principal incompleto')
         simWss.handleUpgrade(req, socket, head, (ws) => {
           handleSimStream(ws, principal).catch(error => {
             console.error('[SIM] Failed to initialise stream:', error)
             ws.close(1011, 'Simulation initialisation failed')
           })
         })
-      } catch {
-        return rejectUpgrade(socket, 401)
+      } catch (error) {
+        return rejectUpgrade(socket, 401, `jwt: ${(error as Error).message}`)
       }
     }
     // resto (ej. /socket.io) lo maneja socket.io abajo

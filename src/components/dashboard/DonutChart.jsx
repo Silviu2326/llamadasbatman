@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
+import { RiPieChartLine } from 'react-icons/ri'
 import { card, tooltipStyle, DONUT } from './dashboardData'
 import { useThemeColors } from '../../hooks/useTheme'
 import { getLocale, localeCode, useI18n } from '../../i18n'
+import DashboardEmptyState from './DashboardEmptyState'
 
 // Una porción por campaña. Va a `fill` (atributo SVG), donde var() no resuelve:
 // la paleta se construye con los tokens ya resueltos a hex.
@@ -24,7 +26,7 @@ export default function DonutChart({ callsByCampaign, totalCalls }) {
         {locale === 'en' ? 'Calls by campaign' : 'Llamadas por campaña'}
       </h3>
 
-      <div style={{ position:'relative', width:SIZE, height:SIZE, margin:'0 auto' }}>
+      {donutData.length ? <div style={{ position:'relative', width:SIZE, height:SIZE, margin:'0 auto' }}>
         <PieChart width={SIZE} height={SIZE}>
           <Pie data={donutData} cx={SIZE/2} cy={SIZE/2}
             innerRadius={58} outerRadius={84}
@@ -40,12 +42,17 @@ export default function DonutChart({ callsByCampaign, totalCalls }) {
           </div>
           <div style={{ fontSize:11, color:'var(--dim)', marginTop:4 }}>{locale === 'en' ? 'Calls' : 'Llamadas'}</div>
         </div>
-      </div>
+      </div> : <DashboardEmptyState
+        Icon={RiPieChartLine}
+        title={locale === 'en' ? 'No campaign activity yet' : 'Aún no hay actividad por campaña'}
+        description={locale === 'en' ? 'Calls will be distributed here as soon as your campaigns start.' : 'Las llamadas se repartirán aquí cuando tus campañas empiecen a moverse.'}
+        tone="cyan"
+        centered
+      />}
 
       <div style={{ display:'flex', flexDirection:'column', gap:10, flex:1, justifyContent:'center' }}>
-        {donutData.length === 0
-          ? <p style={{ margin:0, fontSize:12, color:'var(--muted)', textAlign:'center' }}>{locale === 'en' ? 'No campaign data' : 'Sin datos de campañas'}</p>
-          : donutData.map(d => (
+        {donutData.length
+          ? donutData.map(d => (
             <div key={d.name} style={{ display:'flex', alignItems:'center', gap:9 }}>
               <div style={{ width:9, height:9, borderRadius:'50%', background:d.color, flexShrink:0, boxShadow:`0 0 6px ${d.color}` }} />
               <div style={{ flex:1, minWidth:0 }}>
@@ -54,6 +61,7 @@ export default function DonutChart({ callsByCampaign, totalCalls }) {
               </div>
             </div>
           ))
+          : null
         }
       </div>
     </div>

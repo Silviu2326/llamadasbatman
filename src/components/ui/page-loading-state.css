@@ -1,0 +1,201 @@
+.page-loading-shell {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 100dvh;
+  padding: 32px;
+  overflow: hidden;
+  color: var(--muted);
+  background: var(--bg);
+}
+
+.page-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+
+.page-loading-spinner {
+  position: relative;
+  box-sizing: border-box;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 20px;
+  border: 3px solid color-mix(in srgb, var(--accent-soft) 14%, transparent);
+  border-top-color: var(--accent-soft);
+  border-right-color: color-mix(in srgb, var(--accent-soft) 62%, var(--cyan));
+  border-radius: 50%;
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent-deep) 38%, transparent));
+  animation: pageLoadingSpin .8s linear infinite;
+}
+
+.page-loading-spinner::after {
+  position: absolute;
+  inset: 9px;
+  content: '';
+  border: 2px solid color-mix(in srgb, var(--accent-soft) 10%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+  border-radius: 50%;
+}
+
+.page-loading-state strong {
+  color: var(--text-strong);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.page-loading-state p {
+  margin: 7px 0 0;
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.page-loading-inline {
+  min-height: 190px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px 16px;
+  overflow: visible;
+  background: transparent;
+}
+
+.page-loading-inline .page-loading-spinner {
+  width: 40px;
+  height: 40px;
+}
+
+.page-loading-inline .page-loading-state strong { font-size: 14px; }
+.page-loading-inline .page-loading-state p { font-size: 11px; }
+
+@keyframes pageLoadingSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 760px) {
+  .page-loading-shell { min-height: calc(100dvh - 64px); padding: 24px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-spinner { animation-duration: 1.8s; }
+}
+
+/* Legacy page shells keep their existing markup but use the same visual state. */
+.business-loading {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 16px;
+  color: var(--text-2);
+  background: var(--bg);
+  font-size: 15px;
+}
+
+.business-loading svg {
+  width: 48px;
+  height: 48px;
+  box-sizing: border-box;
+  padding: 3px;
+  border: 3px solid color-mix(in srgb, var(--accent-soft) 18%, var(--line-2));
+  border-top-color: var(--accent-soft);
+  border-right-color: var(--violet-soft);
+  border-radius: 50%;
+  color: transparent;
+  animation: pageLoadingSpin .8s linear infinite;
+}
+
+/* Reuse the same loading language in legacy section shells. */
+:is(.conn-state, .assets-state[role="status"], .jobs-state[role="status"], .cap-state:not(.error), .ri-state, .bix-loading) {
+  display: grid !important;
+  min-height: 190px !important;
+  box-sizing: border-box;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  padding: 28px 16px !important;
+  color: var(--text-2);
+  background: transparent;
+  text-align: center;
+}
+
+:is(.conn-state, .assets-state[role="status"], .jobs-state[role="status"], .cap-state:not(.error), .ri-state, .bix-loading) > svg,
+:is(.conn-state, .assets-state[role="status"], .jobs-state[role="status"], .cap-state:not(.error), .ri-state) > span:first-child,
+.bix-loading > svg {
+  width: 40px !important;
+  height: 40px !important;
+  box-sizing: border-box;
+  padding: 3px;
+  border: 3px solid color-mix(in srgb, var(--accent-soft) 18%, var(--line-2));
+  border-top-color: var(--accent-soft);
+  border-right-color: var(--violet-soft);
+  border-radius: 50%;
+  color: transparent !important;
+  animation: pageLoadingSpin .8s linear infinite;
+}
+
+:is(.conn-state, .assets-state[role="status"], .jobs-state[role="status"], .cap-state:not(.error), .ri-state) strong,
+.bix-loading strong {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+:is(.conn-state, .assets-state[role="status"], .jobs-state[role="status"], .cap-state:not(.error), .ri-state) p,
+.bix-loading span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.growth-state.loading {
+  min-height: 190px;
+  place-content: center;
+  gap: 14px;
+  padding: 28px 16px;
+}
+
+.growth-state.loading > span {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+  border-top-color: var(--accent-soft);
+  border-right-color: var(--violet-soft);
+}
+
+.growth-state.loading p { margin: 0; font-size: 11px; }
+
+:is(.ac-state:has(> i), .market-state:has(.market-spin), .mapps-state:has(.mapps-spin), .captacion-stage-loading) {
+  display: grid !important;
+  min-height: 190px !important;
+  box-sizing: border-box;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  padding: 28px 16px !important;
+  color: var(--text-2);
+  background: transparent;
+  text-align: center;
+}
+
+:is(.ac-state:has(> i), .market-state:has(.market-spin), .mapps-state:has(.mapps-spin)) > i,
+:is(.market-state:has(.market-spin), .mapps-state:has(.mapps-spin)) > svg,
+.captacion-stage-loading::before {
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 3px;
+  border: 3px solid color-mix(in srgb, var(--accent-soft) 18%, var(--line-2));
+  border-top-color: var(--accent-soft);
+  border-right-color: var(--violet-soft);
+  border-radius: 50%;
+  color: transparent;
+  animation: pageLoadingSpin .8s linear infinite;
+}
+
+.captacion-stage-loading::before { display: block; content: ''; }
+:is(.ac-state:has(> i), .market-state:has(.market-spin), .mapps-state:has(.mapps-spin)) strong,
+.captacion-stage-loading { font-size: 14px; }

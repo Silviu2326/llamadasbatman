@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma'
 import bcrypt from 'bcrypt'
 import { createHash, randomBytes, timingSafeEqual } from 'crypto'
-import { getWorkspaceGrantsForUser, type WorkspaceGrant } from './workspaceAccess.service'
+import { getWorkspaceGrantsForUserAsync, type WorkspaceGrant } from './workspaceAccess.service'
 
 export const ACCESS_TOKEN_TTL = '15m'
 export const REFRESH_TOKEN_TTL_DAYS = 30
@@ -19,12 +19,52 @@ export async function findUserByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } })
 }
 
+export function activeIdentityFromMemberships<T extends { id: string; orgId: string; role: string; email: string; name: string }>(
+  user: T,
+  memberships: Array<{ orgId: string; role: string; status: string; isDefault: boolean; createdAt: Date }>,
+  preferredOrgId?: string | null,
+) {
+  const active = memberships.filter(row => row.status === 'active').sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.createdAt.getTime() - b.createdAt.getTime())
+  const membership = (preferredOrgId ? active.find(row => row.orgId === preferredOrgId) : undefined) ?? active[0]
+  return membership ? { ...user, orgId: membership.orgId, role: membership.role } : user
+}
+
+export async function resolveActiveIdentity(user: { id: string; orgId: string; role: string; email: string; name: string }, preferredOrgId?: string | null) {
+  const memberships = await prisma.organizationMembership.findMany({ where: { userId: user.id, status: 'active' }, select: { orgId: true, role: true, status: true, isDefault: true, createdAt: true } })
+  return activeIdentityFromMemberships(user, memberships, preferredOrgId)
+}
+
 export async function verifyPassword(plain: string, hash: string): Promise<boolean> {
   return bcrypt.compare(plain, hash)
 }
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 10)
+}
+
+/**
+ * Alta self-service: una organización nueva en plan `free` con su usuario
+ * `owner`. Devuelve `null` si el email ya existe — quien registra ya sabe si
+ * tiene cuenta, así que aquí no aplica la discreción del reseteo.
+ */
+export async function registerOrganization(input: {
+  name: string
+  email: string
+  password: string
+  orgName: string
+}) {
+  const email = input.email.trim().toLowerCase()
+  if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return null
+  const passwordHash = await hashPassword(input.password)
+  return prisma.$transaction(async tx => {
+    const org = await tx.organization.create({ data: { name: input.orgName.trim(), plan: 'free', email } })
+    const user = await tx.user.create({
+      data: { orgId: org.id, email, name: input.name.trim(), role: 'owner', passwordHash },
+      select: { id: true, orgId: true, email: true, name: true, role: true },
+    })
+    await tx.organizationMembership.create({ data: { orgId: org.id, userId: user.id, role: 'owner', status: 'active', isDefault: true } })
+    return user
+  })
 }
 
 function hashRefreshSecret(secret: string) {
@@ -61,10 +101,12 @@ function newRefreshSecret() {
 
 export async function createRefreshSession(userId: string) {
   const secret = newRefreshSecret()
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, orgId: true, role: true, email: true, name: true } })
+  const identity = await resolveActiveIdentity(user)
   const session = await prisma.authSession.create({
-    data: { userId, tokenHash: hashRefreshSecret(secret), expiresAt: refreshExpiry() },
+    data: { userId, tokenHash: hashRefreshSecret(secret), expiresAt: refreshExpiry(), activeOrgId: identity.orgId },
   })
-  return { session, refreshToken: buildRefreshToken(session.id, secret) }
+  return { session, refreshToken: buildRefreshToken(session.id, secret), identity }
 }
 
 /**
@@ -86,6 +128,12 @@ export async function rotateRefreshSession(rawRefreshToken: string | undefined):
   if (!current || current.revokedAt || current.expiresAt <= new Date() || !tokenMatches(current.tokenHash, parsed.secret)) {
     return null
   }
+  const activeOrgId = current.activeOrgId ?? current.user.orgId
+  const membership = await prisma.organizationMembership.findUnique({
+    where: { orgId_userId: { orgId: activeOrgId, userId: current.user.id } },
+    select: { role: true, status: true },
+  })
+  if (!membership || membership.status !== 'active') return null
 
   const secret = newRefreshSecret()
   const nextExpiry = refreshExpiry()
@@ -97,7 +145,7 @@ export async function rotateRefreshSession(rawRefreshToken: string | undefined):
     if (revoked.count !== 1) return null
 
     return tx.authSession.create({
-      data: { userId: current.userId, tokenHash: hashRefreshSecret(secret), expiresAt: nextExpiry },
+      data: { userId: current.userId, tokenHash: hashRefreshSecret(secret), expiresAt: nextExpiry, activeOrgId },
       select: { id: true, expiresAt: true },
     })
   })
@@ -106,20 +154,42 @@ export async function rotateRefreshSession(rawRefreshToken: string | undefined):
   return {
     user: {
       id: current.user.id,
-      orgId: current.user.orgId,
-      role: current.user.role,
+      orgId: activeOrgId,
+      role: membership.role,
       email: current.user.email,
       name: current.user.name,
-      workspaceGrants: getWorkspaceGrantsForUser({
+      workspaceGrants: await getWorkspaceGrantsForUserAsync({
         userId: current.user.id,
         email: current.user.email,
-        orgId: current.user.orgId,
-        role: current.user.role,
+        orgId: activeOrgId,
+        role: membership.role,
       }),
     },
     session: rotated,
     refreshToken: buildRefreshToken(rotated.id, secret),
   }
+}
+
+export async function selectOrganizationForSession(input: { userId: string; sessionId: string; orgId: string }) {
+  const membership = await prisma.organizationMembership.findUnique({
+    where: { orgId_userId: { orgId: input.orgId, userId: input.userId } },
+    include: { org: { select: { id: true, name: true, plan: true } }, user: { select: { id: true, email: true, name: true } } },
+  })
+  if (!membership || membership.status !== 'active') return null
+  const changed = await prisma.authSession.updateMany({
+    where: { id: input.sessionId, userId: input.userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    data: { activeOrgId: input.orgId, lastUsedAt: new Date() },
+  })
+  if (changed.count !== 1) return null
+  return { id: membership.user.id, name: membership.user.name, email: membership.user.email, orgId: membership.orgId, role: membership.role, org: membership.org }
+}
+
+export async function listUserOrganizations(userId: string) {
+  return prisma.organizationMembership.findMany({
+    where: { userId, status: 'active' },
+    select: { orgId: true, role: true, isDefault: true, org: { select: { name: true, plan: true } } },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+  })
 }
 
 export async function revokeRefreshSession(sessionId: string | undefined, userId: string) {

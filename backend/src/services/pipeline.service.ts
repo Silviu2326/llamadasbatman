@@ -5,6 +5,7 @@ import { logSalesActivity } from '../lib/salesActivity'
 import { createTask, listTasks } from './tasks.service'
 import { scopedOwnerId, type DataActor } from '../lib/dataScope'
 import { QUALIFYING_CALL_OUTCOMES } from '../lib/callOutcome'
+import { emitOutcome } from './outcomes.service'
 
 function opportunityOwner(actor: DataActor, permission: 'pipeline.read' | 'pipeline.write' | 'pipeline.reopen') {
   return scopedOwnerId(actor, permission)
@@ -450,6 +451,16 @@ export async function moveStage(
     return result
   })
 
+  // North star (09 §5): oportunidad ganada = resultado 'deal_won'. Nunca lanza.
+  if (toStage === 'closed_won') {
+    await emitOutcome({
+      orgId,
+      kind: 'deal_won',
+      sourceRef: { opportunityId: id, leadId: opportunity.leadId },
+      valueCents: opportunity.value != null ? Math.round(Number(opportunity.value) * 100) : null,
+    })
+  }
+
   await logSalesActivity({
     orgId,
     type: 'stage_change',
@@ -656,6 +667,28 @@ export async function getStageHistory(orgId: string, actor: DataActor, id: strin
   return prisma.opportunityStageHistory.findMany({
     where: { orgId, opportunityId: id },
     orderBy: { enteredAt: 'asc' },
+  })
+}
+
+/**
+ * Actividad real de la oportunidad (SalesActivity), que hasta ahora la ficha
+ * pintaba con un array fijo. Incluye la del lead asociado: una llamada o un
+ * email al contacto son actividad de la oportunidad aunque se registren en él.
+ */
+export async function getOpportunityActivity(orgId: string, actor: DataActor, id: string, limit = 50) {
+  const opportunity = await prisma.opportunity.findFirst({
+    where: { id, orgId, assignedTo: opportunityOwner(actor, 'pipeline.read') },
+    select: { id: true, leadId: true },
+  })
+  if (!opportunity) throw new OpportunityNotFoundError()
+
+  return prisma.salesActivity.findMany({
+    where: {
+      orgId,
+      OR: [{ opportunityId: id }, ...(opportunity.leadId ? [{ leadId: opportunity.leadId }] : [])],
+    },
+    orderBy: { occurredAt: 'desc' },
+    take: Math.min(limit, 100),
   })
 }
 

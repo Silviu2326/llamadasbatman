@@ -29,6 +29,35 @@ export async function campaignMetrics(
   return reply.send(metrics)
 }
 
+/** EM-113: GET /api/email/campaigns/:campaignId/variants?from=&to= */
+export async function campaignVariants(
+  request: FastifyRequest<{ Params: { campaignId: string }; Querystring: { from?: string; to?: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, campaignParamsSchema, request.params)
+  const query = parseRequest(reply, periodQuerySchema, request.query)
+  if (!params || !query) return
+
+  const comparison = await emailMetricsService.getCampaignVariantMetrics(orgId, params.campaignId, {
+    periodFrom: query.from,
+    periodTo: query.to,
+  })
+  return reply.send(comparison)
+}
+
+/** EM-113: GET /api/email/campaigns/:campaignId/revenue */
+export async function campaignRevenue(
+  request: FastifyRequest<{ Params: { campaignId: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, campaignParamsSchema, request.params)
+  if (!params) return
+
+  return reply.send(await emailMetricsService.getCampaignRevenue(orgId, params.campaignId))
+}
+
 /** EM-108: GET /api/email/overview?from=&to= */
 export async function overview(
   request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,

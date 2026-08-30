@@ -18,6 +18,8 @@ const READ_PERMISSIONS = [
   'agents.read',
   'playbooks.read',
   'automations.read',
+  'jobs.read',
+  'assets.read',
   'knowledge.read',
   'meetings.read',
   'pipeline.read',
@@ -45,6 +47,8 @@ const BUSINESS_READ = [
   'agents.read',
   'playbooks.read',
   'automations.read',
+  'jobs.read',
+  'assets.read',
   'knowledge.read',
   'meetings.read',
   'pipeline.read',
@@ -80,76 +84,112 @@ const ROLE_ALIASES = {
 }
 
 const ROLE_FALLBACK_PERMISSIONS = {
-  owner: [...READ_PERMISSIONS, 'leads.write', 'costs.request'],
-  admin: [...READ_PERMISSIONS, 'leads.write', 'costs.request'],
-  revenue_ops: [...BUSINESS_READ, 'organic.read', 'organization.read', 'integrations.read', 'access_control.read', 'leads.write', 'costs.request'],
+  owner: [...READ_PERMISSIONS, 'organization.manage', 'leads.write', 'social.write', 'jobs.manage', 'assets.manage', 'integrations.manage', 'costs.request'],
+  admin: [...READ_PERMISSIONS, 'organization.manage', 'leads.write', 'social.write', 'jobs.manage', 'assets.manage', 'integrations.manage'],
+  revenue_ops: [...BUSINESS_READ, 'organic.read', 'organization.read', 'integrations.read', 'access_control.read', 'leads.write', 'jobs.manage', 'assets.manage', 'costs.request'],
   sales_manager: [
     'dashboard.read', 'leads.read', 'accounts.read', 'calls.read', 'conversations.read',
     'playbooks.read', 'knowledge.read', 'meetings.read', 'pipeline.read', 'tasks.read',
-    'experiments.read', 'memory.read', 'organization.read',
+    'experiments.read', 'memory.read', 'organization.read', 'assets.read',
     'access_control.read',
   ],
   sales_rep: [
     'dashboard.read', 'leads.read', 'accounts.read', 'calls.read', 'conversations.read',
-    'playbooks.read', 'knowledge.read', 'meetings.read', 'pipeline.read', 'tasks.read',
+    'playbooks.read', 'knowledge.read', 'meetings.read', 'pipeline.read', 'tasks.read', 'assets.read',
   ],
   marketing_growth: [
     'dashboard.read', 'leads.read', 'campaigns.read', 'organic.read', 'ads.read', 'social.read',
     'funnels.read', 'agents.read', 'playbooks.read', 'automations.read', 'knowledge.read',
     'growth.read', 'experiments.read', 'memory.read', 'integrations.read',
-    'leads.write', 'costs.request',
+    'leads.write', 'social.write', 'jobs.manage', 'assets.read', 'assets.manage', 'costs.request',
   ],
-  analyst: ['dashboard.read', 'campaigns.read', 'organic.read', 'ads.read', 'social.read', 'funnels.read', 'pipeline.read', 'growth.read', 'experiments.read', 'organization.read'],
+  analyst: ['dashboard.read', 'campaigns.read', 'organic.read', 'ads.read', 'social.read', 'assets.read', 'funnels.read', 'pipeline.read', 'growth.read', 'experiments.read', 'organization.read'],
   compliance: [
     'dashboard.read', 'leads.read', 'accounts.read', 'calls.read', 'conversations.read',
     'campaigns.read', 'organic.read', 'playbooks.read', 'knowledge.read', 'memory.read', 'governance.read',
-    'organization.read', 'access_control.read',
+    'organization.read', 'access_control.read', 'assets.read',
   ],
-  finance_controller: ['dashboard.read', 'campaigns.read', 'organic.read', 'ads.read', 'growth.read', 'experiments.read', 'organization.read', 'audit.read'],
+  finance_controller: ['dashboard.read', 'campaigns.read', 'organic.read', 'ads.read', 'growth.read', 'experiments.read', 'organization.read', 'audit.read', 'assets.read'],
   guest: ['dashboard.read'],
   // Legacy roles remain usable even when the server has not yet attached an
   // explicit permission list to the refreshed user object.
-  agent: [...BUSINESS_READ, 'organization.read', 'integrations.read', 'access_control.read', 'leads.write', 'costs.request'],
+  agent: [...BUSINESS_READ, 'organization.read', 'integrations.read', 'integrations.manage', 'access_control.read', 'leads.write', 'social.write', 'jobs.manage', 'assets.manage', 'costs.request'],
   viewer: [...BUSINESS_READ, 'organization.read'],
 }
 
 const NAVIGATION_REQUIREMENTS = {
   '/dashboard': ['dashboard.read'],
+  '/orquestador': ['dashboard.read'],
+  '/operaciones-growth': { anyOf: ['dashboard.read', 'jobs.read', 'automations.read'] },
+  '/plan': ['dashboard.read'],
+  // Sección Captación: la portada se ve con cualquiera de sus etapas; cada
+  // etapa exige lo mismo que exigía como página suelta. Las rutas antiguas se
+  // conservan porque otras pantallas todavía preguntan por ellas.
+  '/captacion': { anyOf: ['campaigns.read', 'ads.read', 'organic.read', 'social.read', 'funnels.read'] },
+  '/captacion/planificar': ['campaigns.read'],
+  '/captacion/atraer/ads': ['ads.read'],
+  '/captacion/atraer/organico': { anyOf: ['organic.read', 'social.read'] },
+  '/captacion/atraer/prospectos': ['leads.write', 'costs.request'],
+  '/captacion/convertir': ['campaigns.read'],
+  '/captacion/cerrar': ['funnels.read'],
   '/campanas': ['campaigns.read'],
-  '/organic': ['organic.read'],
-  // El análisis SEO lanza un LLM: misma barrera de coste que /prospectos.
-  '/seo': ['campaigns.read', 'costs.request'],
+  // «Orgánico y social» funde el centro de mando orgánico y las redes: basta
+  // con poder leer una de las dos mitades; la API sigue autorizando cada panel.
+  '/organico': { anyOf: ['organic.read', 'social.read'] },
   '/ads': ['ads.read'],
-  '/redes-sociales': ['social.read'],
   // Prospect search/import is a paid operation and has no separate read
   // permission in the current backend policy.
   '/prospectos': ['leads.write', 'costs.request'],
-  '/landings': ['campaigns.read'],
+  // «Web y SEO»: las landings cuelgan de campañas. El análisis SEO lanza un
+  // LLM y exige además costs.request, que el backend comprueba en el endpoint.
+  '/web': ['campaigns.read'],
   '/funnels': ['funnels.read'],
   '/conversacion/inbox': ['conversations.read'],
   '/llamadas': ['calls.read'],
   '/agentes': ['agents.read'],
   '/playbooks': ['playbooks.read'],
+  '/voz/cabina': ['agents.read'],
   '/voz/test': ['agents.read'],
   '/voz/omni': ['agents.read'],
+  '/voz/emocion': ['agents.read'],
   '/email-marketing': ['campaigns.read'],
   '/automatizaciones': ['automations.read'],
+  '/trabajos': ['jobs.read'],
+  '/activos': ['assets.read'],
+  // Ejecutar una microapp gasta presupuesto (LLM/proveedores): misma barrera de
+  // coste que /prospectos. No hay un "microapps.read" en la política actual.
+  '/microapps': { anyOf: ['jobs.read', 'costs.request'] },
+  '/conexiones': ['integrations.read'],
+  '/studio': ['social.read'],
+  '/marketplace': ['integrations.read'],
   '/growth': ['growth.read'],
+  '/ventas': { anyOf: ['leads.read', 'accounts.read', 'pipeline.read'] },
   '/leads': ['leads.read'],
+  '/cuentas': ['accounts.read'],
   '/pipeline': ['pipeline.read'],
+  '/calendario': ['meetings.read'],
   '/reuniones': ['meetings.read'],
   // This page is transversal; any one of its read surfaces is enough to show
   // the entry point, while the API still decides which panels are available.
   '/inteligencia-comercial': { anyOf: ['leads.read', 'experiments.read', 'memory.read'] },
   '/insights': ['dashboard.read'],
   '/knowledge-base': ['knowledge.read'],
+  '/recursos-ia': { anyOf: ['knowledge.read', 'playbooks.read'] },
+  '/informacion-empresa': ['organization.read'],
+  '/rellenar-desde-web': ['organization.read'],
   // /settings/me is available to authenticated users; organization.read keeps
   // the entry visible for personal settings while excluding a zero-permission
   // account from the navigation.
   '/configuracion': ['organization.read'],
   '/gobierno-empresarial': ['governance.read'],
   '/access-control': ['access_control.read'],
+  '/agencia/clientes': ['organization.manage'],
+  '/desarrolladores': ['integrations.read'],
   '/admin/ad-playbooks': ['playbooks.manage_global'],
+  '/capacidades': { anyOf: ['jobs.read', 'automations.read', 'integrations.read', 'costs.request'] },
+  '/aprender': ['dashboard.read'],
+  '/tutoriales': ['dashboard.read'],
+  '/documentacion': ['dashboard.read'],
 }
 
 function normalizeRole(role) {

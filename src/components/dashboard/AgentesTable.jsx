@@ -1,8 +1,9 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RiArrowRightLine } from 'react-icons/ri'
+import { RiArrowRightLine, RiUserLine } from 'react-icons/ri'
 import { card, AGENT_BG } from './dashboardData'
 import { useI18n } from '../../i18n'
+import DashboardEmptyState from './DashboardEmptyState'
 
 export default function AgentesTable({ agents: agentsProp }) {
   const { locale } = useI18n()
@@ -22,13 +23,19 @@ export default function AgentesTable({ agents: agentsProp }) {
       <h3 style={{ margin:'0 0 14px', fontSize:15, fontWeight:700, color:'var(--text-strong)' }}>
         {locale === 'en' ? 'Top agents by performance' : 'Top agentes por rendimiento'}
       </h3>
-      <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 56px minmax(60px,90px)', gap:8, paddingBottom:10, borderBottom:'1px solid var(--line)' }}>
+      {displayAgents?.length ? <div style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 56px minmax(60px,90px)', gap:8, paddingBottom:10, borderBottom:'1px solid var(--line)' }}>
         {[locale === 'en' ? 'Agent' : 'Agente', locale === 'en' ? 'Calls' : 'Llamadas', locale === 'en' ? 'Conversion' : 'Conversión'].map(h => (
           <span key={h} style={{ fontSize:10.5, color:'var(--dim)', fontWeight:600, textTransform:'uppercase', letterSpacing:0.5 }}>{h}</span>
         ))}
-      </div>
+      </div> : null}
       {!displayAgents || displayAgents.length === 0
-        ? <p style={{ margin:'12px 0', fontSize:12, color: 'var(--dim)', textAlign:'center' }}>{locale === 'en' ? 'No call data by agent' : 'Sin datos de llamadas por agente'}</p>
+        ? <DashboardEmptyState
+            Icon={RiUserLine}
+            title={locale === 'en' ? 'No agent activity yet' : 'Aún no hay actividad de agentes'}
+            description={locale === 'en' ? 'Once calls begin, your best-performing agents will appear here.' : 'Cuando empiecen las llamadas, aquí aparecerán tus agentes con mejor rendimiento.'}
+            tone="violet"
+            centered
+          />
         : displayAgents.map((a, i) => (
           <div key={i} style={{ display:'grid', gridTemplateColumns:'minmax(0,1fr) 56px minmax(60px,90px)', gap:8, alignItems:'center', padding:'10px 0', borderBottom: i<displayAgents.length-1 ? '1px solid var(--surface-2)' : 'none' }}>
             <div style={{ display:'flex', alignItems:'center', gap:9 }}>

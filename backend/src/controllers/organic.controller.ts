@@ -199,7 +199,7 @@ export async function oauthCallback(
   const appUrl = getAppUrl()
   // Volvía a /captacion/conectar, que es la cuenta de Meta: quien conectaba
   // Google acababa mirando la pantalla de otro producto.
-  const resultUrl = new URL('/organic', appUrl)
+  const resultUrl = new URL('/captacion/atraer/organico?tab=fuentes', appUrl)
   resultUrl.searchParams.set('organic_provider', request.params.provider)
 
   if (!provider || !request.query.state) {

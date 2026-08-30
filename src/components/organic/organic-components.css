@@ -1,0 +1,158 @@
+/* Estilos de los componentes reutilizables del orgánico (banda de integridad,
+   onboarding adaptativo y sala de autonomía). Vivían en la hoja de la antigua
+   página /organic; al fundirse esa página con Redes sociales, los componentes
+   se llevan lo suyo y la página nueva usa el marco compartido de Growth. */
+
+.organic-control, .organic-button { min-height: 36px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 10.5px; }
+.organic-control { padding: 0 30px 0 12px; appearance: auto; color: var(--text); background: var(--surface-soft); border-color: var(--line-control); }
+.organic-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; cursor: pointer; font-weight: 750; transition: border-color .18s, box-shadow .18s, transform .18s, background .18s, color .18s; }
+.organic-button svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.organic-button:hover:not(:disabled) { border-color: var(--line-hover); background: var(--surface-hover); color: var(--text-strong); box-shadow: 0 6px 18px var(--shadow-color); transform: translateY(-1px); }
+.organic-button:focus-visible, .organic-control:focus-visible, .organic-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.organic-button.primary { border-color: color-mix(in srgb, var(--accent) 70%, transparent); background: linear-gradient(102deg, var(--accent-deep), var(--violet-deep)); color: #fff; box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 26%, transparent); }
+.organic-button.primary:hover:not(:disabled) { color: #fff; border-color: var(--accent-faint); }
+.organic-button.secondary { color: var(--text-2); }
+.organic-button.ghost { border-color: transparent; background: transparent; color: var(--accent); box-shadow: none; }
+.organic-button:disabled { cursor: not-allowed; opacity: .55; transform: none; box-shadow: none; }
+.organic-link { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 10.5px; font-weight: 750; cursor: pointer; }
+.organic-link svg { width: 14px; }
+
+.organic-panel { min-width: 0; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface); box-shadow: 0 1px 0 #ffffff06 inset, 0 16px 40px var(--shadow-color); }
+.organic-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px 17px 13px; border-bottom: 1px solid var(--line); }
+.organic-panel-header h2 { display: flex; align-items: center; gap: 9px; margin: 0; color: var(--text-strong); font-size: 13px; letter-spacing: -.25px; }
+.organic-panel-header p { margin: 6px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
+.organic-panel-icon { display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 auto; border: 1px solid var(--line-2); border-radius: 8px; color: var(--accent-faint); background: color-mix(in srgb, var(--accent-bg) 42%, transparent); }
+.organic-panel-icon svg { width: 14px; height: 14px; }
+.organic-panel-note { flex: 0 0 auto; color: var(--dim); font-size: 9px; font-style: italic; }
+.organic-panel > .organic-autonomy-stop, .organic-panel > .organic-autonomy-controls, .organic-panel > .organic-autonomy-kinds, .organic-panel > .organic-autonomy-decisions { margin-right: 17px; margin-left: 17px; }
+.organic-panel > .organic-autonomy-stop { margin-top: 15px; }
+.organic-panel > .organic-autonomy-controls { margin-top: 15px; }
+.organic-panel > .organic-autonomy-decisions, .organic-panel > .organic-autonomy-kinds:last-child { margin-bottom: 17px; }
+
+.organic-state { min-height: 300px; display: grid; place-items: center; padding: 30px; text-align: center; }
+.organic-state-box { width: min(100%, 520px); padding: 30px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-2); color: var(--muted); font-size: 11.5px; }
+
+/* Banda de integridad de organico.md §5.1 — mismo lenguaje visual que Ads:
+   estado agregado arriba, una tarjeta por fuente y qué desbloquea cada una. */
+.organic-integrity { margin-bottom: 14px; padding: 16px 18px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface); }
+.organic-integrity.is-warn { border-color: color-mix(in srgb, var(--warn) 30%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--warn) 7%, transparent), var(--surface)); }
+.organic-integrity.is-bad { border-color: color-mix(in srgb, var(--danger) 30%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 8%, transparent), var(--surface)); }
+.organic-integrity > header { display: flex; align-items: center; gap: 11px; }
+.organic-integrity-icon { display: grid; width: 34px; height: 34px; place-items: center; flex: 0 0 auto; border: 1px solid var(--line-2); border-radius: 10px; color: var(--dim); }
+.organic-integrity.is-ok .organic-integrity-icon { color: var(--success-soft); border-color: color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.organic-integrity.is-warn .organic-integrity-icon { color: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 40%, transparent); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.organic-integrity.is-bad .organic-integrity-icon { color: var(--danger-faint); border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.organic-integrity-icon svg { width: 17px; height: 17px; }
+.organic-integrity > header h2 { margin: 0; color: var(--text-strong); font-size: 14px; letter-spacing: -.3px; }
+.organic-integrity > header p { margin: 4px 0 0; color: var(--dim); font-size: 11px; }
+.organic-integrity-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 9px; margin: 14px 0 0; padding: 0; list-style: none; }
+.organic-integrity-sources li { display: grid; gap: 5px; align-content: start; padding: 10px 11px; border: 1px solid var(--line); border-left: 2px solid var(--dim); border-radius: 9px; background: var(--surface-2); }
+.organic-integrity-sources li.is-ok { border-left-color: var(--success); }
+.organic-integrity-sources li.is-warn { border-left-color: var(--warn-soft); }
+.organic-integrity-sources li.is-bad { border-left-color: var(--danger-soft); }
+.organic-integrity-source-head { display: flex; align-items: center; gap: 6px; }
+.organic-integrity-source-head svg { width: 13px; height: 13px; flex: 0 0 auto; color: var(--dim); }
+.organic-integrity-source-head strong { flex: 1; min-width: 0; overflow: hidden; color: var(--text-2); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.organic-integrity-source-head span { flex: 0 0 auto; color: var(--dim); font-size: 8.5px; font-weight: 750; letter-spacing: .3px; text-transform: uppercase; }
+.organic-integrity-sources p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.organic-integrity-sources em { color: var(--dim); font-size: 9.5px; font-style: normal; line-height: 1.45; }
+.organic-integrity-issues { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.organic-integrity-issues li { display: flex; align-items: flex-start; gap: 7px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--warn) 22%, transparent); border-radius: 8px; color: var(--muted); background: var(--surface-soft); font-size: 10px; line-height: 1.5; }
+.organic-integrity-issues svg { width: 13px; height: 13px; flex: 0 0 auto; margin-top: 1px; color: var(--warn-soft); }
+
+/* Onboarding adaptativo — tres columnas de organico.md §4.6. */
+.organic-onboarding { display: grid; grid-template-columns: 190px minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.organic-onboarding-steps { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--line-2); border-radius: 13px; background: var(--surface); }
+.organic-onboarding-steps button { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border: 0; border-radius: 8px; color: var(--dim); background: transparent; font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+.organic-onboarding-steps button span { display: grid; width: 20px; height: 20px; place-items: center; flex: 0 0 auto; border: 1px solid var(--line-2); border-radius: 50%; font-size: 9px; font-weight: 750; }
+.organic-onboarding-steps button.active { color: var(--text-strong); background: var(--accent-bg); }
+.organic-onboarding-steps button.active span { color: #fff; border-color: var(--accent); background: var(--accent-deep); }
+.organic-onboarding-steps button:disabled { opacity: .42; cursor: not-allowed; }
+.organic-onboarding-form { display: grid; gap: 11px; align-content: start; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 13px; background: var(--surface); }
+.organic-onboarding-form h2 { margin: 0; color: var(--text-strong); font-size: 17px; letter-spacing: -.4px; }
+.organic-onboarding-form h3 { margin: 12px 0 0; color: var(--text-2); font-size: 12.5px; }
+.organic-onboarding-form h4 { margin: 10px 0 0; color: var(--accent-faint); font-size: 10px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+.organic-onboarding-form label { display: grid; gap: 5px; color: var(--muted); font-size: 10.5px; }
+.organic-onboarding-form label i { color: var(--danger-faint); font-style: normal; }
+.organic-onboarding-form label small { color: var(--dim); font-size: 9.5px; line-height: 1.45; }
+.organic-onboarding-form input, .organic-onboarding-form select, .organic-onboarding-form textarea { padding: 8px 10px; border: 1px solid var(--line-control); border-radius: 8px; color: var(--text); outline: none; background: var(--surface-2); font: inherit; font-size: 11px; resize: vertical; }
+.organic-onboarding-form input:focus, .organic-onboarding-form select:focus, .organic-onboarding-form textarea:focus { border-color: var(--accent-soft); }
+.organic-onboarding-help { margin: 0; color: var(--dim); font-size: 10.5px; line-height: 1.55; }
+.organic-onboarding-error { margin: 0; padding: 9px 11px; border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); border-radius: 8px; color: var(--danger-faint); background: color-mix(in srgb, var(--danger) 10%, transparent); font-size: 10.5px; }
+.organic-onboarding-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.organic-sector-list { display: grid; gap: 8px; }
+.organic-sector-list label { display: flex; align-items: flex-start; gap: 9px; padding: 11px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface-2); cursor: pointer; }
+.organic-sector-list label.is-picked { border-color: var(--accent); background: var(--accent-bg); }
+.organic-sector-list strong { display: block; color: var(--text-2); font-size: 11.5px; }
+.organic-sector-list span { display: block; margin-top: 3px; color: var(--success-soft); font-size: 9.5px; }
+.organic-sector-list em { display: block; margin-top: 4px; color: var(--dim); font-size: 9.5px; font-style: normal; line-height: 1.45; }
+.organic-module-block { display: grid; gap: 9px; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+.organic-event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 7px; }
+.organic-event-grid label { display: flex; align-items: center; gap: 7px; padding: 8px 9px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); cursor: pointer; }
+.organic-event-grid label.is-picked { border-color: var(--accent); background: var(--accent-bg); }
+.organic-event-grid span { flex: 1; min-width: 0; color: var(--text-2); font-size: 10.5px; }
+.organic-event-grid em { flex: 0 0 auto; color: var(--dim); font-size: 8.5px; font-style: normal; }
+.organic-onboarding-preview { display: grid; gap: 10px; align-content: start; padding: 15px; border: 1px dashed var(--line-2); border-radius: 13px; background: var(--surface-soft); }
+.organic-onboarding-preview h3 { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-2); font-size: 11.5px; }
+.organic-onboarding-preview h3 svg { width: 14px; height: 14px; color: var(--accent-faint); }
+.organic-onboarding-preview > p { margin: 0; color: var(--dim); font-size: 10px; line-height: 1.55; }
+.organic-preview-event { padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.organic-preview-event strong { color: var(--text-2); font-size: 10.5px; }
+.organic-preview-event ul { margin: 6px 0 0; padding-left: 15px; color: var(--muted); font-size: 9.5px; line-height: 1.6; }
+.organic-preview-event em { display: block; margin-top: 5px; color: var(--accent-faint); font-size: 9px; font-style: normal; }
+.organic-onboarding-done { display: grid; justify-items: center; gap: 10px; padding: 34px 20px; text-align: center; }
+.organic-onboarding-done svg { width: 34px; height: 34px; color: var(--success-soft); }
+@media (max-width: 1150px) { .organic-onboarding { grid-template-columns: 1fr; } }
+
+/* Sala de autonomía — organico.md §9 y fase 4. */
+.organic-autonomy-stop { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 9px 11px; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 9px; color: var(--danger-faint); background: color-mix(in srgb, var(--danger) 12%, transparent); font-size: 10.5px; line-height: 1.5; }
+.organic-autonomy-stop svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.organic-autonomy-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: start; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.organic-autonomy-controls > label { display: grid; gap: 6px; }
+.organic-autonomy-controls > label > span, .organic-autonomy-limits > span { color: var(--dim); font-size: 8.5px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+.organic-autonomy-controls small { color: var(--dim); font-size: 9.5px; line-height: 1.45; }
+.organic-autonomy-shadow .organic-button { justify-content: center; }
+.organic-autonomy-limits { display: grid; gap: 6px; align-content: start; }
+.organic-autonomy-limits ul { display: grid; gap: 3px; margin: 0; padding-left: 14px; color: var(--muted); font-size: 9.5px; line-height: 1.5; }
+.organic-autonomy-controls > .organic-button { align-self: end; justify-content: center; }
+.organic-autonomy-level { padding: 2px 7px; border-radius: 99px; font-size: 8.5px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; }
+.organic-autonomy-level.is-n1 { color: var(--dim); background: var(--surface-soft); }
+.organic-autonomy-level.is-n2 { color: var(--warn-soft); background: color-mix(in srgb, var(--warn) 18%, transparent); }
+.organic-autonomy-level.is-n3 { color: var(--success-soft); background: color-mix(in srgb, var(--success) 18%, transparent); }
+.organic-autonomy-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; margin-top: 12px; align-items: start; }
+.organic-autonomy-kinds article { display: grid; gap: 7px; align-content: start; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); }
+.organic-autonomy-kinds article.is-unavailable { border-style: dashed; opacity: .82; }
+.organic-autonomy-kinds header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.organic-autonomy-kinds strong { color: var(--text-2); font-size: 11px; }
+.organic-autonomy-kinds p { margin: 0; font-size: 9.5px; line-height: 1.5; }
+.organic-autonomy-unavailable { color: var(--dim); font-style: italic; }
+.organic-autonomy-degraded { color: var(--warn-soft); }
+.organic-autonomy-ready { color: var(--success-soft); }
+.organic-autonomy-blockers { display: grid; gap: 4px; margin: 0; padding-left: 14px; color: var(--dim); font-size: 9.5px; line-height: 1.5; }
+.organic-autonomy-kind-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
+.organic-autonomy-kind-actions .organic-button { min-height: 29px; padding: 0 10px; font-size: 10px; }
+.organic-autonomy-decisions { display: grid; gap: 10px; margin-top: 16px; }
+.organic-autonomy-decisions h3 { margin: 0; color: var(--accent-faint); font-size: 10px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+.organic-autonomy-decisions article { display: grid; gap: 7px; padding: 12px; border: 1px solid var(--line-2); border-left: 3px solid var(--dim); border-radius: 10px; background: var(--surface-2); }
+.organic-autonomy-decisions article.is-ok { border-left-color: var(--success); }
+.organic-autonomy-decisions article.is-warn { border-left-color: var(--warn-soft); }
+.organic-autonomy-decisions article.is-bad { border-left-color: var(--danger-soft); }
+.organic-autonomy-decisions header { display: flex; align-items: center; gap: 8px; }
+.organic-autonomy-decisions header strong { flex: 1; min-width: 0; color: var(--text-strong); font-size: 11.5px; }
+.organic-autonomy-decisions header > span { color: var(--dim); font-size: 8.5px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+.organic-autonomy-decisions p { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
+.organic-autonomy-note { display: flex; align-items: flex-start; gap: 6px; color: var(--text-2) !important; }
+.organic-autonomy-note svg { width: 13px; height: 13px; flex: 0 0 auto; margin-top: 2px; color: var(--success-soft); }
+.organic-autonomy-guardrails { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.organic-autonomy-guardrails li { display: flex; align-items: flex-start; gap: 6px; color: var(--dim); font-size: 9.5px; line-height: 1.45; }
+.organic-autonomy-guardrails svg { width: 12px; height: 12px; flex: 0 0 auto; margin-top: 1px; }
+.organic-autonomy-guardrails li.is-ok svg { color: var(--success-soft); }
+.organic-autonomy-guardrails li.is-bad { color: var(--danger-faint); }
+.organic-autonomy-guardrails li.is-bad svg { color: var(--danger-soft); }
+.organic-rec-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; margin-top: 3px; }
+.organic-rec-dismiss { display: grid; gap: 6px; margin-top: 5px; padding: 9px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface-soft); }
+.organic-rec-dismiss label { color: var(--muted); font-size: 9.5px; font-weight: 700; }
+.organic-rec-dismiss textarea { padding: 7px; border: 1px solid var(--line-control); border-radius: 6px; color: var(--text); outline: none; background: var(--surface); font: inherit; font-size: 10px; resize: vertical; }
+.organic-rec-dismiss > div { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) { .organic-button { transition: none; } }

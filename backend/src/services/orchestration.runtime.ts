@@ -153,14 +153,14 @@ async function executeEvent(event: NonNullable<Awaited<ReturnType<typeof prisma.
     throw new RuntimeError('Ejecución bloqueada: falta aprobación persistente', 'APPROVAL_REQUIRED')
   }
   const approver = approval.reviewedById
-    ? await prisma.user.findFirst({ where: { id: approval.reviewedById, orgId: event.orgId }, select: { id: true, role: true } })
+    ? await prisma.organizationMembership.findFirst({ where: { userId: approval.reviewedById, orgId: event.orgId, status: 'active' }, select: { userId: true, role: true } })
     : null
   if (!approver) throw new RuntimeError('La aprobación no tiene un aprobador válido en la organización', 'APPROVER_NOT_FOUND')
   const automation = await prisma.automation.findFirst({ where: { id: automationId, orgId: event.orgId, isActive: false } })
   const run = await prisma.automationRun.findFirst({ where: { id: runId, orgId: event.orgId, automationId } })
   if (!automation || !run) throw new RuntimeError('Ledger de ejecución incompleto', 'RUNTIME_LEDGER_MISSING')
   const actionList = actions(automation.actions)
-  if (mode === 'rollback') return rollbackEvent(event, experiment, run, actionList, approver.id, approver.role)
+  if (mode === 'rollback') return rollbackEvent(event, experiment, run, actionList, approver.userId, approver.role)
 
   await prisma.automationRun.updateMany({ where: { id: run.id, orgId: event.orgId }, data: { status: 'running', startedAt: new Date(), error: null, errorCode: null } })
   await prisma.revenueExperiment.updateMany({ where: { id: planId, orgId: event.orgId }, data: { status: 'running' } })
@@ -180,7 +180,7 @@ async function executeEvent(event: NonNullable<Awaited<ReturnType<typeof prisma.
 
     const context: AdapterContext = {
       orgId: event.orgId,
-      actorUserId: approver.id,
+      actorUserId: approver.userId,
       actorRole: approver.role,
       planId,
       planBudgetCents: experiment.budgetCents ?? 0,
@@ -206,7 +206,7 @@ async function executeEvent(event: NonNullable<Awaited<ReturnType<typeof prisma.
   }
 
   if (failedCount) {
-    const compensation = await compensateCompleted(event, experiment, run.id, completed, approver.id, approver.role)
+    const compensation = await compensateCompleted(event, experiment, run.id, completed, approver.userId, approver.role)
     await prisma.automationRun.update({ where: { id: run.id }, data: { status: 'failed', errorCode: 'ACTION_FAILED', error: `Fallo de acción; compensación: ${compensation.status}`, output: inputJson({ failedCount, compensation }), finishedAt: new Date() } })
     await prisma.revenueExperiment.updateMany({ where: { id: planId, orgId: event.orgId }, data: { status: 'failed' } })
     return

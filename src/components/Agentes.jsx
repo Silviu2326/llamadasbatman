@@ -5,14 +5,17 @@ import {
   RiBookOpenLine, RiCalendarLine, RiCheckLine, RiCloseLine,
   RiExternalLinkLine, RiFilter3Line, RiFlashlightLine,
   RiMessage3Line, RiPhoneLine, RiRobot2Line, RiSearchLine,
-  RiSettings3Line, RiShieldCheckLine,
+  RiSettings3Line, RiBuilding2Line,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { DEMO_MODE } from '../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
+import { planGateMessage, readPlanGate } from '../lib/planGate'
 import DataStatusBanner from './ui/DataStatusBanner'
+import PageLoadingState from './ui/PageLoadingState'
+import ProductPageHeader from './ui/ProductPageHeader'
 import NewAgenteModal from '../modals/NewAgenteModal'
-import agentHeroImage from '../assets/hero.png'
+import AgentStrategyPanel from './agents/AgentStrategyPanel'
 import './agents.css'
 import { useI18n } from '../i18n'
 
@@ -56,13 +59,20 @@ function callDirectionLabel(direction, locale = 'es') {
 
 const TABS = [
   { id: 'tipo', label: 'Rol', Icon: RiRobot2Line },
-  { id: 'estrategia', label: 'Instrucciones', Icon: RiFlashlightLine },
+  { id: 'estrategia', label: 'Estrategia', Icon: RiFlashlightLine },
   { id: 'configuracion', label: 'Configuración', Icon: RiSettings3Line },
   { id: 'mensajes', label: 'Mensajes', Icon: RiMessage3Line },
-  { id: 'conocimiento', label: 'Knowledge Base', Icon: RiBookOpenLine },
+  { id: 'conocimiento', label: 'Fuentes', Icon: RiBookOpenLine },
 ]
 
 const FILTERS = ['Todos', 'Activos', 'Pausados']
+
+function matchesStatusFilter(agent, filter) {
+  if (filter === 'Todos') return true
+  if (filter === 'Activos') return agent.status === 'Activo'
+  if (filter === 'Pausados') return agent.status === 'Pausado'
+  return false
+}
 
 function resolveType(role) {
   const value = String(role ?? '').toLowerCase()
@@ -98,10 +108,6 @@ function AgentAvatar({ agent, size = 'md' }) {
   return <span className={`agent-avatar agent-avatar-${size}`} style={{ '--agent-color': agent.color ?? meta.color }}><Icon /></span>
 }
 
-function Metric({ Icon, label, value, detail, color }) {
-  return <div className="agent-metric"><span className="agent-metric-icon" style={{ color, background: `color-mix(in srgb, ${color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${color} 22%, transparent)` }}><Icon /></span><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div>
-}
-
 function AgentListItem({ agent, selected, onClick, locale = (document.documentElement.lang === 'en' ? 'en' : 'es') }) {
   const meta = TYPE_META[agent.type] ?? TYPE_META.ventas
   return <button type="button" className={`agent-list-item${selected ? ' is-selected' : ''}`} style={{ '--agent-color': agent.color ?? meta.color }} onClick={onClick}>
@@ -124,8 +130,19 @@ function SelectField({ label, value, onChange, options }) {
   return <label className="agent-field"><span>{label}</span><div className="agent-input-wrap"><select value={value} onChange={event => onChange(event.target.value)}>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select><RiArrowDownSLine /></div></label>
 }
 
-function UnavailableNotice({ title, children, action }) {
-  return <section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Disponible próximamente</span><h3>{title}</h3></div><RiSettings3Line /></div><p className="agent-panel-intro">{children}</p>{action}</section>
+function EmptyAgentWorkspace({ onCreate }) {
+  return <section className="agent-studio agent-studio-empty">
+    <div className="agent-empty-state">
+      <span className="agent-empty-icon"><RiRobot2Line /></span>
+      <span className="agent-panel-kicker">Tu primer agente de voz</span>
+      <h2>Empieza con un agente que llame por ti</h2>
+      <p>Configura su propósito, voz y forma de conversar. Podrás ajustar la estrategia después de crearlo.</p>
+      <div className="agent-empty-actions">
+        <button type="button" className="agent-button primary" onClick={onCreate}><RiAddLine /> Crear mi primer agente</button>
+        <span className="agent-empty-status"><i /> Conexión disponible</span>
+      </div>
+    </div>
+  </section>
 }
 
 function TypePanel({ agent, onEdit }) {
@@ -135,11 +152,6 @@ function TypePanel({ agent, onEdit }) {
     <section className="agent-panel agent-type-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Rol guardado en el agente</span><h3>Elige el propósito</h3></div><RiRobot2Line /></div><p className="agent-panel-intro">El cambio se guarda como el rol del agente al pulsar «Guardar cambios».</p><div className="agent-type-options">{Object.entries(TYPE_META).map(([id, item]) => { const TypeIcon = item.icon; return <button type="button" key={id} className={`agent-type-option${id === agent.type ? ' is-selected' : ''}`} onClick={() => onEdit({ role: id })} style={{ '--type-color': item.color }}><span><TypeIcon /></span><strong>{item.label}</strong><small>{item.description}</small>{id === agent.type && <RiCheckLine />}</button> })}</div></section>
     <section className="agent-panel agent-summary-panel" style={{ '--agent-color': agent.color }}><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Perfil actual</span><h3>{agent.name}</h3></div><AgentAvatar agent={agent} size="lg" /></div><div className="agent-profile-badge" style={{ color: meta.color, background: `color-mix(in srgb, ${meta.color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${meta.color} 21%, transparent)` }}><Icon /> {agent.role}</div><p>{agent.systemPrompt || 'Este agente todavía no tiene instrucciones registradas.'}</p></section>
   </div>
-}
-
-function StrategyPanel({ agent, onEdit }) {
-  const settings = agent.settings || {}
-  return <div className="agent-studio-grid agent-strategy-grid"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campo persistente</span><h3>Instrucciones del agente</h3></div><RiFlashlightLine /></div><p className="agent-panel-intro">Estas instrucciones se guardan como el prompt del sistema del agente.</p><Field label="Instrucciones" type="textarea" value={agent.systemPrompt || ''} onChange={value => onEdit({ systemPrompt: value })} /></section><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Campo persistente</span><h3>Reglas de escalado</h3></div><RiSettings3Line /></div><p className="agent-panel-intro">Describe cuándo el agente debe derivar la conversación a una persona. Se guarda en la configuración del agente al confirmar.</p><Field label="Cuándo escalar a un humano" type="textarea" value={settings.escalationRules || ''} onChange={value => onEdit({ settings: { ...settings, escalationRules: value } })} /></section></div>
 }
 
 function ConfigPanel({ agent, onEdit, locale = (document.documentElement.lang === 'en' ? 'en' : 'es') }) {
@@ -161,28 +173,39 @@ function MessagesPanel({ agent, onEdit }) {
 
 function KnowledgePanel({ onNavigate }) {
   const [articles, setArticles] = useState(null)
+  const [business, setBusiness] = useState(null)
   useEffect(() => {
-    apiFetch('/api/knowledge')
-      .then(response => response.ok ? response.json() : [])
-      .then(data => setArticles(Array.isArray(data) ? data : data?.data ?? []))
-      .catch(() => setArticles([]))
+    let active = true
+    Promise.all([
+      apiFetch('/api/knowledge').then(response => response.ok ? response.json() : []),
+      apiFetch('/api/settings/business-profile').then(response => response.ok ? response.json() : null),
+    ]).then(([knowledge, profile]) => {
+      if (!active) return
+      setArticles(Array.isArray(knowledge) ? knowledge : knowledge?.data ?? [])
+      setBusiness(profile)
+    }).catch(() => { if (active) { setArticles([]); setBusiness(null) } })
+    return () => { active = false }
   }, [])
-  return <div className="agent-knowledge-layout"><section className="agent-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Conocimiento disponible</span><h3>Knowledge Base del agente</h3></div><RiBookOpenLine /></div><p className="agent-panel-intro">Tus agentes pueden consultar estos artículos durante las llamadas.</p>
+  const essentials = business?.readiness?.completedRequired ?? 0
+  const offers = business?.readiness?.activeOffers ?? 0
+  return <div className="agent-knowledge-layout"><section className="agent-panel agent-source-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Fuente comercial prioritaria</span><h3>Información de empresa y precios</h3></div><RiBuilding2Line /></div><p className="agent-panel-intro">Todos los agentes usan esta ficha para identidad, ofertas, precios exactos, qué incluye cada plan y límites comerciales.</p>
+    {business === null ? <p className="agent-panel-intro">Cargando ficha empresarial…</p> : <div className="agent-source-readiness"><span className={essentials === 4 ? 'is-ready' : ''}><b>{essentials}/4</b> campos esenciales</span><span className={offers > 0 ? 'is-ready' : ''}><b>{offers}</b> ofertas activas</span></div>}
+    <button type="button" className="agent-button secondary" onClick={() => onNavigate('/informacion-empresa')}><RiBuilding2Line /> Gestionar información de empresa <RiExternalLinkLine /></button></section><section className="agent-panel agent-source-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Fuente documental complementaria</span><h3>Knowledge Base compartida</h3></div><RiBookOpenLine /></div><p className="agent-panel-intro">Los documentos aportan procesos y respuestas detalladas. Si hay conflicto, los precios y condiciones de la ficha empresarial tienen prioridad.</p>
     {articles === null ? <p className="agent-panel-intro">Cargando artículos…</p>
       : articles.length === 0 ? <p className="agent-panel-intro">Todavía no hay artículos. Crea el primero para que el agente pueda apoyarse en él.</p>
       : <ul className="agent-knowledge-list">{articles.slice(0, 6).map(article => <li key={article.id}><strong>{article.name}</strong><small>{article.type || 'documento'}</small></li>)}</ul>}
-    <button type="button" className="agent-button secondary" onClick={() => onNavigate('/knowledge-base')}><RiBookOpenLine /> Gestionar Knowledge Base <RiExternalLinkLine /></button></section></div>
+    <button type="button" className="agent-button secondary" onClick={() => onNavigate('/knowledge-base')}><RiBookOpenLine /> Gestionar Knowledge Base <RiExternalLinkLine /></button></section><div className="agent-source-flow"><span><RiBuilding2Line /> Empresa</span><i>+</i><span><RiBookOpenLine /> Knowledge</span><i>+</i><span><RiRobot2Line /> Instrucciones</span><RiArrowRightLine /><strong>Próxima llamada</strong></div></div>
 }
 
-function Studio({ agent, tab, setTab, onEdit, onNavigate, onSave, saving, locale }) {
+function Studio({ agent, tab, setTab, onEdit, onNavigate, onSave, saving, locale, playbooks }) {
   const panels = {
     tipo: <TypePanel agent={agent} onEdit={onEdit} />,
-    estrategia: <StrategyPanel agent={agent} onEdit={onEdit} />,
+    estrategia: <AgentStrategyPanel agent={agent} onEdit={onEdit} playbooks={playbooks} onNavigate={onNavigate} />,
     configuracion: <ConfigPanel agent={agent} onEdit={onEdit} locale={locale} />,
     mensajes: <MessagesPanel agent={agent} onEdit={onEdit} />,
     conocimiento: <KnowledgePanel onNavigate={onNavigate} />,
   }
-  return <section className="agent-studio"><div className="agent-studio-head"><div className="agent-studio-title"><AgentAvatar agent={agent} size="lg" /><div><div className="agent-studio-name"><h2>{agent.name}</h2><StatusBadge status={agent.status} /></div><p>{agent.role} <b>·</b> {agent.language}</p></div></div><div className="agent-studio-actions"><button type="button" className="agent-button secondary" onClick={() => onNavigate(`/agentes/${agent.id}`)}><RiExternalLinkLine /> Ver detalle</button></div></div><div className="agent-stepper">{TABS.map((step, index) => <button type="button" key={step.id} className={tab === step.id ? 'is-active' : ''} onClick={() => setTab(step.id)}><span>{index + 1}</span><b>{step.label}</b>{index < TABS.length - 1 && <i />}</button>)}</div><div className="agent-studio-body">{panels[tab]}</div><div className="agent-studio-footer"><span>Los cambios no se guardan hasta confirmarlos.</span><button type="button" className="agent-button primary" onClick={onSave} disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'} <RiArrowRightLine /></button></div></section>
+  return <section className="agent-studio"><div className="agent-studio-head"><div className="agent-studio-title"><AgentAvatar agent={agent} size="lg" /><div><div className="agent-studio-name"><h2>{agent.name}</h2><StatusBadge status={agent.status} /></div><p>{agent.role} <b>·</b> {agent.language}</p></div></div><div className="agent-studio-actions"><button type="button" className="agent-button secondary" onClick={() => onNavigate(`/agentes/${agent.id}`)}><RiExternalLinkLine /> Ver detalle</button></div></div><div className="agent-stepper">{TABS.map((step, index) => <button type="button" key={step.id} className={tab === step.id ? 'is-active' : ''} onClick={() => setTab(step.id)}><span>{index + 1}</span><b>{step.label}</b>{index < TABS.length - 1 && <i />}</button>)}</div><div className="agent-studio-body">{panels[tab]}</div><div className="agent-studio-footer"><span>{tab === 'estrategia' ? 'Los cambios se aplican en la próxima llamada.' : 'Los cambios no se guardan hasta confirmarlos.'}</span><button type="button" className="agent-button primary" onClick={onSave} disabled={saving}>{saving ? 'Guardando…' : tab === 'estrategia' ? 'Guardar estrategia' : 'Guardar cambios'} <RiArrowRightLine /></button></div></section>
 }
 
 export default function Agentes() {
@@ -201,7 +224,7 @@ export default function Agentes() {
   const [showNewAgent, setShowNewAgent] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
-  const [agentActivity, setAgentActivity] = useState(null)
+  const [playbooks, setPlaybooks] = useState([])
 
   useEffect(() => {
     let active = true
@@ -210,19 +233,38 @@ export default function Agentes() {
       setLoadError('')
       setDataStatus('loading')
       try {
-        const response = await apiFetch('/api/agents')
-        if (!response.ok) throw new Error(`agents_${response.status}`)
-        const data = await response.json()
+        const [data, playbookData] = await Promise.all([
+          apiFetch('/api/agents').then(response => {
+            if (!response.ok) {
+              return readPlanGate(response).then(gate => {
+                const error = new Error(`agents_${response.status}`)
+                error.status = response.status
+                error.code = gate?.code
+                error.plan = gate?.plan
+                error.serverMessage = gate?.message
+                throw error
+              })
+            }
+            return response.json()
+          }),
+          apiFetch('/api/playbooks').then(response => response.ok ? response.json() : []).catch(() => []),
+        ])
         if (!Array.isArray(data)) throw new Error('invalid_response')
         if (!active) return
         const next = data.map(normalizeAgent)
         setAgents(next)
+        setPlaybooks(Array.isArray(playbookData) ? playbookData : [])
         setSelectedId(previous => next.some(agent => agent.id === previous) ? previous : next[0]?.id ?? null)
         setDataStatus(DEMO_MODE ? 'demo' : next.length ? 'live' : 'empty')
       } catch (error) {
         if (active) {
           setAgents([])
           setSelectedId(null)
+          if (error?.code === 'PLAN_CAPABILITY_REQUIRED') {
+            setDataStatus('plan')
+            setLoadError(planGateMessage(error, locale))
+            return
+          }
           const status = classifyFetchError(error)
           setDataStatus(status)
           setLoadError(statusMessage(status, { error: 'No se pudieron cargar los agentes.' }))
@@ -235,28 +277,9 @@ export default function Agentes() {
     return () => { active = false }
   }, [reloadKey])
 
-  useEffect(() => {
-    if (!agents.length) { setAgentActivity(agents.length === 0 && !loading ? [] : null); return }
-    let active = true
-    Promise.all(agents.slice(0, 8).map(agent =>
-      apiFetch(`/api/agents/${agent.id}/stats`)
-        .then(response => response.ok ? response.json() : null)
-        .then(stats => ({ id: agent.id, name: agent.name, calls: stats?.calls ?? 0 }))
-        .catch(() => ({ id: agent.id, name: agent.name, calls: 0 }))
-    )).then(rows => {
-      if (!active) return
-      const max = Math.max(...rows.map(row => row.calls), 1)
-      setAgentActivity(rows.sort((a, b) => b.calls - a.calls).map(row => ({ ...row, pct: Math.round((row.calls / max) * 100) })))
-    })
-    return () => { active = false }
-    // Depende de la identidad de la lista, no del array: editar un campo del
-    // Studio recrea `agents` y relanzaría las stats en cada pulsación de tecla.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents.map(agent => agent.id).join(','), loading])
-
   const selectedAgent = agents.find(agent => agent.id === selectedId) ?? null
   const filtered = useMemo(() => agents.filter(agent => {
-    const matchesFilter = activeFilter === 'Todos' || agent.status === activeFilter
+    const matchesFilter = matchesStatusFilter(agent, activeFilter)
     const matchesSearch = `${agent.name} ${agent.role} ${agent.systemPrompt || ''}`.toLowerCase().includes(search.toLowerCase())
     return matchesFilter && matchesSearch
   }).sort((a, b) => sort === 'Nombre A-Z' ? a.name.localeCompare(b.name) : 0), [activeFilter, agents, search, sort])
@@ -303,34 +326,29 @@ export default function Agentes() {
     }
   }
 
-  const activeAgents = agents.filter(agent => agent.isActive).length
-  const metrics = [
-    { Icon: RiRobot2Line, label: 'Agentes configurados', value: agents.length, detail: 'datos de tu organización', color: 'var(--violet)' },
-    { Icon: RiCheckLine, label: 'Agentes activos', value: activeAgents, detail: 'habilitados actualmente', color: 'var(--success)' },
-    { Icon: RiBarChartLine, label: 'Agentes pausados', value: agents.length - activeAgents, detail: 'sin atención de nuevas conversaciones', color: 'var(--warn-soft)' },
-  ]
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading agents' : 'Cargando agentes'} />
 
-  return <div className="agents-page dark-scroll">
-    <header className="agents-header"><div className="agents-heading"><span className="agents-brand-icon"><RiRobot2Line /></span><div><h1>{t('modules.agentTitle')}</h1><p>{locale === 'en' ? 'Create and configure your organization’s voice agents.' : 'Crea y configura los agentes de voz de tu organización.'}</p></div></div><div className="agents-header-actions"><button type="button" className="agent-button primary" onClick={() => setShowNewAgent(true)}><RiAddLine /> {t('modal.newAgent')}</button></div></header>
+  return <main className="agents-page dark-scroll">
+    <ProductPageHeader Icon={RiRobot2Line} title={t('modules.agentTitle')} description={locale === 'en' ? 'Manage your voice agents from one simple list.' : 'Gestiona todos tus agentes de voz desde una lista sencilla.'} actions={<div className="agents-header-actions"><button type="button" className="agent-button primary" onClick={() => setShowNewAgent(true)}><RiAddLine /> {t('modal.newAgent')}</button></div>} />
 
-    <DataStatusBanner
+    {dataStatus !== 'empty' && dataStatus !== 'live' && <DataStatusBanner
       status={dataStatus}
-      message={loadError || statusMessage(dataStatus, { live: 'Agentes reales cargados desde tu organización.', empty: 'La conexión está disponible, pero todavía no hay agentes configurados.', demo: 'Modo demo explícito: estos datos no activan agentes reales.' })}
+      message={loadError || statusMessage(dataStatus, { live: 'Agentes reales cargados desde tu organización.', demo: 'Modo demo explícito: estos datos no activan agentes reales.' })}
       onRetry={dataStatus === 'error' || dataStatus === 'disconnected' ? () => setReloadKey(key => key + 1) : undefined}
-      onAction={dataStatus === 'empty' || dataStatus === 'demo' ? () => setShowNewAgent(true) : dataStatus === 'disconnected' ? () => navigate('/configuracion') : undefined}
-      actionLabel={dataStatus === 'disconnected' ? 'Configurar conexión' : 'Crear agente'}
-    />
+      onAction={dataStatus === 'disconnected' || dataStatus === 'plan' ? () => navigate('/configuracion') : undefined}
+      actionLabel={dataStatus === 'plan' ? 'Gestionar plan' : 'Configurar conexión'}
+    />}
 
-    <section className="agents-hero"><div className="agents-hero-copy"><span className="agents-overline"><i /> Configuración de agentes</span><h2>Centraliza la configuración de tus agentes.</h2><p>Consulta los agentes registrados y guarda los cambios que admite la plataforma.</p><div className="agents-hero-meta"><span><RiRobot2Line /> {activeAgents} agentes activos</span><span><RiShieldCheckLine /> Datos cargados desde tu organización</span></div></div><div className="agents-hero-art"><img src={agentHeroImage} alt="Red de conocimiento conectada a un núcleo de inteligencia" /><div className="hero-art-node hero-art-node-one"><RiPhoneLine /></div><div className="hero-art-node hero-art-node-two"><RiBookOpenLine /></div><div className="hero-art-caption"><strong>Agentes IA</strong><span>Configuración centralizada</span></div></div></section>
-
-    <div className="agents-metrics">{metrics.map(metric => <Metric key={metric.label} {...metric} />)}</div>
-
-    <section className="agents-section agents-workspace-section"><div className="agents-section-heading"><div><h2>Tu espacio de trabajo</h2><p>Selecciona un agente para revisar sus campos configurables.</p></div><span className="agents-count">{agents.length} agentes registrados</span></div><div className="agents-toolbar"><div className="agents-tabs">{FILTERS.map(filter => <button type="button" key={filter} className={activeFilter === filter ? 'is-active' : ''} onClick={() => setActiveFilter(filter)}>{filter}<span>{filter === 'Todos' ? agents.length : agents.filter(agent => agent.status === filter).length}</span></button>)}</div><div className="agents-toolbar-actions"><label className="agents-search"><RiSearchLine /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar agente..." /></label><label className="agents-sort"><RiFilter3Line /><select value={sort} onChange={event => setSort(event.target.value)}><option>Más recientes</option><option>Nombre A-Z</option></select><RiArrowDownSLine /></label></div></div>
-      <div className="agents-main-grid"><aside className="agents-list-panel"><div className="agents-list-head"><strong>Agentes registrados</strong><span>{filtered.length} visibles</span></div><div className="agent-list">{loading ? <div className="agent-list-loading">Cargando agentes…</div> : loadError ? <div className="agent-list-loading"><p>{loadError}</p><button type="button" className="agent-button secondary" onClick={() => setReloadKey(key => key + 1)}>Reintentar</button></div> : filtered.length ? filtered.map(agent => <AgentListItem key={agent.id} agent={agent} selected={selectedAgent?.id === agent.id} onClick={() => { setSelectedId(agent.id); setStudioTab('tipo') }} />) : <div className="agent-list-loading">{agents.length ? 'No hay agentes que coincidan con los filtros.' : 'Todavía no hay agentes registrados.'}</div>}</div><button type="button" className="agent-create-row" onClick={() => setShowNewAgent(true)}><span><RiAddLine /></span><strong>Crear nuevo agente</strong><RiArrowRightLine /></button></aside>{selectedAgent ? <Studio agent={selectedAgent} tab={studioTab} setTab={setStudioTab} onEdit={updateSelected} onNavigate={navigate} onSave={saveSelected} saving={saving} /> : !loading && !loadError && <section className="agent-studio"><div className="agent-studio-body"><UnavailableNotice title="Selecciona o crea un agente">Cuando haya un agente registrado podrás revisar y guardar su configuración desde aquí.</UnavailableNotice></div></section>}</div>
+    <section className="agents-section agents-table-section">
+      <div className="agents-toolbar"><div className="agents-tabs">{FILTERS.map(filter => <button type="button" key={filter} className={activeFilter === filter ? 'is-active' : ''} onClick={() => setActiveFilter(filter)}>{filter}<span>{agents.filter(agent => matchesStatusFilter(agent, filter)).length}</span></button>)}</div><div className="agents-toolbar-actions"><label className="agents-search"><RiSearchLine /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar agente..." /></label><label className="agents-sort"><RiFilter3Line /><select value={sort} onChange={event => setSort(event.target.value)}><option>Más recientes</option><option>Nombre A-Z</option></select><RiArrowDownSLine /></label></div></div>
+      <div className="agents-table-wrap">
+        <table className="agents-table">
+          <thead><tr><th>Agente</th><th>Tipo</th><th>Idioma</th><th>Dirección</th><th>Estado</th><th><span className="sr-only">Acciones</span></th></tr></thead>
+          <tbody>{loading ? <tr><td colSpan="6" className="agents-table-message">Cargando agentes…</td></tr> : loadError ? <tr><td colSpan="6" className="agents-table-message"><p>{loadError}</p>{dataStatus !== 'plan' ? <button type="button" className="agent-button secondary" onClick={() => setReloadKey(key => key + 1)}>Reintentar</button> : null}</td></tr> : filtered.length ? filtered.map(agent => <tr key={agent.id}><td><div className="agents-table-agent"><AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><small>{agent.role}</small></span></div></td><td>{agentTypeLabel(agent.agentType, locale)}</td><td>{agent.language}</td><td>{callDirectionLabel(agent.callDirection, locale)}</td><td><StatusBadge status={agent.status} /></td><td><div className="agents-table-actions"><button type="button" className="agent-button secondary" onClick={() => navigate(`/agentes/${agent.id}`)}><RiExternalLinkLine /> Detalle</button><button type="button" className="agent-button primary" onClick={() => navigate(`/voz/cabina?agentId=${encodeURIComponent(agent.id)}`)}><RiPhoneLine /> Probar</button></div></td></tr>) : <tr><td colSpan="6" className="agents-table-message">{agents.length ? 'No hay agentes que coincidan con los filtros.' : 'Todavía no hay agentes registrados.'}</td></tr>}</tbody>
+        </table>
+      </div>
     </section>
-
-    <section className="agents-bottom-grid"><div className="agent-insight-panel"><div><span className="agent-panel-kicker">Knowledge Base</span><h2>Conecta el conocimiento de tu negocio.</h2><p>Gestiona artículos y fuentes desde el espacio de Knowledge Base.</p><button type="button" className="agent-text-action" onClick={() => navigate('/knowledge-base')}>Explorar Knowledge Base <RiArrowRightLine /></button></div><div className="agent-insight-orbit"><RiBookOpenLine /><i /><i /><i /></div></div><div className="agent-activity-panel"><div className="agent-panel-heading"><div><span className="agent-panel-kicker">Actividad</span><h3>Actividad por agente</h3></div><RiBarChartLine /></div>{agentActivity === null ? <p className="agent-panel-intro">Cargando actividad…</p> : agentActivity.length === 0 ? <p className="agent-panel-intro">Todavía no hay llamadas registradas por ningún agente.</p> : <ul className="agent-activity-list">{agentActivity.map(row => <li key={row.id}><span>{row.name}</span><b>{row.calls}</b><i><span style={{ width: `${row.pct}%` }} /></i></li>)}</ul>}</div></section>
     {toast && <div className="agents-toast" role="status"><RiCheckLine /> {toast}<button type="button" onClick={() => setToast('')} aria-label="Cerrar aviso"><RiCloseLine /></button></div>}
     {showNewAgent && <NewAgenteModal onClose={() => setShowNewAgent(false)} onSuccess={item => { const agent = normalizeAgent(item); setAgents(current => [agent, ...current]); setSelectedId(agent.id); setStudioTab('tipo'); setShowNewAgent(false); notify('Nuevo agente creado') }} />}
-  </div>
+  </main>
 }

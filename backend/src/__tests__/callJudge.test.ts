@@ -2,23 +2,55 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { scoreCall } from '../voice/evaluation/callJudge'
 
-test('Call Judge scores discovery and objections from trace events', () => {
+test('el juez puntúa con los eventos que el pipeline emite hoy', () => {
   const result = scoreCall([
     { type: 'turn.user_finished', atMs: 100 },
-    { type: 'sales_action.selected', atMs: 200, payload: { action: 'ASK_DISCOVERY_QUESTION' } },
-    { type: 'sales_action.selected', atMs: 300, payload: { action: 'HANDLE_OBJECTION' } },
-    { type: 'tts.first_audio', atMs: 350 },
-  ], { outcome: 'meeting_scheduled', transcript: 'ok' })
-  assert.ok(result.overall >= 70)
+    { type: 'turn.user_finished', atMs: 4000 },
+    { type: 'latency.update', atMs: 900, payload: { total: 520, record: true } },
+    { type: 'latency.update', atMs: 4800, payload: { total: 610, record: true } },
+  ], { outcome: 'meeting_scheduled', transcript: 'agente: ¿Qué usáis hoy?\nprospecto: nada\nagente: Entiendo.' })
+
+  assert.equal(result.dimensions.turnTaking, 100)          // ninguna interrupción
+  assert.equal(result.dimensions.voiceNaturalness, 100)    // los dos turnos bajo 650 ms
+  assert.equal(result.dimensions.discovery, 100)           // 1 pregunta en 2 turnos del agente
   assert.equal(result.criticalErrors.length, 0)
-  assert.equal(result.trainingTag, 'needs_review')
 })
 
-test('Call Judge detects audio after opt-out as critical', () => {
+test('una dimensión sin señal vale null y no entra en la media', () => {
+  const result = scoreCall([], { outcome: 'none', transcript: null })
+  assert.equal(result.dimensions.turnTaking, null)
+  assert.equal(result.dimensions.voiceNaturalness, null)
+  assert.equal(result.dimensions.discovery, null)
+  // objectionHandling ya no tiene productor: nunca se inventa una nota.
+  assert.equal(result.dimensions.objectionHandling, null)
+  // Solo promedia compliance (100) y crmAccuracy (78).
+  assert.equal(result.overall, 89)
+})
+
+test('los turnos lentos bajan la naturalidad', () => {
+  const result = scoreCall([
+    { type: 'latency.update', payload: { total: 1800, record: true } },
+    { type: 'latency.update', payload: { total: 2100, record: true } },
+  ], { outcome: 'none' })
+  assert.equal(result.dimensions.voiceNaturalness, 0)
+})
+
+test('las interrupciones constantes bajan el turn-taking', () => {
+  const result = scoreCall([
+    { type: 'turn.user_finished' },
+    { type: 'turn.user_finished' },
+    { type: 'barge_in.detected', atMs: 500 },
+    { type: 'barge_in.detected', atMs: 900 },
+  ], { outcome: 'none' })
+  assert.equal(result.dimensions.turnTaking, 40)
+})
+
+test('hablar después de un opt-out sigue siendo error crítico', () => {
   const result = scoreCall([
     { type: 'compliance.opt_out', atMs: 100 },
     { type: 'audio.output_started', atMs: 200 },
   ], { outcome: 'not_interested' })
   assert.deepEqual(result.criticalErrors, ['assistant_spoke_after_opt_out'])
   assert.equal(result.dimensions.compliance, 0)
+  assert.equal(result.trainingTag, 'critical_error')
 })

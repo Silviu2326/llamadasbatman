@@ -1,0 +1,7 @@
+.agency-channel-panel { margin: 0 22px 22px; }
+.channel-connect-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.channel-connect-row input { min-width: 260px; flex: 1; }
+.channel-badge { padding: 5px 9px; border: 1px solid var(--line-2); border-radius: 99px; color: var(--muted); font-size: 10px; }
+.channel-badge.connected { color: var(--success); border-color: color-mix(in srgb, var(--success) 50%, var(--line)); }
+.channel-connect-row small, .channel-note { color: var(--muted); font-size: 10px; }
+@media (max-width: 760px) { .agency-channel-panel { margin: 0 12px 12px; } .channel-connect-row { align-items: stretch; flex-direction: column; } .channel-connect-row input { min-width: 0; } }

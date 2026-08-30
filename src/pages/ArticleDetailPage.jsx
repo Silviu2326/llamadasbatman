@@ -8,6 +8,9 @@ import {
   RiBook2Line, RiCloseLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
+import PageLoadingState from '../components/ui/PageLoadingState'
+import '../components/knowledge-base.css'
+import './sales-detail-standard.css'
 
 const TYPE_OPTIONS = [
   'Producto', 'Servicios', 'Precios y planes', 'Objeciones comunes',
@@ -132,11 +135,7 @@ export default function ArticleDetailPage() {
     }
   }
 
-  if (loading) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
-      {locale === 'en' ? 'Loading…' : 'Cargando…'}
-    </div>
-  )
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading article' : 'Cargando artículo'} />
 
   if (!art) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
@@ -145,7 +144,7 @@ export default function ArticleDetailPage() {
   )
 
   return (
-    <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
+    <div className="ui-page-shell kb-article-page dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
 
       {/* Back */}
       <div style={{ padding:'20px clamp(12px,4vw,28px) 0', flexShrink:0 }}>
@@ -165,18 +164,10 @@ export default function ArticleDetailPage() {
           border:'1px solid var(--line)', borderRadius:16, padding:'22px clamp(14px,3vw,24px)',
           display:'flex', gap:16, alignItems:'flex-start', flexWrap:'wrap',
         }}>
-          <div style={{
-            width:52, height:52, borderRadius:14, flexShrink:0,
-            background:art.iconBg,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:`0 0 20px color-mix(in srgb, ${art.catColor} 19%, transparent)`,
-          }}>
-            <art.IconEl style={{ width:22, height:22, color:art.iconColor }} />
-          </div>
-
           <div style={{ flex:'1 1 220px', minWidth:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
-              <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:'var(--text-strong)', lineHeight:1.3, minWidth:0, overflowWrap:'anywhere' }}>{art.title}</h1>
+            <div className="kb-detail-title-row">
+              <span className="kb-title-icon kb-detail-title-icon" aria-hidden="true"><art.IconEl /></span>
+              <h1 className="ui-page-title kb-detail-title">{art.title}</h1>
               <button onClick={toggleFavorite} style={{ background:'none', border:'none', cursor:'pointer', padding:2, flexShrink:0 }}>
                 {starred
                   ? <RiStarFill style={{ width:18, height:18, color:'var(--warn-soft)' }} />

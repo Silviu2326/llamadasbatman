@@ -26,6 +26,9 @@ const NAV = [
     { id: 'miperfil',   Icon: RiUserLine,       label: 'Mi perfil' },
   ]},
   { section: 'PLATAFORMA', items: [
+    // Las credenciales de proveedores viven en el Centro de conexiones (03-PROVEEDORES §6),
+    // no en formularios a medida dentro de esta pantalla.
+    { id: 'conexiones', Icon: RiKeyLine,        label: 'Centro de conexiones', to: '/conexiones' },
     { id: 'agentes',    Icon: RiRobot2Line,     label: 'Agentes IA', to: '/agentes' },
     { id: 'autos',      Icon: RiFlowChart,      label: 'Automatizaciones', to: '/automatizaciones' },
     { id: 'email',      Icon: RiMailLine,       label: 'Email marketing', to: '/email-marketing' },
@@ -127,6 +130,11 @@ function UsageBar({ label, value }) {
   )
 }
 
+function formatCents(value) {
+  const cents = Number(value ?? 0)
+  return (Number.isFinite(cents) ? cents / 100 : 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Configuracion() {
   const { user, logout } = useAuth()
@@ -137,11 +145,15 @@ export default function Configuracion() {
   const [deleting, setDeleting] = useState(false)
   const [showPlanModal, setShowPlanModal] = useState(false)
   const [billingConfig, setBillingConfig] = useState(null)
+  const [platformMetrics, setPlatformMetrics] = useState(null)
   const [billingBusy, setBillingBusy] = useState(false)
   const [billingError, setBillingError] = useState('')
 
   useEffect(() => {
     apiFetch('/api/billing/config').then(r => r.ok ? r.json() : null).then(setBillingConfig).catch(() => {})
+    // 403 es normal para roles sin acceso financiero: no se enseña una caja
+    // vacía ni se degrada el resto de Configuración.
+    apiFetch('/api/outcomes/open-platform?days=30').then(r => r.ok ? r.json() : null).then(setPlatformMetrics).catch(() => {})
   }, [])
 
   async function startCheckout(plan) {
@@ -688,6 +700,7 @@ export default function Configuracion() {
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Integraciones</p>
+              <button type="button" onClick={() => navigate('/conexiones')} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--accent-soft)', fontSize: 11.5, fontWeight: 650, cursor: 'pointer' }}>Gestionar todas</button>
             </div>
             {!integrations && (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
@@ -769,6 +782,18 @@ export default function Configuracion() {
             <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
               Plan actual: <b style={{ color: 'var(--text-strong)', textTransform: 'capitalize' }}>{stats?.orgPlan ?? integrations?.plan ?? 'free'}</b>
             </p>
+            {platformMetrics && <section style={{ margin: '0 0 18px', padding: 14, borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-2)' }}>
+              <p style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Plataforma abierta · últimos 30 días</p>
+              <UsageBar label="Facturado por consumo" value={formatCents(platformMetrics.margin?.totals?.priceCents)} />
+              <UsageBar label="Coste de proveedores" value={formatCents(platformMetrics.margin?.totals?.costCents)} />
+              <UsageBar label="Margen de consumo" value={formatCents(platformMetrics.margin?.totals?.marginCents)} />
+              <UsageBar label="Ahorro estimado por routing" value={formatCents(platformMetrics.routing?.savingsCents)} />
+              <UsageBar label="Microapps esta semana" value={String(platformMetrics.microapps?.weeklyRuns ?? 0)} />
+              <UsageBar label="Flows con ≥2 capacidades" value={`${Number(platformMetrics.flows?.percentage ?? 0).toFixed(1)} %`} />
+              {platformMetrics.margin?.byProvider?.length > 0 && <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--dim)' }}>
+                Por proveedor: {platformMetrics.margin.byProvider.map(row => `${row.provider} ${formatCents(row.marginCents)}`).join(' · ')}
+              </p>}
+            </section>}
             {billingConfig?.enabled ? (
               <>
                 <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>

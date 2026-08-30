@@ -1,0 +1,181 @@
+/* Shared product typography and responsive primitives for authenticated pages. */
+:root {
+  --ui-title-size: clamp(26px, 2.4vw, 32px);
+  --ui-title-leading: 1.12;
+  --ui-section-size: 17px;
+  --ui-body-size: 13px;
+  --ui-caption-size: 11px;
+  --ui-card-radius: 13px;
+  --ui-page-gutter: clamp(16px, 3.2vw, 30px);
+}
+
+.ui-page-shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+}
+
+.ui-page-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 26px var(--ui-page-gutter) 40px;
+}
+
+.ui-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(100%, 1160px);
+  margin: 0 auto 24px;
+}
+
+.ui-page-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--ui-title-size);
+  font-weight: 800;
+  line-height: var(--ui-title-leading);
+  letter-spacing: -.9px;
+}
+
+.ui-page-subtitle {
+  max-width: 700px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: var(--ui-body-size);
+  line-height: 1.55;
+}
+
+.ui-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.ui-primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: linear-gradient(100deg, var(--accent-deep), var(--violet-deep));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent-deep) 28%, transparent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform .16s ease, filter .16s ease;
+}
+
+.ui-primary-action:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.ui-primary-action svg { width: 16px; height: 16px; }
+
+.ui-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: min(100%, 1160px);
+  margin: 0 auto 18px;
+}
+
+.ui-search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 250px);
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--surface);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.ui-search-field:focus-within {
+  border-color: var(--accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.ui-search-field svg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--dim); }
+.ui-search-field input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--text-strong); background: transparent; font: inherit; font-size: 12px; }
+.ui-search-field input::placeholder { color: var(--dim); }
+
+.ui-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  width: min(100%, 1160px);
+  margin: 0 auto 28px;
+}
+
+.ui-metric-card {
+  display: flex;
+  min-width: 0;
+  min-height: 122px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 15px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--ui-card-radius);
+  background: var(--surface);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--shadow-color) 55%, transparent);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.ui-metric-card.is-hovered {
+  border-color: color-mix(in srgb, var(--ui-metric-accent) 50%, var(--line));
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--ui-metric-accent) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+.ui-metric-card__heading { display: flex; min-width: 0; align-items: center; gap: 9px; }
+.ui-metric-card__icon { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--ui-metric-accent) 38%, transparent); border-radius: 9px; color: var(--ui-metric-color); background: color-mix(in srgb, var(--ui-metric-accent) 20%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--ui-metric-accent) 20%, transparent); }
+.ui-metric-card__icon svg { width: 16px; height: 16px; }
+.ui-metric-card__label { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: var(--ui-caption-size); font-weight: 650; line-height: 1.3; text-overflow: ellipsis; }
+.ui-metric-card__value { min-width: 0; margin: 12px 0 4px; overflow: hidden; color: var(--text-strong); font-size: 23px; font-weight: 800; letter-spacing: -.6px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.ui-metric-card__delta { display: flex; min-width: 0; align-items: center; gap: 4px; color: var(--dim); font-size: 10px; line-height: 1.25; }
+.ui-metric-card__delta svg { width: 11px; height: 11px; flex: 0 0 auto; color: var(--success-soft); }
+.ui-metric-card__delta strong { color: var(--success-soft); font-size: 11px; }
+.ui-metric-card__delta.is-muted { color: var(--ui-metric-sub-color); font-size: 11px; font-weight: 650; }
+
+.ui-page-section { width: min(100%, 1160px); margin: 0 auto; }
+.ui-section-title { margin: 0 0 14px; color: var(--text-strong); font-size: var(--ui-section-size); font-weight: 750; letter-spacing: -.25px; line-height: 1.3; }
+.ui-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 14px; }
+
+@media (max-width: 760px) {
+  .ui-page-scroll { padding: 20px 16px 30px; }
+  .ui-page-header { align-items: stretch; flex-direction: column; gap: 16px; margin-bottom: 20px; }
+  .ui-page-actions, .ui-primary-action { width: 100%; }
+  .ui-toolbar-row { align-items: stretch; justify-content: stretch; flex-direction: column; }
+  .ui-search-field { width: 100%; }
+  .ui-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-bottom: 24px; }
+  .ui-metric-card { min-height: 112px; padding: 12px; }
+  .ui-metric-card__value { font-size: 20px; }
+  .ui-metric-card__label { font-size: 10px; }
+}
+
+@media (max-width: 980px) and (min-width: 761px) {
+  .ui-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 420px) {
+  .ui-metrics-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-primary-action, .ui-metric-card { transition: none; }
+  .ui-primary-action:hover, .ui-metric-card.is-hovered { transform: none; }
+}

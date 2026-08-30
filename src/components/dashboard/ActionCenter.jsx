@@ -14,7 +14,6 @@ import {
   RiPauseLine,
   RiPhoneLine,
   RiPlayLine,
-  RiRefreshLine,
   RiRobotLine,
   RiSearchLine,
   RiSettings3Line,
@@ -296,7 +295,7 @@ function LoadingState() {
   )
 }
 
-function EmptyState({ hasFilters, onClearFilters, onRetry }) {
+function EmptyState({ hasFilters, onClearFilters }) {
   return (
     <div className="action-center-empty" role="status" aria-live="polite">
       <RiTimeLine aria-hidden="true" />
@@ -304,13 +303,7 @@ function EmptyState({ hasFilters, onClearFilters, onRetry }) {
         <strong>{hasFilters ? 'No hay señales con estos filtros' : 'No hay señales activas'}</strong>
         <p>{hasFilters ? 'Prueba otra prioridad, estado, módulo o búsqueda.' : 'Cuando detectemos una oportunidad, aparecerá aquí con su siguiente paso.'}</p>
       </div>
-      {hasFilters ? (
-        <button type="button" onClick={onClearFilters}>Limpiar filtros</button>
-      ) : (
-        <div className="action-center-empty-actions">
-          <button type="button" onClick={onRetry}>Actualizar</button>
-        </div>
-      )}
+      {hasFilters ? <button type="button" onClick={onClearFilters}>Limpiar filtros</button> : null}
     </div>
   )
 }
@@ -424,6 +417,8 @@ export default function ActionCenter() {
   const isLoading = requestState === 'loading'
   const sourceLabel = dataSource === 'live' ? 'Datos conectados' : dataSource === 'error' ? 'Sin sincronizar' : 'Demo explícito'
 
+  if (!isLoading && !error && actions.length === 0) return null
+
   const clearFilters = () => {
     setPriorityFilter('all')
     setStatusFilter('all')
@@ -508,16 +503,6 @@ export default function ActionCenter() {
             <span className="action-center-source-dot" />
             {sourceLabel}
           </div>
-          <button
-            type="button"
-            className="action-center-refresh"
-            onClick={loadActions}
-            disabled={isLoading}
-            aria-busy={isLoading}
-          >
-            <RiRefreshLine aria-hidden="true" className={isLoading ? 'action-center-spin' : ''} />
-            {isLoading ? (locale === 'en' ? 'Refreshing' : 'Actualizando') : (locale === 'en' ? 'Refresh' : 'Actualizar')}
-          </button>
         </div>
       </div>
 
@@ -578,7 +563,7 @@ export default function ActionCenter() {
 
       {isLoading && actions.length === 0 ? <LoadingState /> : null}
       {!isLoading && error && actions.length === 0 ? <ErrorState message={getErrorMessage(error)} onRetry={loadActions} /> : null}
-      {!isLoading && !error && actions.length === 0 ? <EmptyState hasFilters={hasFilters} onClearFilters={clearFilters} onRetry={loadActions} /> : null}
+      {!isLoading && !error && actions.length === 0 ? <EmptyState hasFilters={hasFilters} onClearFilters={clearFilters} /> : null}
       {!isLoading && actions.length > 0 && filteredActions.length > 0 ? (
         <div className={`action-center-grid${isRefreshing ? ' action-center-grid-refreshing' : ''}`} aria-live="polite">
           {filteredActions.map(action => (

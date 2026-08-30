@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   RiAlertLine, RiArrowRightSLine, RiCheckLine, RiCloseLine, RiCursorLine, RiGroupLine,
-  RiMailLine, RiMailOpenLine, RiPauseLine, RiRefreshLine, RiRocketLine, RiSendPlaneLine,
+  RiMailLine, RiMailOpenLine, RiPauseLine, RiRocketLine, RiSendPlaneLine,
   RiSparkling2Line, RiTimeLine, RiUserAddLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
@@ -11,10 +11,13 @@ import { BACKEND_STATUS } from '../lib/leadMapping'
 import { DEMO_MODE } from '../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
+import PageLoadingState from '../components/ui/PageLoadingState'
+import ProductPageHeader from '../components/ui/ProductPageHeader'
 import { DeliverabilityPanel, InboxPanel, PURPOSE_LABEL, SubscribersPanel, TrackingPanel } from './EmailAudienceSections'
 import emailHeroImage from '../assets/email-hero.png'
 import '../dashboard.css'
 import './email.css'
+import './growth-visual-standard.css'
 
 // EM-111: la página dejó de ser un único informe para cubrir el ciclo
 // completo. Cada pestaña lee de endpoints reales distintos, así que se
@@ -49,6 +52,15 @@ const MISSING_FIELD_LABEL = {
   templateBindingId: 'Plantilla de email',
   sender: 'Remitente',
 }
+
+// El backend devuelve `variant:B` cuando esa plantilla dejó de pertenecer a la
+// organización; sin esto la pantalla enseñaría el código crudo.
+const missingLabel = field => field.startsWith('variant:')
+  ? `Plantilla de la variante ${field.slice('variant:'.length)}`
+  : MISSING_FIELD_LABEL[field] || field
+
+const percent = value => value === null || value === undefined ? '—' : `${(value * 100).toFixed(1)}%`
+const money = (value, currency) => new Intl.NumberFormat('es-ES', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
 
 function timeAgo(iso) {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
@@ -123,6 +135,61 @@ function NewCampaignModal({ onClose, onCreate }) {
   </div>
 }
 
+/**
+ * EM-113: qué pasó después de enviar. Dos preguntas distintas y por eso dos
+ * bloques: cuál de los dos asuntos funcionó, y cuánto dinero se movió.
+ * Cada cifra ausente se dice; ninguna se rellena con un cero que parece medido.
+ */
+function ResultsSection({ results }) {
+  if (!results) return <div className="email-tools-section"><div><span className="email-eyebrow">6. Resultados</span><p>Cargando lo que ha pasado desde el envío…</p></div></div>
+
+  const variants = results.variants?.variants ?? []
+  const verdict = results.variants?.verdict ?? null
+  const revenue = results.revenue
+  const currencies = Object.entries(revenue?.byCurrency ?? {})
+
+  return <div className="email-tools-section">
+    <div><span className="email-eyebrow">6. Resultados</span></div>
+
+    {variants.length > 0 && <>
+      <div className="email-variant-grid">
+        {variants.map(variant => <article key={variant.key} className={`email-variant-card${verdict?.winner === variant.key ? ' is-winner' : ''}`}>
+          <header><strong>Variante {variant.key}</strong>{verdict?.winner === variant.key && <span className="email-variant-badge">Gana</span>}</header>
+          <dl>
+            <div><dt>Entregados</dt><dd>{variant.metrics.delivered}</dd></div>
+            <div><dt>Aperturas únicas</dt><dd>{variant.metrics.uniqueOpens}</dd></div>
+            <div><dt>Tasa de apertura</dt><dd>{percent(variant.metrics.openRate)}</dd></div>
+            <div><dt>Clics únicos</dt><dd>{variant.metrics.uniqueClicks}</dd></div>
+          </dl>
+        </article>)}
+      </div>
+      <small className="email-field-hint">
+        {!verdict
+          ? 'Todavía no hay entregados suficientes en ambas variantes para comparar.'
+          : verdict.significant
+            ? `Diferencia significativa en apertura (z = ${verdict.z}${verdict.lift === null ? '' : `, ${verdict.lift > 0 ? '+' : ''}${(verdict.lift * 100).toFixed(1)}%`}). Gana la variante ${verdict.winner}.`
+            : `Sin diferencia concluyente todavía (z = ${verdict.z}; hace falta |z| ≥ 1,96). No declares ganador aún.`}
+        {' '}El veredicto mira la apertura, que es lo que decide el asunto.
+      </small>
+    </>}
+
+    {revenue && <>
+      <div className="email-revenue-row">
+        {!currencies.length
+          ? <p className="email-field-hint" style={{ margin: 0 }}>Ninguna oportunidad nació de esta campaña dentro de los {revenue.attributionWindowDays} días de ventana de atribución.</p>
+          : currencies.map(([currency, totals]) => <div key={currency} className="email-revenue-block">
+            <div className="email-revenue-figure is-won"><span>Ganado</span><strong>{money(totals.wonValue, currency)}</strong><small>{totals.wonCount} oportunidad{totals.wonCount === 1 ? '' : 'es'} cerrada{totals.wonCount === 1 ? '' : 's'}</small></div>
+            <div className="email-revenue-figure"><span>Abierto</span><strong>{money(totals.openValue, currency)}</strong><small>{totals.openCount} en curso</small></div>
+          </div>)}
+      </div>
+      {currencies.length > 0 && <small className="email-field-hint">
+        {revenue.attributedLeads} lead{revenue.attributedLeads === 1 ? '' : 's'} de esta campaña abrieron oportunidad dentro de los {revenue.attributionWindowDays} días siguientes al envío.
+        Ganado y abierto no se suman: lo abierto es expectativa, no ingreso. Lo perdido no cuenta en ninguna de las dos.
+      </small>}
+    </>}
+  </div>
+}
+
 // EM-104/EM-105/EM-106/EM-107: formulario único (sin wizard multi-paso) con
 // las secciones en orden — objetivo, audiencia, plantilla, remitente,
 // calendario — y las acciones de validar/publicar/pausar sobre el mismo
@@ -134,8 +201,12 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   const [templates, setTemplates] = useState([])
   const [form, setForm] = useState({
     objective: '', status: [], source: '', tags: '', subscribedPurpose: '', templateBindingId: '',
+    abEnabled: false, variantTemplateB: '',
     sender: '', replyTo: '', timezone: 'Europe/Madrid', scheduledStartAt: '', scheduledEndAt: '',
   })
+  // EM-113: resultados de la prueba A/B y euros atribuidos. Solo se piden con
+  // la campaña ya publicada — antes no hay nada que medir.
+  const [results, setResults] = useState(null)
   // EM-112: categorías reales de la organización, para no ofrecer una lista
   // inventada que produzca audiencias siempre vacías.
   const [purposes, setPurposes] = useState([])
@@ -149,13 +220,16 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
 
   function syncFormFromCampaign(data) {
     const audience = data.audienceDefinition || {}
+    const variants = Array.isArray(data.variantDefinition) ? data.variantDefinition : []
     setForm({
       objective: data.objective || '',
       status: Array.isArray(audience.status) ? audience.status : [],
       source: Array.isArray(audience.source) ? audience.source.join(', ') : '',
       tags: Array.isArray(audience.tags) ? audience.tags.join(', ') : '',
       subscribedPurpose: audience.subscribedPurpose || '',
-      templateBindingId: data.templateBindingId || '',
+      templateBindingId: variants[0]?.templateExternalId || data.templateBindingId || '',
+      abEnabled: variants.length >= 2,
+      variantTemplateB: variants[1]?.templateExternalId || '',
       sender: data.sender || '',
       replyTo: data.replyTo || '',
       timezone: data.timezone || 'Europe/Madrid',
@@ -180,6 +254,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
         syncFormFromCampaign(reconciled)
         setTemplates(templateList || [])
         setPurposes(audienceSummary?.purposes ?? [])
+        if (reconciled.publishedAt) loadResults()
       } catch (err) {
         if (!cancelled) setError(err.message || 'No se pudo cargar la campaña.')
       } finally {
@@ -189,6 +264,20 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
     load()
     return () => { cancelled = true }
   }, [campaignId])
+
+  // Los dos paneles se piden juntos y fallan juntos: son la misma pregunta —
+  // qué pasó cuando esto salió — y media respuesta confunde más que ninguna.
+  async function loadResults() {
+    try {
+      const [variants, revenue] = await Promise.all([
+        apiFetch(`/api/email/campaigns/${campaignId}/variants`).then(res => res.ok ? res.json() : null).catch(() => null),
+        apiFetch(`/api/email/campaigns/${campaignId}/revenue`).then(res => res.ok ? res.json() : null).catch(() => null),
+      ])
+      setResults({ variants, revenue })
+    } catch {
+      setResults(null)
+    }
+  }
 
   function buildAudienceDefinition() {
     const def = {}
@@ -231,6 +320,13 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
           objective: form.objective.trim() || undefined,
           audienceDefinition: buildAudienceDefinition(),
           templateBindingId: form.templateBindingId || undefined,
+          // Null desactiva la prueba: la campaña vuelve a una sola versión.
+          variantDefinition: form.abEnabled && form.templateBindingId && form.variantTemplateB
+            ? [
+              { key: 'A', templateExternalId: form.templateBindingId },
+              { key: 'B', templateExternalId: form.variantTemplateB },
+            ]
+            : null,
           sender: form.sender.trim() || undefined,
           replyTo: form.replyTo.trim() || undefined,
           timezone: form.timezone.trim() || undefined,
@@ -309,6 +405,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   }
 
   const meta = campaign ? (STATUS_META[campaign.status] || { label: campaign.status, color: 'var(--muted)' }) : null
+  const publishedCampaign = Boolean(campaign?.publishedAt)
 
   return <div className="email-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <div className="email-modal email-tools-modal" role="dialog" aria-modal="true" aria-labelledby="email-editor-title">
@@ -359,7 +456,21 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
 
         <div className="email-tools-section">
           <div><span className="email-eyebrow">3. Plantilla</span><p>Solo se listan plantillas de Mautic ya autorizadas para tu organización.</p></div>
-          {!templates.length ? <EmptyState icon={RiMailOpenLine} title="No hay plantillas disponibles" copy="Creá una plantilla en Mautic para poder seleccionarla aquí." /> : <label className="email-field"><span>Plantilla</span><select value={form.templateBindingId} onChange={e => setForm(prev => ({ ...prev, templateBindingId: e.target.value }))}><option value="">Selecciona una plantilla…</option>{templates.map(template => <option key={template.id} value={String(template.id)}>{templateLabel(template)}</option>)}</select></label>}
+          {!templates.length ? <EmptyState icon={RiMailOpenLine} title="No hay plantillas disponibles" copy="Creá una plantilla en Mautic para poder seleccionarla aquí." /> : <>
+            <label className="email-field"><span>{form.abEnabled ? 'Variante A' : 'Plantilla'}</span><select value={form.templateBindingId} onChange={e => setForm(prev => ({ ...prev, templateBindingId: e.target.value }))}><option value="">Selecciona una plantilla…</option>{templates.map(template => <option key={template.id} value={String(template.id)}>{templateLabel(template)}</option>)}</select></label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, margin: '4px 0 2px' }}>
+              <input type="checkbox" checked={form.abEnabled} disabled={publishedCampaign} onChange={e => setForm(prev => ({ ...prev, abEnabled: e.target.checked }))} />
+              Probar dos asuntos (A/B)
+            </label>
+            {form.abEnabled && <>
+              <label className="email-field"><span>Variante B</span><select value={form.variantTemplateB} disabled={publishedCampaign} onChange={e => setForm(prev => ({ ...prev, variantTemplateB: e.target.value }))}><option value="">Selecciona la plantilla de la variante B…</option>{templates.filter(template => String(template.id) !== form.templateBindingId).map(template => <option key={template.id} value={String(template.id)}>{templateLabel(template)}</option>)}</select></label>
+              <small className="email-field-hint">
+                El asunto vive en la plantilla de Mautic, así que probar asuntos es usar dos plantillas.
+                La audiencia se reparte al publicar de forma fija por lead: nadie cambia de variante a mitad de la prueba.
+                {publishedCampaign ? ' Con la campaña publicada el reparto ya no se puede cambiar.' : ''}
+              </small>
+            </>}
+          </>}
         </div>
 
         <div className="email-tools-section">
@@ -375,9 +486,11 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
           <label className="email-field"><span>Fin programado (opcional)</span><input type="datetime-local" value={form.scheduledEndAt} onChange={e => setForm(prev => ({ ...prev, scheduledEndAt: e.target.value }))} /></label>
         </div>
 
+        {publishedCampaign && <ResultsSection results={results} /> }
+
         {validation && <div className={`email-tools-status ${validation.valid ? '' : 'is-warning'}`}>
           {validation.valid ? <RiCheckLine /> : <RiAlertLine />}
-          <span>{validation.valid ? 'La campaña está completa y lista para publicarse.' : `Falta completar: ${validation.missing.map(field => MISSING_FIELD_LABEL[field] || field).join(', ')}.`}</span>
+          <span>{validation.valid ? 'La campaña está completa y lista para publicarse.' : `Falta completar: ${validation.missing.map(missingLabel).join(', ')}.`}</span>
         </div>}
 
         {publishInfo && <div className="email-tools-status"><RiSendPlaneLine /><span>{publishInfo}</span></div>}
@@ -467,7 +580,7 @@ export default function EmailMarketingPage() {
     setEditingCampaignId(campaign.id)
   }
 
-  if (loading) return <div className="email-page email-loading"><div className="email-loader"><RiMailLine /><span>{locale === 'en' ? 'Loading your email center…' : 'Cargando tu centro de email…'}</span></div><DataStatusBanner status="loading" message={locale === 'en' ? 'Querying Mautic and your real campaigns.' : 'Consultando Mautic y tus campañas reales.'} /></div>
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading email center' : 'Cargando centro de email'} />
   if (gated) return <div className="email-page email-gated"><div className="email-gated-card"><RiAlertLine /><h1>Email marketing</h1><p>{locale === 'en' ? 'Email marketing is a Complete Plan feature. Talk to your administrator to enable it.' : 'Email marketing es una función del Plan Completo. Habla con tu administrador para activarla.'}</p></div></div>
 
   const bySegment = overview?.bySegment ?? []
@@ -478,7 +591,7 @@ export default function EmailMarketingPage() {
   const clickRate = overview?.opens ? `${Math.round(((overview.clicks ?? 0) / overview.opens) * 100)}%` : '—'
 
   return <div className="dark-scroll email-page">
-    <header className="email-header"><div className="email-heading"><div className="email-brand-icon"><RiMailLine /></div><div><h1>Email marketing</h1><p>{locale === 'en' ? 'Turn every contact into a conversation that moves forward.' : 'Convierte cada contacto en una conversación que avanza.'}</p></div></div><div className="email-header-actions"><button className="email-button ghost" onClick={loadOverview}><RiRefreshLine /> {locale === 'en' ? 'Refresh' : 'Actualizar'}</button><button className="email-button secondary" onClick={() => document.querySelector('#email-activity')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {locale === 'en' ? 'View activity' : 'Ver actividad'}</button><button className="email-button primary" onClick={() => { setTab('campanas'); setShowNewCampaign(true) }}><RiRocketLine /> {locale === 'en' ? 'New campaign' : 'Nueva campaña'}</button></div></header>
+    <ProductPageHeader Icon={RiMailLine} title="Email marketing" description={locale === 'en' ? 'Turn every contact into a conversation that moves forward.' : 'Convierte cada contacto en una conversación que avanza.'} actions={<><button className="email-button secondary" onClick={() => document.querySelector('#email-activity')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {locale === 'en' ? 'View activity' : 'Ver actividad'}</button><button className="email-button primary" onClick={() => { setTab('campanas'); setShowNewCampaign(true) }}><RiRocketLine /> {locale === 'en' ? 'New campaign' : 'Nueva campaña'}</button></>} />
 
     <nav className="email-tabs" role="tablist" aria-label="Secciones de email marketing">
       {TABS.map(item => (

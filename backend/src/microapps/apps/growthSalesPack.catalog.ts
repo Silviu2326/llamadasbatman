@@ -1,0 +1,35 @@
+/** Mapa estable del catálogo solicitado: el número editorial nunca se usa como id de ejecución. */
+export const GROWTH_SALES_ID_BY_NUMBER = {
+  1: 'buying-signal-radar',
+  2: 'landing-autopsy',
+  3: 'creative-fatigue-doctor',
+  4: 'abm-account-planner',
+  5: 'missed-call-analyzer',
+  6: 'irresistible-offer-builder',
+  7: 'full-campaign-generator',
+  8: 'sales-meeting-simulator',
+  9: 'visual-competitive-analyzer',
+  10: 'won-customer-growth-engine',
+  11: 'decision-maker-map',
+  12: 'trigger-event-detector',
+  13: 'explainable-prospect-scoring',
+  14: 'negotiation-prep',
+  15: 'account-political-map',
+  16: 'commercial-proposal-generator',
+  17: 'expansion-opportunity-detector',
+  18: 'stalled-deal-rescuer',
+  19: 'sector-objection-researcher',
+  20: 'seller-coach',
+  21: 'discovery-question-generator',
+  22: 'deal-competitor-detector',
+  23: 'voice-agent-designer',
+  24: 'call-compliance-inspector',
+  25: 'call-opening-optimizer',
+  26: 'objection-lab',
+  27: 'call-emotion-friction-analyzer',
+  28: 'post-call-followup-generator',
+  29: 'voice-agent-qa',
+} as const
+
+export const GROWTH_SALES_IDS = Object.values(GROWTH_SALES_ID_BY_NUMBER)
+

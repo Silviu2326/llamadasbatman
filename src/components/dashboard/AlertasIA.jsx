@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RiArrowRightLine, RiCalendarLine, RiPhoneLine } from 'react-icons/ri'
+import { RiArrowRightLine, RiCalendarLine, RiPhoneLine, RiTimeLine } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
 import { DEMO_MODE } from '../../lib/dataMode'
 import DataStatusBanner from '../ui/DataStatusBanner'
 import { card } from './dashboardData'
 import { useI18n } from '../../i18n'
+import DashboardEmptyState from './DashboardEmptyState'
 
 const DEMO_ACTIVITY = [
   { type: 'call', data: { lead: { name: 'Clínica Dental Ruzafa' }, durationSeconds: 263 } },
@@ -66,19 +67,21 @@ export default function AlertasIA() {
       <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>
         {locale === 'en' ? 'Recent activity' : 'Actividad reciente'}
       </h3>
-      <DataStatusBanner
-        status={status}
-        message={status === 'demo'
-          ? 'Ejemplos locales; no representan actividad de tu cuenta.'
-          : status === 'empty'
-            ? 'Todo listo — la actividad aparecerá aquí cuando empiecen las llamadas.'
-            : error}
-        onRetry={loadActivity}
-        compact
-      />
+      {status === 'empty'
+        ? <DashboardEmptyState
+            Icon={RiTimeLine}
+            title={locale === 'en' ? 'Your activity feed is ready' : 'Tu actividad está lista para empezar'}
+            description={locale === 'en' ? 'Calls and meetings will appear here automatically.' : 'Las llamadas y reuniones aparecerán aquí automáticamente.'}
+            tone="cyan"
+          />
+        : <DataStatusBanner
+            status={status}
+            message={status === 'demo' ? 'Ejemplos locales; no representan actividad de tu cuenta.' : error}
+            compact
+          />}
       {status === 'loading'
         ? <p style={{ margin: '8px 0', fontSize: 12, color: 'var(--dim)' }}>Cargando…</p>
-        : display.length === 0
+        : status !== 'empty' && display.length === 0
           ? <p style={{ margin: '8px 0', fontSize: 12, color: 'var(--dim)' }}>{locale === 'en' ? 'No recent activity' : 'Sin actividad reciente'}</p>
           : display.map((activity, index) => (
             <div key={`${activity.text}-${index}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: `color-mix(in srgb, ${activity.color} 5%, transparent)`, border: `1px solid color-mix(in srgb, ${activity.color} 25%, transparent)`, borderRadius: 10, padding: '10px 11px', boxShadow: `0 0 14px color-mix(in srgb, ${activity.color} 8%, transparent)` }}>

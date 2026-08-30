@@ -20,6 +20,12 @@ export interface MediaStreamClaims {
   phone: string
   businessType: string
   businessName: string
+  /**
+   * Dirección real de la llamada. Va firmada con el resto de la capacidad
+   * porque decide el saludo y el objetivo del agente: si viajara como
+   * parámetro suelto de Twilio, cualquiera podría cambiarlo.
+   */
+  direction: 'inbound' | 'outbound'
   issuedAt: number
   expiresAt: number
 }

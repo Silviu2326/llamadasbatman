@@ -62,6 +62,10 @@ export const PERMISSIONS = [
   'automations.read',
   'automations.write',
   'automations.publish',
+  'jobs.read',
+  'jobs.manage',
+  'assets.read',
+  'assets.manage',
   'knowledge.read',
   'knowledge.write',
   'meetings.read',
@@ -151,7 +155,9 @@ const own = (...permissions: Permission[]): PermissionGrant[] => permissions.map
 const BUSINESS_READ: Permission[] = [
   'dashboard.read', 'action_center.read', 'leads.read', 'accounts.read', 'calls.read', 'conversations.read',
   'campaigns.read', 'ads.read', 'social.read', 'funnels.read', 'agents.read',
-  'playbooks.read', 'automations.read', 'knowledge.read', 'meetings.read',
+  // jobs.read acompaña a automations.read: el Centro de trabajos es la vista
+  // de lectura del mismo plano de ejecución en segundo plano.
+  'playbooks.read', 'automations.read', 'jobs.read', 'assets.read', 'knowledge.read', 'meetings.read',
   'pipeline.read', 'tasks.read', 'growth.read', 'experiments.read', 'memory.read',
 ]
 
@@ -169,7 +175,7 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
     ...BUSINESS_READ,
     'leads.write', 'accounts.write', 'calls.write', 'conversations.write',
     'campaigns.write', 'social.write', 'funnels.write', 'agents.manage',
-    'automations.write', 'knowledge.write', 'meetings.write', 'pipeline.write',
+    'automations.write', 'jobs.manage', 'assets.manage', 'knowledge.write', 'meetings.write', 'pipeline.write',
     'pipeline.reopen', 'tasks.write', 'growth.write', 'integrations.read',
     'integrations.manage', 'organization.read', 'organization.manage', 'users.read',
     'users.manage', 'roles.read', 'audit.read', 'costs.read', 'access_control.read',
@@ -184,7 +190,7 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
     'leads.write', 'leads.export', 'accounts.write', 'calls.write',
     'conversations.write', 'campaigns.write', 'campaigns.publish', 'funnels.write',
     'agents.manage', 'playbooks.write', 'automations.write', 'automations.publish',
-    'knowledge.write', 'meetings.write', 'pipeline.write', 'pipeline.reopen',
+    'jobs.manage', 'assets.manage', 'knowledge.write', 'meetings.write', 'pipeline.write', 'pipeline.reopen',
     'tasks.write', 'growth.write', 'experiments.write', 'experiments.start',
     'memory.propose', 'integrations.read', 'organization.read', 'users.read',
     'costs.read', 'costs.request', 'access_control.read', 'access_request.create',
@@ -195,7 +201,7 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
 
   sales_manager: [
     ...org('dashboard.read', 'action_center.read', 'action_center.write', 'playbooks.read', 'playbooks.approve', 'knowledge.read',
-      'pipeline.read', 'experiments.read', 'memory.read', 'memory.approve',
+      'pipeline.read', 'experiments.read', 'memory.read', 'memory.approve', 'assets.read',
       'organization.read', 'users.read', 'access_control.read',
       'access_request.create', 'access_request.create.paid_experiment',
       'access_request.approve.playbook_change'),
@@ -208,7 +214,7 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
   sales_rep: own(
     'dashboard.read', 'action_center.read', 'action_center.write', 'leads.read', 'leads.write', 'leads.contact', 'accounts.read',
     'calls.read', 'calls.write', 'conversations.read', 'conversations.write',
-    'playbooks.read', 'knowledge.read', 'meetings.read', 'meetings.write',
+    'playbooks.read', 'knowledge.read', 'meetings.read', 'meetings.write', 'assets.read',
     'pipeline.read', 'pipeline.write', 'tasks.read', 'tasks.write',
     'access_request.create', 'access_request.create.playbook_change',
   ),
@@ -218,6 +224,7 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
     'campaigns.publish', 'ads.read', 'ads.write', 'social.read', 'social.write',
     'funnels.read', 'funnels.write', 'agents.read', 'playbooks.read',
     'playbooks.write', 'automations.read', 'automations.write', 'automations.publish',
+    'jobs.read', 'jobs.manage', 'assets.read', 'assets.manage',
     'knowledge.read', 'knowledge.write', 'growth.read', 'growth.write',
     'experiments.read', 'experiments.write', 'experiments.start', 'memory.read',
     'memory.propose', 'integrations.read', 'organization.read', 'costs.read',
@@ -227,14 +234,14 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
   ),
 
   analyst: org(
-    'dashboard.read', 'action_center.read', 'campaigns.read', 'ads.read', 'social.read', 'funnels.read',
+    'dashboard.read', 'action_center.read', 'campaigns.read', 'ads.read', 'social.read', 'assets.read', 'funnels.read',
     'pipeline.read', 'growth.read', 'experiments.read', 'organization.read',
     'organic.read', 'organic.integrations.read',
   ),
 
   compliance: org(
     'dashboard.read', 'action_center.read', 'leads.read', 'accounts.read', 'calls.read',
-    'conversations.read', 'campaigns.read', 'playbooks.read', 'knowledge.read',
+    'conversations.read', 'campaigns.read', 'playbooks.read', 'knowledge.read', 'assets.read',
     'memory.read', 'governance.read', 'governance.write',
     'organization.read', 'users.read', 'roles.read', 'audit.read',
     'data.export_sensitive', 'access_control.read',
@@ -244,7 +251,7 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
 
   finance_controller: org(
     'dashboard.read', 'action_center.read', 'campaigns.read', 'ads.read', 'growth.read', 'experiments.read',
-    'organization.read', 'audit.read', 'costs.read', 'costs.approve',
+    'organization.read', 'audit.read', 'costs.read', 'costs.approve', 'assets.read',
     'organic.read',
     'access_request.approve.paid_experiment',
   ),
@@ -258,7 +265,7 @@ export const ROLE_GRANTS: Readonly<Record<KnownRole, readonly PermissionGrant[]>
     'leads.write', 'leads.export', 'leads.contact', 'accounts.write', 'calls.write',
     'conversations.write', 'campaigns.write', 'campaigns.publish', 'ads.write',
     'social.write', 'funnels.write', 'agents.manage', 'playbooks.write',
-    'automations.write', 'automations.publish', 'knowledge.write', 'meetings.write',
+    'automations.write', 'automations.publish', 'jobs.manage', 'assets.manage', 'knowledge.write', 'meetings.write',
     'pipeline.write', 'pipeline.reopen', 'tasks.write', 'growth.write',
     'experiments.write', 'experiments.start', 'memory.propose', 'integrations.read',
     'integrations.manage', 'organization.read', 'users.read', 'costs.read',

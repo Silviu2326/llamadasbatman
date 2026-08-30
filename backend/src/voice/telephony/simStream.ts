@@ -1,11 +1,12 @@
 import { WebSocket } from 'ws'
 import { createCallContext } from '../intelligence/conversation/callContext'
 import { loadAgentConfig } from '../agentConfig'
+import { agentPlaybook } from '../agentPlaybooks'
 import { SessionLogger } from '../sessionLogger'
-import { analyzePostCall } from '../analysis/postCallAnalysis'
 import { prisma } from '../../lib/prisma'
-import { createVoiceSession, type VoicePipelineOverride } from '../engine/factory'
-import { QwenOmniRealtimeSession, qwenOmniConfigured } from '../engine/qwenOmni'
+import { buildIntelligentPrompt } from '../intelligence/promptContext'
+import { VendravaVoiceSession, sanitizeVendravaSettings, vendravaVoiceConfigured, vendravaVoiceLanguageSupported } from '../pipelines/vendravaVoice'
+import { missingRuntimeCredentials, resolveAgentRuntime, runtimePipelineLabel, unsupportedRuntimeProviders } from '../runtimeConfig'
 import type { VoiceSession } from '../engine/voiceSession'
 
 export interface VoiceSimulationPrincipal {
@@ -15,31 +16,33 @@ export interface VoiceSimulationPrincipal {
   email: string
 }
 
-const DEFAULT_PROMPT = `Eres Alex, asesor comercial de Vendrava, una plataforma de agentes de voz con IA que hace llamadas de ventas automáticas en español.
+// Guion de respaldo de la cabina cuando la prueba no elige agente. En inglés,
+// como el resto del producto de voz (decisión del 11/08/2026).
+const DEFAULT_PROMPT = `You are Alex, a sales rep for Vendrava, a platform of AI voice agents that make outbound sales calls.
 
-PRODUCTO QUE VENDES:
-Vendrava permite a empresas lanzar agentes de IA que llaman a sus prospectos, califican leads, agendan reuniones y hacen seguimiento, sin necesidad de equipo humano. Los agentes hablan de forma natural, responden objeciones en tiempo real, y trabajan 24/7 sin descanso. El sistema se integra con el CRM, graba todas las conversaciones y genera analíticas de cada llamada (confianza STT, latencia, WPM, emociones detectadas).
+WHAT YOU SELL:
+Vendrava lets companies launch AI agents that call their prospects, qualify leads, book meetings and follow up without a human team. The agents speak naturally, handle objections in real time and work around the clock. Everything lands in the CRM: recordings, transcripts and per-call analytics.
 
-BENEFICIOS CLAVE:
-- Coste por llamada 10x menor que un comercial humano
-- Consistencia: mismo pitch perfecto en cada llamada, sin días malos
-- Escala instantánea: 1 agente o 1.000 agentes, mismo coste marginal
-- Velocidad: primer contacto en segundos, no en días
-- Datos: cada llamada genera insights accionables del prospecto
+KEY BENEFITS:
+- Cost per call roughly ten times lower than a human rep
+- Consistency: the same pitch on every call, no bad days
+- Instant scale: one agent or a thousand, same marginal cost
+- Speed: first contact in seconds, not days
+- Data: every call produces something actionable about the prospect
 
-PERFIL DEL CLIENTE IDEAL:
-Empresas con equipos comerciales que hacen llamadas en frío o seguimiento: SaaS B2B, inmobiliarias, clínicas, academias, concesionarios, aseguradoras.
+IDEAL CUSTOMER:
+Companies with sales teams doing cold calling or follow-up: B2B SaaS, real estate, clinics, training academies, car dealers, insurers.
 
-REGLAS DE CONVERSACIÓN:
-- Habla como una persona real, no como folleto de marketing. Sé directo y concreto.
-- Frases cortas. Máximo 2-3 frases por turno. Deja espacio para que el prospecto hable.
-- Usa preguntas abiertas para descubrir su situación actual: cuántos comerciales tienen, cuántas llamadas hacen al día, cuál es su tasa de contacto.
-- Si el prospecto pone objeciones de precio: ancla primero el valor (coste de un comercial humano) antes de hablar de precio.
-- Si pregunta por el precio: di que depende del volumen de llamadas, pero que el ROI típico es positivo en el primer mes.
-- Objetivo de la llamada: conseguir que el prospecto acepte una demo de 20 minutos.
-- Si ya está interesado: propón directamente día y hora para la demo.
-- Nunca prometas cosas que no puedes cumplir. Si no sabes algo, dilo y ofrece seguimiento.
-- Siempre en español. Tono cálido, seguro, sin presión.`
+CONVERSATION RULES:
+- Talk like a real person, not a brochure. Be direct and concrete.
+- Short sentences. Two or three per turn at most. Leave room for the prospect to speak.
+- Use open questions to uncover their situation: how many reps they have, how many calls a day, what their contact rate is.
+- On price objections: anchor the value (the cost of a human rep) before talking about price.
+- If they ask for the price: it depends on call volume, and the typical ROI is positive in the first month.
+- Goal of the call: get the prospect to accept a twenty-minute demo.
+- If they are already interested: propose a day and time for the demo directly.
+- Never promise what you cannot deliver. If you do not know something, say so and offer to follow up.
+- Warm, confident tone, no pressure.`
 
 const MAX_SIM_JSON_BYTES = 16 * 1024
 const MAX_SIM_AUDIO_BYTES = 128 * 1024
@@ -76,17 +79,6 @@ function rawToBuffer(raw: Buffer | ArrayBuffer | Buffer[] | string): Buffer {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-// Valores que el navegador puede elegir en la página de laboratorio de voz.
-// Todo lo que no esté en la lista se ignora y se usa la config del servidor.
-const SIM_STT_OPTIONS = new Set(['whisper', 'kyutai'])
-const SIM_TTS_OPTIONS = new Set(['qwen', 'chatterbox', 'piper'])
-
-function pipelineOverride(message: Record<string, unknown>): VoicePipelineOverride | undefined {
-  const stt = typeof message.stt === 'string' && SIM_STT_OPTIONS.has(message.stt) ? message.stt as VoicePipelineOverride['stt'] : undefined
-  const tts = typeof message.tts === 'string' && SIM_TTS_OPTIONS.has(message.tts) ? message.tts as VoicePipelineOverride['tts'] : undefined
-  return stt || tts ? { stt, tts } : undefined
 }
 
 function optionalId(value: unknown): string | null {
@@ -173,14 +165,14 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
     return Promise.resolve()
   }
 
-  function onTranscript(role: string, text: string, meta?: Record<string, unknown>): Promise<void> {
+  async function onTranscript(role: string, text: string, meta?: Record<string, unknown>): Promise<void> {
     if (role === 'partial') {
       if (!userSpeakingStarted) {
         userSpeakingStarted = true
         logger?.startTurn('prospecto', 16000)
       }
       send({ type: 'partial', text })
-      return Promise.resolve()
+      return
     }
 
     logger?.log({ role, text, ...meta })
@@ -194,7 +186,6 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
       logger?.flushTurn()
     }
 
-    return Promise.resolve()
   }
 
   async function startSession(message: Record<string, unknown>): Promise<void> {
@@ -227,6 +218,12 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
     })
     logger.log({ event: 'start', userId: principal.userId })
 
+    // La cabina prueba el turno como si nosotros hubiéramos llamado, salvo que
+    // el agente sea de los que solo atienden: entonces se prueba en entrante.
+    const direction = message.direction === 'inbound' || agentPlaybook(agentConfig?.agentType).directions[0] === 'inbound'
+      ? 'inbound' as const
+      : 'outbound' as const
+
     const ctx = createCallContext({
       callSid,
       phone: 'browser',
@@ -237,32 +234,59 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
       agentId: agentId ?? '',
       leadId: '',
       agentConfig,
+      direction,
     })
 
-    const systemPrompt = (agentConfig?.playbook?.scripts?.base_prompt as string) || DEFAULT_PROMPT
-    const useQwenOmni = message.engine === 'qwen-omni'
-    if (useQwenOmni && !qwenOmniConfigured()) {
+    const systemPrompt = await buildIntelligentPrompt({
+      orgId: principal.orgId,
+      basePrompt: (agentConfig?.playbook?.scripts?.base_prompt as string) || DEFAULT_PROMPT,
+      agentType: agentConfig?.agentType,
+      direction,
+      strategyId: agentConfig?.playbook.strategy,
+      keyMessages: agentConfig?.playbook.scripts.key_messages as string | undefined,
+      escalationRules: agentConfig?.playbook.scripts.escalation_rules as string | undefined,
+      customPlaybook: agentConfig?.playbook.scripts.custom_playbook as string | undefined,
+      behavior: agentConfig?.behavior,
+    })
+    const runtime = resolveAgentRuntime(agentConfig)
+    const unsupported = unsupportedRuntimeProviders(runtime)
+    const missing = missingRuntimeCredentials(runtime)
+    if (unsupported.length) {
       releaseSession?.()
       releaseSession = null
-      send({ type: 'error', message: 'Qwen Omni no está configurado en el servidor (falta DASHSCOPE_API_KEY).' })
-      return closeWithPolicy(socket, 'qwen omni not configured')
+      send({ type: 'error', message: `Proveedores no soportados: ${unsupported.join(', ')}.` })
+      return closeWithPolicy(socket, 'voice runtime provider unsupported')
+    }
+    if (!vendravaVoiceConfigured(agentConfig)) {
+      releaseSession?.()
+      releaseSession = null
+      send({ type: 'error', message: `Faltan credenciales para el runtime seleccionado: ${missing.join(', ')}.` })
+      return closeWithPolicy(socket, 'voice pipeline not configured')
+    }
+    if (!vendravaVoiceLanguageSupported(agentConfig)) {
+      releaseSession?.()
+      releaseSession = null
+      send({ type: 'error', message: `El motor de voz solo admite inglés y español; este agente está configurado en "${agentConfig?.identity?.agentAccent}".` })
+      return closeWithPolicy(socket, 'voice language unsupported')
     }
     try {
-      if (useQwenOmni) {
-        const omni = new QwenOmniRealtimeSession(ctx, systemPrompt)
-        await omni.connect()
-        session = omni
-      } else {
-        session = await createVoiceSession(ctx, systemPrompt, pipelineOverride(message))
-      }
+      session = new VendravaVoiceSession(ctx, systemPrompt, sanitizeVendravaSettings(message.settings))
     } catch (error) {
       releaseSession?.()
       releaseSession = null
-      send({ type: 'error', message: useQwenOmni ? 'No se pudo conectar con Qwen Omni (DashScope).' : 'El motor de voz autoalojado no está disponible.' })
-      console.error('[SIM] voice engine unavailable (%s):', useQwenOmni ? 'qwen-omni' : 'self-hosted', error)
+      send({ type: 'error', message: `No se pudo abrir el motor de voz (${runtimePipelineLabel(runtime)}).` })
+      console.error('[SIM] voice engine unavailable:', error)
       return closeWithPolicy(socket, 'voice engine unavailable')
     }
-    await session.attach({ onAudio, onInterrupt, onTranscript })
+    await session.attach({
+      onAudio,
+      onInterrupt,
+      onTranscript,
+      onEvent: event => {
+        logger?.log({ event: event.type, ...event.payload, provider: event.provider, model: event.model })
+        send({ type: 'voice_event', event })
+      },
+    })
     session.run().catch(error => send({ type: 'error', message: error.message }))
     send({ type: 'status', status: 'session_started' })
     logger.startTurn('agente', 24000)
@@ -290,6 +314,12 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
       else if (message.type === 'stop') {
         await session?.close().catch(() => {})
         socket.close(1000, 'Session stopped')
+      } else if (message.type === 'interrupt') {
+        // Botón "Interrupt" de la cabina: mismo camino de cancelación que el barge-in.
+        await session?.cancelResponse('manual interrupt').catch(() => {})
+      } else if (message.type === 'text' && session instanceof VendravaVoiceSession) {
+        if (typeof message.text !== 'string') return closeWithPolicy(socket, 'invalid text turn')
+        await session.sendTextTurn(message.text).catch(() => {})
       } else {
         closeWithPolicy(socket, 'unsupported control message')
       }
@@ -310,7 +340,6 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
     releaseSession?.()
     logger?.log({ event: 'end' })
     logger?.close()
-    if (logger) void analyzePostCall(logger.dir)
     session?.close().catch(() => {})
   })
   socket.on('error', (error: Error) => console.error('[SIM] error:', error.message))

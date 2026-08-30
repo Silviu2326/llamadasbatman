@@ -34,6 +34,7 @@ export async function pipelineRoutes(app: FastifyInstance) {
   app.post('/:id/mark-lost', canWriteOwned, ctrl.markLost as any)
   app.post('/:id/reopen', canReopenOwned, ctrl.reopen as any)
   app.get('/:id/history', canReadOwned, ctrl.history as any)
+  app.get('/:id/activity', canReadOwned, ctrl.activity as any)
   // OP-107: fijar manualmente la categoría de forecast de una oportunidad.
   app.put('/:id/forecast-category', canWriteOwned, ctrl.updateForecastCategory as any)
   // OP-108: contactos / roles de compra de la oportunidad.

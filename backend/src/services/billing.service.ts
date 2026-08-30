@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { prisma } from '../lib/prisma'
+import { topUp } from './wallet.service'
 
 // ponytail: API REST de Stripe vía fetch — sin SDK. Un plan = una variable
 // STRIPE_PRICE_<PLAN> (p. ej. STRIPE_PRICE_PRO=price_xxx).
@@ -24,12 +25,13 @@ function frontendUrl() {
   return (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '')
 }
 
-async function stripeRequest(path: string, params?: Record<string, string>) {
+async function stripeRequest(path: string, params?: Record<string, string>, idempotencyKey?: string) {
   const response = await fetch(`${STRIPE_API}${path}`, {
     method: params ? 'POST' : 'GET',
     headers: {
       Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
       ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
     body: params ? new URLSearchParams(params).toString() : undefined,
     signal: AbortSignal.timeout(15_000),
@@ -81,6 +83,33 @@ export async function createPortalSession(orgId: string, email: string) {
   return session.url as string
 }
 
+/** Checkout de pago único para créditos. El saldo solo se abona en webhook. */
+export async function createWalletTopupCheckout(input: { orgId: string; email: string; amountCents: number }) {
+  if (!Number.isSafeInteger(input.amountCents) || input.amountCents < 500 || input.amountCents > 500_000) {
+    throw new Error('Importe de recarga inválido')
+  }
+  const customer = await ensureCustomer(input.orgId, input.email)
+  const base = `${frontendUrl()}/configuracion`
+  const session = await stripeRequest('/checkout/sessions', {
+    customer,
+    mode: 'payment',
+    'line_items[0][price_data][currency]': 'eur',
+    'line_items[0][price_data][unit_amount]': String(input.amountCents),
+    'line_items[0][price_data][product_data][name]': 'Créditos Vendrava',
+    'line_items[0][quantity]': '1',
+    success_url: `${base}?wallet=success`,
+    cancel_url: `${base}?wallet=cancelled`,
+    client_reference_id: input.orgId,
+    'metadata[purpose]': 'wallet_topup',
+    'metadata[orgId]': input.orgId,
+    'metadata[amountCents]': String(input.amountCents),
+    'payment_intent_data[metadata][purpose]': 'wallet_topup',
+    'payment_intent_data[metadata][orgId]': input.orgId,
+  }, `wallet-checkout:${input.orgId}:${input.amountCents}:${Date.now()}`)
+  if (typeof session.url !== 'string') throw new Error('Stripe no devolvió URL de Checkout')
+  return session.url
+}
+
 export function verifyStripeSignature(rawBody: string, header: string | undefined) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET
   if (!secret || !header) return false
@@ -101,11 +130,74 @@ export function verifyStripeSignature(rawBody: string, header: string | undefine
   }
 }
 
-export async function handleWebhookEvent(event: { type?: string; data?: { object?: any } }) {
+/**
+ * Añade a la factura del ciclo del partner el coste mayorista de los clientes
+ * que tiene activos. Stripe cobra la línea junto con su suscripción, así que
+ * `wholesaleCostCents` deja de ser un número guardado y pasa a facturarse.
+ *
+ * ponytail: una sola línea agregada por factura, no una por cliente. La clave
+ * de idempotencia es el id de la factura, así que un reintento del webhook no
+ * duplica el cargo. Si algún día hace falta el desglose por cliente en el PDF,
+ * el cambio es iterar los clientes y usar `wholesale:<invoiceId>:<clientId>`.
+ */
+export async function chargeAgencyWholesale(invoiceId: string, customerId: string): Promise<number> {
+  const org = await prisma.organization.findFirst({
+    where: { stripeCustomerId: customerId },
+    select: { id: true, currency: true },
+  })
+  if (!org) return 0
+  const clients = await prisma.agencyClient.findMany({
+    where: { agencyOrgId: org.id, status: 'active' },
+    select: { wholesaleCostCents: true },
+  })
+  const amount = clients.reduce((total, client) => total + client.wholesaleCostCents, 0)
+  if (amount <= 0) return 0
+  await stripeRequest('/invoiceitems', {
+    customer: customerId,
+    invoice: invoiceId,
+    amount: String(amount),
+    currency: (org.currency || 'EUR').toLowerCase(),
+    description: `Clientes white-label (${clients.length})`,
+    'metadata[orgId]': org.id,
+    'metadata[clients]': String(clients.length),
+  }, `wholesale:${invoiceId}`)
+  return amount
+}
+
+export async function handleWebhookEvent(event: { id?: string; type?: string; data?: { object?: any } }) {
   const type = event?.type
   const object = event?.data?.object
-  if (type === 'checkout.session.completed') {
+  if (type === 'invoice.created') {
+    // Stripe tarda ~1h en finalizar la factura: da margen para añadir la línea
+    // del mayorista antes de cobrarla. Sólo en la renovación del ciclo, no en
+    // el alta ni en cambios de plan a mitad de periodo.
+    const customerId = typeof object?.customer === 'string' ? object.customer : null
+    if (customerId && object?.id && object?.billing_reason === 'subscription_cycle') {
+      await chargeAgencyWholesale(object.id, customerId).catch(error =>
+        console.warn('[BILLING] no se pudo facturar el mayorista white-label:', (error as Error).message))
+    }
+  } else if (type === 'checkout.session.completed') {
     const orgId = object?.metadata?.orgId
+    if (object?.metadata?.purpose === 'wallet_topup') {
+      const expectedAmount = Number(object?.metadata?.amountCents)
+      const paidAmount = Number(object?.amount_total)
+      if (
+        typeof orgId === 'string'
+        && Number.isSafeInteger(expectedAmount)
+        && expectedAmount > 0
+        && paidAmount === expectedAmount
+        && object?.payment_status === 'paid'
+        && String(object?.currency ?? '').toLowerCase() === 'eur'
+      ) {
+        await topUp({
+          orgId,
+          amountCents: expectedAmount,
+          stripeRef: typeof object?.payment_intent === 'string' ? object.payment_intent : object?.id,
+          idempotencyKey: `stripe:${event.id ?? object?.id}`,
+        })
+      }
+      return
+    }
     const plan = object?.metadata?.plan
     if (orgId && plan && priceIdForPlan(plan)) {
       await prisma.organization.updateMany({ where: { id: orgId }, data: { plan } })

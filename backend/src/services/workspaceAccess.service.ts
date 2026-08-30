@@ -128,6 +128,33 @@ export function getWorkspaceGrantsForUser(identity: WorkspaceIdentity): Workspac
   return [...byWorkspace.values()]
 }
 
+/**
+ * Database-backed agency grants. The environment JSON remains supported for
+ * legacy deployments, but newly provisioned clients are persisted in
+ * AgencyClient and must become available without a process restart.
+ */
+export async function getWorkspaceGrantsForUserAsync(identity: WorkspaceIdentity): Promise<WorkspaceGrant[]> {
+  const grants = getWorkspaceGrantsForUser(identity)
+  const agency = await prisma.agencyClient.findMany({
+    where: { agencyOrgId: identity.orgId, status: { not: 'archived' } },
+    select: { clientOrgId: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  const seen = new Set(grants.map(grant => grant.workspaceId))
+  for (const client of agency) {
+    if (seen.has(client.clientOrgId)) continue
+    grants.push({
+      workspaceId: client.clientOrgId,
+      role: 'admin',
+      scope: 'org',
+      source: 'agency_config',
+      agencyOrgId: identity.orgId,
+    })
+    seen.add(client.clientOrgId)
+  }
+  return grants
+}
+
 function primaryClaims(request: WorkspaceRequest, claims: Record<string, unknown>): { orgId: string; role: KnownRole } {
   const existingOrg = request.workspacePrimaryOrgId
   const existingRole = request.workspacePrimaryRole
@@ -181,7 +208,7 @@ export async function applyWorkspaceContext(request: WorkspaceRequest): Promise<
     orgId: primaryOrgId,
     role: primaryRole,
   }
-  const verified = getWorkspaceGrantsForUser(identity)
+  const verified = await getWorkspaceGrantsForUserAsync(identity)
 
   if (workspaceId === primaryOrgId) {
     request.workspaceId = workspaceId
@@ -224,7 +251,7 @@ export async function listAccessibleWorkspaces(identity: WorkspaceIdentity): Pro
   const primaryOrganization = await prisma.organization.findUnique({ where: { id: identity.orgId }, select: { id: true, plan: true } })
   if (!primaryOrganization) throw new WorkspaceAccessError('La organizacion principal no existe', 404, 'WORKSPACE_NOT_FOUND')
   const policy = planPolicy(primaryOrganization.plan)
-  const configuredGrants = getWorkspaceGrantsForUser(identity)
+  const configuredGrants = await getWorkspaceGrantsForUserAsync(identity)
   const grants = uniqueGrants(policy.capabilities.includes('multiworkspace') ? configuredGrants : configuredGrants.slice(0, 1))
     .slice(0, policy.limits.workspaces)
   if (!grants.length) return []

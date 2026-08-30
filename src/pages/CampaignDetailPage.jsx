@@ -3,12 +3,13 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   RiArrowDownSLine, RiArrowRightLine,
   RiCalendar2Line, RiCheckboxCircleLine, RiCheckLine, RiCloseLine, RiEditLine,
-  RiExternalLinkLine, RiGroupLine, RiFileCopyLine,
+  RiGroupLine, RiFileCopyLine,
   RiPauseCircleLine, RiPlayCircleLine, RiSendPlaneLine,
   RiShareForwardLine, RiSparkling2Line, RiUserLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { outcomeLabel } from '../lib/callOutcome'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import { formatLocaleNumber, getLocale, localeCode, useI18n } from '../i18n'
 import '../components/campaigns.css'
 
@@ -138,7 +139,6 @@ function CampaignAdsPanel({ campaign }) {
     </div>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 18 }}>
       {!hasRemoteObjects ? <button className="campaign-button primary" onClick={() => runAction('publish')} disabled={Boolean(action)}>{action === 'publish' ? 'Enviando…' : 'Publicar borrador'}</button> : isActive ? <button className="campaign-button ghost" onClick={() => runAction('pause')} disabled={Boolean(action)}>{action === 'pause' ? 'Pausando…' : 'Pausar en Meta'}</button> : <button className="campaign-button primary" onClick={() => runAction('activate')} disabled={Boolean(action)}>{action === 'activate' ? 'Activando…' : 'Activar en Meta'}</button>}
-      <button className="campaign-button ghost" onClick={load} disabled={Boolean(action)}><RiExternalLinkLine /> Actualizar datos</button>
     </div>
     <div className="campaign-composer-empty" style={{ marginTop: 18 }}><span>Meta Campaign: {status?.metaCampaignId || campaign.metaCampaignId || 'pendiente'} · Ad set: {status?.metaAdSetId || campaign.metaAdSetId || 'pendiente'} · Anuncio: {status?.metaAdId || campaign.metaAdId || 'pendiente'}</span></div>
   </section>
@@ -552,8 +552,8 @@ export default function CampaignDetailPage() {
     notify('Informe descargado')
   }
 
-  if (loading) return <div className="campaign-detail-loading">{locale === 'en' ? 'Loading campaign' : 'Cargando campaña'}<span /></div>
-  if (notFound) return <div className="campaign-detail-loading"><strong>{locale === 'en' ? 'Campaign not found' : 'Campaña no encontrada'}</strong><button className="campaign-button ghost" onClick={() => navigate('/campanas')}>{locale === 'en' ? 'Back to campaigns' : 'Volver a campañas'}</button></div>
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading campaign' : 'Cargando campaña'} />
+  if (notFound) return <div className="campaign-detail-loading"><strong>{locale === 'en' ? 'Campaign not found' : 'Campaña no encontrada'}</strong><button className="campaign-button ghost" onClick={() => navigate('/captacion/planificar')}>{locale === 'en' ? 'Back to campaigns' : 'Volver a campañas'}</button></div>
   if (loadError || !campaign) return <div className="campaign-detail-loading"><strong>{locale === 'en' ? 'The campaign could not be loaded' : 'No se pudo cargar la campaña'}</strong><p>{locale === 'en' ? 'Check the connection and try again.' : 'Comprueba la conexión e inténtalo de nuevo.'}</p><button className="campaign-button ghost" onClick={() => window.location.reload()}>{locale === 'en' ? 'Retry' : 'Reintentar'}</button></div>
 
   const totalLeads = campaign.totalLeads || 0
@@ -569,7 +569,7 @@ export default function CampaignDetailPage() {
   const StatusIcon = campaign.status === 'active' ? RiPauseCircleLine : RiPlayCircleLine
 
   return <main className="dark-scroll campaign-detail-page">
-    <div className="campaign-detail-breadcrumb"><button onClick={() => navigate('/campanas')}>Campañas</button><RiArrowRightLine /><strong>{campaign.name}</strong></div>
+    <div className="campaign-detail-breadcrumb"><button onClick={() => navigate('/captacion/planificar')}>Campañas</button><RiArrowRightLine /><strong>{campaign.name}</strong></div>
     <header className="campaign-detail-header"><div className="campaign-detail-title"><div><h1>{campaign.name} <StatusBadge status={campaign.status} /></h1><p>{campaign.objective || 'Sin objetivo definido'}</p><div className="campaign-detail-meta"><span><RiCalendar2Line />{datesLabel}</span><span><RiUserLine />{campaign.agent?.name || 'Sin agente asignado'}</span><span>{typeMeta.label}</span></div></div></div><div className="campaign-detail-actions"><button className={`campaign-button ${campaign.status === 'active' ? 'danger' : 'primary'}`} onClick={toggleStatus}><StatusIcon />{campaign.status === 'active' ? 'Pausar' : 'Activar'}</button><button className="campaign-button primary" onClick={() => setShowEdit(true)}><RiEditLine /> Editar</button><div className="campaign-more-wrap"><button className="campaign-button ghost" onClick={() => setShowMore(value => !value)}>Más <RiArrowDownSLine /></button>{showMore && <div className="campaign-more-menu"><button onClick={duplicateCampaign}><RiFileCopyLine /> Duplicar campaña</button><button onClick={exportReport}><RiExternalLinkLine /> Exportar informe</button><button onClick={shareCampaign}><RiShareForwardLine /> Compartir enlace</button></div>}</div></div></header>
 
     <section className="campaign-health-strip">

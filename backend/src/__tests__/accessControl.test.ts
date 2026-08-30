@@ -2,7 +2,6 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Fastify, { type FastifyRequest } from 'fastify'
 import jwt from '@fastify/jwt'
-import { authenticate } from '../middlewares/authenticate'
 import {
   APP_ROLES,
   LEGACY_ROLES,
@@ -184,7 +183,10 @@ async function buildPermissionApp(permission: Permission) {
     '/orgs/:orgId/resource',
     {
       preHandler: [
-        authenticate,
+        // Esta suite aísla requirePermission: verifica la firma/claims JWT
+        // sin exigir una Session/OrganizationMembership real. El middleware
+        // authenticate y su lookup tenant-safe se prueban por separado.
+        async (request: FastifyRequest) => { await request.jwtVerify() },
         requirePermission(permission, {
           scope: 'org',
           resourceOrgId: (request: FastifyRequest) => (request.params as { orgId: string }).orgId,

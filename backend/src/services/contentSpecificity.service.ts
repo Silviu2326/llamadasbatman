@@ -334,6 +334,16 @@ export function pieceTextFields(format: string, body: Record<string, any>): { pa
       { path: ['body'], value: String(body.body ?? '') },
     ]
   }
+  if (format === 'ad') {
+    // `imagePrompt` queda fuera a propósito: es un prompt en inglés para el
+    // generador de imagen, no texto que lea un cliente. Pasarlo por un editor
+    // que escribe en español de España lo rompería.
+    return [
+      { path: ['offer'], value: String(body.offer ?? '') },
+      { path: ['leadMagnet'], value: String(body.leadMagnet ?? '') },
+      { path: ['adCopy'], value: String(body.adCopy ?? '') },
+    ]
+  }
   return []
 }
 

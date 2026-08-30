@@ -6,6 +6,7 @@ import {
 } from 'react-icons/ri'
 import './campaign-share.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import PageLoadingState from '../components/ui/PageLoadingState'
 
 const STATUS = {
   draft: { label: 'En preparación', tone: 'is-draft' },
@@ -57,7 +58,7 @@ export default function PublicCampaignSharePage() {
     }
   }, [campaign])
 
-  if (state === 'loading') return <main className="campaign-share-page campaign-share-center"><RiLoader4Line className="campaign-share-spin" /><span>{t('campaignShare.loading')}</span></main>
+  if (state === 'loading') return <PageLoadingState label={t('campaignShare.loading')} />
 
   if (state !== 'ready') return <main className="campaign-share-page campaign-share-center"><section className="campaign-share-empty"><RiLock2Line /><h1>{state === 'not-found' ? t('campaignShare.unavailable') : t('campaignShare.loadError')}</h1><p>{state === 'not-found' ? t('campaignShare.askUpdatedLink') : t('campaignShare.retry')}</p></section></main>
 

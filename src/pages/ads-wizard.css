@@ -12,8 +12,12 @@
   --ads-violet: var(--violet);
   --ads-pink: var(--violet);
   --ads-cyan: var(--cyan);
+  flex: 1;
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   color: var(--ads-text);
   background:
     radial-gradient(circle at 77% -14%, #4938c91f, transparent 32%),
@@ -237,6 +241,9 @@
 .ads-presets-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
 .ads-presets-heading span { color: var(--text); font-size: 10px; font-weight: 800; }
 .ads-presets-heading small { color: var(--ads-faint); font-size: 9px; }
+.ads-known-context { display: flex; align-items: flex-start; gap: 7px; margin: 0 0 10px; padding: 8px 9px; border: 1px solid color-mix(in srgb, var(--ads-cyan) 30%, var(--line)); border-radius: 8px; color: var(--ads-muted); background: color-mix(in srgb, var(--ads-cyan) 7%, transparent); font-size: 9px; line-height: 1.45; }
+.ads-known-context svg { width: 13px; height: 13px; flex: 0 0 auto; margin-top: 1px; color: var(--ads-cyan); }
+.ads-known-context strong { color: var(--text-2); font-weight: 800; }
 .ads-preset-list { display: flex; flex-wrap: wrap; gap: 7px; }
 
 .ads-preset-list button {
@@ -343,7 +350,8 @@
 .ads-field-helper { color: var(--dim); font-size: 9px; line-height: 1.35; }
 .ads-input-wrap { position: relative; display: block; }
 
-.ads-input-wrap input {
+.ads-input-wrap input,
+.ads-input-wrap select {
   width: 100%;
   min-height: 41px;
   padding: 0 40px 0 12px;
@@ -358,10 +366,46 @@
 }
 
 .ads-input-wrap input::placeholder { color: var(--dim); }
-.ads-input-wrap input:hover { border-color: var(--line-hover); }
-.ads-input-wrap input:focus { border-color: var(--accent); background: var(--surface-3); box-shadow: 0 0 0 3px #6366f126; }
+.ads-input-wrap select { appearance: none; cursor: pointer; }
+.ads-input-wrap input:hover,
+.ads-input-wrap select:hover { border-color: var(--line-hover); }
+.ads-input-wrap input:focus,
+.ads-input-wrap select:focus { border-color: var(--accent); background: var(--surface-3); box-shadow: 0 0 0 3px #6366f126; }
 .ads-input-affordance { position: absolute; top: 50%; right: 11px; width: 15px; height: 15px; color: var(--muted); transform: translateY(-50%); pointer-events: none; }
-.ads-field:nth-child(4) .ads-input-affordance { width: auto; height: auto; font-size: 9px; font-style: normal; }
+.ads-input-wrap:has(.ads-unit-affordance) input { padding-right: 46px; }
+.ads-unit-affordance {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 20px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  color: var(--text-2);
+  background: var(--surface-3);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ads-knowledge-picker {
+  display: grid;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid color-mix(in srgb, var(--violet) 30%, var(--line));
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7c3aed0d, transparent 72%);
+}
+.ads-knowledge-picker-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ads-knowledge-picker-heading > span { display: inline-flex; align-items: center; gap: 6px; color: var(--text-strong); font-size: 10px; font-weight: 800; }
+.ads-knowledge-picker-heading > span svg { width: 14px; height: 14px; color: var(--violet-soft); }
+.ads-knowledge-picker-heading em { color: var(--dim); font-size: 8px; font-style: normal; font-weight: 650; }
+.ads-knowledge-picker-heading a { display: inline-flex; align-items: center; gap: 3px; color: var(--violet-soft); font-size: 9px; font-weight: 750; text-decoration: none; white-space: nowrap; }
+.ads-knowledge-picker-heading a svg { width: 12px; height: 12px; }
+.ads-knowledge-picker > p { margin: -2px 0 0; color: var(--ads-faint); font-size: 9px; line-height: 1.4; }
+.ads-knowledge-source { display: flex; align-items: flex-start; gap: 6px; color: var(--ads-muted); font-size: 9px; line-height: 1.4; }
+.ads-knowledge-source svg { width: 13px; height: 13px; flex: 0 0 auto; margin-top: 1px; color: var(--success); }
+.ads-knowledge-source strong { color: var(--text-2); }
 
 .ads-ai-button {
   width: 100%;

@@ -10,6 +10,8 @@ export async function emailMetricsRoutes(app: FastifyInstance) {
   const canRead = { preHandler: requirePermission('campaigns.read', { scope: 'org' }) }
 
   app.get('/campaigns/:campaignId/metrics', canRead, ctrl.campaignMetrics as any)
+  app.get('/campaigns/:campaignId/variants', canRead, ctrl.campaignVariants as any)
+  app.get('/campaigns/:campaignId/revenue', canRead, ctrl.campaignRevenue as any)
   app.get('/overview', canRead, ctrl.overview as any)
 
   // EM-111: audiencia y seguimiento. La lista de suscriptores expone datos

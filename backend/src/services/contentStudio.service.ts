@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
+import { askJson, isDeepseekConfigured, smartModel } from '../lib/deepseek'
 import { getOwnerVoice, voiceInstructions } from './ownerVoice.service'
 import { preferenceInstructions } from './contentApproval.service'
 import { BrandFact, extractBrandFacts, factsInstructions } from './contentSpecificity.service'
@@ -115,9 +115,9 @@ const MINUTES_SAVED: Record<PieceFormat, number> = {
 
 export class StudioError extends Error {}
 
-function getClient(): Anthropic | null {
-  const apiKey = process.env.CLAUDE_API_KEY
-  return apiKey ? new Anthropic({ apiKey }) : null
+/** Razonador: escribir cinco piezas sobre una misma evidencia es criterio. */
+function getClient(): boolean {
+  return isDeepseekConfigured()
 }
 
 const STUDIO_PROMPT = `Eres el redactor de una agencia de contenido para pymes españolas.
@@ -191,6 +191,8 @@ function deterministicPieces(opportunity: { title: string; summary: string; evid
 }
 
 async function askStudio(
+  // Para el ledger de consumo: quién paga los tokens de esta generación.
+  orgId: string,
   opportunity: {
     title: string
     summary: string
@@ -210,27 +212,23 @@ async function askStudio(
   const system = [STUDIO_PROMPT, voice ? `Voz del negocio:\n${voice}` : null, facts].filter(Boolean).join('\n\n')
 
   try {
-    const response = await client.messages.create({
-      model: process.env.CLAUDE_MODEL ?? 'claude-sonnet-5',
-      max_tokens: 2500,
+    const parsed = await askJson<any>({
+      model: smartModel(),
+      maxTokens: 2500,
+      label: 'studio:pieces',
+      usage: { orgId, feature: 'content_studio' },
       system,
-      messages: [{
-        role: 'user',
-        content: JSON.stringify({
-          oportunidad: opportunity.title,
-          resumen: opportunity.summary,
-          evidencias: opportunity.evidenceSummary,
-          // El objetivo lo elige la persona en el Estudio; el del detector se
-          // pasa como enfoque, que es lo que era: una sugerencia del análisis.
-          objetivo: OBJECTIVE_BRIEF[opportunity.objective],
-          enfoqueSugerido: opportunity.focus,
-          canales: opportunity.channels,
-        }),
-      }],
+      prompt: JSON.stringify({
+        oportunidad: opportunity.title,
+        resumen: opportunity.summary,
+        evidencias: opportunity.evidenceSummary,
+        // El objetivo lo elige la persona en el Estudio; el del detector se
+        // pasa como enfoque, que es lo que era: una sugerencia del análisis.
+        objetivo: OBJECTIVE_BRIEF[opportunity.objective],
+        enfoqueSugerido: opportunity.focus,
+        canales: opportunity.channels,
+      }),
     })
-    const block = response.content.find(item => item.type === 'text')
-    if (!block || block.type !== 'text') return deterministicPieces(opportunity)
-    const parsed = JSON.parse(block.text.replace(/^```json\s*|\s*```$/g, '').trim())
     if (!parsed?.post?.text || !Array.isArray(parsed?.carousel?.slides) || !parsed?.reel_script?.hook) {
       return deterministicPieces(opportunity)
     }
@@ -329,6 +327,7 @@ export async function generatePieces(
   const preferences = preferenceInstructions(learned)
   const facts = await extractBrandFacts(orgId)
   const pieces = await askStudio(
+    orgId,
     {
       title: opportunity.title,
       summary: opportunity.summary,
@@ -362,6 +361,7 @@ export async function generatePieces(
       facts,
       voice: voiceInstructions(profile),
       own: { phone: orgProfile?.phone, email: orgProfile?.email },
+      orgId,
     }),
   ]))) as Record<string, Awaited<ReturnType<typeof reviewPiece>>>
 
@@ -385,7 +385,7 @@ export async function generatePieces(
   // pieza existe aunque no haya motor de voz —es el guion locutable con el
   // motivo de por qué todavía no suena—, porque el guion se aprueba igual.
   const script = voiceoverScript(reviewed.reel_script.body as { hook?: string; body?: string; cta?: string })
-  const voiceover = await synthesizeVoiceover(script).catch(() => ({
+  const voiceover = await synthesizeVoiceover(script, { orgId }).catch(() => ({
     audioUrl: null,
     reason: 'El motor de voz falló al locutar el guion.',
   } as VoiceoverFailure))

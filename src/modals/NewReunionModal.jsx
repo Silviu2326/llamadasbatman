@@ -53,6 +53,7 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
     date: initial.date, time: initial.time,
     duration: isReschedule ? (DUR_MAP_REV[meeting.durationMinutes] ?? '30 min') : '30 min',
     objective: isReschedule ? (meeting.objetivo || meeting.title || '') : '',
+    meetingUrl: '',
     reason: '',
   })
   const [saving, setSaving] = useState(false)
@@ -139,6 +140,7 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
           title: form.objective || `Reunión con ${useExisting ? (selectedLead?.name ?? '') : form.lead}`,
           scheduledAt,
           durationMinutes: DUR_MAP[form.duration] ?? 30,
+          meetingUrl: form.meetingUrl.trim() || undefined,
           notes: form.objective || undefined,
         }),
       })
@@ -223,6 +225,17 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
         <FormInput label={t('modal.time')} type="time" value={form.time} onChange={e => update('time', e.target.value)} required />
       </FormRow>
       <FormSelect label={t('modal.duration')} value={form.duration} onChange={e => update('duration', e.target.value)} options={DURACIONES} />
+      {/* Sin este campo no había forma de guardar el enlace: el botón "Unirse"
+          no aparecía nunca porque depende de que la reunión tenga meetingUrl. */}
+      {!isReschedule && (
+        <FormInput
+          label={locale === 'en' ? 'Meeting link' : 'Enlace de la reunión'}
+          type="url"
+          value={form.meetingUrl}
+          onChange={e => update('meetingUrl', e.target.value)}
+          placeholder="https://meet.google.com/abc-defg-hij"
+        />
+      )}
       {!isReschedule && <FormTextarea label={t('modal.meetingObjective')} value={form.objective} onChange={e => update('objective', e.target.value)} placeholder={locale === 'en' ? 'What do we want to achieve on this call?' : '¿Qué queremos conseguir en esta llamada?'} />}
       {isReschedule && <FormTextarea label={t('modal.changeReason')} value={form.reason} onChange={e => update('reason', e.target.value)} placeholder={locale === 'en' ? 'e.g. The customer asked to move the meeting' : 'Ej. El cliente pidió mover la reunión'} />}
     </FormModal>

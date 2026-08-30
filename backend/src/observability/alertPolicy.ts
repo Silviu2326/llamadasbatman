@@ -11,6 +11,7 @@ export type OperationalAlert = {
 export type AlertPolicyInput = {
   database: 'healthy' | 'missing' | 'unavailable'
   redis: 'configured' | 'missing' | 'disabled' | 'unavailable'
+  redisRequired: boolean
   heartbeat: 'healthy' | 'missing' | 'stale' | 'unavailable'
   workersEnabled: boolean
   databaseQueriesAvailable: boolean
@@ -40,7 +41,7 @@ export function evaluateOperationalAlerts(input: AlertPolicyInput): OperationalA
     summary: 'No se pudo leer el estado persistido de las colas.',
     action: 'Revisar errores de Prisma y repetir /health/workers con el mismo correlationId.',
   })
-  if (input.workersEnabled && input.redis !== 'configured') add({
+  if (input.workersEnabled && input.redisRequired && input.redis !== 'configured') add({
     code: 'REDIS_NOT_READY', severity: 'critical',
     summary: 'Redis es obligatorio para workers activos y no está listo.',
     action: 'Comprobar REDIS_URL, TLS, firewall y que el proceso dedicado del worker esté desplegado.',
@@ -49,7 +50,9 @@ export function evaluateOperationalAlerts(input: AlertPolicyInput): OperationalA
     code: input.heartbeat === 'stale' ? 'WORKER_HEARTBEAT_STALE' : 'WORKER_HEARTBEAT_MISSING',
     severity: 'critical',
     summary: input.heartbeat === 'stale' ? 'El heartbeat del worker está obsoleto.' : 'No se observa heartbeat del worker.',
-    action: 'Comprobar el proceso dedicado, sus logs de arranque y su conexión a Redis.',
+    action: input.redisRequired
+      ? 'Comprobar el proceso dedicado, sus logs de arranque y su conexión a Redis.'
+      : 'Comprobar el proceso dedicado y su conexión a PostgreSQL.',
   })
 
   if ((input.outbox.expiredLeases ?? 0) > 0) add({

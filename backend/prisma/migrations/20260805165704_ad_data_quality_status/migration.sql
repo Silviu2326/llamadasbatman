@@ -49,4 +49,6 @@ CREATE INDEX "AdDataQualityStatus_orgId_computedAt_idx" ON "AdDataQualityStatus"
 ALTER TABLE "AdDataQualityStatus" ADD CONSTRAINT "AdDataQualityStatus_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- RenameIndex
-ALTER INDEX "SensitiveApprovalRequest_orgId_action_resourceType_resourceId_s" RENAME TO "SensitiveApprovalRequest_orgId_action_resourceType_resource_idx";
+-- IF EXISTS: en las bases que se crearon después del baseline el índice ya nace
+-- con el nombre final y el rename no tiene nada que renombrar.
+ALTER INDEX IF EXISTS "SensitiveApprovalRequest_orgId_action_resourceType_resourceId_s" RENAME TO "SensitiveApprovalRequest_orgId_action_resourceType_resource_idx";

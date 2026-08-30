@@ -1,0 +1,343 @@
+/*
+ * Contrato visual de Growth.
+ *
+ * Base de conocimiento fija la referencia: una columna de lectura estable,
+ * cabecera de producto sobria, tipografia Inter, superficies contenidas y
+ * metricas que responden al espacio disponible. Esta hoja se importa al final
+ * de cada pantalla para normalizar componentes historicos sin duplicarlos.
+ */
+
+:is(
+  .growth-page,
+  .email-page,
+  .orchestration-page,
+  .jobs-page,
+  .automation-page,
+  .campaign-page,
+  .ads-dashboard,
+  .gs-page,
+  .prospect-page,
+  .funnels-page
+) {
+  box-sizing: border-box;
+  color: var(--text);
+  background: var(--bg);
+  font-family: Inter, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-feature-settings: "ss01" 1, "cv11" 1;
+}
+
+:is(
+  .growth-page,
+  .email-page,
+  .jobs-page,
+  .automation-page,
+  .campaign-page,
+  .ads-dashboard,
+  .gs-page,
+  .prospect-page,
+  .funnels-page
+) {
+  width: 100%;
+  max-width: 1224px;
+  margin-inline: auto;
+  padding: 30px 32px 52px;
+}
+
+.orchestration-inner {
+  width: 100%;
+  max-width: 1224px;
+  padding: 30px 32px 52px;
+}
+
+.gs-shell,
+.growth-command,
+.growth-area-tabs,
+.growth-workspace,
+.funnels-command,
+.funnels-metrics,
+.funnels-workspace,
+.funnels-method,
+.funnels-empty,
+.funnels-error,
+.campaign-page .campaign-page-header,
+.campaign-page .campaign-metrics-row,
+.campaign-page .campaigns-layout {
+  width: 100%;
+  max-width: 1160px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+:is(
+  .growth-page,
+  .email-page,
+  .orchestration-page,
+  .jobs-page,
+  .automation-page,
+  .campaign-page,
+  .ads-dashboard,
+  .gs-page,
+  .prospect-page,
+  .funnels-page
+) .product-page-header {
+  width: 100%;
+  max-width: 1160px;
+  margin-bottom: 24px;
+}
+
+:is(
+  .growth-page,
+  .email-page,
+  .orchestration-page,
+  .jobs-page,
+  .automation-page,
+  .campaign-page,
+  .ads-dashboard,
+  .gs-page,
+  .prospect-page,
+  .funnels-page
+) :is(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+/* Controles consistentes: el primario siempre es violeta, el secundario no
+   compite con el contenido y todas las acciones conservan un objetivo tactil. */
+:is(
+  .growth-button,
+  .email-button,
+  .orch-button,
+  .jobs-button,
+  .automation-button,
+  .campaign-button,
+  .funnels-button,
+  .prospect-primary-button,
+  .prospect-import-button,
+  .prospect-ghost-button
+) {
+  min-height: 36px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+:is(
+  .growth-button.primary,
+  .email-button.primary,
+  .orch-button--primary,
+  .jobs-button.primary,
+  .automation-button.primary,
+  .campaign-button.primary,
+  .funnels-button.primary,
+  .prospect-primary-button,
+  .prospect-import-button
+) {
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  color: #fff;
+  background: linear-gradient(105deg, var(--accent-deep), var(--violet-deep));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-deep) 28%, transparent);
+}
+
+/* Una metrica debe adaptarse al espacio, no imponer columnas vacias. */
+:is(
+  .email-metrics,
+  .automation-metrics,
+  .campaign-metrics-row,
+  .funnels-metrics,
+  .gs-kpis
+) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+:is(
+  .email-metric,
+  .automation-metric,
+  .campaign-metric-card,
+  .funnels-metric,
+  .gs-kpi
+) {
+  min-width: 0;
+  border-color: var(--line-2);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+:is(
+  .email-metric,
+  .automation-metric,
+  .funnels-metric,
+  .gs-kpi
+) strong,
+.campaign-metric-value strong {
+  color: var(--text-strong);
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 800;
+  letter-spacing: -.55px;
+}
+
+/* El resumen de Growth mantiene una sola pieza de contexto, sin el exceso de
+   brillo que antes competia con la lista de programas. */
+.growth-command {
+  min-height: 124px;
+  border-radius: 14px;
+  background: linear-gradient(110deg, var(--surface-2), var(--surface));
+  box-shadow: none;
+}
+
+.growth-command::after { opacity: .38; }
+.growth-command-visual { opacity: .44; }
+.growth-page .growth-button.primary {
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  background: linear-gradient(105deg, var(--accent-deep), var(--violet-deep));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-deep) 28%, transparent);
+}
+
+.growth-list-panel,
+.growth-side-panel,
+.automation-library,
+.jobs-table-card,
+.prospect-table-card,
+.funnels-list-panel,
+.funnels-selection,
+.funnels-measurement,
+.orch-objective-panel,
+.orch-plan-summary,
+.orch-phase,
+.orch-rail-panel,
+.orch-empty-state,
+.orch-loading-state {
+  border-color: var(--line-2);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+/* Las pantallas de captacion comparten la misma columna que el resto. */
+.gs-page { font-size: 12px; }
+.gs-kpi::before { opacity: .55; }
+.gs-kpi::after { opacity: .06; }
+.gs-kpi:hover { transform: none; box-shadow: none; }
+
+/* Evita que las tablas se conviertan en una pagina horizontal completa. */
+:is(.automation-library, .jobs-table-card, .prospect-table-card, .funnels-list-panel) {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Los bloques largos se pintan cuando se aproximan al viewport. */
+:is(
+  .growth-workspace,
+  .email-main-grid,
+  .automation-library,
+  .campaigns-layout,
+  .prospect-table-card,
+  .funnels-workspace,
+  .orch-workspace
+) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 520px;
+}
+
+@media (max-width: 980px) {
+  :is(
+    .growth-page,
+    .email-page,
+    .jobs-page,
+    .automation-page,
+    .campaign-page,
+    .ads-dashboard,
+    .gs-page,
+    .prospect-page,
+    .funnels-page
+  ),
+  .orchestration-inner {
+    padding: 24px 22px 44px;
+  }
+
+  :is(.email-metrics, .automation-metrics, .campaign-metrics-row, .funnels-metrics, .gs-kpis) {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  :is(
+    .growth-page,
+    .email-page,
+    .jobs-page,
+    .automation-page,
+    .campaign-page,
+    .ads-dashboard,
+    .gs-page,
+    .prospect-page,
+    .funnels-page
+  ),
+  .orchestration-inner {
+    padding: 20px 14px 36px;
+  }
+
+  :is(
+    .growth-page,
+    .email-page,
+    .orchestration-page,
+    .jobs-page,
+    .automation-page,
+    .campaign-page,
+    .ads-dashboard,
+    .gs-page,
+    .prospect-page,
+    .funnels-page
+  ) .product-page-header__actions {
+    flex-wrap: wrap;
+  }
+
+  :is(.email-metrics, .automation-metrics, .campaign-metrics-row, .funnels-metrics, .gs-kpis) {
+    grid-template-columns: 1fr;
+  }
+
+  .growth-command-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .growth-page,
+    .email-page,
+    .orchestration-page,
+    .jobs-page,
+    .automation-page,
+    .campaign-page,
+    .ads-dashboard,
+    .gs-page,
+    .prospect-page,
+    .funnels-page
+  ) *,
+  :is(
+    .growth-page,
+    .email-page,
+    .orchestration-page,
+    .jobs-page,
+    .automation-page,
+    .campaign-page,
+    .ads-dashboard,
+    .gs-page,
+    .prospect-page,
+    .funnels-page
+  ) *::before,
+  :is(
+    .growth-page,
+    .email-page,
+    .orchestration-page,
+    .jobs-page,
+    .automation-page,
+    .campaign-page,
+    .ads-dashboard,
+    .gs-page,
+    .prospect-page,
+    .funnels-page
+  ) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

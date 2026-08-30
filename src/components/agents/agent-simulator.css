@@ -1,0 +1,96 @@
+.agent-simulator-panel { --sim-bg: var(--surface, #0d111c); --sim-surface: var(--surface-2, #111827); --sim-surface-soft: var(--surface-3, #151d2c); --sim-line: var(--line-2, #263249); --sim-muted: var(--dim, #71809b); --sim-text: var(--text, #bdc8dc); --sim-strong: var(--text-strong, #eef3ff); --sim-accent: var(--accent, #4f46e5); --sim-accent-soft: var(--accent-soft, #8b8cf6); --sim-cyan: var(--cyan, #22d3ee); --sim-green: var(--success, #34d399); min-width: 0; padding: 22px; border: 1px solid var(--line, #202b40); border-radius: 14px; color: var(--sim-text); background: radial-gradient(circle at 94% 0%, #4f46e51c, transparent 34%), var(--sim-bg); box-shadow: 0 16px 38px var(--shadow-color, #00000020); font-family: Inter, "SF Pro Display", "Segoe UI", system-ui, sans-serif; }
+.agent-simulator-header, .agent-simulator-toolbar, .agent-simulator-conversation-head, .agent-simulator-section-title, .agent-simulator-composer-actions, .agent-simulator-connection, .agent-simulator-scenario-copy, .agent-simulator-route { display: flex; align-items: center; }
+.agent-simulator-header { justify-content: space-between; gap: 18px; margin-bottom: 15px; }
+.agent-simulator-heading { min-width: 0; }
+.agent-simulator-kicker { display: inline-flex; align-items: center; gap: 6px; color: var(--sim-accent-soft); font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+.agent-simulator-kicker svg { width: 15px; height: 15px; }
+.agent-simulator-heading h2 { margin: 6px 0; color: var(--sim-strong); font-size: 22px; line-height: 1.25; letter-spacing: -.4px; }
+.agent-simulator-heading p { max-width: 630px; margin: 0; color: var(--sim-muted); font-size: 13px; line-height: 1.55; }
+.agent-simulator-connection { gap: 9px; min-width: 196px; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--sim-green) 28%, var(--sim-line)); border-radius: 9px; color: var(--sim-green); background: #10b9810d; }
+.agent-simulator-connection.is-connecting { color: var(--warn, #f59e0b); border-color: color-mix(in srgb, currentColor 30%, var(--sim-line)); background: #f59e0b0d; }
+.agent-simulator-connection.is-offline { color: var(--danger-soft, #fb7185); border-color: color-mix(in srgb, currentColor 30%, var(--sim-line)); background: #fb71850d; }
+.agent-simulator-connection-dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.agent-simulator-connection > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.agent-simulator-connection strong { color: var(--sim-text); font-size: 12px; }
+.agent-simulator-connection small { color: var(--sim-muted); font-size: 10px; }
+.agent-simulator-connection > svg { width: 16px; height: 16px; margin-left: auto; }
+.agent-simulator-toolbar { gap: 14px; padding: 13px; border: 1px solid var(--sim-line); border-radius: 10px; background: color-mix(in srgb, var(--sim-surface) 78%, transparent); }
+.agent-simulator-scenario { display: grid; gap: 6px; min-width: 210px; }
+.agent-simulator-scenario > span { color: var(--sim-muted); font-size: 10px; font-weight: 750; }
+.agent-simulator-scenario > div { position: relative; display: flex; align-items: center; }
+.agent-simulator-scenario select { width: 100%; height: 38px; padding: 0 32px 0 11px; appearance: none; border: 1px solid var(--sim-line); border-radius: 7px; outline: none; color: var(--sim-text); background: var(--sim-bg); font: inherit; font-size: 12px; cursor: pointer; }
+.agent-simulator-scenario select:focus { border-color: var(--sim-accent-soft); box-shadow: 0 0 0 2px #4f46e51c; }
+.agent-simulator-scenario svg { position: absolute; right: 10px; width: 16px; height: 16px; color: var(--sim-muted); pointer-events: none; }
+.agent-simulator-scenario-copy { gap: 6px; min-width: 0; color: var(--sim-muted); font-size: 11px; line-height: 1.4; }
+.agent-simulator-scenario-copy svg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--sim-green); }
+.agent-simulator-toolbar-actions { display: flex; gap: 7px; margin-left: auto; }
+.agent-simulator-secondary-button, .agent-simulator-primary-button, .agent-simulator-mic-button, .agent-simulator-send-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 12px; border-radius: 7px; font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; transition: transform .16s ease, filter .16s ease, border-color .16s ease, background .16s ease; }
+.agent-simulator-secondary-button { border: 1px solid var(--sim-line); color: var(--sim-text); background: var(--sim-surface-soft); }
+.agent-simulator-primary-button { border: 1px solid color-mix(in srgb, var(--sim-accent) 40%, var(--sim-line)); color: #fff; background: linear-gradient(90deg, #4338ca, var(--sim-accent)); }
+.agent-simulator-secondary-button:hover, .agent-simulator-primary-button:hover, .agent-simulator-mic-button:hover, .agent-simulator-send-button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+.agent-simulator-secondary-button svg, .agent-simulator-primary-button svg, .agent-simulator-mic-button svg, .agent-simulator-send-button svg { width: 15px; height: 15px; }
+.agent-simulator-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(245px, .65fr); gap: 10px; margin-top: 10px; }
+.agent-simulator-conversation, .agent-simulator-metrics, .agent-simulator-route-card { min-width: 0; border: 1px solid var(--sim-line); border-radius: 10px; background: var(--sim-surface); }
+.agent-simulator-conversation { display: flex; min-height: 460px; flex-direction: column; overflow: hidden; }
+.agent-simulator-conversation-head { justify-content: space-between; gap: 12px; padding: 12px 13px; border-bottom: 1px solid var(--sim-line); }
+.agent-simulator-conversation-head > div { display: grid; gap: 3px; min-width: 0; }
+.agent-simulator-conversation-head span:first-child { color: var(--sim-accent-soft); font-size: 10px; font-weight: 800; letter-spacing: .8px; }
+.agent-simulator-conversation-head strong { color: var(--sim-strong); font-size: 13px; }
+.agent-simulator-local-badge { flex: 0 0 auto; padding: 5px 8px; border: 1px solid #22d3ee26; border-radius: 99px; color: var(--sim-cyan); background: #22d3ee0b; font-size: 10px; font-weight: 750; }
+.agent-simulator-messages { display: grid; align-content: start; gap: 14px; min-height: 0; flex: 1; padding: 16px 14px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--sim-line) transparent; }
+.agent-simulator-message { display: flex; align-items: flex-start; gap: 9px; max-width: 88%; }
+.agent-simulator-message.is-user { margin-left: auto; flex-direction: row-reverse; }
+.agent-simulator-message-avatar { display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 auto; border: 1px solid var(--sim-line); border-radius: 8px; color: var(--sim-accent-soft); background: #4f46e514; }
+.agent-simulator-message.is-user .agent-simulator-message-avatar { color: var(--sim-cyan); background: #22d3ee12; }
+.agent-simulator-message-avatar svg { width: 14px; height: 14px; }
+.agent-simulator-message-body { min-width: 0; }
+.agent-simulator-message-meta { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.agent-simulator-message-meta strong { color: var(--sim-text); font-size: 12px; }
+.agent-simulator-message-meta span { color: var(--sim-muted); font-size: 10px; }
+.agent-simulator-message-body p { margin: 0; padding: 10px 11px; border: 1px solid var(--sim-line); border-radius: 8px 10px 10px 2px; color: var(--sim-text); background: var(--sim-surface-soft); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.agent-simulator-message.is-user .agent-simulator-message-body { text-align: right; }
+.agent-simulator-message.is-user .agent-simulator-message-meta { justify-content: flex-end; }
+.agent-simulator-message.is-user .agent-simulator-message-body p { border-color: #4f46e13d; border-radius: 10px 8px 2px 10px; color: #f1f2ff; background: #4f46e51f; text-align: left; }
+.agent-simulator-thinking { display: inline-flex; align-items: center; gap: 6px; color: var(--sim-muted); font-size: 11px; }
+.agent-simulator-thinking svg { width: 14px; height: 14px; color: var(--sim-accent-soft); animation: agent-simulator-spin 1s linear infinite; }
+.agent-simulator-composer { display: grid; gap: 9px; padding: 11px; border-top: 1px solid var(--sim-line); background: color-mix(in srgb, var(--sim-bg) 55%, var(--sim-surface)); }
+.agent-simulator-composer textarea { width: 100%; box-sizing: border-box; min-height: 64px; padding: 10px 11px; resize: vertical; border: 1px solid var(--sim-line); border-radius: 8px; outline: none; color: var(--sim-text); background: var(--sim-bg); font: inherit; font-size: 12px; line-height: 1.5; }
+.agent-simulator-composer textarea::placeholder { color: var(--sim-muted); }
+.agent-simulator-composer textarea:focus { border-color: var(--sim-accent-soft); box-shadow: 0 0 0 2px #4f46e51c; }
+.agent-simulator-composer textarea:disabled { cursor: not-allowed; opacity: .62; }
+.agent-simulator-composer-actions { justify-content: flex-end; gap: 7px; }
+.agent-simulator-mic-button { border: 1px solid var(--sim-line); color: var(--sim-text); background: transparent; }
+.agent-simulator-mic-button.is-listening { border-color: color-mix(in srgb, var(--sim-cyan) 40%, var(--sim-line)); color: var(--sim-cyan); background: #22d3ee0d; }
+.agent-simulator-send-button { min-width: 75px; border: 1px solid color-mix(in srgb, var(--sim-accent) 40%, var(--sim-line)); color: #fff; background: var(--sim-accent); }
+.agent-simulator-send-button:disabled { cursor: not-allowed; opacity: .42; }
+.agent-simulator-send-button .is-spinning { animation: agent-simulator-spin 1s linear infinite; }
+.agent-simulator-composer-foot { display: flex; justify-content: space-between; gap: 8px; padding: 0 11px 12px; color: var(--sim-muted); font-size: 9px; background: color-mix(in srgb, var(--sim-bg) 55%, var(--sim-surface)); }
+.agent-simulator-rail { display: grid; align-content: start; gap: 10px; min-width: 0; }
+.agent-simulator-metrics, .agent-simulator-route-card { padding: 13px; }
+.agent-simulator-section-title { justify-content: space-between; gap: 8px; margin-bottom: 11px; }
+.agent-simulator-section-title span { color: var(--sim-accent-soft); font-size: 10px; font-weight: 800; letter-spacing: .8px; }
+.agent-simulator-section-title svg { width: 16px; height: 16px; color: var(--sim-cyan); }
+.agent-simulator-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.agent-simulator-metric { display: grid; gap: 5px; min-width: 0; padding: 11px; border: 1px solid var(--sim-line); border-radius: 8px; background: var(--sim-bg); }
+.agent-simulator-metric > svg { width: 16px; height: 16px; color: var(--sim-cyan); }
+.agent-simulator-metric span { color: var(--sim-muted); font-size: 10px; line-height: 1.35; }
+.agent-simulator-metric strong { color: var(--sim-strong); font-size: 19px; letter-spacing: -.2px; }
+.agent-simulator-metric small { color: var(--sim-muted); font-size: 9px; line-height: 1.35; }
+.agent-simulator-route { gap: 8px; }
+.agent-simulator-route > span { display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 auto; border-radius: 8px; color: var(--sim-accent-soft); background: #4f46e514; }
+.agent-simulator-route > span.is-cyan { color: var(--sim-cyan); background: #22d3ee12; }
+.agent-simulator-route > span.is-green { color: var(--sim-green); background: #10b98112; }
+.agent-simulator-route > span svg { width: 14px; height: 14px; }
+.agent-simulator-route > div { display: grid; min-width: 0; gap: 2px; }
+.agent-simulator-route strong { color: var(--sim-text); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+.agent-simulator-route small { color: var(--sim-muted); font-size: 10px; line-height: 1.4; }
+.agent-simulator-route-line { display: block; height: 13px; margin-left: 13px; border-left: 1px dashed var(--sim-line); }
+.agent-simulator-notice { min-height: 32px; padding: 10px 11px; border: 1px dashed var(--sim-line); border-radius: 8px; color: var(--sim-muted); background: color-mix(in srgb, var(--sim-surface) 70%, transparent); font-size: 11px; line-height: 1.45; }
+.agent-simulator-notice.is-visible { border-style: solid; color: var(--sim-text); }
+@keyframes agent-simulator-spin { to { transform: rotate(360deg); } }
+@media (max-width: 900px) { .agent-simulator-layout { grid-template-columns: 1fr; } .agent-simulator-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } .agent-simulator-notice { grid-column: 1 / -1; } }
+@media (max-width: 680px) { .agent-simulator-panel { padding: 16px; } .agent-simulator-header { align-items: flex-start; flex-direction: column; } .agent-simulator-connection { width: 100%; box-sizing: border-box; } .agent-simulator-toolbar { align-items: stretch; flex-direction: column; } .agent-simulator-scenario { min-width: 0; } .agent-simulator-scenario-copy { min-height: 20px; } .agent-simulator-toolbar-actions { width: 100%; margin-left: 0; } .agent-simulator-toolbar-actions > * { flex: 1; } .agent-simulator-rail { grid-template-columns: 1fr; } .agent-simulator-notice { grid-column: auto; } .agent-simulator-message { max-width: 96%; } .agent-simulator-conversation { min-height: 470px; } .agent-simulator-composer-foot { flex-direction: column; gap: 3px; } }
+
+.agent-simulator-panel { container-type: inline-size; }
+@container (max-width: 900px) { .agent-simulator-layout { grid-template-columns: 1fr; } .agent-simulator-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } .agent-simulator-notice { grid-column: 1 / -1; } }
+@container (max-width: 680px) { .agent-simulator-panel { padding: 16px; } .agent-simulator-header { align-items: flex-start; flex-direction: column; } .agent-simulator-connection { width: 100%; box-sizing: border-box; } .agent-simulator-toolbar { align-items: stretch; flex-direction: column; } .agent-simulator-scenario { min-width: 0; } .agent-simulator-scenario-copy { min-height: 20px; } .agent-simulator-toolbar-actions { width: 100%; margin-left: 0; } .agent-simulator-toolbar-actions > * { flex: 1; } .agent-simulator-rail { grid-template-columns: 1fr; } .agent-simulator-notice { grid-column: auto; } .agent-simulator-message { max-width: 96%; } .agent-simulator-conversation { min-height: 470px; } .agent-simulator-composer-foot { flex-direction: column; gap: 3px; } }

@@ -47,6 +47,40 @@ function computeQuickScore(p: { website: string | null; rating: number | null; u
   return Math.max(0, Math.min(100, score))
 }
 
+/**
+ * Estado de EE. UU. a partir del `formattedAddress` de Places.
+ *
+ * No es cosmético: `leadEnrichment` deriva la zona horaria del lead de este
+ * campo (`timeZoneForState`), y `canCall` se niega a marcar un +1 sin zona
+ * conocida porque no puede probar la hora local. Sin estado, el lead se importa
+ * bien, se audita bien, y no se le llama nunca — sin error visible.
+ *
+ * Places devuelve la dirección estadounidense como
+ * `"123 Main St, Brooklyn, NY 11201, USA"`, a veces sin código postal y a veces
+ * sin el país. Se acepta cualquiera de las tres formas y nada más: ante la duda
+ * es mejor devolver null —el lead va a la cola de correo— que inventarse un
+ * huso y llamar fuera de la franja legal.
+ */
+const US_STATE_IN_ADDRESS = /,\s*([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?\s*(?:,\s*(?:USA|US|United States))?\s*$/
+
+// La forma no basta: "221B Baker Street, London, UK" también acaba en dos
+// mayúsculas tras una coma. Se contrasta contra los códigos reales para no
+// guardar basura en el lead.
+const US_STATES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'DC',
+])
+
+export function stateFromAddress(address?: string | null): string | null {
+  if (typeof address !== 'string') return null
+  const match = address.trim().match(US_STATE_IN_ADDRESS)?.[1]
+  return match && US_STATES.has(match) ? match : null
+}
+
 export class ProspectingUnavailable extends Error {
   constructor(message: string, public readonly code: 'PROSPECTING_NOT_CONFIGURED' | 'PROSPECTING_UNAVAILABLE' = 'PROSPECTING_UNAVAILABLE') {
     super(message)
@@ -68,7 +102,12 @@ export async function searchProspects(opts: {
     )
   }
 
-  const { sector, city, limit = 20 } = opts
+  const { sector, city, country, limit = 20 } = opts
+  // `country` llegaba y no se usaba. Importa por el conector: Places interpreta
+  // la consulta en lenguaje natural, y "marketing agency en New York" mezcla
+  // dos idiomas y degrada el resultado. Sin país se mantiene el comportamiento
+  // de siempre (español), que es lo que usa la operación en España.
+  const connector = country && !/^es$/i.test(country.trim()) ? 'in' : 'en'
   const res = await fetch(PLACES_SEARCH_URL, {
     method: 'POST',
     headers: {
@@ -76,7 +115,9 @@ export async function searchProspects(opts: {
       'X-Goog-Api-Key': apiKey,
       'X-Goog-FieldMask': FIELD_MASK,
     },
-    body: JSON.stringify({ textQuery: `${sector} en ${city}`, maxResultCount: Math.min(limit, 20) }),
+    // Places Text Search no pagina aquí: 20 resultados por consulta es el techo.
+    // Para cubrir un mercado se repite la consulta variando sector y ciudad.
+    body: JSON.stringify({ textQuery: `${sector} ${connector} ${city}`, maxResultCount: Math.min(limit, 20) }),
   })
 
   if (!res.ok) {

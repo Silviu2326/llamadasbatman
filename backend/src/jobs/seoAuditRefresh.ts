@@ -68,6 +68,7 @@ async function notifyOrg(orgId: string, incidents: Incident[]) {
       to,
       subject: incident.subject,
       html: `<p>${incident.body}</p><p style="color:#888;font-size:12px">Vigilancia SEO automática de Vendrava.</p>`,
+      usage: { orgId, capability: 'email.transactional' },
     })
   }
 }

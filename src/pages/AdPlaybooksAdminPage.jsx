@@ -6,6 +6,7 @@ import {
 } from 'react-icons/ri'
 import '../dashboard.css'
 import { useI18n } from '../i18n'
+import PageLoadingState from '../components/ui/PageLoadingState'
 
 const EMPTY = {
   vertical: '',
@@ -108,11 +109,7 @@ export default function AdPlaybooksAdminPage() {
   }
 
   if (loading) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)', fontSize: 14, background: 'var(--bg)' }}>
-        {t('common.loading')}
-      </div>
-    )
+    return <PageLoadingState label={t('common.loading')} />
   }
 
   return (

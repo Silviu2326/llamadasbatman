@@ -1,22 +1,21 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ExperienceProvider } from './contexts/ExperienceContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const Campaigns = lazy(() => import('./components/Campaigns'))
 const Calls = lazy(() => import('./components/Calls'))
-const Leads = lazy(() => import('./components/Leads'))
 const Agentes = lazy(() => import('./components/Agentes'))
-const Pipeline = lazy(() => import('./components/Pipeline'))
-const Reuniones = lazy(() => import('./components/Reuniones'))
-const Playbooks = lazy(() => import('./components/Playbooks'))
 const Insights = lazy(() => import('./components/Insights'))
-const Automatizaciones = lazy(() => import('./components/Automatizaciones'))
-const KnowledgeBase = lazy(() => import('./components/KnowledgeBase'))
+const BusinessProfilePage = lazy(() => import('./pages/BusinessProfilePage'))
+const WebsiteIntakePage = lazy(() => import('./pages/WebsiteIntakePage'))
 const Configuracion = lazy(() => import('./components/Configuracion'))
 const AgentDetailPage = lazy(() => import('./pages/AgentDetailPage'))
+const VoiceCabinPage = lazy(() => import('./pages/VoiceCabinPage'))
 const LeadDetailPage = lazy(() => import('./pages/LeadDetailPage'))
 const CampaignDetailPage = lazy(() => import('./pages/CampaignDetailPage'))
 const CallDetailPage = lazy(() => import('./pages/CallDetailPage'))
@@ -25,10 +24,17 @@ const AutomacionDetailPage = lazy(() => import('./pages/AutomacionDetailPage'))
 const ArticleDetailPage = lazy(() => import('./pages/ArticleDetailPage'))
 const PlaybookDetailPage = lazy(() => import('./pages/PlaybookDetailPage'))
 const OpportunityDetailPage = lazy(() => import('./pages/OpportunityDetailPage'))
-const VoiceTestPage = lazy(() => import('./pages/VoiceTestPage'))
-const VoiceLabPage = lazy(() => import('./pages/VoiceLabPage'))
+const GrowthPlanPage = lazy(() => import('./pages/GrowthPlanPage'))
 const ProspectFinderPage = lazy(() => import('./pages/ProspectFinderPage'))
-const SeoPage = lazy(() => import('./pages/SeoPage'))
+// Growth se fundió en dos páginas (2026-08): «Orgánico y social» (centro de
+// mando orgánico + redes) y «Web y SEO» (landings + SEO). Las rutas viejas
+// redirigen conservando la query para enlaces guardados, correos y microapps.
+const OrganicSocialPage = lazy(() => import('./pages/organico/OrganicSocialPage'))
+const WebSeoPage = lazy(() => import('./pages/web/WebSeoPage'))
+// Y después las seis etapas del recorrido pasaron a vivir bajo una sola
+// sección, /captacion: barra de etapas fija y cada etapa como ruta anidada.
+const CaptacionPage = lazy(() => import('./pages/captacion/CaptacionPage'))
+const CaptacionOverview = lazy(() => import('./pages/captacion/CaptacionOverview'))
 const PublicSeoAuditPage = lazy(() => import('./pages/PublicSeoAuditPage'))
 const PublicSeoReportPage = lazy(() => import('./pages/PublicSeoReportPage'))
 const PublicBlogIndexPage = lazy(() => import('./pages/PublicBlogPage').then(module => ({ default: module.PublicBlogIndexPage })))
@@ -36,29 +42,50 @@ const PublicBlogPostPage = lazy(() => import('./pages/PublicBlogPage').then(modu
 const PublicLandingPage = lazy(() => import('./pages/PublicLandingPage'))
 const PublicCampaignSharePage = lazy(() => import('./pages/PublicCampaignSharePage'))
 const PublicContentApprovalPage = lazy(() => import('./pages/PublicContentApprovalPage'))
-const LandingsPage = lazy(() => import('./pages/LandingsPage'))
+const PublicStudioReviewPage = lazy(() => import('./pages/PublicStudioReviewPage'))
 const MetaAccountPage = lazy(() => import('./pages/MetaAccountPage'))
-const ConectarRedesPage = lazy(() => import('./pages/ConectarRedesPage'))
 const EmailMarketingPage = lazy(() => import('./pages/EmailMarketingPage'))
 const AdPlaybooksAdminPage = lazy(() => import('./pages/AdPlaybooksAdminPage'))
 const AdsWizardPage = lazy(() => import('./pages/AdsWizardPage'))
-const AdsPage = lazy(() => import('./pages/AdsPage'))
+const AdsPage = lazy(() => import('./pages/ads/AdsPage'))
 const FunnelsPage = lazy(() => import('./pages/FunnelsPage'))
-const ConversationsInboxPage = lazy(() => import('./pages/ConversationsInboxPage'))
 const GrowthHubPage = lazy(() => import('./pages/GrowthHubPage'))
-const RevenueIntelligencePage = lazy(() => import('./pages/RevenueIntelligencePage'))
 const EnterpriseGovernancePage = lazy(() => import('./pages/EnterpriseGovernancePage'))
 const AccessControlPage = lazy(() => import('./pages/AccessControlPage'))
+const AgencyWhiteLabelPage = lazy(() => import('./pages/AgencyWhiteLabelPage'))
+const DeveloperPortalPage = lazy(() => import('./pages/DeveloperPortalPage'))
 import NotFoundPage from './pages/NotFoundPage'
-// Si la página no está en este checkout, `organicPage` resuelve a null: la ruta cae al 404 en vez de romper el render.
-const OrganicLeadsPage = lazy(() => import('./lib/organicPage').then(module => ({ default: module.OrganicLeadsPage || NotFoundPage })))
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import AdminRoute from './components/AdminRoute'
-const OrchestrationPage = lazy(() => import('./pages/OrchestrationPage'))
+import PageLoadingState from './components/ui/PageLoadingState'
+const GrowthOperationsPage = lazy(() => import('./pages/GrowthOperationsPage'))
+const AssetsLibraryPage = lazy(() => import('./pages/AssetsLibraryPage'))
+const MicroappsCatalogPage = lazy(() => import('./pages/MicroappsCatalogPage'))
+const MicroappRunnerPage = lazy(() => import('./pages/MicroappRunnerPage'))
+const ConnectionsCenterPage = lazy(() => import('./pages/ConnectionsCenterPage'))
+const StudioPage = lazy(() => import('./pages/StudioPage'))
+const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
+import SongStudioPage from './pages/SongStudioPage'
+const AccountsPage = lazy(() => import('./pages/AccountsPage'))
+const SalesHubPage = lazy(() => import('./pages/SalesHubPage'))
+const SalesResourcesPage = lazy(() => import('./pages/SalesResourcesPage'))
+const SalesCalendarPage = lazy(() => import('./pages/SalesCalendarPage'))
+const SalesRecordDetailPage = lazy(() => import('./pages/SalesRecordDetailPage'))
+const CapabilitiesHubPage = lazy(() => import('./pages/CapabilitiesHubPage'))
+const LearnCenterPage = lazy(() => import('./pages/LearnCenterPage'))
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { I18nProvider } from './i18n'
 import { LegacyDomTranslation } from './i18n/legacyDomTranslation'
+
+/** Ruta antigua → página fundida, conservando query y hash y fijando la pestaña si no viene. */
+function LegacyRedirect({ to, tab, paramKey = 'tab' }) {
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  if (tab && !params.has(paramKey)) params.set(paramKey, tab)
+  const search = params.toString()
+  return <Navigate to={`${to}${search ? `?${search}` : ''}${location.hash}`} replace />
+}
 
 export default function App() {
   return (
@@ -68,9 +95,13 @@ export default function App() {
         <AuthProvider>
           <ExperienceProvider>
             <BrowserRouter>
-            <Suspense fallback={<div className="app-route-loading" role="status">Cargando…</div>}>
+            <Suspense fallback={<PageLoadingState label="Cargando página" />}>
             <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/canciones" element={<SongStudioPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/l/:slug" element={<PublicLandingPage />} />
           <Route path="/audita/:slug" element={<PublicSeoAuditPage />} />
           <Route path="/seo-informe/:token" element={<PublicSeoReportPage />} />
@@ -80,23 +111,63 @@ export default function App() {
           {/* Sala de aprobación para clientes de agencias (roadmap.md fase 3):
               pública a propósito, la autorización es el token. */}
           <Route path="/aprobar/:token" element={<PublicContentApprovalPage />} />
+          <Route path="/revisar/studio/:token" element={<PublicStudioReviewPage />} />
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/terminos" element={<TermsPage />} />
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/orquestador" element={<OrchestrationPage />} />
-            <Route path="/campanas" element={<Campaigns />} />
-            <Route path="/landings" element={<LandingsPage />} />
+            <Route path="/orquestador" element={<LegacyRedirect to="/operaciones-growth" />} />
+            <Route path="/captacion" element={<CaptacionPage />}>
+              <Route index element={<CaptacionOverview />} />
+              <Route path="planificar" element={<Campaigns />} />
+              <Route path="atraer" element={<Navigate to="/captacion/atraer/ads" replace />} />
+              <Route path="atraer/ads" element={<AdsPage />} />
+              <Route path="atraer/organico" element={<OrganicSocialPage />} />
+              <Route path="atraer/prospectos" element={<ProspectFinderPage />} />
+              <Route path="convertir" element={<WebSeoPage />} />
+              <Route path="cerrar" element={<FunnelsPage />} />
+            </Route>
+            <Route path="/campanas" element={<LegacyRedirect to="/captacion/planificar" />} />
+            <Route path="/ads" element={<LegacyRedirect to="/captacion/atraer/ads" />} />
+            <Route path="/prospectos" element={<LegacyRedirect to="/captacion/atraer/prospectos" />} />
+            <Route path="/organico" element={<LegacyRedirect to="/captacion/atraer/organico" />} />
+            <Route path="/organic" element={<LegacyRedirect to="/captacion/atraer/organico" />} />
+            <Route path="/redes-sociales" element={<LegacyRedirect to="/captacion/atraer/organico" tab="contenido" />} />
+            <Route path="/web" element={<LegacyRedirect to="/captacion/convertir" />} />
+            <Route path="/landings" element={<LegacyRedirect to="/captacion/convertir" tab="landings" />} />
+            <Route path="/seo" element={<LegacyRedirect to="/captacion/convertir" tab="seo" />} />
+            <Route path="/funnels" element={<LegacyRedirect to="/captacion/cerrar" />} />
             <Route path="/llamadas" element={<Calls />} />
-            <Route path="/leads" element={<Leads />} />
+            <Route path="/ventas" element={<SalesHubPage />} />
+            <Route path="/ventas/:entity/:id" element={<SalesRecordDetailPage />} />
+            <Route path="/leads" element={<Navigate to="/ventas?vista=leads" replace />} />
+            <Route path="/cuentas" element={<Navigate to="/ventas?vista=accounts" replace />} />
+            <Route path="/cuentas/:id" element={<AccountsPage />} />
             <Route path="/agentes" element={<Agentes />} />
-            <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/reuniones" element={<Reuniones />} />
-            <Route path="/playbooks" element={<Playbooks />} />
+            <Route path="/pipeline" element={<Navigate to="/ventas?vista=pipeline" replace />} />
+            <Route path="/calendario" element={<SalesCalendarPage />} />
+            <Route path="/reuniones" element={<Navigate to="/calendario" replace />} />
+            <Route path="/playbooks" element={<LegacyRedirect to="/recursos-ia" tab="playbooks" />} />
             <Route path="/insights" element={<Insights />} />
-            <Route path="/automatizaciones" element={<Automatizaciones />} />
-            <Route path="/knowledge-base" element={<KnowledgeBase />} />
+            <Route path="/automatizaciones" element={<LegacyRedirect to="/operaciones-growth" tab="automatizaciones" />} />
+            <Route path="/knowledge-base" element={<LegacyRedirect to="/recursos-ia" />} />
+            <Route path="/recursos-ia" element={<SalesResourcesPage />} />
+            <Route path="/trabajos" element={<LegacyRedirect to="/operaciones-growth" tab="trabajos" />} />
+            <Route path="/operaciones-growth" element={<GrowthOperationsPage />} />
+            <Route path="/activos" element={<AssetsLibraryPage />} />
+            <Route path="/microapps" element={<MicroappsCatalogPage />} />
+            <Route path="/microapps/:id" element={<MicroappRunnerPage />} />
+            <Route path="/conexiones" element={<ConnectionsCenterPage />} />
+            <Route path="/studio" element={<StudioPage />} />
+            <Route path="/studio/:id" element={<StudioPage />} />
+            <Route path="/marketplace" element={<MarketplacePage />} />
+            <Route path="/marketplace/:id" element={<MarketplacePage />} />
+            <Route path="/capacidades" element={<CapabilitiesHubPage />} />
+            <Route path="/aprender" element={<LearnCenterPage />} />
+            <Route path="/tutoriales" element={<LegacyRedirect to="/aprender" />} />
+            <Route path="/documentacion" element={<LegacyRedirect to="/aprender" tab="documentacion" />} />
+            <Route path="/informacion-empresa" element={<BusinessProfilePage />} />
+            <Route path="/rellenar-desde-web" element={<WebsiteIntakePage />} />
             <Route path="/configuracion" element={<Configuracion />} />
             <Route path="/agentes/:id" element={<AgentDetailPage />} />
             <Route path="/leads/:id" element={<LeadDetailPage />} />
@@ -107,23 +178,18 @@ export default function App() {
             <Route path="/knowledge-base/articulos/:id" element={<ArticleDetailPage />} />
             <Route path="/playbooks/:id" element={<PlaybookDetailPage />} />
             <Route path="/pipeline/:id" element={<OpportunityDetailPage />} />
-            <Route path="/voz/test" element={<VoiceTestPage />} />
-            <Route path="/voz/lab" element={<VoiceLabPage />} />
-            <Route path="/voz/omni" element={<VoiceLabPage />} />
-            <Route path="/prospectos" element={<ProspectFinderPage />} />
-            <Route path="/organic" element={<OrganicLeadsPage />} />
-            <Route path="/seo" element={<SeoPage />} />
+            <Route path="/voz/cabina" element={<VoiceCabinPage />} />
+            <Route path="/plan" element={<GrowthPlanPage />} />
             <Route path="/captacion/conectar" element={<MetaAccountPage />} />
-            <Route path="/redes-sociales" element={<ConectarRedesPage />} />
             <Route path="/email-marketing" element={<EmailMarketingPage />} />
             <Route path="/captacion/nueva" element={<AdsWizardPage />} />
-            <Route path="/ads" element={<AdsPage />} />
-            <Route path="/funnels" element={<FunnelsPage />} />
-            <Route path="/conversacion/inbox" element={<ConversationsInboxPage />} />
+            <Route path="/conversacion/inbox" element={<Navigate to="/llamadas" replace />} />
             <Route path="/growth" element={<GrowthHubPage />} />
-            <Route path="/inteligencia-comercial" element={<RevenueIntelligencePage />} />
+            <Route path="/inteligencia-comercial" element={<LegacyRedirect to="/ventas" tab="inteligencia" paramKey="vista" />} />
             <Route path="/gobierno-empresarial" element={<AdminRoute permission="governance.read"><EnterpriseGovernancePage /></AdminRoute>} />
             <Route path="/access-control" element={<AdminRoute permission="access_control.read"><AccessControlPage /></AdminRoute>} />
+            <Route path="/agencia/clientes" element={<AgencyWhiteLabelPage />} />
+            <Route path="/desarrolladores" element={<DeveloperPortalPage />} />
             <Route path="/admin/ad-playbooks" element={<AdminRoute><AdPlaybooksAdminPage /></AdminRoute>} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />

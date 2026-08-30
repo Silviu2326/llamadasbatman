@@ -3,6 +3,11 @@ import { prisma } from '../lib/prisma'
 import { assertEmailSendAllowed } from '../lib/emailCompliance'
 import { createEmailDelivery, sendEmailToLead } from './mauticSync.service'
 import { createSystemTask } from './tasks.service'
+import { consentGranted } from './conversations.service'
+import { sendWhatsApp } from './whatsapp.service'
+import { OutboundEmailError, sendOutboundEmail } from './outboundEmail.service'
+import { enqueueLeadCall } from '../jobs/leadCallDispatch'
+import { canCall } from '../voice/compliance'
 
 const DAY_MS = 86_400_000
 const DEFAULT_LEASE_MS = 60_000
@@ -10,12 +15,25 @@ const MAX_LEADS_PER_ENROLLMENT = 1_000
 const MAX_STEPS = 20
 const WORKER_ID = process.env.SALES_SEQUENCE_WORKER_ID?.trim() || `sales-sequence-${process.pid}`
 
-export type SalesSequenceStepType = 'email' | 'task' | 'meeting'
+/**
+ * `call` y `whatsapp` no traen motor propio: reutilizan la cola de llamadas
+ * (`enqueueLeadCall`, con el agente de voz al otro lado) y `sendWhatsApp`, con
+ * las mismas puertas de consentimiento que usa la bandeja de entrada. Una
+ * secuencia puede así enviar dos emails y llamar al tercer día sin que exista
+ * un segundo camino de envío que mantener.
+ */
+export type SalesSequenceStepType = 'email' | 'task' | 'meeting' | 'call' | 'whatsapp' | 'ai_email'
+
+const STEP_TYPES: SalesSequenceStepType[] = ['email', 'task', 'meeting', 'call', 'whatsapp', 'ai_email']
+
+/** Canales que exigen teléfono del lead, para el aviso temprano al matricular. */
+const PHONE_STEP_TYPES: SalesSequenceStepType[] = ['call', 'whatsapp']
 
 export interface SalesSequenceStepConfig {
   key?: string
   type: SalesSequenceStepType
   delayDays?: number
+  /** Plantilla del proveedor: id de Mautic en `email`, contentSid en `whatsapp`. */
   templateExternalId?: string
   purpose?: string
   title?: string
@@ -23,6 +41,8 @@ export interface SalesSequenceStepConfig {
   priority?: 'low' | 'normal' | 'high' | 'urgent'
   durationMinutes?: number
   meetingUrl?: string
+  /** Texto libre de WhatsApp: solo se entrega dentro de la ventana de 24 h. */
+  body?: string
 }
 
 export class SalesSequenceError extends Error {
@@ -51,7 +71,7 @@ function readConfig(config: unknown): { leadIds: string[]; steps: SalesSequenceS
   const steps = rawSteps.map((rawStep, index) => {
     const step = asObject(rawStep)
     const type = String(step.type ?? step.kind ?? '').trim() as SalesSequenceStepType
-    if (!['email', 'task', 'meeting'].includes(type)) {
+    if (!STEP_TYPES.includes(type)) {
       throw new SalesSequenceError('SEQUENCE_STEP_TYPE_INVALID', `Tipo de paso no soportado en la posición ${index + 1}.`)
     }
     const delayDays = Number(step.delayDays ?? 0)
@@ -69,12 +89,20 @@ function readConfig(config: unknown): { leadIds: string[]; steps: SalesSequenceS
       priority: ['low', 'normal', 'high', 'urgent'].includes(String(step.priority)) ? String(step.priority) as SalesSequenceStepConfig['priority'] : undefined,
       durationMinutes: Number.isInteger(Number(step.durationMinutes)) ? Number(step.durationMinutes) : undefined,
       meetingUrl: typeof step.meetingUrl === 'string' ? step.meetingUrl.trim() : undefined,
+      body: typeof step.body === 'string' ? step.body.trim().slice(0, 1_000) : undefined,
     }
     if (type === 'email' && !parsed.templateExternalId) {
       throw new SalesSequenceError('SEQUENCE_TEMPLATE_REQUIRED', `El paso de email ${index + 1} necesita templateExternalId.`)
     }
     if ((type === 'task' || type === 'meeting') && !parsed.title) {
       throw new SalesSequenceError('SEQUENCE_TITLE_REQUIRED', `El paso ${index + 1} necesita un título.`)
+    }
+    // WhatsApp sin plantilla solo se entrega dentro de la ventana de 24 h desde
+    // el último mensaje entrante. Un paso programado a días vista casi nunca
+    // cae dentro, así que se exige plantilla al configurarlo en lugar de
+    // fallar en ejecución delante del cliente.
+    if (type === 'whatsapp' && !parsed.templateExternalId) {
+      throw new SalesSequenceError('SEQUENCE_TEMPLATE_REQUIRED', `El paso de WhatsApp ${index + 1} necesita una plantilla aprobada (contentSid).`)
     }
     return parsed
   })
@@ -108,22 +136,32 @@ export async function enrollSalesSequence(
 
   const leads = await prisma.lead.findMany({
     where: { orgId, id: { in: selectedLeadIds } },
-    select: { id: true, email: true, ownerId: true },
+    select: { id: true, email: true, phone: true, ownerId: true },
   })
   if (leads.length !== selectedLeadIds.length) throw new SalesSequenceError('SEQUENCE_LEAD_NOT_FOUND', 'Uno o más leads no pertenecen a la organización.')
 
-  const requiresEmail = steps.some(step => step.type === 'email')
+  // `ai_email` también escribe: pasa por la misma barrera de consentimiento
+  // que un envío con plantilla, aunque el cuerpo lo redacte el modelo.
+  const requiresEmail = steps.some(step => step.type === 'email' || step.type === 'ai_email')
+  const requiresPhone = steps.some(step => PHONE_STEP_TYPES.includes(step.type))
   let created = 0
   let alreadyEnrolled = 0
   let blocked = 0
   const enrolledAt = new Date()
 
   for (const lead of leads) {
-    const consent = requiresEmail
-      ? await assertEmailSendAllowed(orgId, lead.id, steps.find(step => step.type === 'email')?.purpose || 'marketing')
+    const emailConsent = requiresEmail
+      ? await assertEmailSendAllowed(orgId, lead.id, steps.find(step => step.type === 'email' || step.type === 'ai_email')?.purpose || 'marketing')
       : { allowed: true as const }
+    // Sin teléfono, un paso de llamada o WhatsApp no puede ejecutarse nunca:
+    // se dice al matricular y no días después, cuando ya nadie mira.
+    const consent = emailConsent.allowed && requiresPhone && !lead.phone
+      ? { allowed: false as const, reason: 'lead_phone_missing' }
+      : emailConsent
     const enrollmentStatus = consent.allowed ? 'active' : 'blocked'
-    const reason = consent.allowed ? null : `EMAIL_${consent.reason.toUpperCase()}`
+    const reason = consent.allowed
+      ? null
+      : consent.reason === 'lead_phone_missing' ? 'LEAD_PHONE_MISSING' : `EMAIL_${consent.reason.toUpperCase()}`
     const existing = await prisma.salesSequenceEnrollment.findUnique({
       where: { programId_leadId: { programId, leadId: lead.id } },
       select: { id: true },
@@ -157,7 +195,11 @@ export async function enrollSalesSequence(
           dueAt: nextRunAtForStep(enrolledAt, steps, index),
           availableAt: nextRunAtForStep(enrolledAt, steps, index),
           lastErrorCode: reason,
-          lastError: reason ? 'El consentimiento de email bloquea la secuencia.' : undefined,
+          lastError: reason
+            ? reason === 'LEAD_PHONE_MISSING'
+              ? 'El lead no tiene teléfono y la secuencia incluye llamada o WhatsApp.'
+              : 'El consentimiento de email bloquea la secuencia.'
+            : undefined,
         })),
       })
     })
@@ -284,6 +326,74 @@ async function executeClaimedStep(stepId: string, workerId: string): Promise<voi
       if (latest?.status === 'accepted' || latest?.status === 'delivered') return markStepSuccess(stepId, { emailDeliveryId: delivery.id, providerMessageId: latest.providerMessageId ?? null })
       if (latest?.status === 'uncertain') return markStepBlocked(stepId, 'EMAIL_OUTCOME_UNKNOWN', 'El proveedor no confirmó el resultado; requiere revisión antes de reintentar.')
       return scheduleStepRetry(stepId, current.attempts, 'EMAIL_NOT_ACCEPTED', 'El proveedor no aceptó todavía el email.')
+    }
+
+    // Se redacta aquí y no al matricular: la auditoría del día en que toca
+    // escribir es la buena. Entre configurar la secuencia y el tercer paso el
+    // negocio puede haber arreglado justo lo que íbamos a echarle en cara.
+    if (config.type === 'ai_email') {
+      if (!current.lead.email) return markStepBlocked(stepId, 'LEAD_EMAIL_MISSING', 'El lead no tiene email.')
+      try {
+        // Cuántos `ai_email` quedan por delante, contando este. Con uno solo,
+        // el redactor cierra el hilo en vez de insistir otra vez.
+        const remainingAttempts = steps.filter((step, index) => step.type === 'ai_email' && index >= current.stepIndex).length
+        const result = await sendOutboundEmail(current.orgId, current.leadId, { idempotencyScope: sourceId, remainingAttempts })
+        if (result.status !== 'accepted') {
+          return scheduleStepRetry(stepId, current.attempts, 'OUTBOUND_NOT_ACCEPTED', 'El proveedor no aceptó el email.')
+        }
+        return markStepSuccess(stepId, { emailDeliveryId: result.deliveryId, subject: result.subject, messageId: result.messageId })
+      } catch (error) {
+        // Falta de auditoría, de hallazgos o de consentimiento no se arreglan
+        // reintentando: bloquean y lo dicen. Lo demás sí se reintenta.
+        if (error instanceof OutboundEmailError) {
+          return markStepBlocked(stepId, error.code, error.message)
+        }
+        throw error
+      }
+    }
+
+    if (config.type === 'call') {
+      if (!current.lead.phone) return markStepBlocked(stepId, 'LEAD_PHONE_MISSING', 'El lead no tiene teléfono.')
+      // Mismas puertas que cualquier otra llamada del producto: lista Robinson,
+      // horario legal y consentimiento de voz si la organización lo exige.
+      const allowed = await canCall(current.orgId, current.lead.phone, current.leadId)
+      if (!allowed.allowed) {
+        // Fuera de horario no es un fallo de la secuencia: se reintenta.
+        if (allowed.reason === 'outside_hours') {
+          return scheduleStepRetry(stepId, current.attempts, 'CALL_OUTSIDE_HOURS', 'Fuera del horario legal de llamada; se reintentará.')
+        }
+        return markStepBlocked(stepId, `CALL_${allowed.reason.toUpperCase()}`, 'El cumplimiento no permite llamar a este lead.')
+      }
+      // `sourceId` como jobId: si el lease caduca entre encolar y marcar el
+      // paso, BullMQ descarta el duplicado y el prospecto no recibe dos llamadas.
+      const queued = await enqueueLeadCall(current.orgId, current.leadId, sourceId)
+      if (!queued) return scheduleStepRetry(stepId, current.attempts, 'CALL_QUEUE_UNAVAILABLE', 'La cola de llamadas no está disponible.')
+      return markStepSuccess(stepId, { callQueued: true, dedupeKey: sourceId })
+    }
+
+    if (config.type === 'whatsapp') {
+      if (!current.lead.phone) return markStepBlocked(stepId, 'LEAD_PHONE_MISSING', 'El lead no tiene teléfono.')
+      if (!await consentGranted(current.orgId, current.leadId, 'whatsapp')) {
+        return markStepBlocked(stepId, 'WHATSAPP_CONSENT_MISSING', 'El lead no tiene consentimiento de WhatsApp concedido.')
+      }
+      // Twilio no deduplica: si el lease caduca mientras el mensaje sale, el
+      // reintento enviaría otro. Un saliente de WhatsApp a este lead posterior
+      // al vencimiento del paso significa que ya se dijo lo que había que
+      // decir — por el reintento o por una persona. En ambos casos, callar.
+      const alreadySent = await prisma.message.findFirst({
+        where: { orgId: current.orgId, leadId: current.leadId, channel: 'whatsapp', direction: 'outbound', createdAt: { gte: current.dueAt } },
+        select: { id: true, providerMessageId: true },
+      })
+      if (alreadySent) return markStepSuccess(stepId, { messageId: alreadySent.id, providerMessageId: alreadySent.providerMessageId, deduplicated: true })
+      const sent = await sendWhatsApp({
+        orgId: current.orgId,
+        leadId: current.leadId,
+        to: current.lead.phone,
+        contentSid: config.templateExternalId,
+        body: config.body,
+        metadata: { source: 'sequence', sourceId },
+      })
+      return markStepSuccess(stepId, { messageId: sent.id ?? null, providerMessageId: sent.providerMessageId })
     }
 
     if (config.type === 'task') {

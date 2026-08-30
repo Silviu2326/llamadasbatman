@@ -16,6 +16,7 @@ import {
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import './access-control.css'
 
 const API_ROOT = '/api/access-control'
@@ -373,8 +374,10 @@ export default function AccessControlPage() {
     }
   }
 
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading access controls' : 'Cargando accesos y permisos'} />
+
   return <main className="ac-page">
-    <header className="ac-page-header"><div className="ac-heading"><span><RiLock2Line aria-hidden="true" /></span><div><h1>{locale === 'en' ? 'Access and permissions' : 'Accesos y permisos'}</h1><p>{locale === 'en' ? 'Manage organization roles, review elevations and preserve separation of duties.' : 'Administra roles de la organización, revisa elevaciones y conserva la separación de funciones.'}</p></div></div><button type="button" className="ac-button subtle" disabled={loading} onClick={loadAccessControl}><RiRefreshLine className={loading ? 'ac-spin' : ''} aria-hidden="true" />{locale === 'en' ? 'Refresh' : 'Actualizar'}</button></header>
+    <header className="ac-page-header"><div className="ac-heading"><span><RiLock2Line aria-hidden="true" /></span><div><h1>{locale === 'en' ? 'Access and permissions' : 'Accesos y permisos'}</h1><p>{locale === 'en' ? 'Manage organization roles, review elevations and preserve separation of duties.' : 'Administra roles de la organización, revisa elevaciones y conserva la separación de funciones.'}</p></div></div></header>
 
     <section className="ac-command" aria-label="Resumen de gobierno de accesos"><div><span>Gobierno empresarial</span><h2>El acceso correcto, con una decisión trazable.</h2><p>Los permisos se organizan por función. Para accesos elevados, el flujo de solicitud y aprobación evita que una sola persona concentre toda la decisión.</p></div><dl><div><dt>{applicationRoles.length}</dt><dd>roles operativos</dd></div><div><dt>{members.length}</dt><dd>miembros visibles</dd></div><div><dt>{pendingRequests.length}</dt><dd>revisiones pendientes</dd></div></dl></section>
 

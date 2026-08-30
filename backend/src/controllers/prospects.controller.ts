@@ -1,22 +1,24 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
-import { searchProspects, ProspectingUnavailable, Prospect } from '../services/prospecting.service'
+import { searchProspects, ProspectingUnavailable, Prospect, stateFromAddress } from '../services/prospecting.service'
 import { createLead, getExistingProspectKeys, auditLead } from '../services/leads.service'
 import { enrichFromWebsite } from '../services/digitalAudit.service'
 import { enqueueLeadCall } from '../services/leadIngestion.service'
+import { sendOutboundEmail } from '../services/outboundEmail.service'
+import { enrollSalesSequence } from '../services/salesSequence.service'
 import { prisma } from '../lib/prisma'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
 export async function search(
-  request: FastifyRequest<{ Body: { sector: string; city: string; country?: string } }>,
+  request: FastifyRequest<{ Body: { sector: string; city: string; country?: string; limit?: number } }>,
   reply: FastifyReply
 ) {
-  const { sector, city, country } = request.body
+  const { sector, city, country, limit } = request.body
   if (!sector || !city) {
     return reply.status(400).send({ error: 'sector y city son obligatorios' })
   }
   try {
-    const prospects = await searchProspects({ sector, city, country })
+    const prospects = await searchProspects({ sector, city, country, limit })
     return reply.send({ data: prospects })
   } catch (err) {
     if (err instanceof ProspectingUnavailable) {
@@ -35,16 +37,28 @@ export async function importProspects(
       campaignId: string
       sector?: string
       city?: string
+      /**
+       * Estado de EE. UU. (código de dos letras). Si no llega, se deduce de la
+       * dirección de Places. Sin él no hay zona horaria y `canCall` no marca.
+       */
+      state?: string
       enrich?: boolean
       autoAudit?: boolean
       autoCall?: boolean
+      /** Escribe el email frío con los hallazgos de la auditoría. */
+      autoEmail?: boolean
+      /** Matricula el prospecto en esta secuencia en lugar de escribir suelto. */
+      sequenceId?: string
       items: Prospect[]
     }
   }>,
   reply: FastifyReply
 ) {
   const { orgId, userId } = request.user as JWTUser
-  const { campaignId, sector, city, enrich, autoAudit, autoCall, items } = request.body
+  const { campaignId, sector, city, state, enrich, autoAudit, autoCall, autoEmail, sequenceId, items } = request.body
+  // El estado del formulario manda sobre el deducido; la deducción es el
+  // respaldo para las importaciones que no lo envían.
+  const requestedState = typeof state === 'string' ? state.trim().toUpperCase() || null : null
   const normalizedCampaignId = campaignId?.trim()
 
   if (!normalizedCampaignId) {
@@ -79,6 +93,10 @@ export async function importProspects(
   const skipped = items.length - newItems.length
 
   const created = []
+  let emailed = 0
+  const emailFailures: Array<{ lead: string; reason: string; code: string }> = []
+  const enrolledLeadIds: string[] = []
+  const emailLeadIds: Array<{ id: string; name: string }> = []
   for (const item of newItems) {
     let extra: { email?: string | null; socials?: Record<string, string>; tech?: unknown } = {}
     if (enrich && item.website) {
@@ -103,6 +121,9 @@ export async function importProspects(
         placeId: item.placeId,
         sector,
         city,
+        // Lo lee `leadEnrichment` para calcular la zona horaria del lead. Sin
+        // esto, `canCall` rechaza cada llamada con `outside_hours` en silencio.
+        state: requestedState ?? stateFromAddress(item.address),
         socials: extra.socials,
         tech: extra.tech,
       },
@@ -132,11 +153,17 @@ export async function importProspects(
       },
     })
 
+    // El orden importa: primero auditar, porque el email frío se escribe con
+    // los hallazgos y sin auditoría no hay nada que contar.
     if (autoAudit && item.website) {
       await auditLead(orgId, lead.id, { website: item.website, sector, city }).catch(() => null)
     }
     if (autoCall) {
       await enqueueLeadCall(orgId, lead.id)
+    }
+    if (autoEmail && !sequenceId) emailLeadIds.push({ id: lead.id, name: lead.name })
+    if (sequenceId) {
+      enrolledLeadIds.push(lead.id)
     }
 
     created.push(lead)
@@ -160,5 +187,37 @@ export async function importProspects(
     })
   }
 
-  return reply.send({ imported: created.length, skipped })
+  // Los emails salen fuera del bucle de creación y de cuatro en cuatro. Cada
+  // uno arrastra la cadena de investigación —hasta cinco descargas y varias
+  // llamadas al modelo—, así que en serie una importación de veinte prospectos
+  // dejaría la petición HTTP colgada varios minutos.
+  // ponytail: 4 en paralelo y el cliente espera. Si esto crece, el envío se
+  // encola como las llamadas y la importación devuelve al momento.
+  const EMAIL_CONCURRENCY = 4
+  for (let index = 0; index < emailLeadIds.length; index += EMAIL_CONCURRENCY) {
+    await Promise.all(emailLeadIds.slice(index, index + EMAIL_CONCURRENCY).map(target =>
+      sendOutboundEmail(orgId, target.id, { actorUserId: userId })
+        .then(() => { emailed++ })
+        // Un fallo por lead no rompe la importación: se cuenta con su motivo.
+        .catch((error: Error & { code?: string }) => { emailFailures.push({ lead: target.name, reason: error.message, code: error.code ?? 'ERROR' }) })
+    ))
+  }
+
+  // La secuencia se matricula al final y de una vez: un solo recorrido de
+  // consentimiento y un solo informe de cuántos quedaron bloqueados.
+  let enrollment: Awaited<ReturnType<typeof enrollSalesSequence>> | null = null
+  if (sequenceId && enrolledLeadIds.length) {
+    enrollment = await enrollSalesSequence(orgId, sequenceId, enrolledLeadIds, userId).catch(() => null)
+  }
+
+  return reply.send({
+    imported: created.length,
+    skipped,
+    emailed,
+    // Se devuelven los fallos, no solo el número: "3 no recibieron email" sin
+    // el motivo es un dato que no deja hacer nada.
+    emailFailures,
+    enrolled: enrollment?.created ?? 0,
+    enrollmentBlocked: enrollment?.blocked ?? 0,
+  })
 }

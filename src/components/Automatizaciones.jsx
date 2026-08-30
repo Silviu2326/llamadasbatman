@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import {
   RiAddLine, RiArrowRightSLine, RiCheckLine, RiDeleteBinLine, RiFlowChart,
   RiMailLine, RiMoreLine, RiPauseCircleLine, RiPhoneLine, RiPlayCircleLine,
-  RiRefreshLine, RiSearchLine, RiSendPlaneLine, RiSparkling2Line, RiTimeLine,
+  RiSearchLine, RiSendPlaneLine, RiSparkling2Line, RiTimeLine,
   RiUserAddLine,
 } from 'react-icons/ri'
 import { HiChevronDown } from 'react-icons/hi'
 import { apiFetch } from '../lib/api'
 import DataStatusBanner from './ui/DataStatusBanner'
+import PageLoadingState from './ui/PageLoadingState'
+import ProductPageHeader from './ui/ProductPageHeader'
 import ConfirmDialog from './ui/ConfirmDialog'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import { mapAutomation } from '../lib/automationMapping'
@@ -17,6 +19,7 @@ import useClickOutside from '../hooks/useClickOutside'
 import automationHeroImage from '../assets/automation-hero.png'
 import '../dashboard.css'
 import './automations.css'
+import '../pages/growth-visual-standard.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
 const FILTER_TABS = ['Todas', 'Activas', 'Pausadas']
@@ -35,7 +38,7 @@ function Toggle({ active }) {
   return <span className={`automation-toggle${active ? ' active' : ''}`} aria-hidden="true"><i /></span>
 }
 
-export default function Automatizaciones() {
+export default function Automatizaciones({ sectionNavigation = null }) {
   const { t, locale } = useI18n()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('Todas')
@@ -113,7 +116,10 @@ export default function Automatizaciones() {
   const mutationsBlocked = loading || ['error', 'disconnected'].includes(dataStatus)
   const metricValue = value => loading || ['error', 'disconnected'].includes(dataStatus) ? '—' : value
 
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading automations' : 'Cargando automatizaciones'} />
+
   return <div className="dark-scroll automation-page">
+    <ProductPageHeader Icon={RiFlowChart} title={t('modules.automationTitle')} description={t('modules.automationSubtitle')} navigation={sectionNavigation} actions={<><button className="automation-button secondary" onClick={() => document.querySelector('#automation-library')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {t('modules.viewFlows')}</button><button className="automation-button primary" onClick={() => setShowNewAutomation(true)}><RiAddLine /> {t('modal.newAutomation')}</button></>} />
     <DataStatusBanner
       status={dataStatus}
       message={loadError || statusMessage(dataStatus, { live: 'Automatizaciones sincronizadas con tu organización.', empty: 'La conexión responde, pero todavía no hay flujos creados.', disconnected: 'No se pueden consultar ni modificar flujos mientras no hay conexión con el servicio.' })}
@@ -121,8 +127,6 @@ export default function Automatizaciones() {
       onAction={dataStatus === 'disconnected' ? () => navigate('/configuracion') : undefined}
       actionLabel="Configurar conexión"
     />
-    <header className="automation-header"><div className="automation-heading"><div className="automation-brand-icon"><RiFlowChart /></div><div><h1>{t('modules.automationTitle')}</h1><p>{t('modules.automationSubtitle')}</p></div></div><div className="automation-header-actions"><button className="automation-button ghost" onClick={() => setRefreshKey(value => value + 1)}><RiRefreshLine /> {t('calls.refresh')}</button><button className="automation-button secondary" onClick={() => document.querySelector('#automation-library')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {t('modules.viewFlows')}</button><button className="automation-button primary" onClick={() => setShowNewAutomation(true)}><RiAddLine /> {t('modal.newAutomation')}</button></div></header>
-
     <section className="automation-hero" aria-labelledby="automation-hero-title"><div className="automation-hero-copy"><div className="automation-hero-status"><i /> Motor operativo listo</div><h2 id="automation-hero-title">Tu operación no debería depender de recordar cada paso.</h2><p>Conecta disparadores y acciones para que el seguimiento ocurra solo, con la misma precisión cada vez.</p><div className="automation-hero-actions"><button className="automation-button primary" onClick={() => setShowNewAutomation(true)}><RiSparkling2Line /> Crear un flujo</button><button className="automation-button secondary" onClick={() => document.querySelector('#automation-library')?.scrollIntoView({ behavior: 'smooth' })}>Explorar automatizaciones <RiArrowRightSLine /></button></div><div className="automation-hero-meta"><span><RiCheckLine /> Flujos auditables</span><span><RiSendPlaneLine /> {activeCount} activos ahora</span></div></div><div className="automation-hero-media"><img src={automationHeroImage} alt="Motor visual de automatización con nodos conectados" /><div className="automation-hero-caption"><span>Workflow engine</span><strong>Disparar · decidir · actuar</strong></div></div></section>
 
     <section className="automation-metrics" aria-label="Resumen de automatizaciones"><Metric Icon={RiFlowChart} color="#818cf8" label="Total de flujos" value={metricValue(automations.length)} detail={dataStatus === 'empty' ? 'Aún no hay flujos' : `${metricValue(activeCount)} activos`} /><Metric Icon={RiPlayCircleLine} color="#34d399" label="Activos ahora" value={metricValue(activeCount)} detail="trabajando en segundo plano" /><Metric Icon={RiSendPlaneLine} color="#22d3ee" label="Ejecuciones" value={loading || ['error', 'disconnected'].includes(dataStatus) ? '—' : totalRuns.toLocaleString(localeCode(getLocale()))} detail="total acumulado" /><Metric Icon={RiPauseCircleLine} color="#f59e0b" label="Pausados" value={metricValue(pausedCount)} detail="pendientes de revisión" /></section>

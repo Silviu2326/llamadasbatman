@@ -5,6 +5,8 @@ import { runAutomationsForEvent } from '../services/automations.service'
 import { recordQueueEvent } from '../observability/metrics'
 import { classifyOperationalError, logOperational } from '../observability/operationalLog'
 import { sendQualifiedLeadEvent, sendSaleEvent } from '../services/metaConversions.service'
+import { deliverWebhooks } from '../services/webhooks.service'
+import { dispatchFlowTriggers } from '../services/flows.service'
 import { isQualifyingOutcome } from '../lib/callOutcome'
 
 const POLL_MS = Number(process.env.OUTBOX_POLL_MS ?? 5_000)
@@ -185,6 +187,23 @@ async function dispatchPendingOutbox() {
           // fire-and-forget: así hereda el lease, los reintentos y la
           // deduplicación, que es lo que exige la Fase 2 de ads.md.
           await forwardConversionSignal(event.orgId, event.topic, payload)
+          // Los webhooks públicos ven el mismo evento que las automatizaciones
+          // internas. deliverWebhooks nunca lanza: un endpoint de un cliente
+          // caído no puede provocar que se reintente —y se duplique— todo lo
+          // anterior.
+          await deliverWebhooks(event.orgId, event.topic, {
+            ...payload,
+            eventId: payload.eventId ?? event.id,
+          })
+          // Flows (05-FLUJOS §4): mismo despacho que las automatizaciones —
+          // arranca los Flows activos (de la org o de sistema) cuyo trigger
+          // declara este topic y despierta los pasos wait(eventTopic).
+          // dispatchFlowTriggers nunca lanza: un flujo mal configurado no
+          // puede provocar el reintento (y la duplicación) de lo anterior.
+          await dispatchFlowTriggers(event.orgId, event.topic, {
+            ...payload,
+            eventId: typeof payload.eventId === 'string' ? payload.eventId : event.id,
+          })
         })
         if (outcome.leaseLost) {
           recordQueueEvent({ queue: 'outbox', outcome: 'lease_lost' })

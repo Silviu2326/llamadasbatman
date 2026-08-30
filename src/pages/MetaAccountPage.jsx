@@ -9,6 +9,7 @@ import '../dashboard.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import AdsDataIntegrity from '../components/ads/AdsDataIntegrity'
 import '../pages/ads.css'
@@ -176,13 +177,7 @@ export default function MetaAccountPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)', fontSize: 14, background: 'var(--bg)' }}>
-        {t('common.loading')}
-      </div>
-    )
-  }
+  if (loading) return <PageLoadingState label={t('common.loading')} />
 
   return (
     <div className="dark-scroll" style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)', padding: '26px clamp(12px,4vw,32px) 40px', minWidth: 0 }}>

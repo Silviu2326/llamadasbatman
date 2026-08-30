@@ -22,13 +22,15 @@ import {
 import { apiFetch } from '../lib/api'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
 import { formatLocaleNumber, getLocale, useI18n } from '../i18n'
-import CaptureJourney from '../components/capture/CaptureJourney'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
+import PageLoadingState from '../components/ui/PageLoadingState'
+import ProductPageHeader from '../components/ui/ProductPageHeader'
 import funnelSignalIntake from '../assets/funnels/funnel-signal-intake.png'
 import funnelConversationOrbit from '../assets/funnels/funnel-conversation-orbit.png'
 import funnelMeetingMomentum from '../assets/funnels/funnel-meeting-momentum.png'
 import './funnels.css'
 import './funnels-visual.css'
+import './growth-visual-standard.css'
 
 const STATUS = {
   active: { label: 'Activo', className: 'is-active' },
@@ -221,18 +223,17 @@ export default function FunnelsPage() {
     await loadOverview(id)
   }
 
-  if (loading) return <main className="funnels-page funnels-loading"><span /><p>{locale === 'en' ? 'Loading your funnel journey…' : 'Cargando el recorrido de tus funnels…'}</p></main>
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading funnels' : 'Cargando funnels'} />
   if (error) return <main className="funnels-page"><section className="funnels-error"><RiAlertLine /><div><strong>No se pudo cargar Funnels</strong><span>Comprueba tu conexión e inténtalo de nuevo.</span></div><button type="button" className="funnels-button ghost" onClick={() => loadOverview()}><RiRefreshLine /> Reintentar</button></section></main>
 
   return <main className="funnels-page">
-    <header className="funnels-header"><div className="funnels-heading"><span><RiFlowChart /></span><div><h1>Funnels</h1><p>{locale === 'en' ? 'Measure how demand becomes conversations, meetings and real opportunities.' : 'Mide cómo la demanda se convierte en conversaciones, reuniones y oportunidades reales.'}</p></div></div><div className="funnels-header-actions"><Link className="funnels-button ghost" to="/landings"><RiGlobalLine /> Landings</Link><button type="button" className="funnels-button primary" disabled={Boolean(planGate)} title={planGate ? planGateMessage(planGate, locale) : undefined} onClick={() => setShowCreate(true)}><RiAddLine /> {locale === 'en' ? 'New funnel' : 'Nuevo funnel'}</button></div></header>
+    <ProductPageHeader Icon={RiFlowChart} title="Funnels" description={locale === 'en' ? 'Measure how demand becomes conversations, meetings and real opportunities.' : 'Mide cómo la demanda se convierte en conversaciones, reuniones y oportunidades reales.'} actions={<><Link className="funnels-button ghost" to="/captacion/convertir?tab=landings"><RiGlobalLine /> Landings</Link><button type="button" className="funnels-button primary" disabled={Boolean(planGate)} title={planGate ? planGateMessage(planGate, locale) : undefined} onClick={() => setShowCreate(true)}><RiAddLine /> {locale === 'en' ? 'New funnel' : 'Nuevo funnel'}</button></>} />
     {planGate && <DataStatusBanner status="plan" message={planGateMessage(planGate, locale)} />}
-    <CaptureJourney active="close" />
     {overview?.recommendation && <section className="funnels-command"><span><RiLineChartLine /></span><div><small>Prioridad recomendada</small><strong>{overview.recommendation.title}</strong><p>{overview.recommendation.detail}</p></div><Link to={overview.recommendation.action.to}>{overview.recommendation.action.label} <RiArrowRightLine /></Link></section>}
     <section className="funnels-metrics" aria-label="Resumen del funnel"><Metric Icon={RiRocketLine} label="Funnels activos" value={formatNumber(summary?.active)} detail="en operación" /><Metric Icon={RiEyeLine} label="Visitas medidas" value={summary?.trackedFunnels ? formatNumber(summary.visits) : 'Sin tracking'} detail={summary?.trackedFunnels ? `${summary.trackedFunnels} funnel${summary.trackedFunnels === 1 ? '' : 's'} con medición` : `${summary?.untrackedFunnels || 0} pendiente${summary?.untrackedFunnels === 1 ? '' : 's'} de medir`} tone="cyan" /><Metric Icon={RiTeamLine} label="Leads captados" value={formatNumber(summary?.leads)} detail={summary?.visitToLead == null ? 'conversión pendiente' : `${formatRate(summary.visitToLead)} visita a lead`} tone="emerald" /><Metric Icon={RiCalendarLine} label="Reuniones" value={formatNumber(summary?.meetings)} detail={summary?.visitToMeeting == null ? 'conversión pendiente' : `${formatRate(summary.visitToMeeting)} visita a reunión`} tone="amber" /></section>
     {!overview?.funnels?.length ? <EmptyFunnels onCreate={() => setShowCreate(true)} gated={Boolean(planGate)} /> : <section className="funnels-workspace">
       <article className="funnels-list-panel"><div className="funnels-list-head"><div><span>Funnel performance</span><h2>Recorridos de captación</h2></div><div className="funnels-filter" aria-label="Filtros de funnel">{[['all', 'Todos'], ['active', 'Activos'], ['draft', 'Borradores'], ['tracking', 'Sin tracking']].map(([id, label]) => <button key={id} type="button" className={filter === id ? 'active' : ''} onClick={() => setFilter(id)}>{label}</button>)}</div></div><div className="funnels-table-labels"><span>Funnel</span><span>Estado</span><span>Visitas</span><span>Leads</span><span>Reuniones</span><span>Conversión</span><span /></div><div className="funnels-list">{funnels.length ? funnels.map(funnel => <FunnelRow key={funnel.id} funnel={funnel} selected={selectedId === funnel.id} onSelect={selectFunnel} />) : <div className="funnels-filter-empty">No hay funnels en este filtro.</div>}</div><footer className="funnels-list-footer"><span>{funnels.length} funnel{funnels.length === 1 ? '' : 's'} visible{funnels.length === 1 ? '' : 's'}</span><span><i /> Datos de tu organización</span></footer></article>
-      <aside className="funnels-inspector"><article className="funnels-selection"><FunnelJourney funnel={selected} /></article><article className="funnels-measurement"><div><span><RiEyeLine /></span><div><small>Calidad de medición</small><h2>{summary?.untrackedFunnels ? 'Tracking por completar' : 'Recorrido medible'}</h2></div></div><p>{summary?.untrackedFunnels ? `${summary.untrackedFunnels} funnel${summary.untrackedFunnels === 1 ? '' : 's'} aún no tiene visitas registradas. Las conversiones de tráfico se mantienen vacías hasta recibir ese dato.` : 'Todas las rutas activas tienen datos de visitas para poder comparar sus conversiones.'}</p><Link to="/landings">Ir a Landings & webs <RiArrowRightLine /></Link></article></aside>
+      <aside className="funnels-inspector"><article className="funnels-selection"><FunnelJourney funnel={selected} /></article><article className="funnels-measurement"><div><span><RiEyeLine /></span><div><small>Calidad de medición</small><h2>{summary?.untrackedFunnels ? 'Tracking por completar' : 'Recorrido medible'}</h2></div></div><p>{summary?.untrackedFunnels ? `${summary.untrackedFunnels} funnel${summary.untrackedFunnels === 1 ? '' : 's'} aún no tiene visitas registradas. Las conversiones de tráfico se mantienen vacías hasta recibir ese dato.` : 'Todas las rutas activas tienen datos de visitas para poder comparar sus conversiones.'}</p><Link to="/captacion/convertir?tab=landings">Ir a Web y SEO <RiArrowRightLine /></Link></article></aside>
     </section>}
     <section className="funnels-method"><RiCheckLine /><p><strong>Cómo se mide:</strong> leads, contactos y reuniones proceden de cada campaña; las tasas se calculan entre etapas consecutivas y nunca se estiman si falta el dato anterior.</p></section>
     {showCreate && <CreateFunnelModal onClose={() => setShowCreate(false)} onCreated={created} />}

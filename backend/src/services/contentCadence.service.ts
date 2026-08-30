@@ -97,6 +97,7 @@ async function notifyOrg(orgId: string, created: number, scanned: number) {
   const notice = weeklyNotice(created, scanned)
   await sendTransactionalEmail({
     to,
+    usage: { orgId },
     subject: notice.subject,
     html: `<p>${notice.body}</p><p>Entra en Redes sociales para verlas y generar las campañas.</p><p style="color:#888;font-size:12px">Análisis semanal automático de Vendrava.</p>`,
   })

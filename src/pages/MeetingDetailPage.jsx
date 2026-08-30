@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import {
   RiArrowLeftLine, RiCalendarLine, RiVideoLine, RiUserLine,
@@ -9,6 +10,7 @@ import {
   RiMoneyDollarBoxLine, RiRobotLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
+import './sales-detail-standard.css'
 import NewReunionModal from '../modals/NewReunionModal'
 
 const BG_POOL = ['var(--info-deep)','var(--cyan-deep)','var(--violet-deep)','var(--warn-deep)','var(--pink)','var(--success-deep)','var(--warn-deep)','var(--success)']
@@ -253,11 +255,7 @@ export default function MeetingDetailPage() {
     }
   }
 
-  if (loading) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
-      {locale === 'en' ? 'Loading…' : 'Cargando…'}
-    </div>
-  )
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading meeting' : 'Cargando reunión'} />
 
   if (!mtg) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
@@ -268,7 +266,7 @@ export default function MeetingDetailPage() {
   const platColor = PLATFORM_COLORS[mtg.platform] || 'var(--accent)'
 
   return (
-    <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
+    <div className="sales-detail-page dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
 
       {/* Back */}
       <div style={{ padding:'20px clamp(12px,4vw,28px) 0', flexShrink:0 }}>
@@ -554,7 +552,24 @@ export default function MeetingDetailPage() {
 
           {tab === 'Historial' && (
             <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
-              <p style={{ margin:0, fontSize:13, color: 'var(--dim)', textAlign:'center', padding:'20px 0' }}>Historial disponible tras completar la reunión</p>
+              <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Reuniones anteriores con este contacto</p>
+              {prep?.previousMeetings?.length ? prep.previousMeetings.map(m => (
+                <div key={m.id} role="button" tabIndex="0" onClick={() => navigate(`/reuniones/${m.id}`)} onKeyDown={e => e.key === 'Enter' && navigate(`/reuniones/${m.id}`)} style={{ display:'flex', flexDirection:'column', gap:3, padding:'10px 0', borderBottom:'1px solid var(--surface-2)', cursor:'pointer' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', gap:10 }}>
+                    <span style={{ fontSize:12.5, fontWeight:600, color:'var(--text)' }}>{m.title}</span>
+                    <span style={{ fontSize:11, color:'var(--dim)' }}>{m.scheduledAt ? new Date(m.scheduledAt).toLocaleDateString(localeCode(getLocale()), { day:'numeric', month:'short', year:'numeric' }) : '—'}</span>
+                  </div>
+                  {(m.outcome || m.agreements) && <p style={{ margin:0, fontSize:12, color:'var(--muted)' }}>{m.outcome || m.agreements}</p>}
+                </div>
+              )) : <p style={{ margin:0, fontSize:12.5, color:'var(--dim)' }}>Es la primera reunión con este contacto.</p>}
+
+              <p style={{ margin:'18px 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Actividad reciente</p>
+              {prep?.recentActivity?.length ? prep.recentActivity.map(a => (
+                <div key={a.id} style={{ display:'flex', justifyContent:'space-between', gap:10, padding:'8px 0', borderBottom:'1px solid var(--surface-2)' }}>
+                  <span style={{ fontSize:12.5, color:'var(--muted)' }}>{a.subject || a.body || a.type}</span>
+                  <span style={{ fontSize:11, color:'var(--dim)', flexShrink:0 }}>{a.occurredAt ? new Date(a.occurredAt).toLocaleDateString(localeCode(getLocale()), { day:'numeric', month:'short' }) : '—'}</span>
+                </div>
+              )) : <p style={{ margin:0, fontSize:12.5, color:'var(--dim)' }}>Sin actividad registrada con este contacto.</p>}
             </div>
           )}
         </div>

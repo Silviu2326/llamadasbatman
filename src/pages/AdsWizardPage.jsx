@@ -5,9 +5,11 @@ import {
   RiArrowDownSLine,
   RiArrowRightLine,
   RiBarChartBoxLine,
+  RiBookOpenLine,
   RiBriefcaseLine,
   RiCheckLine,
   RiCrosshairLine,
+  RiExternalLinkLine,
   RiInformationLine,
   RiLightbulbLine,
   RiLineChartLine,
@@ -26,6 +28,7 @@ import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import { hasAccessToken } from '../lib/authSession'
 import { DEMO_MODE } from '../lib/dataMode'
+import { useExperience } from '../contexts/ExperienceContext'
 import campaignSignal from '../assets/ads/campaign-signal-orbit.png'
 import adCreativeGrowth from '../assets/ads/ad-creative-growth.png'
 import audienceConstellation from '../assets/ads/audience-constellation.png'
@@ -34,6 +37,17 @@ import './ads-wizard.css'
 
 const DRAFT_STORAGE_KEY = 'vendrava.ads.wizard.draft.v2'
 
+// El onboarding ya conoce el contexto básico de la empresa. El brief lo usa
+// como punto de partida, pero nunca bloquea que marketing lo ajuste para una
+// campaña concreta.
+const CAMPAIGN_CONTEXT_BY_BUSINESS = {
+  servicios: { label: 'Servicios', vertical: 'Servicios profesionales' },
+  local: { label: 'Negocio local', vertical: 'Negocio local' },
+  b2b: { label: 'B2B', vertical: 'B2B' },
+  ecommerce: { label: 'E-commerce', vertical: 'E-commerce' },
+  agencia: { label: 'Agencia', vertical: 'Agencia' },
+}
+
 function currencyFormatter(locale = getLocale()) {
   return new Intl.NumberFormat(localeCode(locale), { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
@@ -41,6 +55,14 @@ function currencyFormatter(locale = getLocale()) {
 function compactFormatter(locale = getLocale()) {
   return new Intl.NumberFormat(localeCode(locale), { notation: 'compact', maximumFractionDigits: 1 })
 }
+
+const DESTINATIONS = [
+  { value: 'landing', label: 'Una landing de la campaña' },
+  { value: 'website', label: 'Una página de tu web' },
+  { value: 'whatsapp', label: 'Una conversación de WhatsApp' },
+  { value: 'calendar', label: 'Una reserva en el calendario' },
+  { value: 'app', label: 'Una pantalla de tu app' },
+]
 
 const DEFAULT_PLAYBOOKS = [
   {
@@ -233,6 +255,13 @@ function serializeStrategy(strategy) {
   }
 }
 
+function serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext) {
+  return {
+    ...(serializeStrategy(strategy) || {}),
+    brief: { campaignFocus, destination, knowledgeContext },
+  }
+}
+
 function normalizePlaybooks(data, allowDemo = DEMO_MODE) {
   if (!Array.isArray(data) || data.length === 0) return allowDemo ? DEFAULT_PLAYBOOKS : []
   return data.map((item, index) => ({
@@ -247,10 +276,22 @@ function normalizePlaybooks(data, allowDemo = DEMO_MODE) {
 
 export default function AdsWizardPage() {
   const { locale } = useI18n()
+  const experience = useExperience()
   const navigate = useNavigate()
   const draftSeed = useState(() => readDraft())[0]
+  const businessContext = experience.providerAvailable && experience.onboardingCompleted
+    ? CAMPAIGN_CONTEXT_BY_BUSINESS[experience.businessType]
+    : null
+  const [organizationIndustry, setOrganizationIndustry] = useState('')
+  const [organicProfile, setOrganicProfile] = useState(null)
+  const [knowledgeArticles, setKnowledgeArticles] = useState([])
+  const [organizationContextLoading, setOrganizationContextLoading] = useState(true)
+  const knownVertical = organizationIndustry || businessContext?.vertical || ''
   const [vertical, setVertical] = useState(draftSeed.vertical || '')
   const [objetivo, setObjetivo] = useState(draftSeed.objetivo || '')
+  const [campaignFocus, setCampaignFocus] = useState(draftSeed.campaignFocus || '')
+  const [destination, setDestination] = useState(draftSeed.destination || 'landing')
+  const [knowledgeContext, setKnowledgeContext] = useState(draftSeed.knowledgeContext || null)
   const [presupuesto, setPresupuesto] = useState(draftSeed.presupuesto || '')
   const [audience, setAudience] = useState(draftSeed.audience || '')
   const [margin, setMargin] = useState('')
@@ -270,10 +311,13 @@ export default function AdsWizardPage() {
   const [creativeIndex, setCreativeIndex] = useState(0)
   const [appliedRecommendation, setAppliedRecommendation] = useState('')
   const [draftStatus, setDraftStatus] = useState(
-    draftSeed.vertical || draftSeed.objetivo ? 'Borrador restaurado' : 'Autoguardado activo',
+    draftSeed.campaignFocus || draftSeed.objetivo ? 'Borrador restaurado' : 'Autoguardado activo',
   )
   const saveTimerRef = useRef(null)
   const serverSaveTimerRef = useRef(null)
+  const campaignVertical = vertical.trim() || knownVertical || 'Negocio sin clasificar'
+  const knownTopics = Array.isArray(organicProfile?.sectors) ? organicProfile.sectors.filter(Boolean) : []
+  const knownAudience = organicProfile?.audience?.trim() || ''
 
   useEffect(() => {
     let active = true
@@ -287,13 +331,31 @@ export default function AdsWizardPage() {
       apiFetch('/api/ads/draft')
         .then(response => response.ok ? response.json() : null)
         .catch(() => null),
-    ]).then(([adPlaybooks, account, serverDraft]) => {
+      // La industria es información de la organización, no una suposición de
+      // Ads. Tiene prioridad sobre el perfil genérico del onboarding.
+      apiFetch('/api/settings/organization')
+        .then(response => response.ok ? response.json() : null)
+        .catch(() => null),
+      apiFetch('/api/organic/project')
+        .then(response => response.ok ? response.json() : null)
+        .catch(() => null),
+      apiFetch('/api/knowledge')
+        .then(response => response.ok ? response.json() : [])
+        .catch(() => []),
+    ]).then(([adPlaybooks, account, serverDraft, organization, organicProject, knowledge]) => {
       if (!active) return
       setPlaybooks(normalizePlaybooks(adPlaybooks, DEMO_MODE))
       setMetaAccount(account)
+      setOrganizationIndustry(typeof organization?.industry === 'string' ? organization.industry.trim() : '')
+      setOrganicProfile(organicProject?.project || null)
+      setKnowledgeArticles(Array.isArray(knowledge) ? knowledge : [])
+      setOrganizationContextLoading(false)
       if (serverDraft) {
         setVertical(serverDraft.vertical || '')
         setObjetivo(serverDraft.objetivo || '')
+        setCampaignFocus(serverDraft.campaignFocus || serverDraft.strategy?.brief?.campaignFocus || '')
+        setDestination(serverDraft.destination || serverDraft.strategy?.brief?.destination || 'landing')
+        setKnowledgeContext(serverDraft.knowledgeContext || serverDraft.strategy?.brief?.knowledgeContext || null)
         setPresupuesto(serverDraft.presupuesto ? String(serverDraft.presupuesto) : '')
         setAudience(serverDraft.audience || '')
         setCreativeIndex(Number(serverDraft.creativeIndex) || 0)
@@ -314,11 +376,14 @@ export default function AdsWizardPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
-    if (!vertical && !objetivo && !presupuesto && !audience) return undefined
+    if (!campaignFocus && !objetivo && !presupuesto) return undefined
 
     window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
       vertical,
       objetivo,
+      campaignFocus,
+      destination,
+      knowledgeContext,
       presupuesto,
       audience,
     }))
@@ -336,9 +401,12 @@ export default function AdsWizardPage() {
         body: JSON.stringify({
           vertical,
           objetivo,
+          campaignFocus,
+          destination,
+          knowledgeContext,
           presupuesto: presupuesto ? Number(presupuesto) : null,
           audience,
-          strategy: serializeStrategy(strategy),
+          strategy: serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext),
           creativeIndex,
         }),
       })
@@ -349,14 +417,14 @@ export default function AdsWizardPage() {
     }, 900)
 
     return () => window.clearTimeout(saveTimerRef.current)
-  }, [vertical, objetivo, presupuesto, audience, strategy, creativeIndex, aiStatus])
+  }, [vertical, objetivo, campaignFocus, destination, knowledgeContext, presupuesto, audience, strategy, creativeIndex, aiStatus])
 
   const availablePlaybooks = useMemo(() => normalizePlaybooks(playbooks), [playbooks])
   const metaState = metaAccount === undefined ? 'loading' : metaAccount ? 'connected' : 'pending'
   const currentCreative = CREATIVE_VARIANTS[creativeIndex]
   const recommendations = strategy?.recommendations ?? []
   const budgetLabel = presupuesto ? formatCurrency(presupuesto) + ' / mes' : 'Según tu definición'
-  const canGenerate = Boolean(vertical.trim() && objetivo.trim() && presupuesto)
+  const canGenerate = Boolean(campaignFocus.trim() && objetivo.trim() && destination && presupuesto)
 
   function resetStrategy() {
     setStrategy(null)
@@ -365,7 +433,7 @@ export default function AdsWizardPage() {
   }
 
   function handlePreset(preset) {
-    setVertical(preset.vertical)
+    setCampaignFocus(preset.name)
     setObjetivo(preset.objective)
     setPresupuesto(String(preset.budget))
     setAudience(preset.audience)
@@ -373,9 +441,35 @@ export default function AdsWizardPage() {
     resetStrategy()
   }
 
+  async function handleKnowledgeSelection(event) {
+    const articleId = event.target.value
+    if (!articleId) {
+      setKnowledgeContext(null)
+      return
+    }
+
+    const fallback = knowledgeArticles.find(article => article.id === articleId)
+    try {
+      const response = await apiFetch('/api/knowledge/' + articleId)
+      const article = response.ok ? await response.json() : fallback
+      if (!article) return
+      const context = {
+        id: article.id,
+        name: String(article.name || '').slice(0, 180),
+        type: String(article.type || 'documento').slice(0, 60),
+        content: String(article.content || '').slice(0, 5000),
+      }
+      setKnowledgeContext(context)
+      setCampaignFocus(context.name)
+      resetStrategy()
+    } catch {
+      setMessage('No se pudo cargar ese artículo de la Base de conocimiento.')
+    }
+  }
+
   async function handleGenerateStrategy() {
     if (!canGenerate) {
-      setMessage('Completa vertical, objetivo y presupuesto para que la IA pueda analizar la campaña.')
+      setMessage('Indica qué vas a promocionar, el destino, el objetivo y el presupuesto para analizar la campaña.')
       return
     }
 
@@ -387,10 +481,13 @@ export default function AdsWizardPage() {
       const response = await apiFetch('/api/ads/strategy', {
         method: 'POST',
         body: JSON.stringify({
-          vertical: vertical.trim(),
+          vertical: campaignVertical,
           objetivo: objetivo.trim(),
           presupuestoMensual: Number(presupuesto),
-          audience: audience.trim(),
+          audience: knownAudience || audience.trim(),
+          campaignFocus: campaignFocus.trim(),
+          destination,
+          knowledgeContext,
         }),
       })
 
@@ -407,7 +504,7 @@ export default function AdsWizardPage() {
         : 'Estrategia generada con la configuración por defecto')
     } catch {
       if (DEMO_MODE) {
-        setStrategy(normalizeStrategy(buildStrategy({ vertical, objetivo, presupuesto, audience })))
+        setStrategy(normalizeStrategy(buildStrategy({ vertical: campaignVertical, objetivo, presupuesto, audience: knownAudience || audience })))
         setAiStatus('ready')
         setDraftStatus('Estrategia local de demostración')
         setMessage('Modo demostración: la estrategia se ha generado localmente.')
@@ -425,9 +522,11 @@ export default function AdsWizardPage() {
       window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
         vertical,
         objetivo,
+        campaignFocus,
+        destination,
         presupuesto,
         audience,
-        strategy: serializeStrategy(strategy),
+        strategy: serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext),
       }))
       if (hasAccessToken()) {
         const response = await apiFetch('/api/ads/draft', {
@@ -435,9 +534,12 @@ export default function AdsWizardPage() {
           body: JSON.stringify({
             vertical,
             objetivo,
+            campaignFocus,
+            destination,
+            knowledgeContext,
             presupuesto: presupuesto ? Number(presupuesto) : null,
             audience,
-            strategy: serializeStrategy(strategy),
+            strategy: serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext),
             creativeIndex,
           }),
         })
@@ -460,8 +562,8 @@ export default function AdsWizardPage() {
 
   async function handleSubmit(event) {
     event.preventDefault()
-    if (!vertical.trim() || !objetivo.trim() || !presupuesto) {
-      setMessage('Completa los tres datos principales antes de crear la campaña.')
+    if (!campaignFocus.trim() || !objetivo.trim() || !destination || !presupuesto) {
+      setMessage('Completa qué vas a promocionar, el destino, el objetivo y el presupuesto antes de crear la campaña.')
       return
     }
 
@@ -471,10 +573,13 @@ export default function AdsWizardPage() {
       const response = await apiFetch('/api/ads/wizard', {
         method: 'POST',
         body: JSON.stringify({
-          vertical: vertical.trim(),
+          vertical: campaignVertical,
           objetivo: objetivo.trim(),
           presupuestoMensual: Number(presupuesto),
-          audience: audience.trim(),
+          audience: knownAudience || audience.trim(),
+          campaignFocus: campaignFocus.trim(),
+          destination,
+          knowledgeContext,
           strategy: serializeStrategy(strategy),
           ...(Number(margin) > 0 ? { marginPerSaleCents: Math.round(Number(margin) * 100) } : {}),
           ...(Number(acquisitionShare) > 0 ? { acquisitionSharePct: Number(acquisitionShare) } : {}),
@@ -502,7 +607,7 @@ export default function AdsWizardPage() {
     <main className="dark-scroll ads-page">
       <div className="ads-page-shell">
         <div className="ads-breadcrumbs">
-          <Link to="/campanas">Campañas</Link>
+          <Link to="/captacion/planificar">Campañas</Link>
           <RiArrowRightLine />
           <span>Nueva campaña</span>
         </div>
@@ -546,6 +651,10 @@ export default function AdsWizardPage() {
                 <span>Atajos de IA</span>
                 <small>Empieza con un perfil recomendado</small>
               </div>
+              {(knownVertical || knownTopics.length || knownAudience) ? <div className="ads-known-context" role="status">
+                <RiCheckLine aria-hidden="true" />
+                <span>Usaremos el contexto de tu negocio{knownVertical ? <>: <strong>{knownVertical}</strong></> : ''}{knownTopics.length ? <> · temas: <strong>{knownTopics.join(', ')}</strong></> : ''}{knownAudience ? <> · público: <strong>{knownAudience}</strong></> : ''}. No hace falta repetirlo en este brief.</span>
+              </div> : null}
               <div className="ads-preset-list">
                 {availablePlaybooks.slice(0, 3).map(preset => (
                   <button key={preset.id} type="button" onClick={() => handlePreset(preset)}>
@@ -585,36 +694,75 @@ export default function AdsWizardPage() {
 
             <form className="ads-form" onSubmit={handleSubmit}>
               <div className="ads-fields">
-                <label className="ads-field" htmlFor="ads-vertical">
-                  <span className="ads-field-label"><RiBriefcaseLine /> Vertical / industria</span>
-                  <span className="ads-field-helper">La categoría que mejor describe tu negocio.</span>
+                <label className="ads-field" htmlFor="ads-focus">
+                  <span className="ads-field-label"><RiBriefcaseLine /> ¿Qué quieres promocionar?</span>
+                  <span className="ads-field-helper">Elige el producto, servicio, evento o tema concreto que quieres impulsar.</span>
                   <span className="ads-input-wrap">
                     <input
-                      id="ads-vertical"
-                      list="verticals"
-                      value={vertical}
-                      onChange={event => { setVertical(event.target.value); resetStrategy() }}
-                      placeholder="Ej. SaaS B2B, clínicas dentales..."
-                      autoComplete="organization-title"
+                      id="ads-focus"
+                      list="campaign-topics"
+                      value={campaignFocus}
+                      onChange={event => { setCampaignFocus(event.target.value); resetStrategy() }}
+                      placeholder="Ej. partidos de pádel de esta semana"
+                      autoComplete="off"
                       required
                     />
-                    <RiArrowDownSLine className="ads-input-affordance" />
+                    <RiSparkling2Line className="ads-input-affordance" />
                   </span>
-                  <datalist id="verticals">
-                    {availablePlaybooks.map(playbook => <option key={playbook.id} value={playbook.vertical} />)}
+                  <datalist id="campaign-topics">
+                    {knownTopics.map(topic => <option key={topic} value={topic} />)}
                   </datalist>
                 </label>
 
+                <div className="ads-knowledge-picker">
+                  <div className="ads-knowledge-picker-heading">
+                    <span><RiBookOpenLine /> Producto o servicio desde Knowledge Base <em>opcional</em></span>
+                    <Link to="/knowledge-base">Gestionar fuentes <RiArrowRightLine /></Link>
+                  </div>
+                  <p>Selecciona una ficha para aportar toda su información al análisis y al Creator Studio.</p>
+                  <span className="ads-input-wrap">
+                    <select
+                      id="ads-knowledge-source"
+                      value={knowledgeContext?.id || ''}
+                      onChange={handleKnowledgeSelection}
+                    >
+                      <option value="">Escribirlo manualmente</option>
+                      {knowledgeArticles.map(article => <option key={article.id} value={article.id}>{article.name}{article.type ? ` · ${article.type}` : ''}</option>)}
+                    </select>
+                    <RiArrowDownSLine className="ads-input-affordance" />
+                  </span>
+                  {knowledgeContext ? <div className="ads-knowledge-source" role="status">
+                    <RiCheckLine aria-hidden="true" />
+                    <span><strong>{knowledgeContext.name}</strong>{knowledgeContext.content ? <> · {knowledgeContext.content.slice(0, 132)}{knowledgeContext.content.length > 132 ? '…' : ''}</> : ' · ficha conectada'}</span>
+                  </div> : null}
+                </div>
+
+                <label className="ads-field" htmlFor="ads-destination">
+                  <span className="ads-field-label"><RiExternalLinkLine /> ¿A dónde dirigimos el tráfico?</span>
+                  <span className="ads-field-helper">Define el siguiente paso que verá una persona al hacer clic.</span>
+                  <span className="ads-input-wrap">
+                    <select
+                      id="ads-destination"
+                      value={destination}
+                      onChange={event => { setDestination(event.target.value); resetStrategy() }}
+                      required
+                    >
+                      {DESTINATIONS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                    <RiArrowDownSLine className="ads-input-affordance" />
+                  </span>
+                </label>
+
                 <label className="ads-field" htmlFor="ads-objective">
-                  <span className="ads-field-label"><RiCrosshairLine /> Objetivo de la campaña</span>
-                  <span className="ads-field-helper">Qué resultado quieres lograr con esta campaña.</span>
+                  <span className="ads-field-label"><RiCrosshairLine /> ¿Qué quieres conseguir?</span>
+                  <span className="ads-field-helper">El resultado que marcará si esta campaña funciona.</span>
                   <span className="ads-input-wrap">
                     <input
                       id="ads-objective"
                       list="objectives"
                       value={objetivo}
                       onChange={event => { setObjetivo(event.target.value); resetStrategy() }}
-                      placeholder="Ej. agendar demos, recuperar leads..."
+                      placeholder="Ej. conseguir inscripciones o reservas"
                       required
                     />
                     <RiArrowDownSLine className="ads-input-affordance" />
@@ -622,24 +770,11 @@ export default function AdsWizardPage() {
                   <datalist id="objectives">
                     <option value="Generar clientes potenciales" />
                     <option value="Agendar demos cualificadas" />
+                    <option value="Conseguir reservas" />
+                    <option value="Impulsar ventas" />
                     <option value="Recuperar leads" />
                     <option value="Aumentar solicitudes de contacto" />
                   </datalist>
-                </label>
-
-                <label className="ads-field" htmlFor="ads-audience">
-                  <span className="ads-field-label"><RiTeamLine /> Audiencia objetivo <em>opcional</em></span>
-                  <span className="ads-field-helper">La IA la completará si la dejas vacía.</span>
-                  <span className="ads-input-wrap">
-                    <input
-                      id="ads-audience"
-                      value={audience}
-                      onChange={event => { setAudience(event.target.value); resetStrategy() }}
-                      placeholder="Ej. responsables de operaciones..."
-                      autoComplete="off"
-                    />
-                    <RiTeamLine className="ads-input-affordance" />
-                  </span>
                 </label>
 
                 <label className="ads-field" htmlFor="ads-budget">
@@ -657,7 +792,7 @@ export default function AdsWizardPage() {
                       placeholder="500"
                       required
                     />
-                    <span className="ads-input-affordance">EUR</span>
+                    <span className="ads-input-affordance ads-unit-affordance" aria-hidden="true">€</span>
                   </span>
                 </label>
 
@@ -679,7 +814,7 @@ export default function AdsWizardPage() {
                       onChange={event => setMargin(event.target.value)}
                       placeholder="900"
                     />
-                    <span className="ads-input-affordance">EUR</span>
+                    <span className="ads-input-affordance ads-unit-affordance" aria-hidden="true">€</span>
                   </span>
                 </label>
 
@@ -698,7 +833,7 @@ export default function AdsWizardPage() {
                       onChange={event => setAcquisitionShare(event.target.value)}
                       placeholder="30"
                     />
-                    <span className="ads-input-affordance">%</span>
+                    <span className="ads-input-affordance ads-unit-affordance" aria-hidden="true">%</span>
                   </span>
                 </label>
               </div>

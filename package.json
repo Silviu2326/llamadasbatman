@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "zombies:dev": "vite zombies-mode --port 4174 --strictPort",
+    "zombies:build": "vite build zombies-mode --outDir ../dist-zombies --emptyOutDir",
+    "zombies:test": "node --test zombies-mode/tests/*.test.mjs",
     "ops:production-gate": "node scripts/production-gate.mjs",
     "ops:prisma-audit": "node scripts/prisma-readiness-audit.mjs"
   },
@@ -28,7 +31,6 @@
     "react-grid-layout": "^2.2.3",
     "react-icons": "^5.6.0",
     "react-router-dom": "^7.18.0",
-    "recharts": "^3.9.0",
-    "wavesurfer.js": "^7.12.8"
+    "recharts": "^3.9.0"
   }
 }

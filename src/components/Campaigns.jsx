@@ -10,9 +10,11 @@ import {
 import { apiFetch } from '../lib/api'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
 import DataStatusBanner from './ui/DataStatusBanner'
-import CaptureJourney from './capture/CaptureJourney'
+import PageLoadingState from './ui/PageLoadingState'
+import ProductPageHeader from './ui/ProductPageHeader'
 import './campaigns.css'
 import './capture/campaign-command.css'
+import '../pages/growth-visual-standard.css'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
 // ponytail: `type` (email/social/ads/automation) no existe en el modelo
@@ -290,10 +292,11 @@ export default function Campaigns() {
     ...Object.entries(STATUS_META).map(([id, meta]) => ({ id, label: meta.label, color: meta.color })),
   ]
 
-  return <main className="dark-scroll campaign-page">
-    <header className="campaign-page-header"><div><h1>{t('modules.campaignsTitle')}</h1><p>{t('modules.campaignsSubtitle')}</p></div><div className="campaign-header-actions"><button className="campaign-button soft" onClick={() => navigate('/funnels')}>Ver funnel <RiArrowRightLine /></button><button className="campaign-button primary" onClick={() => setShowCreate(true)}><RiAddLine /> {t('modules.newCampaign')}</button></div></header>
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading campaigns' : 'Cargando campañas'} />
 
-    <CaptureJourney active="plan" />
+  return <main className="dark-scroll campaign-page">
+    <ProductPageHeader Icon={RiMegaphoneLine} title={t('modules.campaignsTitle')} description={t('modules.campaignsSubtitle')} actions={<><button className="campaign-button soft" onClick={() => navigate('/captacion/cerrar')}>Ver funnel <RiArrowRightLine /></button><button className="campaign-button primary" onClick={() => setShowCreate(true)}><RiAddLine /> {t('modules.newCampaign')}</button></>} />
+
 
     {statsStatus !== 'live' && statsStatus !== 'loading' && <DataStatusBanner status={statsStatus} message={statsMessage} onRetry={statsStatus === 'error' ? loadStats : undefined} />}
 

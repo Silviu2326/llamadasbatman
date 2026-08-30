@@ -37,7 +37,9 @@ import {
   validateOrchestrationInput,
 } from '../lib/orchestration'
 import { getLocale, localeCode, useI18n } from '../i18n'
+import ProductPageHeader from '../components/ui/ProductPageHeader'
 import './orchestration.css'
+import './growth-visual-standard.css'
 
 const PHASE_KEYS = Object.keys(PHASE_META)
 
@@ -225,9 +227,9 @@ function Guardrails({ plan }) {
 
 function NextModules() {
   const modules = [
-    { label: 'Ads', route: '/ads', color: 'var(--accent-soft)' },
-    { label: 'Organic Leads', route: '/organic', color: 'var(--lime)' },
-    { label: 'Prospect Finder', route: '/prospectos', color: 'var(--cyan)' },
+    { label: 'Ads', route: '/captacion/atraer/ads', color: 'var(--accent-soft)' },
+    { label: 'Orgánico y social', route: '/captacion/atraer/organico', color: 'var(--lime)' },
+    { label: 'Prospect Finder', route: '/captacion/atraer/prospectos', color: 'var(--cyan)' },
     { label: 'Pipeline', route: '/pipeline', color: 'var(--cyan-deep)' },
     { label: 'Reuniones', route: '/reuniones', color: 'var(--warn)' },
     { label: 'Automatizaciones', route: '/automatizaciones', color: 'var(--danger-soft)' },
@@ -242,7 +244,7 @@ function NextModules() {
   )
 }
 
-export default function OrchestrationPage() {
+export default function OrchestrationPage({ sectionNavigation = null }) {
   const { locale } = useI18n()
   const [form, setForm] = useState(EMPTY_ORCHESTRATION_FORM)
   const [fieldErrors, setFieldErrors] = useState({})
@@ -440,19 +442,10 @@ export default function OrchestrationPage() {
   return (
     <main className="orchestration-page" aria-busy={isLoading}>
       <div className="orchestration-inner">
-        <nav className="orch-breadcrumb" aria-label={locale === 'en' ? 'Breadcrumb' : 'Migas de pan'}><Link to="/dashboard">Dashboard</Link><RiArrowRightLine aria-hidden="true" /><span>{locale === 'en' ? 'Orchestrator' : 'Orquestador'}</span></nav>
-
-        <header className="orch-page-header">
-          <div className="orch-page-title">
-            <div className="orch-title-icon" aria-hidden="true"><RiSparkling2Line /></div>
-            <div><h1>{locale === 'en' ? 'Orchestrator' : 'Orquestador'}</h1><p>{locale === 'en' ? 'A clear objective. A connected plan. Decisions always under control.' : 'Un objetivo claro. Un plan conectado. Decisiones siempre bajo control.'}</p></div>
-          </div>
-          <div className="orch-page-actions">
+        <ProductPageHeader Icon={RiSparkling2Line} title={locale === 'en' ? 'Action center' : 'Centro de acciones'} description={locale === 'en' ? 'A clear objective. A connected plan. Decisions always under control.' : 'Un objetivo claro. Un plan conectado. Decisiones siempre bajo control.'} navigation={sectionNavigation} actions={<div className="orch-page-actions">
             <span className="orch-demo-badge"><i /> {livePlan ? (locale === 'en' ? 'API connected' : 'API conectada') : executionMode === 'demo' ? (locale === 'en' ? 'Explicit demo mode' : 'Modo demo explícito') : (locale === 'en' ? 'Live mode' : 'Modo live')}</span>
             <button type="button" className="orch-button orch-button--ghost" onClick={toggleExecutionMode}>{executionMode === 'live' ? (locale === 'en' ? 'Use demo' : 'Usar demo') : (locale === 'en' ? 'Back to live' : 'Volver a live')}</button>
-            <Link className="orch-button orch-button--ghost" to="/dashboard">{locale === 'en' ? 'View Dashboard' : 'Ver Dashboard'} <RiArrowRightLine /></Link>
-          </div>
-        </header>
+          </div>} />
 
         <section className="orch-objective-panel" aria-labelledby="orch-objective-title">
           <div className="orch-panel-heading">

@@ -5,6 +5,7 @@ import { DEMO_MODE } from '../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../lib/dataStatus'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
 import DataStatusBanner from './ui/DataStatusBanner'
+import PageLoadingState from './ui/PageLoadingState'
 import ConfirmDialog from './ui/ConfirmDialog'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -144,6 +145,9 @@ function OppCard({ opp, stageColor, onClick, onDragStart, onDragEnd, isDragging 
 }
 
 function KanbanColumn({ stage, opps, onSelect, draggingId, onDragStartCard, onDragEndCard, onDropCard }) {
+  // "más" no se puede traducir con la tabla de frases: como subcadena rompería
+  // otras palabras y en inglés cambia de forma segun el contexto.
+  const { locale } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const allOpps = opps.filter(o => o.stage === stage.id)
@@ -188,7 +192,7 @@ function KanbanColumn({ stage, opps, onSelect, draggingId, onDragStartCard, onDr
       {allOpps.length > VISIBLE && (
       <div style={{ padding: '8px 11px 11px', marginTop: 6, borderTop: '1px solid var(--line)' }}>
         <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', color: stage.color, fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-          {expanded ? 'Ver menos' : `+ ${allOpps.length - VISIBLE} más`}
+          {expanded ? 'Ver menos' : `+ ${allOpps.length - VISIBLE} ${locale === 'en' ? 'more' : 'más'}`}
         </button>
       </div>
       )}
@@ -340,7 +344,7 @@ function ForecastPanel({ forecast }) {
 function InsightsPanel({ insights }) {
   return (
     <div style={{ ...card, padding: '13px 14px' }} className="fade-up">
-      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Insights IA</h3>
+      <h3 style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>Señales del pipeline</h3>
       {insights.length === 0 && <p style={{ fontSize: 10.5, color: 'var(--dim)', margin: 0 }}>Cuando haya suficientes oportunidades, aquí verás señales para priorizar.</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {insights.map((ins, i) => (
@@ -772,6 +776,8 @@ export default function Pipeline() {
     }
   }
 
+  if (dataStatus === 'loading') return <PageLoadingState label="Cargando pipeline" />
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0, overflow: 'hidden' }}>
 
@@ -781,7 +787,7 @@ export default function Pipeline() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
             <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: 'var(--text-strong)' }}>{t('modules.pipelineTitle')}</h1>
           </div>
-          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Visualiza y gestiona tu pipeline de ventas impulsado por IA.</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Visualiza y gestiona tu pipeline de ventas.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* OP-103: toggle Kanban / Lista */}
@@ -883,7 +889,7 @@ export default function Pipeline() {
           {/* Acciones recomendadas */}
           {acciones.length > 0 && (
             <div>
-              <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Acciones recomendadas por IA</h3>
+              <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Acciones recomendadas</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
                 {acciones.map((a, i) => {
                   const deco = ACTION_DECO[i] ?? ACTION_DECO[0]

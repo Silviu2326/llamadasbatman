@@ -315,6 +315,8 @@ interface SyncableLead {
   phone?: string | null
   status: LeadStatus
   orgId: string
+  /** Fuente de la auditoría digital que se envía como campos personalizados. */
+  customFields?: unknown
 }
 
 /**
@@ -323,6 +325,40 @@ interface SyncableLead {
  * organización (mauticEnabled=false) o no responde, no rompe el flujo que
  * llama a esta función.
  */
+/**
+ * Campos personalizados de la auditoría digital, para que una plantilla de
+ * Mautic pueda decir algo cierto del destinatario sin pasar por el modelo:
+ * `{contactfield=auditscore}`, `{contactfield=audittopfinding}`…
+ *
+ * Solo salen hechos ya calculados y cortos. Nada de volcar el informe entero:
+ * Mautic no es el almacén de la auditoría, es quien la usa para personalizar.
+ * Los campos tienen que existir antes en Mautic (Ajustes → Campos de contacto);
+ * si no existen, Mautic ignora los desconocidos y el resto del alta sigue.
+ */
+export function auditFields(customFields: unknown): Record<string, string | number> {
+  const fields = customFields && typeof customFields === 'object' && !Array.isArray(customFields)
+    ? customFields as Record<string, unknown>
+    : {}
+  const audit = fields.digitalAudit
+  if (!audit || typeof audit !== 'object' || Array.isArray(audit)) return {}
+  const record = audit as Record<string, unknown>
+  const opportunities = Array.isArray(record.opportunities) ? record.opportunities as Array<Record<string, unknown>> : []
+  const out: Record<string, string | number> = {}
+
+  if (typeof record.publicScore === 'number') out.auditscore = record.publicScore
+  if (typeof record.tier === 'string') out.audittier = record.tier
+  if (typeof record.summary === 'string') out.auditsummary = record.summary.slice(0, 500)
+  if (typeof record.website === 'string' && record.website) out.auditwebsite = record.website
+  if (record.webAlive === false) out.auditweb = 'sin web operativa'
+  if (opportunities.length) {
+    out.auditfindings = opportunities.slice(0, 3).map(item => String(item.title ?? '')).filter(Boolean).join(' · ').slice(0, 255)
+    const top = opportunities.find(item => item.severity === 'high') ?? opportunities[0]
+    if (top?.title) out.audittopfinding = String(top.title).slice(0, 255)
+  }
+  if (typeof record.auditedAt === 'string') out.auditedat = record.auditedAt.slice(0, 10)
+  return out
+}
+
 export async function syncContact(lead: SyncableLead): Promise<void> {
   const org = await prisma.organization.findUnique({
     where: { id: lead.orgId },
@@ -337,6 +373,7 @@ export async function syncContact(lead: SyncableLead): Promise<void> {
     phone: lead.phone || undefined,
     tags: [orgTag(lead.orgId)],
     crmleadid: lead.id,
+    ...auditFields(lead.customFields),
   }
 
   const existingId = await getContactIdForLead(lead.id, lead.orgId)
@@ -395,6 +432,8 @@ export interface CreateEmailDeliveryInput {
   toAddress: string
   /** Identifies the business command that is allowed to be retried safely. */
   idempotencyScope?: string
+  /** EM-113: variante A/B que le tocó a este envío. Null fuera de una prueba. */
+  variantKey?: string | null
 }
 
 function deterministicDeliveryKey(orgId: string, leadId: string, input: CreateEmailDeliveryInput): string {
@@ -419,6 +458,7 @@ export async function createEmailDelivery(
       leadId,
       campaignId: input.campaignId,
       templateExternalId: input.templateExternalId,
+      variantKey: input.variantKey ?? null,
       toAddress: input.toAddress,
       idempotencyKey,
       status: 'queued',
@@ -1236,12 +1276,15 @@ export async function getOverview(orgId: string) {
  * para un array chico de eventos por lead.
  */
 export async function recordActivityByCrmLeadId(
+  orgId: string,
   crmLeadId: string,
   type: 'open' | 'click' | 'bounce' | 'unsubscribe',
   detail?: string,
   eventId?: string
 ): Promise<void> {
-  const lead = await prisma.lead.findUnique({ where: { id: crmLeadId } })
+  // El id llega dentro del payload de un webhook: se resuelve siempre dentro
+  // de la organización, nunca por id a secas.
+  const lead = await prisma.lead.findFirst({ where: { id: crmLeadId, orgId } })
   if (!lead) return
   const customFields = (lead.customFields as Record<string, unknown>) ?? {}
   const activity = Array.isArray(customFields.mauticActivity) ? customFields.mauticActivity : []
@@ -1250,8 +1293,8 @@ export async function recordActivityByCrmLeadId(
   if (eventIds.includes(fingerprint)) return
   eventIds.unshift(fingerprint)
   activity.unshift({ type, detail, at: new Date().toISOString(), eventId: fingerprint })
-  await prisma.lead.update({
-    where: { id: crmLeadId },
+  await prisma.lead.updateMany({
+    where: { id: crmLeadId, orgId },
     data: { customFields: { ...customFields, mauticActivity: activity.slice(0, 50), mauticWebhookEventIds: eventIds.slice(0, 100) } as any },
   })
 }

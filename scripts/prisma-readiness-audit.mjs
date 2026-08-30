@@ -86,6 +86,7 @@ function parseSql(sql) {
   const createdEnums = new Map()
   const enumValues = new Map()
   const alteredColumns = new Map()
+  const renamedColumns = new Map()
   const fks = []
   const tableRe = /CREATE\s+TABLE\s+"([^"]+)"\s*\(([\s\S]*?)\n\);/gim
   const enumRe = /CREATE\s+TYPE\s+"([^"]+)"\s+AS\s+ENUM\s*\(([^)]*)\)/gim
@@ -116,10 +117,14 @@ function parseSql(sql) {
     for (const column of match[2].matchAll(/ADD\s+COLUMN\s+"([^"]+)"/gim)) {
       alteredColumns.get(table).add(column[1])
     }
+    for (const rename of match[2].matchAll(/RENAME\s+COLUMN\s+"([^"]+)"\s+TO\s+"([^"]+)"/gim)) {
+      if (!renamedColumns.has(table)) renamedColumns.set(table, [])
+      renamedColumns.get(table).push({ from: rename[1], to: rename[2] })
+    }
   }
 
   for (const match of sql.matchAll(fkRe)) fks.push({ from: match[1], to: match[2] })
-  return { tables, createdEnums, enumValues, alteredColumns, fks }
+  return { tables, createdEnums, enumValues, alteredColumns, renamedColumns, fks }
 }
 
 function collectMigrations() {
@@ -182,6 +187,21 @@ function auditMigrations(schemaInfo, migrations) {
       for (const column of columns) {
         if (allSqlColumns.get(table).has(column)) add(issues, 'COLUMN_ADDED_TWICE', `${migration.name} vuelve a añadir ${table}.${column}.`)
         allSqlColumns.get(table).add(column)
+      }
+    }
+    for (const [table, renames] of current.renamedColumns) {
+      if (!knownTables.has(table) && !tablesCreatedHere.has(table)) {
+        add(issues, 'RENAME_UNKNOWN_TABLE', `${migration.name} renombra una columna de una tabla no creada antes.`, table)
+        continue
+      }
+      if (!allSqlColumns.has(table)) allSqlColumns.set(table, new Set())
+      for (const rename of renames) {
+        if (!allSqlColumns.get(table).has(rename.from)) {
+          add(issues, 'RENAME_UNKNOWN_COLUMN', `${migration.name} renombra una columna no creada antes.`, `${table}.${rename.from}`)
+          continue
+        }
+        allSqlColumns.get(table).delete(rename.from)
+        allSqlColumns.get(table).add(rename.to)
       }
     }
 

@@ -810,12 +810,25 @@ N1 (recomendar) y N2 (aprobar con un clic) aplican a todo, con el motor de
 - piezas de **formato previamente aprobado sobre datos confirmados de un
   conector vertical** (marcador de un partido confirmado, ficha de una
   vivienda publicada) cuando la regla del onboarding lo autorizó y el formato
-  acumula el historial de aprobaciones que exige el nivel.
+  acumula el historial de aprobaciones que exige el nivel;
+- **redactar y publicar un artículo del plan de contenidos vigente**
+  (`write_article`), con el filtro de contenido sensible aplicado al texto
+  resultante: si el artículo acaba mencionando precios, garantías,
+  afirmaciones legales o prueba social, queda redactado y **sin publicar**
+  hasta que lo lea una persona.
+
+  > Excepción añadida el 09/08/2026 por decisión expresa del negocio. Rompe a
+  > propósito la regla de abajo, que exigía sala de aprobación para todo
+  > contenido público nuevo. El riesgo que se asume es explícito: texto escrito
+  > por un modelo publicado en la web del cliente sin lectura humana previa. El
+  > filtro de contenido sensible acota los daños, no los elimina — no detecta
+  > una afirmación simplemente falsa sobre el negocio.
 
 **Siempre requiere aprobación humana:**
 
-- publicar contenido nuevo de formato no aprobado (posts, artículos,
-  landings) — el contenido público pasa siempre por la sala de aprobación;
+- publicar contenido nuevo de formato no aprobado (posts y landings) — salvo
+  la excepción de `write_article` de arriba, el contenido público pasa por la
+  sala de aprobación;
 - cualquier pieza con cita de cliente (exige `ContactConsent`) o con nombres
   y fotografías sin permiso declarado;
 - importar prospectos o activar llamadas salientes;

@@ -1,5 +1,4 @@
 import type { CallContext } from '../intelligence/conversation/callContext'
-import type { VoiceArchitecture } from './architecture'
 
 export type VoiceSessionMeta = Record<string, unknown>
 
@@ -14,24 +13,23 @@ export type VoiceSessionEvent = {
 }
 
 export type VoiceSessionCallbacks = {
-  onAudio: (audio: Buffer) => Promise<void>
+  onAudio: (audio: Buffer, meta?: VoiceSessionMeta) => Promise<void>
   onInterrupt?: () => Promise<void>
   onTranscript?: (role: string, text: string, meta?: VoiceSessionMeta) => Promise<void>
   onEvent?: (event: VoiceSessionEvent) => Promise<void> | void
 }
 
 /**
- * Provider-neutral contract used by the Twilio media stream.
- *
- * The legacy Deepgram/ElevenLabs pipeline and the self-hosted remote engine
- * deliberately implement the same contract. The factory keeps the legacy
- * path opt-in so telephony and CRM code stay provider-neutral without making
- * proprietary fallback the default.
+ * Contrato que usan la telefonía (Twilio Media Streams) y el simulador de
+ * navegador. Lo implementa VendravaVoiceSession; el contrato se mantiene
+ * separado para que telefonía y CRM no dependan de un proveedor concreto.
  */
 export interface VoiceSession {
-  readonly architecture?: VoiceArchitecture
   attach(callbacks: VoiceSessionCallbacks): Promise<void>
   sendAudio(pcm16k: Buffer): Promise<void>
+  cancelResponse(reason: string): Promise<void>
+  /** Veto de compliance: corta el turno en curso y no vuelve a responder (opt-out, transferencia). */
+  stopResponding(reason: string): Promise<void>
   updateEotTimeout(ms: number): Promise<void>
   run(): Promise<void>
   close(): Promise<void>

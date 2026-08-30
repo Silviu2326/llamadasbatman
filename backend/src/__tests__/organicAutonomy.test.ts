@@ -88,9 +88,13 @@ test('las dos listas de §9 no se solapan', () => {
 })
 
 test('la lista delegable es exactamente la de §9', () => {
+  // `write_article` es la excepción que §9 documenta desde el 09/08/2026: el
+  // negocio decidió delegar también la redacción de artículos nuevos. Sigue
+  // siendo una lista cerrada — que esta prueba falle al añadir un tipo es
+  // justo lo que obliga a escribirlo antes en el documento.
   assert.deepEqual(
     Object.values(AUTONOMOUS_KINDS).sort(),
-    ['reaudit_seo', 'refresh_article', 'reply_review', 'reschedule_post', 'resync_source', 'vertical_event_piece'],
+    ['reaudit_seo', 'refresh_article', 'reply_review', 'reschedule_post', 'resync_source', 'vertical_event_piece', 'write_article'],
   )
 })
 

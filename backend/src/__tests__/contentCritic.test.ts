@@ -79,8 +79,8 @@ test('una reescritura que no conserva la forma de la pieza se descarta', () => {
 test('sin clave del modelo la pieza sigue pasando por PII y especificidad', async () => {
   // Es lo que hace que el editor adversario proteja también en la demo sin
   // clave: la crítica no corre, pero las dos comprobaciones deterministas sí.
-  const previous = process.env.CLAUDE_API_KEY
-  delete process.env.CLAUDE_API_KEY
+  const previous = process.env.DEEPSEEK_API_KEY
+  delete process.env.DEEPSEEK_API_KEY
   try {
     const result = await reviewPiece('post', { text: 'Amplia experiencia. Llama al 611 22 33 44.' }, {
       evidence: null,
@@ -95,7 +95,7 @@ test('sin clave del modelo la pieza sigue pasando por PII y especificidad', asyn
     assert.match(String(result.body.text), /experiencia desde 1998/)
     assert.ok(!String(result.body.text).includes('611'))
   } finally {
-    if (previous) process.env.CLAUDE_API_KEY = previous
+    if (previous) process.env.DEEPSEEK_API_KEY = previous
   }
 })
 

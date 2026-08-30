@@ -5,6 +5,9 @@
  * Puerto directo de digital_audit.py (sprintmarkt-crm) + extensiones propias.
  */
 import { searchProspects, ProspectingUnavailable } from './prospecting.service'
+import { lookup } from 'node:dns/promises'
+import { isIP } from 'node:net'
+import { readResponseBufferLimited } from '../lib/integrationRuntime'
 
 interface WebInfo {
   isHttps: boolean
@@ -147,32 +150,85 @@ function extractEmail(html: string): string | null {
   return html.match(MAILTO_RE)?.[1] ?? html.match(EMAIL_RE)?.[0] ?? null
 }
 
-function normalizeUrl(url: string): string {
+export function normalizeUrl(url: string): string {
   const trimmed = url.trim()
   if (!trimmed) return ''
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
-async function fetchHtml(url: string, timeoutMs = 10000): Promise<{ status: number; html: string; info: WebInfo }> {
+const MAX_AUDIT_REDIRECTS = 5
+const MAX_AUDIT_HTML_BYTES = 2_000_000
+
+function privateAuditAddress(address: string): boolean {
+  const value = address.toLowerCase().split('%')[0]
+  if (isIP(value) === 6) {
+    return value === '::' || value === '::1' || value.startsWith('fc') || value.startsWith('fd')
+      || value.startsWith('fe8') || value.startsWith('fe9') || value.startsWith('fea') || value.startsWith('feb')
+  }
+  if (isIP(value) !== 4) return false
+  const [a, b] = value.split('.').map(Number)
+  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127)
+    || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19)) || a >= 224
+}
+
+export async function assertAuditablePublicUrl(value: string): Promise<URL> {
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    throw new Error('AUDIT_URL_BLOCKED')
+  }
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, '')
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || !host
+    || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
+    throw new Error('AUDIT_URL_BLOCKED')
+  }
+  if (isIP(host)) {
+    if (privateAuditAddress(host)) throw new Error('AUDIT_URL_BLOCKED')
+    return parsed
+  }
+  const addresses = await lookup(host, { all: true, verbatim: true })
+  if (!addresses.length || addresses.some(address => privateAuditAddress(address.address))) {
+    throw new Error('AUDIT_URL_BLOCKED')
+  }
+  return parsed
+}
+
+export async function fetchHtml(url: string, timeoutMs = 10000): Promise<{ status: number; html: string; info: WebInfo }> {
   const info: WebInfo = { isHttps: false, finalUrl: url, loadMs: null, httpStatus: 0 }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const t0 = Date.now()
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-      },
-    })
+    let current = await assertAuditablePublicUrl(url)
+    let res: Response | null = null
+    for (let redirects = 0; redirects <= MAX_AUDIT_REDIRECTS; redirects += 1) {
+      res = await fetch(current, {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        },
+      })
+      if (res.status < 300 || res.status >= 400) break
+      const location = res.headers.get('location')
+      if (!location || redirects === MAX_AUDIT_REDIRECTS) throw new Error('AUDIT_REDIRECT_BLOCKED')
+      // Cada salto vuelve a validar protocolo, credenciales, hostname y DNS.
+      current = await assertAuditablePublicUrl(new URL(location, current).toString())
+    }
+    if (!res) throw new Error('AUDIT_FETCH_FAILED')
     info.loadMs = Date.now() - t0
-    info.finalUrl = res.url || url
+    info.finalUrl = current.toString()
     info.isHttps = info.finalUrl.startsWith('https://')
     info.httpStatus = res.status
-    const html = await res.text()
+    const contentType = res.headers.get('content-type')?.toLowerCase() ?? ''
+    if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+      throw new Error('AUDIT_CONTENT_TYPE_BLOCKED')
+    }
+    const html = (await readResponseBufferLimited(res, MAX_AUDIT_HTML_BYTES, timeoutMs)).toString('utf8')
     return { status: res.status, html, info }
   } catch {
     return { status: 0, html: '', info }

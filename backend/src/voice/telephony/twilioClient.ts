@@ -37,6 +37,9 @@ export async function buildStreamTwiml(params: Record<string, string> = {}): Pro
     phone: params.phone ?? '',
     businessType: params.businessType ?? '',
     businessName: params.businessName ?? '',
+    // El webhook de entrante ya mandaba `direction`, pero se perdía aquí: el
+    // motor trataba una llamada recibida como si la hubiéramos hecho nosotros.
+    direction: params.direction === 'inbound' ? 'inbound' : 'outbound',
   }, config.voiceStreamSecret ?? config.authToken)
 
   const paramTags = Object.entries(params)
@@ -160,4 +163,11 @@ export async function transferCall(callSid: string, toNumber: string, orgId: str
   if (!normalized) return
   const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial>${escapeXml(normalized)}</Dial></Response>`
   await client.calls(callSid).update({ twiml })
+}
+
+export async function endCall(callSid: string, orgId: string): Promise<void> {
+  const config = await getTwilioIntegrationConfig(orgId)
+  if (!config) return
+  const client = createTwilioClient(config)
+  await client.calls(callSid).update({ status: 'completed' })
 }

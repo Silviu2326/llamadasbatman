@@ -83,20 +83,27 @@ export const PLAN_OPTIONS = [
 // efectiva sigue estando en navigationPermissions.js y en el backend.
 export const MODULES = [
   { id: 'dashboard', label: 'Dashboard', group: 'home', basicVisible: true, minPlan: 'starter' },
+  { id: 'tutorials', label: 'Tutoriales', group: 'learning', basicVisible: true, minPlan: 'starter' },
+  { id: 'documentation', label: 'Documentación', group: 'learning', basicVisible: true, minPlan: 'starter' },
+  { id: 'accounts', label: 'Cuentas', group: 'ventas', basicVisible: true, minPlan: 'starter' },
+  { id: 'capabilities', label: 'Centro de capacidades', group: 'sistema', basicVisible: false, minPlan: 'pro' },
+  { id: 'microapps', label: 'Microapps', group: 'home', basicVisible: true, minPlan: 'pro' },
+  { id: 'marketplace', label: 'Marketplace', group: 'home', basicVisible: true, minPlan: 'pro' },
+  { id: 'studio', label: 'Studio de Cine', group: 'captacion', basicVisible: false, minPlan: 'pro' },
   { id: 'campaigns', label: 'Campañas', group: 'captacion', basicVisible: true, minPlan: 'pro' },
-  { id: 'ads', label: 'Ads', group: 'captacion', basicVisible: true, minPlan: 'pro' },
-  { id: 'social', label: 'Redes sociales', group: 'captacion', basicVisible: false, minPlan: 'pro' },
+  { id: 'ads', label: 'Ads', group: 'captacion', basicVisible: true, minPlan: 'starter' },
+  // `organic` es «Orgánico y social» (centro de mando + redes) y `landings` es
+  // «Web y SEO» (landings + SEO): los ids se conservan para no invalidar las
+  // preferencias guardadas de cada usuario.
+  { id: 'organic', label: 'Orgánico y social', group: 'captacion', basicVisible: true, minPlan: 'pro' },
   { id: 'prospect-finder', label: 'Prospect Finder', group: 'captacion', basicVisible: false, minPlan: 'agency' },
-  { id: 'landings', label: 'Landings & webs', group: 'captacion', basicVisible: false, minPlan: 'pro' },
+  { id: 'landings', label: 'Web y SEO', group: 'captacion', basicVisible: true, minPlan: 'pro' },
   { id: 'funnels', label: 'Funnels', group: 'captacion', basicVisible: false, minPlan: 'pro' },
-  { id: 'organic', label: 'Organic Leads', group: 'captacion', basicVisible: true, minPlan: 'pro' },
-  { id: 'seo', label: 'SEO', group: 'captacion', basicVisible: false, minPlan: 'pro' },
   { id: 'inbox', label: 'Inbox', group: 'conversacion', basicVisible: true, minPlan: 'pro' },
   { id: 'calls', label: 'Llamadas', group: 'conversacion', basicVisible: true, minPlan: 'pro' },
-  { id: 'agents', label: 'Agentes IA', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
+  { id: 'agents', label: 'Agentes IA', group: 'conversacion', basicVisible: false, minPlan: 'starter' },
   { id: 'playbooks', label: 'Playbooks', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
-  { id: 'voice-test', label: 'Test de Voz', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
-  { id: 'qwen-omni', label: 'Qwen Omni (beta)', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
+  { id: 'voice-test', label: 'Cabina de voz', group: 'conversacion', basicVisible: false, minPlan: 'pro' },
   { id: 'email', label: 'Email marketing', group: 'nutricion', basicVisible: false, minPlan: 'pro' },
   { id: 'automations', label: 'Automatizaciones', group: 'nutricion', basicVisible: true, minPlan: 'pro' },
   { id: 'growth', label: 'Growth Hub', group: 'growth', basicVisible: false, minPlan: 'agency' },
@@ -106,6 +113,10 @@ export const MODULES = [
   { id: 'revenue-intelligence', label: 'Inteligencia comercial', group: 'ventas', basicVisible: false, minPlan: 'pro' },
   { id: 'insights', label: 'Insights', group: 'sistema', basicVisible: false, minPlan: 'pro' },
   { id: 'knowledge', label: 'Knowledge Base', group: 'sistema', basicVisible: false, minPlan: 'pro' },
+  { id: 'jobs', label: 'Centro de trabajos', group: 'sistema', basicVisible: false, minPlan: 'pro' },
+  { id: 'assets', label: 'Biblioteca de activos', group: 'sistema', basicVisible: false, minPlan: 'pro' },
+  { id: 'connections', label: 'Conexiones', group: 'sistema', basicVisible: false, minPlan: 'pro' },
+  { id: 'business-info', label: 'Información de empresa', group: 'sistema', basicVisible: false, minPlan: 'pro' },
   { id: 'settings', label: 'Configuración', group: 'sistema', basicVisible: false, minPlan: 'starter' },
   { id: 'governance', label: 'Gobierno empresarial', group: 'sistema', basicVisible: false, minPlan: 'enterprise' },
   { id: 'access-control', label: 'Control de accesos', group: 'sistema', basicVisible: false, minPlan: 'enterprise' },
@@ -236,30 +247,30 @@ export function getRecommendedModules(preferences = {}) {
   const { profile, businessType, objective, plan } = normalizeExperiencePreferences(preferences)
   const recommended = []
 
-  addModules(recommended, ['dashboard', 'leads', 'pipeline', 'meetings'])
+  addModules(recommended, ['dashboard', 'leads', 'accounts', 'pipeline', 'meetings'])
 
   const profileModules = {
-    comercial: ['calls', 'inbox', 'agents', 'playbooks'],
-    admin: ['dashboard', 'insights', 'settings', 'governance', 'access-control', 'automations'],
-    agencia: ['campaigns', 'ads', 'organic', 'prospect-finder', 'social', 'landings', 'funnels', 'email', 'automations', 'growth', 'revenue-intelligence'],
+    comercial: ['calls', 'inbox', 'agents', 'playbooks', 'business-info', 'knowledge'],
+    admin: ['dashboard', 'insights', 'settings', 'governance', 'access-control', 'automations', 'jobs', 'assets', 'microapps', 'marketplace', 'connections', 'capabilities'],
+    agencia: ['campaigns', 'ads', 'organic', 'prospect-finder', 'studio', 'landings', 'funnels', 'email', 'automations', 'growth', 'revenue-intelligence', 'marketplace'],
     direccion: ['dashboard', 'insights', 'revenue-intelligence', 'pipeline', 'leads', 'meetings', 'growth'],
-    marketing: ['campaigns', 'ads', 'organic', 'social', 'landings', 'email', 'automations', 'prospect-finder', 'growth'],
+    marketing: ['campaigns', 'ads', 'organic', 'studio', 'landings', 'email', 'automations', 'prospect-finder', 'growth', 'marketplace'],
   }
 
   const businessModules = {
     servicios: ['organic', 'landings', 'calls'],
     local: ['organic', 'prospect-finder', 'ads', 'landings'],
-    b2b: ['prospect-finder', 'agents', 'playbooks', 'revenue-intelligence'],
-    ecommerce: ['ads', 'email', 'automations', 'social'],
-    agencia: ['campaigns', 'ads', 'social', 'growth', 'revenue-intelligence'],
+    b2b: ['prospect-finder', 'agents', 'playbooks', 'business-info', 'knowledge', 'revenue-intelligence'],
+    ecommerce: ['ads', 'email', 'automations', 'organic'],
+    agencia: ['campaigns', 'ads', 'organic', 'studio', 'growth', 'revenue-intelligence'],
   }
 
   const objectiveModules = {
     leads: ['organic', 'prospect-finder', 'ads', 'landings'],
     ventas: ['pipeline', 'meetings', 'calls', 'agents'],
-    campanas: ['campaigns', 'ads', 'social', 'email'],
+    campanas: ['campaigns', 'ads', 'organic', 'studio', 'email'],
     retencion: ['email', 'automations', 'inbox', 'calls'],
-    visibilidad: ['organic', 'social', 'ads', 'landings'],
+    visibilidad: ['organic', 'ads', 'landings'],
   }
 
   addModules(recommended, profileModules[profile] || [])

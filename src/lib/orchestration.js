@@ -121,18 +121,18 @@ export function buildDemoPlan(input = EMPTY_ORCHESTRATION_FORM) {
   const budgetLabel = context.budget ? `${context.budget.toLocaleString(localeCode(getLocale()))} €` : 'presupuesto por definir'
   const phases = [
     createPhase('diagnosis', [
-      demoStep('demo-diagnosis-organic', 'diagnosis', `Medir demanda para ${target}`, 'Organic Leads', '/organic'),
-      demoStep('demo-diagnosis-prospecting', 'diagnosis', `Encontrar prospectos parecidos en ${location}`, 'Prospect Finder', '/prospectos'),
+      demoStep('demo-diagnosis-organic', 'diagnosis', `Medir demanda para ${target}`, 'Orgánico y social', '/captacion/atraer/organico'),
+      demoStep('demo-diagnosis-prospecting', 'diagnosis', `Encontrar prospectos parecidos en ${location}`, 'Prospect Finder', '/captacion/atraer/prospectos'),
       demoStep('demo-diagnosis-commercial', 'diagnosis', 'Establecer la línea base comercial', 'Inteligencia comercial', '/inteligencia-comercial'),
     ]),
     createPhase('assets', [
-      demoStep('demo-assets-landing', 'assets', 'Preparar una landing orientada al resultado', 'Landings & webs', '/landings'),
+      demoStep('demo-assets-landing', 'assets', 'Preparar una landing orientada al resultado', 'Web y SEO', '/captacion/convertir?tab=landings'),
       demoStep('demo-assets-agent', 'assets', 'Alinear agente y playbook con el objetivo', 'Agentes IA', '/agentes'),
       demoStep('demo-assets-email', 'assets', 'Diseñar el seguimiento de nutrición', 'Email marketing', '/email-marketing', 'medium', true),
     ]),
     createPhase('activation', [
-      demoStep('demo-activation-ads', 'activation', 'Proponer campaña Ads con límite controlado', 'Ads', '/ads', 'high', true),
-      demoStep('demo-activation-social', 'activation', 'Convertir el plan en publicaciones revisables', 'Redes sociales', '/redes-sociales', 'high', true),
+      demoStep('demo-activation-ads', 'activation', 'Proponer campaña Ads con límite controlado', 'Ads', '/captacion/atraer/ads', 'high', true),
+      demoStep('demo-activation-social', 'activation', 'Convertir el plan en publicaciones revisables', 'Orgánico y social', '/captacion/atraer/organico?tab=contenido', 'high', true),
       demoStep('demo-activation-automation', 'activation', 'Activar el seguimiento operativo', 'Automatizaciones', '/automatizaciones', 'medium', true),
     ]),
     createPhase('monitoring', [
@@ -206,10 +206,10 @@ export function isTerminalPlanStatus(status) { return ['executed', 'failed', 'pa
 
 function moduleTarget(text = '') {
   const value = text.toLowerCase()
-  if (value.includes('organic')) return { module: 'Organic Leads', moduleRoute: '/organic' }
-  if (value.includes('prospect')) return { module: 'Prospect Finder', moduleRoute: '/prospectos' }
-  if (value.includes('ads') || value.includes('publicidad')) return { module: 'Ads', moduleRoute: '/ads' }
-  if (value.includes('landing')) return { module: 'Landings & webs', moduleRoute: '/landings' }
+  if (value.includes('organic')) return { module: 'Orgánico y social', moduleRoute: '/captacion/atraer/organico' }
+  if (value.includes('prospect')) return { module: 'Prospect Finder', moduleRoute: '/captacion/atraer/prospectos' }
+  if (value.includes('ads') || value.includes('publicidad')) return { module: 'Ads', moduleRoute: '/captacion/atraer/ads' }
+  if (value.includes('landing')) return { module: 'Web y SEO', moduleRoute: '/captacion/convertir?tab=landings' }
   if (value.includes('agente') || value.includes('playbook')) return { module: 'Agentes IA', moduleRoute: '/agentes' }
   if (value.includes('email')) return { module: 'Email marketing', moduleRoute: '/email-marketing' }
   if (value.includes('automat')) return { module: 'Automatizaciones', moduleRoute: '/automatizaciones' }

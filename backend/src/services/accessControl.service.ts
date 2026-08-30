@@ -116,11 +116,12 @@ export async function listMembers(actor: Actor) {
   if (!hasPermission(actor.role, 'access_control.read')) {
     throw new AccessControlError('No tienes permiso para consultar miembros', 403, 'FORBIDDEN')
   }
-  return prisma.user.findMany({
-    where: { orgId: actor.orgId },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-    orderBy: [{ role: 'asc' }, { name: 'asc' }],
+  const memberships = await prisma.organizationMembership.findMany({
+    where: { orgId: actor.orgId, status: 'active' },
+    select: { role: true, createdAt: true, user: { select: { id: true, name: true, email: true } } },
+    orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
   })
+  return memberships.map(row => ({ ...row.user, role: row.role, createdAt: row.createdAt }))
 }
 
 function visibleRequestWhere(actor: Actor): Prisma.AccessControlRequestWhereInput {
@@ -201,7 +202,7 @@ export async function createRequest(actor: Actor, input: CreateAccessRequestInpu
       ? 'revenue_experiment'
       : input.resourceType ?? null
   if (input.targetUserId) {
-    const target = await prisma.user.findFirst({ where: { id: input.targetUserId, orgId: actor.orgId }, select: { id: true, role: true } })
+    const target = await prisma.organizationMembership.findFirst({ where: { userId: input.targetUserId, orgId: actor.orgId, status: 'active' }, select: { userId: true, role: true } })
     if (!target) throw new AccessControlError('Miembro no encontrado', 404, 'NOT_FOUND')
     if (input.type === 'role_elevation' && requestedRole(payload) === target.role) {
       throw new AccessControlError('El miembro ya tiene ese rol', 409, 'NO_ROLE_CHANGE')
@@ -332,9 +333,9 @@ export async function assignMemberRole(actor: Actor, targetUserId: string, role:
     throw new AccessControlError('Solo un propietario puede asignar el rol propietario', 403, 'OWNER_ASSIGNMENT_REQUIRED')
   }
 
-  const target = await prisma.user.findFirst({ where: { id: targetUserId, orgId: actor.orgId }, select: { id: true, role: true } })
+  const target = await prisma.organizationMembership.findFirst({ where: { userId: targetUserId, orgId: actor.orgId, status: 'active' }, select: { userId: true, role: true } })
   if (!target) throw new AccessControlError('Miembro no encontrado', 404, 'NOT_FOUND')
-  if (target.role === role) return { member: target, changed: false }
+  if (target.role === role) return { member: { id: target.userId, role: target.role }, changed: false }
   if (target.role === 'owner' && actor.role !== 'owner') {
     throw new AccessControlError('Solo un propietario puede cambiar el rol de otro propietario', 403, 'OWNER_MANAGEMENT_REQUIRED')
   }
@@ -362,14 +363,14 @@ export async function assignMemberRole(actor: Actor, targetUserId: string, role:
 
   try {
     return await prisma.$transaction(async tx => {
-      const currentTarget = await tx.user.findFirst({
-        where: { id: targetUserId, orgId: actor.orgId },
-        select: { id: true, role: true },
+      const currentTarget = await tx.organizationMembership.findFirst({
+        where: { userId: targetUserId, orgId: actor.orgId, status: 'active' },
+        select: { userId: true, role: true },
       })
       if (!currentTarget) throw new AccessControlError('Miembro no encontrado', 404, 'NOT_FOUND')
       if (currentTarget.role !== target.role) throw new AccessControlError('El rol del miembro cambio durante la operacion', 409, 'CONCURRENT_ROLE_CHANGE')
       if (currentTarget.role === 'owner') {
-        const owners = await tx.user.count({ where: { orgId: actor.orgId, role: 'owner' } })
+        const owners = await tx.organizationMembership.count({ where: { orgId: actor.orgId, role: 'owner', status: 'active' } })
         if (owners <= 1) throw new AccessControlError('No se puede degradar al ultimo propietario', 409, 'LAST_OWNER')
       }
       if (approved) {
@@ -379,16 +380,20 @@ export async function assignMemberRole(actor: Actor, targetUserId: string, role:
         })
         if (consumed.count !== 1) throw new AccessControlError('La aprobacion ya fue consumida', 409, 'APPROVAL_CONSUMED')
       }
-      const changed = await tx.user.updateMany({
-        where: { id: targetUserId, orgId: actor.orgId, role: target.role },
+      const changed = await tx.organizationMembership.updateMany({
+        where: { userId: targetUserId, orgId: actor.orgId, role: target.role, status: 'active' },
         data: { role: role as UserRole },
       })
       if (changed.count !== 1) throw new AccessControlError('El rol del miembro cambio durante la operacion', 409, 'CONCURRENT_ROLE_CHANGE')
-      const member = await tx.user.findFirstOrThrow({
-        where: { id: targetUserId, orgId: actor.orgId },
-        select: { id: true, name: true, email: true, role: true, createdAt: true },
+      // User.role queda sincronizado solo para la organización primaria; las
+      // demás membresías nunca deben pisar esa compatibilidad legacy.
+      await tx.user.updateMany({ where: { id: targetUserId, orgId: actor.orgId }, data: { role: role as UserRole } })
+      const memberRow = await tx.organizationMembership.findFirstOrThrow({
+        where: { userId: targetUserId, orgId: actor.orgId, status: 'active' },
+        select: { role: true, createdAt: true, user: { select: { id: true, name: true, email: true } } },
       })
-      await tx.authSession.updateMany({ where: { userId: targetUserId, revokedAt: null }, data: { revokedAt: new Date() } })
+      const member = { ...memberRow.user, role: memberRow.role, createdAt: memberRow.createdAt }
+      await tx.authSession.updateMany({ where: { userId: targetUserId, activeOrgId: actor.orgId, revokedAt: null }, data: { revokedAt: new Date() } })
       await tx.auditLog.create({
         data: {
           orgId: actor.orgId,

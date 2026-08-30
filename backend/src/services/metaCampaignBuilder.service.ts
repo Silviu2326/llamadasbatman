@@ -1,6 +1,8 @@
 import { prisma } from '../lib/prisma'
 import { getDecryptedToken } from './metaAdAccount.service'
 import { enqueueAdReviewPoll } from '../jobs/adReviewPoll'
+import { emitOutcome } from './outcomes.service'
+import { checkAssetsConsentForPublication } from './consent.service'
 
 const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION ?? 'v23.0'
 const GRAPH_URL = `https://graph.facebook.com/${GRAPH_VERSION}`
@@ -28,6 +30,7 @@ interface CampaignAdAssets {
   landingTemplateId: string
   imagePrompt: string
   imageUrl?: string
+  imageAssetId?: string
   presupuestoMensual: number
 }
 
@@ -62,6 +65,15 @@ export async function publishCampaign(orgId: string, campaignId: string) {
 
   const assets = campaign.adAssets as unknown as CampaignAdAssets | null
   if (!assets) throw new Error('Campaign sin assets resueltos — corré el wizard primero')
+  if (assets.imageAssetId) {
+    const consent = await checkAssetsConsentForPublication({ orgId, assetIds: [assets.imageAssetId], channels: ['meta'] })
+    if (!consent.valid) {
+      throw Object.assign(
+        new Error(`No se puede publicar la creatividad: ${consent.reason ?? 'consentimiento no válido'}`),
+        { code: 'ASSET_CONSENT_INVALID', assetId: consent.assetId },
+      )
+    }
+  }
 
   const adAccountId = metaAccount.metaAdAccountId
 
@@ -146,6 +158,9 @@ export async function activateCampaign(orgId: string, campaignId: string) {
     where: { id: campaignId },
     data: { adStatus: 'pending_review', status: 'active' },
   })
+
+  // North star (09 §5): campaña activada en Meta = 'campaign_published'. Nunca lanza.
+  await emitOutcome({ orgId, kind: 'campaign_published', sourceRef: { campaignId, metaCampaignId: campaign.metaCampaignId } })
 
   await enqueueAdReviewPoll(orgId, campaignId)
 }

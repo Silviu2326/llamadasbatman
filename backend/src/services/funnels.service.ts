@@ -136,14 +136,14 @@ export async function getFunnelsOverview(orgId: string) {
         funnelId: withoutTracking.id,
         title: 'Mide las visitas antes de optimizar',
         detail: `${withoutTracking.name} ya capta resultados, pero todavia no registra visitas. Asi sabras si el freno esta en la landing o despues del formulario.`,
-        action: { label: 'Revisar landing', to: '/landings' },
+        action: { label: 'Revisar landing', to: '/captacion/convertir?tab=landings' },
       }
     : candidate
       ? {
           funnelId: candidate.funnel.id,
           title: `Refuerza el paso de ${candidate.bottleneck.label}`,
           detail: `${candidate.funnel.name} convierte un ${candidate.bottleneck.rate.toLocaleString('es-ES')}% en esta transicion. Es el punto con mayor margen de mejora medible.`,
-          action: { label: 'Abrir funnel', to: `/funnels?selected=${candidate.funnel.id}` },
+          action: { label: 'Abrir funnel', to: `/captacion/cerrar?selected=${candidate.funnel.id}` },
         }
       : null
 

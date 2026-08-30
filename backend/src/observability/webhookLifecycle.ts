@@ -14,6 +14,11 @@ export type WebhookBeginInput = {
   correlationId?: string
   externalEventId?: string
   rawBody?: string
+  providerJobId?: string
+  eventTimestamp?: Date
+  signatureValid?: boolean
+  signatureVersion?: string
+  metadata?: Record<string, unknown>
 }
 
 export type WebhookBeginResult = {
@@ -36,6 +41,7 @@ function stableExternalEventId(input: WebhookBeginInput): string {
 
 function safeMetadata(input: WebhookBeginInput, externalEventId: string) {
   return {
+    ...(input.metadata ?? {}),
     eventFingerprint: createHash('sha256').update(externalEventId).digest('hex').slice(0, 32),
     bodyBytes: input.rawBody ? Buffer.byteLength(input.rawBody, 'utf8') : undefined,
   }
@@ -56,6 +62,11 @@ export async function beginWebhookEvent(input: WebhookBeginInput): Promise<Webho
         attempts: 1,
         lastAttemptAt: now,
         correlationId: input.correlationId,
+        providerJobId: input.providerJobId,
+        eventTimestamp: input.eventTimestamp,
+        payloadHash: input.rawBody ? createHash('sha256').update(input.rawBody).digest('hex') : undefined,
+        signatureValid: input.signatureValid,
+        signatureVersion: input.signatureVersion,
         metadata: safeMetadata(input, externalEventId),
       },
       select: { id: true },
@@ -67,7 +78,7 @@ export async function beginWebhookEvent(input: WebhookBeginInput): Promise<Webho
   }
 
   const existing = await prisma.webhookEvent.findUnique({
-    where: { externalEventId },
+    where: { provider_externalEventId: { provider: input.provider, externalEventId } },
     select: { id: true, status: true, attempts: true, lastAttemptAt: true },
   })
   if (!existing) throw new Error('Webhook event disappeared after unique conflict')

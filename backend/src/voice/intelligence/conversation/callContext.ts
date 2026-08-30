@@ -1,5 +1,4 @@
 import type { Redis } from 'ioredis'
-import { createProspectState, ProspectState } from '../salesBrain'
 
 export interface AgentConfig {
   softwareId: string
@@ -8,9 +7,11 @@ export interface AgentConfig {
   callDirection: string
   identity: { agentName: string; agentGender: string; agentAccent: string }
   product: { companyName: string; productName: string; targetVertical: string; priceMonthly: number; currency: string; currencySymbol: string; marketCountry: string }
-  playbook: { strategy: string; scripts: Record<string, string | string[]> }
+  playbook: { strategy: string; customPlaybookId?: string; scripts: Record<string, string | string[]> }
   compliance: { disclosureText: string; disclosureAi: boolean; timezone: string; callHourStart: number; callHourEnd: number }
-  voice: { twilioFromNumber?: string; elevenLabsVoiceId?: string; twilioName?: string }
+  voice: { twilioFromNumber?: string; ttsVoiceId?: string; twilioName?: string; speed?: number; speculative?: boolean }
+  runtime?: Record<string, unknown>
+  behavior?: Record<string, unknown>
 }
 
 export interface CallContext {
@@ -24,8 +25,9 @@ export interface CallContext {
   agentId: string
   leadId: string
   agentConfig: AgentConfig | null
+  /** Quién llamó a quién. Decide el saludo y el objetivo del agente. */
+  direction: 'inbound' | 'outbound'
   prospect: Record<string, unknown>
-  prospectState: ProspectState
   turns: number
   transcript: Array<{ role: string; text: string }>
   transferRequested: boolean
@@ -51,8 +53,8 @@ export function createCallContext(params: Partial<CallContext> & { callSid: stri
     agentId: params.agentId ?? '',
     leadId: params.leadId ?? '',
     agentConfig: params.agentConfig ?? null,
+    direction: params.direction === 'inbound' ? 'inbound' : 'outbound',
     prospect: params.prospect ?? {},
-    prospectState: params.prospectState ?? createProspectState(),
     turns: 0,
     transcript: [],
     transferRequested: false,

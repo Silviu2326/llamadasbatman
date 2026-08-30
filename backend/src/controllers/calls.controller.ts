@@ -3,8 +3,55 @@ import * as callsService from '../services/calls.service'
 import { emitToOrg } from '../websockets/index'
 import { CallStatus } from '@prisma/client'
 import { normalizeCallOutcome } from '../lib/callOutcome'
+import { z } from 'zod'
+import {
+  FISH_LATENCY_MODES,
+  FISH_MODELS,
+  FishAudioLatencyError,
+  measureFishAudioLatency,
+} from '../services/fishAudioLatency.service'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
+
+const fishLatencySchema = z.object({
+  text: z.string().trim().min(12).max(600),
+  voiceId: z.string().trim().min(8).max(160).optional().or(z.literal('')),
+  model: z.enum(FISH_MODELS).default('s2.1-pro-free'),
+  latency: z.enum(FISH_LATENCY_MODES).default('balanced'),
+  speed: z.number().min(0.5).max(2).default(1),
+})
+
+export async function ttsLatencyDemo(
+  request: FastifyRequest<{ Body: unknown }>,
+  reply: FastifyReply,
+) {
+  const parsed = fishLatencySchema.safeParse(request.body)
+  if (!parsed.success) {
+    return reply.status(400).send({ error: 'Parámetros de medición no válidos.', details: parsed.error.flatten() })
+  }
+
+  const { orgId } = request.user as JWTUser
+  try {
+    const result = await measureFishAudioLatency({
+      ...parsed.data,
+      voiceId: parsed.data.voiceId || undefined,
+    }, { orgId })
+    return reply
+      .type(result.contentType)
+      .header('Cache-Control', 'no-store')
+      .header('X-Fish-TTFA-Ms', String(result.ttfaMs))
+      .header('X-Fish-Total-Ms', String(result.totalMs))
+      .header('X-Fish-Model', result.model)
+      .header('X-Fish-Latency', result.latency)
+      .header('Server-Timing', `fish-ttfa;dur=${result.ttfaMs}, fish-total;dur=${result.totalMs}`)
+      .send(result.audio)
+  } catch (error) {
+    if (error instanceof FishAudioLatencyError) {
+      return reply.status(error.statusCode).send({ error: error.message })
+    }
+    throw error
+  }
+}
 
 export async function list(
   request: FastifyRequest<{

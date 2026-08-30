@@ -5,7 +5,7 @@ import {
   RiCheckboxCircleLine, RiCloseLine, RiDownload2Line, RiFileDownloadLine,
   RiFireLine, RiFilterLine, RiGlobalLine, RiGroupLine, RiLayoutGridLine,
   RiMailLine, RiMapPin2Line, RiMoreLine, RiPhoneLine, RiPulseLine,
-  RiRefreshLine, RiRobot2Line, RiSearchEyeLine, RiSearchLine, RiSendPlaneLine,
+  RiRefreshLine, RiRobot2Line, RiSearchEyeLine, RiSearchLine, RiSendPlaneLine, RiSparkling2Line,
   RiTableLine, RiTimeLine, RiUserAddLine,
 } from 'react-icons/ri'
 import { HiChevronDown, HiChevronLeft, HiChevronRight } from 'react-icons/hi'
@@ -16,6 +16,7 @@ import NewLeadModal from '../modals/NewLeadModal'
 import ImportLeadsModal from '../modals/ImportLeadsModal'
 import leadPulseImage from '../assets/leads/lead-pulse.png'
 import '../pages/leads.css'
+import PageLoadingState from './ui/PageLoadingState'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
 const STATUS_CONFIG = {
@@ -258,6 +259,12 @@ export default function LeadsPage() {
     setSelected(new Set())
   }
 
+  function openSequenceBuilder() {
+    const ids = [...selected]
+    if (!ids.length) return
+    navigate(`/microapps/hyperpersonalized-sequence?leadIds=${encodeURIComponent(ids.join(','))}&drawer=1`)
+  }
+
   // LE-102: exporta el conjunto filtrado completo (no solo la página cargada)
   // vía el endpoint server-side, con los mismos filtros que la lista.
   async function handleExportCsv() {
@@ -283,10 +290,10 @@ export default function LeadsPage() {
     }
   }
 
-  if (loading) return <div className="dark-scroll leads-page" role="status"><div className="leads-empty-state"><RiRefreshLine /><strong>Cargando leads…</strong></div></div>
+  if (loading) return <PageLoadingState label="Cargando leads" />
 
   return <div className="dark-scroll leads-page">
-    <header className="leads-page-header"><div className="leads-heading"><div className="leads-brand-icon"><RiGroupLine /></div><div><h1>Leads</h1><p>{t('modules.leadsTitle')}</p></div></div><div className="leads-header-actions"><div className="leads-search"><RiSearchLine /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar leads, empresas, etiquetas…" /><kbd>⌘ K</kbd></div><button className="leads-button ghost" onClick={() => setRefreshKey(key => key + 1)}><RiRefreshLine /> {t('calls.refresh')}</button><button className="leads-button secondary" onClick={() => setShowImport(true)}><RiDownload2Line /> Importar</button><button className="leads-button primary" onClick={() => setShowNewLead(true)}><RiAddLine /> {t('modal.newLead')}</button></div></header>
+    <header className="leads-page-header"><div className="leads-heading"><div className="leads-brand-icon"><RiGroupLine /></div><div><h1>Leads</h1><p>{t('modules.leadsTitle')}</p></div></div><div className="leads-header-actions"><div className="leads-search"><RiSearchLine /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar leads, empresas, etiquetas…" /><kbd>⌘ K</kbd></div><button className="leads-button secondary" onClick={() => setShowImport(true)}><RiDownload2Line /> Importar</button><button className="leads-button primary" onClick={() => setShowNewLead(true)}><RiAddLine /> {t('modal.newLead')}</button></div></header>
 
     <section className="leads-hero"><div className="leads-hero-copy"><div className="leads-hero-visual"><img src={leadPulseImage} alt="Commercial intelligence pulse" /></div><div><h2>{t('modules.leadsHero')}</h2><p>{t('modules.leadsHeroText')}</p><div className="leads-hero-actions"><button className="leads-button primary" onClick={() => setActiveFilter('Hot')}><RiRobot2Line /> Ver recomendaciones</button></div></div></div><div className="leads-hero-insights"><span>Datos disponibles</span><p><RiFireLine /> <b>{hotCount} leads Hot</b> según el score cargado</p><p><RiBarChartBoxLine /> <b>{formatCurrency(stats?.pipelineValue ?? (leads.length ? pipelineValue : null))}</b> de valor potencial conocido</p><small><RiRefreshLine /> {leads.length ? 'Sincronización completada' : 'Sin leads todavía — importa los primeros'}</small></div></section>
 
@@ -298,7 +305,7 @@ export default function LeadsPage() {
 
       {showFilters && <div className="leads-filter-drawer"><div><strong>Filtros avanzados</strong><span>Combina criterios para encontrar el siguiente foco.</span></div><label>Puntuación mínima<select value={scoreFilter} onChange={event => setScoreFilter(event.target.value)}><option value="all">Cualquier score</option><option value="80">80+ · Hot</option><option value="65">65+ · Alto</option><option value="40">40+ · Medio</option></select></label><label>Fuente<select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)}><option value="all">Todas las fuentes</option>{sources.map(source => <option key={source}>{source}</option>)}</select></label><div className="leads-audit-filters">{AUDIT_FILTERS.map(filter => <label key={filter.key}><input type="checkbox" checked={auditFilters.has(filter.key)} onChange={() => toggleAuditFilter(filter.key)} />{filter.label}</label>)}</div><button className="leads-text-button" onClick={() => { setScoreFilter('all'); setSourceFilter('all'); setAuditFilters(new Set()) }}><RiCloseLine /> Limpiar filtros</button></div>}
 
-      {selected.size > 0 && <div className="leads-bulk-bar"><span><b>{selected.size}</b> leads seleccionados</span><div><button onClick={() => bulkAction('contact')}><RiPhoneLine /> Marcar contactados</button><button onClick={() => bulkAction('followup')}><RiTimeLine /> En seguimiento</button><button onClick={() => bulkAction('export')}><RiFileDownloadLine /> Exportar selección</button><button className="close" onClick={() => setSelected(new Set())}><RiCloseLine /></button></div></div>}
+      {selected.size > 0 && <div className="leads-bulk-bar"><span><b>{selected.size}</b> leads seleccionados</span><div><button onClick={openSequenceBuilder}><RiSparkling2Line /> Crear secuencia</button><button onClick={() => bulkAction('contact')}><RiPhoneLine /> Marcar contactados</button><button onClick={() => bulkAction('followup')}><RiTimeLine /> En seguimiento</button><button onClick={() => bulkAction('export')}><RiFileDownloadLine /> Exportar selección</button><button className="close" onClick={() => setSelected(new Set())}><RiCloseLine /></button></div></div>}
 
       {view === 'kanban' ? <div className="leads-kanban-board">{STAGES.map(stage => { const stageLeads = filtered.filter(lead => lead.status === stage); const config = STATUS_CONFIG[stage]; return <div className="lead-kanban-column" key={stage}><div className="lead-kanban-column-head"><span><i style={{ background: config.color }} />{stage}</span><b>{stageLeads.length}</b></div><div className="lead-kanban-list">{stageLeads.length ? stageLeads.map(lead => <KanbanCard key={lead.id} lead={lead} onOpen={id => navigate(`/leads/${id}`)} />) : <div className="lead-kanban-empty">Sin leads en esta etapa</div>}</div></div> })}</div> : <div className="leads-table-panel"><div className="leads-table-meta"><div><strong>{filtered.length.toLocaleString(localeCode(getLocale()))} leads</strong><span>de {totalLeads.toLocaleString(localeCode(getLocale()))} en tu workspace</span></div><button className="leads-text-button" onClick={() => setActiveFilter('Todos')}><RiRefreshLine /> Restablecer vista</button></div><div className="leads-table-scroll"><div className="leads-table-head"><div className="lead-row-check"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleAll} aria-label="Seleccionar todos" /></div><span>Lead</span><span>Empresa</span><span>Estado</span><span>Score</span><span>Último contacto</span><span>Valor potencial</span><span>Próxima acción</span><span>Acciones</span></div>{filtered.length ? filtered.map(lead => <LeadRow key={lead.id} lead={lead} selected={selected.has(lead.id)} onToggle={toggleSelected} onOpen={id => navigate(`/leads/${id}`)} onAction={quickAction} onAudit={runAudit} />) : leads.length === 0 ? <div className="leads-empty-state"><RiGroupLine /><strong>Todavía no tienes leads</strong><span>Importa un CSV o crea tu primer lead para que el agente pueda llamar.</span><div style={{ display: 'flex', gap: 8 }}><button className="leads-button secondary" onClick={() => setShowImport(true)}>Importar CSV</button><button className="leads-button primary" onClick={() => setShowNewLead(true)}>Nuevo lead</button></div></div> : <div className="leads-empty-state"><RiSearchLine /><strong>No encontramos leads con estos filtros</strong><span>Prueba a limpiar algún criterio o buscar por empresa.</span><button className="leads-button secondary" onClick={() => { setSearch(''); setActiveFilter('Todos'); setScoreFilter('all'); setSourceFilter('all'); setAuditFilters(new Set()) }}>Limpiar búsqueda</button></div>}</div><div className="leads-table-footer"><span>Mostrando {filtered.length ? (page - 1) * 24 + 1 : 0} a {Math.min((page - 1) * 24 + filtered.length, meta.total)} de {meta.total.toLocaleString(localeCode(getLocale()))} leads</span><div className="leads-pagination"><button disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))}><HiChevronLeft /></button><button className="active">{page}</button><button disabled={page >= meta.totalPages} onClick={() => setPage(value => Math.min(meta.totalPages, value + 1))}>{page + 1}</button><button disabled={page >= meta.totalPages} onClick={() => setPage(value => Math.min(meta.totalPages, value + 1))}><HiChevronRight /></button></div><span className="leads-page-size">24 por página <HiChevronDown /></span></div></div>}
     </section>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { RiCheckLine, RiCloseLine, RiLoader4Line } from 'react-icons/ri'
+import PageLoadingState from '../components/ui/PageLoadingState'
 import './content-approval.css'
 
 /**
@@ -88,9 +89,7 @@ export default function PublicContentApprovalPage() {
     }
   }
 
-  if (state === 'loading') {
-    return <main className="approval-public approval-public-center"><RiLoader4Line className="approval-public-spin" /><span>Cargando…</span></main>
-  }
+  if (state === 'loading') return <PageLoadingState label="Cargando aprobación" />
   if (state !== 'ready') {
     return (
       <main className="approval-public approval-public-center">

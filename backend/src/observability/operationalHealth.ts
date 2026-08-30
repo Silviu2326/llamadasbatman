@@ -3,6 +3,7 @@ import { checkRuntimeDependencies } from './dependencyGate'
 import { evaluateOperationalAlerts, readinessFromAlerts, type OperationalAlert } from './alertPolicy'
 import { readWorkerHeartbeat, type WorkerHeartbeatStatus } from './workerHeartbeat'
 import { setGaugeMetric, setQueueGauge } from './metrics'
+import { isPostgresQueueBackend } from '../lib/queueBackend'
 
 type DatabaseStatus = 'healthy' | 'missing' | 'unavailable'
 
@@ -163,6 +164,7 @@ export async function getWorkerHealth(): Promise<WorkerHealth> {
   const alertDetails = evaluateOperationalAlerts({
     database: database.status,
     redis: redisStatus,
+    redisRequired: !isPostgresQueueBackend(),
     heartbeat: heartbeat.status,
     workersEnabled,
     databaseQueriesAvailable: queues.databaseQueriesAvailable,

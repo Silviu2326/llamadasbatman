@@ -14,6 +14,9 @@ import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import { mapLead } from '../lib/leadMapping'
 import '../pages/leads.css'
+import './sales-detail-standard.css'
+import { MicroappProjectionPanel, MicroappSurfaceActions } from '../components/MicroappSurfaceActions'
+import PageLoadingState from '../components/ui/PageLoadingState'
 
 // El fondo es el mismo color del estado al 8%: color-mix mantiene el token como
 // única fuente y funciona en claro y oscuro.
@@ -30,7 +33,8 @@ const STATUS_CONFIG = {
 }
 const STAGES = ['Nuevo', 'Contactado', 'Interesado', 'Ganado', 'Perdido']
 const STAGE_TO_BACKEND = { Nuevo: 'new', Contactado: 'contacted', Interesado: 'qualified', Ganado: 'converted', Perdido: 'unqualified' }
-const DETAIL_TABS = ['Resumen', 'Actividad', 'Consentimiento', 'Inteligencia', 'Notas', 'Archivos']
+const DETAIL_TABS = ['Resumen', 'Actividad', 'Consentimiento', 'Inteligencia', 'Investigación', 'Notas', 'Archivos']
+
 const CALL_LABELS = { completed: 'Llamada saliente', no_answer: 'Llamada sin respuesta', failed: 'Llamada fallida', busy: 'Línea ocupada' }
 
 // LE-107: config visual del timeline de SalesActivity (GET /api/leads/:id/activities).
@@ -120,6 +124,106 @@ function OriginChip({ origin }) {
   )
 }
 
+/**
+ * Email frío escrito desde la auditoría. Se enseña entero y editable antes de
+ * enviarlo: quien firma es quien responde de lo que pone, así que nada sale
+ * sin que una persona lo haya leído. Los hallazgos se listan aparte para poder
+ * comprobar de un vistazo que el texto no afirma nada que no esté medido.
+ */
+function OutboundEmailCard({ audit, draft, edit, setEdit, busy, error, sent, onDraft, onSend }) {
+  return <section className="lead-detail-card">
+    <div className="lead-detail-card-heading">
+      <h3>Email frío desde la auditoría</h3>
+      <button className="leads-text-button" onClick={onDraft} disabled={!audit || busy === 'draft'}>
+        <RiSparkling2Line /> {busy === 'draft' ? 'Redactando…' : draft ? 'Volver a redactar' : 'Redactar'}
+      </button>
+    </div>
+
+    {!audit && <div className="lead-audit-card"><strong>Audita primero</strong><p>El email se escribe con los hallazgos de la auditoría. Sin auditar no hay nada cierto que contarle a este negocio.</p></div>}
+
+    {sent && <p className="lead-email-status" style={{ color: 'var(--success-soft)' }}>{sent}</p>}
+    {error && <p className="lead-email-status" role="alert" style={{ color: 'var(--danger-soft)' }}>{error}</p>}
+
+    {draft && <div className="lead-outbound">
+      {draft.copy?.kind === 'followup' && <p className="lead-email-status" style={{ color: 'var(--accent-soft)' }}>
+        Seguimiento nº {draft.copy.attempt}. Escrito viendo los {draft.copy.attempt - 1} envío{draft.copy.attempt - 1 === 1 ? '' : 's'} anteriores, sin repetir su apertura ni su argumento.
+      </p>}
+
+      <div className="lead-outbound-findings">
+        <span>Escrito solo sobre estos hallazgos:</span>
+        <ul>{draft.findings.map(finding => <li key={finding.title}><strong>{finding.title}</strong> — {finding.pitch}</li>)}</ul>
+      </div>
+
+      {draft.research?.facts?.length > 0 && <div className="lead-outbound-findings">
+        <span>Y sobre lo que su web dice de sí misma ({draft.research.sources.length} página{draft.research.sources.length === 1 ? '' : 's'} leída{draft.research.sources.length === 1 ? '' : 's'}):</span>
+        <ul>{draft.research.facts.map(fact => <li key={fact.claim}>
+          <strong>{fact.claim}</strong>
+          {/* La cita literal se enseña: es la prueba de que el hecho no está inventado. */}
+          <em className="lead-outbound-quote">«{fact.quote}»</em>
+          <a href={fact.url} target="_blank" rel="noreferrer noopener">{new URL(fact.url).pathname || '/'}</a>
+        </li>)}</ul>
+        {draft.research.discarded > 0 && <small className="lead-email-status">
+          {draft.research.discarded} afirmación{draft.research.discarded === 1 ? '' : 'es'} descartada{draft.research.discarded === 1 ? '' : 's'} por no poder citarse literalmente en la web.
+        </small>}
+      </div>}
+
+      {draft.research?.queries?.length > 0 && <div className="lead-outbound-findings">
+        <span>Buscó por su cuenta:</span>
+        <ul>{draft.research.queries.map(query => <li key={query}>«{query}»</li>)}</ul>
+      </div>}
+
+      {draft.research && draft.research.analyzed && !draft.research.facts.length && <p className="lead-email-status">
+        Se leyeron {draft.research.sources.length} página{draft.research.sources.length === 1 ? '' : 's'} y no salió nada citable. El email va solo con la auditoría.
+      </p>}
+
+      {/* Lo que supuso, separado de lo que verificó. Se enseña para que quien
+          firma vea sobre qué interpretación está escrito el email. */}
+      {draft.copy?.hypothesis && <details className="lead-outbound-variants">
+        <summary>Qué supuso del negocio · confianza {draft.copy.hypothesis.confidence}</summary>
+        <article>
+          <p><strong>Vende:</strong> {draft.copy.hypothesis.sells}</p>
+          <p><strong>Le compra:</strong> {draft.copy.hypothesis.buyer}</p>
+          <p><strong>Le duele:</strong> {draft.copy.hypothesis.likelyPain}</p>
+          <p><strong>Objeción que tendrá:</strong> {draft.copy.hypothesis.objection}</p>
+          {draft.copy.hypothesis.assumptions.length > 0 && <>
+            <small>Sin verificar — el email puede apoyarse en esto para elegir el enfoque, pero no lo afirma:</small>
+            <ul className="lead-outbound-assumptions">{draft.copy.hypothesis.assumptions.map(item => <li key={item}>{item}</li>)}</ul>
+          </>}
+        </article>
+      </details>}
+
+      {/* Las versiones y sus notas: si la elegida no convence, la alternativa
+          ya está escrita en vez de haber que pedirla otra vez. */}
+      {draft.copy?.variants?.length > 1 && <details className="lead-outbound-variants">
+        <summary>Probó {draft.copy.variants.length} estrategias · ganó «{draft.copy.variants[draft.copy.winner]?.strategyName}»{draft.copy.polished ? ' (y la pulió)' : ''}</summary>
+        {draft.copy.variants.map((variant, index) => {
+          const score = draft.copy.scores.find(item => item.index === index)
+          const plan = draft.copy.strategyPlan?.find(item => item.id === variant.strategyId)
+          return <article key={index} className={index === draft.copy.winner ? 'is-winner' : ''}>
+            <header><strong>{variant.strategyName}</strong>{score && <span>{score.total}/50 · específica {score.specificity}/10 · fácil de responder {score.easyToReply}/10</span>}</header>
+            {plan?.why && <small>Elegida porque: {plan.why}</small>}
+            <p className="lead-outbound-quote">{variant.subject}</p>
+            <p>{variant.body}{variant.ps ? `\n\nP.D. ${variant.ps}` : ''}</p>
+            {score?.verdict && <small>{score.verdict}</small>}
+            <button type="button" className="leads-text-button" onClick={() => setEdit({ subject: variant.subject, body: variant.body })}>Usar esta</button>
+          </article>
+        })}
+      </details>}
+      <label className="lead-outbound-field"><span>Asunto</span>
+        <input value={edit.subject} onChange={event => setEdit(previous => ({ ...previous, subject: event.target.value }))} maxLength={120} />
+      </label>
+      <label className="lead-outbound-field"><span>Cuerpo</span>
+        <textarea rows={12} value={edit.body} onChange={event => setEdit(previous => ({ ...previous, body: event.target.value }))} />
+      </label>
+      {!draft.written && <p className="lead-email-status">Sin <code>DEEPSEEK_API_KEY</code> el cuerpo es el de respaldo: lleva los hallazgos correctos pero no está redactado.</p>}
+      {draft.report?.critique?.issues?.length > 0 && <p className="lead-email-status">El editor anotó: {draft.report.critique.issues.join(' · ')}</p>}
+      {draft.blocked
+        ? <p className="lead-email-status" role="alert" style={{ color: 'var(--warn)' }}>{draft.blocked}</p>
+        : <button className="leads-text-button" onClick={onSend} disabled={busy === 'send'}><RiSendPlaneLine /> {busy === 'send' ? 'Enviando…' : 'Enviar ahora'}</button>}
+    </div>}
+  </section>
+}
+
 function StageProgress({ current }) {
   const currentIndex = Math.max(0, STAGES.indexOf(current))
   return <div className="lead-detail-stages">{STAGES.map((stage, index) => <div className={`lead-detail-stage${index < currentIndex ? ' done' : ''}${index === currentIndex ? ' current' : ''}`} key={stage}><i>{index < currentIndex ? <RiCheckLine /> : index + 1}</i><span>{stage}</span></div>)}</div>
@@ -150,6 +254,11 @@ export default function LeadDetailPage() {
   const navigate = useNavigate()
   const [lead, setLead] = useState(null)
   const [audit, setAudit] = useState(null)
+  const [outbound, setOutbound] = useState(null)
+  const [outboundEdit, setOutboundEdit] = useState({ subject: '', body: '' })
+  const [outboundBusy, setOutboundBusy] = useState('')
+  const [outboundError, setOutboundError] = useState('')
+  const [outboundSent, setOutboundSent] = useState('')
   const [notes, setNotes] = useState([])
   const [files, setFiles] = useState([])
   const [activities, setActivities] = useState([])
@@ -174,6 +283,12 @@ export default function LeadDetailPage() {
   const [emailStatus, setEmailStatus] = useState('')
   const [fileInputKey, setFileInputKey] = useState(0)
   const fileInputRef = useRef(null)
+
+  // Historial de MicroappRun del lead (07-MICROAPPS §3.3). Se carga al abrir la
+  // pestaña Investigación, no con el resto de la ficha: es una vista secundaria.
+  const [microappRuns, setMicroappRuns] = useState(null) // null = aún sin pedir
+  const [microappNames, setMicroappNames] = useState({})
+  const [microappRunsState, setMicroappRunsState] = useState('idle') // idle | loading | ready | error
 
   // Modelo Empresa/Account: empresa vinculada al lead (búsqueda + asignación).
   const [account, setAccount] = useState(null)
@@ -254,6 +369,29 @@ export default function LeadDetailPage() {
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [id, reloadKey])
+
+  // Investigación: MicroappRun vinculados al lead + nombres del catálogo. El
+  // catálogo puede fallar sin romper la lista (se muestra el id en su lugar).
+  useEffect(() => {
+    if (tab !== 'Investigación' || microappRuns !== null) return
+    let active = true
+    setMicroappRunsState('loading')
+    Promise.allSettled([
+      apiFetch(`/api/microapps/runs?leadId=${encodeURIComponent(id)}`).then(response => response.ok ? response.json() : Promise.reject(new Error(`runs_${response.status}`))),
+      apiFetch('/api/microapps').then(response => response.ok ? response.json() : null),
+    ]).then(([runsResult, catalogResult]) => {
+      if (!active) return
+      if (runsResult.status !== 'fulfilled') { setMicroappRunsState('error'); return }
+      const data = runsResult.value
+      const list = Array.isArray(data) ? data : Array.isArray(data?.runs) ? data.runs : Array.isArray(data?.items) ? data.items : []
+      setMicroappRuns(list)
+      const catalog = catalogResult.status === 'fulfilled' ? catalogResult.value : null
+      const catalogList = Array.isArray(catalog) ? catalog : Array.isArray(catalog?.microapps) ? catalog.microapps : []
+      setMicroappNames(Object.fromEntries(catalogList.map(app => [app.id, app.name])))
+      setMicroappRunsState('ready')
+    })
+    return () => { active = false }
+  }, [tab, microappRuns, id])
 
   // Modelo Empresa/Account: carga la empresa vinculada cuando el lead trae accountId.
   useEffect(() => {
@@ -349,6 +487,41 @@ export default function LeadDetailPage() {
     } catch { setLoadError('No se pudo ejecutar la auditoría.') }
   }
 
+  // Redacta el email frío con los hallazgos de la auditoría. No envía: el
+  // borrador se enseña entero y editable antes de que salga a una persona.
+  async function draftOutbound() {
+    setOutboundBusy('draft')
+    setOutboundError('')
+    setOutboundSent('')
+    try {
+      const response = await apiFetch(`/api/leads/${id}/outbound-email/draft`, { method: 'POST', body: JSON.stringify({}) })
+      const result = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(result?.error || 'No se pudo redactar el email.')
+      setOutbound(result)
+      setOutboundEdit({ subject: result.subject, body: result.body })
+    } catch (error) {
+      setOutboundError(error.message)
+      setOutbound(null)
+    } finally { setOutboundBusy('') }
+  }
+
+  async function sendOutbound() {
+    setOutboundBusy('send')
+    setOutboundError('')
+    try {
+      const response = await apiFetch(`/api/leads/${id}/outbound-email/send`, {
+        method: 'POST',
+        body: JSON.stringify({ subject: outboundEdit.subject, body: outboundEdit.body }),
+      })
+      const result = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(result?.error || 'No se pudo enviar el email.')
+      setOutboundSent(`Enviado con el asunto «${result.subject}».`)
+      setOutbound(null)
+    } catch (error) {
+      setOutboundError(error.message)
+    } finally { setOutboundBusy('') }
+  }
+
   // EM-110: activa/desactiva una categoría del centro de preferencias de email.
   async function togglePreference(purpose, nextStatus) {
     setPrefSaving(purpose)
@@ -386,7 +559,7 @@ export default function LeadDetailPage() {
     setShowSchedule(false)
   }
 
-  if (loading) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: 'var(--dim)', fontSize: 13 }}>{locale === 'en' ? 'Loading lead details…' : 'Cargando ficha del lead…'}</div>
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading lead details' : 'Cargando ficha del lead'} />
   if (!lead) return <div className="lead-detail-page" style={{ display: 'grid', placeItems: 'center', color: 'var(--dim)', fontSize: 13 }}><div style={{ display: 'grid', gap: 10, justifyItems: 'center' }}><span>{loadError || (locale === 'en' ? 'Lead not found' : 'Lead no encontrado')}</span>{loadRetryable && <button className="leads-text-button" onClick={() => setReloadKey(key => key + 1)}>{locale === 'en' ? 'Retry' : 'Reintentar'}</button>}</div></div>
 
   const nextAction = lead.nextAction
@@ -420,7 +593,38 @@ export default function LeadDetailPage() {
         <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Historial de email</h3><span>{emailHistory.length} envíos</span></div>{emailHistory.length ? <div className="lead-activity-timeline">{emailHistory.map(item => { const opens = item.events?.filter(event => event.type === 'open').length || 0; const clicks = item.events?.filter(event => event.type === 'click').length || 0; return <div className="lead-activity-item" key={item.id}><span className="lead-activity-dot"><RiMailLine /></span><div><strong>{item.templateExternalId ? `Plantilla ${item.templateExternalId}` : item.toAddress}</strong><p>Estado: {EMAIL_DELIVERY_STATUS_LABEL[item.status] || item.status}{opens ? ` · ${opens} apertura${opens === 1 ? '' : 's'}` : ''}{clicks ? ` · ${clicks} clic${clicks === 1 ? '' : 's'}` : ''}</p></div><time>{formatDate(item.queuedAt)}</time></div> })}</div> : <div className="lead-audit-card"><strong>Sin envíos de email</strong><p>Todavía no se ha enviado ningún email a este lead.</p></div>}</section>
       </div>}
 
-      {tab === 'Inteligencia' && <div className="lead-detail-grid"><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Auditoría digital / SEO</h3><button className="leads-text-button" onClick={runAudit}><RiSearchEyeLine /> {audit ? 'Re-auditar' : 'Auditar ahora'}</button></div>{audit ? <><div className="lead-audit-grid"><span>Presencia pública<b>{audit.publicScore ?? '—'}</b></span><span>Madurez operativa<b>{audit.opsScore ?? '—'}</b></span><span>Oportunidad global<b>{audit.leadOpportunityScore ?? '—'}</b></span></div><p>{audit.summary || audit.commercialPitch || 'La auditoría no generó un resumen esta vez.'}</p></> : <div className="lead-audit-card"><strong>Sin auditoría todavía</strong><p>Ejecuta la auditoría para obtener datos reales.</p></div>}</section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Oportunidades detectadas</h3><span>{lead.opportunities?.length || 0}</span></div>{lead.opportunities?.length ? lead.opportunities.map((item, index) => <div className="lead-activity-item" key={item.title || index}><span className="lead-activity-dot"><RiLightbulbLine /></span><div><strong>{item.title}</strong><p>{item.description || 'Sin descripción disponible'}</p></div><time>{item.impact || '—'}</time></div>) : <div className="lead-audit-card"><strong>No hay oportunidades registradas</strong><p>Cuando la auditoría detecte oportunidades comerciales aparecerán aquí.</p></div>}</section></div>}
+      {tab === 'Inteligencia' && <div className="lead-detail-grid"><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Auditoría digital / SEO</h3><button className="leads-text-button" onClick={runAudit}><RiSearchEyeLine /> {audit ? 'Re-auditar' : 'Auditar ahora'}</button></div>{audit ? <><div className="lead-audit-grid"><span>Presencia pública<b>{audit.publicScore ?? '—'}</b></span><span>Madurez operativa<b>{audit.opsScore ?? '—'}</b></span><span>Oportunidad global<b>{audit.leadOpportunityScore ?? '—'}</b></span></div><p>{audit.summary || audit.commercialPitch || 'La auditoría no generó un resumen esta vez.'}</p></> : <div className="lead-audit-card"><strong>Sin auditoría todavía</strong><p>Ejecuta la auditoría para obtener datos reales.</p></div>}</section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Oportunidades detectadas</h3><span>{lead.opportunities?.length || 0}</span></div>{lead.opportunities?.length ? lead.opportunities.map((item, index) => <div className="lead-activity-item" key={item.title || index}><span className="lead-activity-dot"><RiLightbulbLine /></span><div><strong>{item.title}</strong><p>{item.description || 'Sin descripción disponible'}</p></div><time>{item.impact || '—'}</time></div>) : <div className="lead-audit-card"><strong>No hay oportunidades registradas</strong><p>Cuando la auditoría detecte oportunidades comerciales aparecerán aquí.</p></div>}</section>
+        <OutboundEmailCard
+          audit={audit}
+          draft={outbound}
+          edit={outboundEdit}
+          setEdit={setOutboundEdit}
+          busy={outboundBusy}
+          error={outboundError}
+          sent={outboundSent}
+          onDraft={draftOutbound}
+          onSend={sendOutbound}
+        />
+      </div>}
+
+      {tab === 'Investigación' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Investigación con microapps</h3><MicroappSurfaceActions surface="lead" entityId={id} /></div><MicroappProjectionPanel surface="lead" entityId={id} />
+        {microappRunsState === 'loading' && <p className="lead-email-status">Cargando investigaciones…</p>}
+        {microappRunsState === 'error' && <div className="lead-audit-card"><strong>No se pudo cargar el historial</strong><p>Comprueba la conexión y vuelve a abrir esta pestaña. <button className="leads-text-button" onClick={() => { setMicroappRuns(null); setMicroappRunsState('idle') }}>Reintentar</button></p></div>}
+        {microappRunsState === 'ready' && (microappRuns?.length ? <div className="lead-activity-timeline">{microappRuns.map(run => {
+          const stale = run.staleAt && new Date(run.staleAt).getTime() < Date.now()
+          return <div className="lead-activity-item" key={run.id}>
+            <span className="lead-activity-dot"><RiSearchEyeLine /></span>
+            <div>
+              <strong>{microappNames[run.microappId] || run.microappId}</strong>
+              <p>
+                {stale && <span style={{ color: 'var(--warn)', fontWeight: 600 }}><RiTimeLine style={{ verticalAlign: '-2px' }} /> Obsoleto desde el {formatDate(run.staleAt)} · </span>}
+                <button className="leads-text-button" onClick={() => navigate(`/microapps/${run.microappId}?runId=${encodeURIComponent(run.id)}`)}>Ver resultado <RiExternalLinkLine /></button>
+              </p>
+            </div>
+            <time>{formatDate(run.createdAt)}</time>
+          </div>
+        })}</div> : <div className="lead-audit-card"><strong>Sin investigaciones todavía</strong><p>Ejecuta una microapp sobre este lead (por ejemplo «Preparar llamada») y su dossier quedará guardado aquí, con fecha y aviso de caducidad.</p></div>)}
+      </section>}
 
       {tab === 'Notas' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Notas del equipo</h3><span>{notes.length} notas</span></div><form className="lead-note-form" onSubmit={addNote}><textarea rows="3" placeholder="Añade contexto para el siguiente contacto…" value={noteText} onChange={event => setNoteText(event.target.value)} /><button type="submit"><RiSendPlaneLine /> Guardar nota</button></form><div className="lead-notes-list">{notes.length ? notes.map(note => <article className="lead-note" key={note.id}><p>{note.text}</p><small>{formatDate(note.createdAt)} · Equipo comercial</small></article>) : <div className="lead-audit-card"><strong>Aún no hay notas</strong><p>Deja aquí objeciones, contexto de la cuenta y acuerdos para que la próxima acción empiece con ventaja.</p></div>}</div></section>}
 

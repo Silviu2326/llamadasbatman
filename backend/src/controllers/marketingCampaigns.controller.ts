@@ -24,10 +24,19 @@ const audienceDefinitionSchema = z.object({
 
 const dateSchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/, 'Fecha inválida')
 
+// EM-113: el reparto A/B. `null` desactiva la prueba y devuelve la campaña a
+// una sola versión. La propiedad de cada plantilla se re-verifica en el
+// servicio, igual que con templateBindingId.
+const variantDefinitionSchema = z.array(z.object({
+  key: z.string().trim().min(1).max(16),
+  templateExternalId: z.string().trim().min(1).max(64),
+}).strict()).min(2).max(service.MAX_CAMPAIGN_VARIANTS)
+
 const updateCampaignSchema = z.object({
   objective: z.string().trim().max(2_000).optional(),
   audienceDefinition: audienceDefinitionSchema.optional(),
   templateBindingId: z.string().trim().min(1).max(64).optional(),
+  variantDefinition: variantDefinitionSchema.nullable().optional(),
   sender: z.string().trim().min(3).max(200).optional(),
   replyTo: z.string().trim().min(3).max(200).optional(),
   timezone: z.string().trim().min(1).max(64).optional(),

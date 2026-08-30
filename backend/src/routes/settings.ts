@@ -16,6 +16,12 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.put('/organization', {
     preHandler: requirePermission('organization.manage', { scope: 'org' }),
   }, ctrl.updateOrganization as any)
+  app.get('/business-profile', {
+    preHandler: [requirePermission('organization.read', { scope: 'org' }), requireEntitlement('agents')],
+  }, ctrl.getBusinessProfile)
+  app.put('/business-profile', {
+    preHandler: [requirePermission('organization.manage', { scope: 'org' }), requireEntitlement('agents')],
+  }, ctrl.updateBusinessProfile as any)
   app.get('/integrations', {
     preHandler: [requirePermission('integrations.read', { scope: 'org' }), requireEntitlement('integrations')],
   }, ctrl.getIntegrations)

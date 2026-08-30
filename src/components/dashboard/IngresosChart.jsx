@@ -1,19 +1,27 @@
 import React from 'react'
 import { HiArrowUp, HiArrowDown } from 'react-icons/hi'
+import { RiLineChartLine } from 'react-icons/ri'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { card, tooltipStyle, BAR_DATA } from './dashboardData'
 import { useThemeColors } from '../../hooks/useTheme'
 import { localeCode, useI18n } from '../../i18n'
+import DashboardEmptyState from './DashboardEmptyState'
 
 export default function IngresosChart({ pipelineByDay, pipelinePct }) {
   const { locale } = useI18n()
   const colors = useThemeColors()
-  const barData = pipelineByDay?.length ? pipelineByDay : BAR_DATA
+  const hasPipelineData = pipelineByDay?.some(day => Number(day?.value) > 0)
+  const barData = hasPipelineData ? pipelineByDay : BAR_DATA
   const weekTotal = barData.reduce((s, d) => s + d.value, 0)
   const maxVal = Math.max(...barData.map(d => d.value), 1)
   const yMax = Math.ceil(maxVal * 1.25 / 1000) * 1000 || 10000
-  const yTicks = [0, Math.round(yMax / 3 / 1000) * 1000, Math.round(yMax * 2 / 3 / 1000) * 1000, yMax]
-  const isReal = !!pipelineByDay?.length
+  const yTicks = [...new Set([
+    0,
+    Math.round(yMax / 3 / 1000) * 1000,
+    Math.round(yMax * 2 / 3 / 1000) * 1000,
+    yMax,
+  ])]
+  const isReal = !!hasPipelineData
 
   return (
     <div className="income-chart-card" style={{ ...card, display:'flex', flexDirection:'column', gap:12, height:'100%' }}>
@@ -24,7 +32,7 @@ export default function IngresosChart({ pipelineByDay, pipelinePct }) {
             {locale === 'en' ? 'Pipeline this week' : 'Pipeline esta semana'}
           </h3>
         </div>
-        <span className="income-chart-badge">{locale === 'en' ? 'LIVE' : 'EN VIVO'}</span>
+        <span className={`income-chart-badge${hasPipelineData ? '' : ' income-chart-badge-empty'}`}>{hasPipelineData ? (locale === 'en' ? 'LIVE' : 'EN VIVO') : (locale === 'en' ? 'NO DATA' : 'SIN DATOS')}</span>
       </div>
       <div className="income-chart-total" style={{ display:'flex', alignItems:'center', gap:10 }}>
         <span style={{ fontSize:28, fontWeight:800, color:'var(--text-strong)', letterSpacing:-1 }}>
@@ -41,12 +49,16 @@ export default function IngresosChart({ pipelineByDay, pipelinePct }) {
           </>
         )}
       </div>
-      <div className="income-chart-meta"><span className="income-chart-dot" />{locale === 'en' ? 'Potential revenue linked to active opportunities' : 'Ingresos potenciales vinculados a oportunidades activas'}</div>
+      <div className="income-chart-meta"><span className="income-chart-dot" />{hasPipelineData ? (locale === 'en' ? 'Potential revenue linked to active opportunities' : 'Ingresos potenciales vinculados a oportunidades activas') : (locale === 'en' ? 'Your attributed pipeline will appear here' : 'Tu pipeline atribuido aparecerá aquí')}</div>
       <div style={{ flex:1, minHeight:180 }}>
         {!barData?.length ? (
-          <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <p style={{ margin:0, fontSize:12, color:'var(--muted)' }}>{locale === 'en' ? 'No pipeline data' : 'Sin datos de pipeline'}</p>
-          </div>
+          <DashboardEmptyState
+            Icon={RiLineChartLine}
+            title={locale === 'en' ? 'Your pipeline is ready to grow' : 'Tu pipeline está listo para crecer'}
+            description={locale === 'en' ? 'Create an opportunity with value to see the trend here.' : 'Crea una oportunidad con valor para ver la evolución aquí.'}
+            tone="green"
+            centered
+          />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={barData} margin={{ top:8, right:0, left:0, bottom:0 }} barCategoryGap="35%">

@@ -9,6 +9,9 @@ import {
   RiCheckLine, RiCloseLine,
 } from 'react-icons/ri'
 import '../dashboard.css'
+import './sales-detail-standard.css'
+import { MicroappProjectionPanel, MicroappSurfaceActions } from '../components/MicroappSurfaceActions'
+import PageLoadingState from '../components/ui/PageLoadingState'
 
 const ALL_STAGES = [
   { id:'lead',        label:'Lead' },
@@ -38,6 +41,10 @@ const STAGE_OPTIONS = [
 const CURRENCY_OPTIONS = ['EUR', 'USD', 'GBP', 'MXN']
 
 const TABS = ['Resumen', 'Contactos', 'Productos', 'Actividad', 'Notas']
+
+// Tipos de SalesActivity tal y como los escribe lib/salesActivity.ts.
+const ACTIVITY_LABELS = { call:'Llamada', message:'Mensaje', email:'Email', note:'Nota', file:'Archivo', meeting:'Reunión', status_change:'Estado', stage_change:'Etapa', task:'Tarea' }
+const ACTIVITY_COLORS = { call:'var(--accent)', message:'var(--cyan-deep)', email:'var(--cyan-deep)', note:'var(--muted)', file:'var(--muted)', meeting:'var(--success-deep)', status_change:'var(--warn)', stage_change:'var(--violet)', task:'var(--warn)' }
 
 // OP-108: roles de compra de OpportunityContact.role.
 const CONTACT_ROLE_OPTIONS = [
@@ -132,6 +139,10 @@ export default function OpportunityDetailPage() {
   const [savingLineItem, setSavingLineItem] = useState(false)
   const [lineItemError, setLineItemError] = useState(null)
 
+  // La pestaña Actividad venía de un array fijo; ahora sale de SalesActivity.
+  const [activity, setActivity] = useState([])
+  const [activityLoading, setActivityLoading] = useState(false)
+
   const load = useCallback(() => {
     return Promise.all([
       apiFetch(`/api/pipeline/${id}`).then(r => r.ok ? r.json() : null),
@@ -145,7 +156,7 @@ export default function OpportunityDetailPage() {
         setOpp({
           ...data,
           company: data.lead?.name ?? data.name,
-          city: '—',
+          city: data.lead?.city || data.lead?.account?.city || '—',
           stage: stageMap[data.stage] ?? 'lead',
           value: data.value ? `€${Number(data.value).toLocaleString(localeCode(getLocale()))}` : '—',
           score: data.probability ?? 0,
@@ -172,6 +183,17 @@ export default function OpportunityDetailPage() {
   }, [id])
 
   useEffect(() => { loadContacts() }, [loadContacts])
+
+  const loadActivity = useCallback(() => {
+    setActivityLoading(true)
+    return apiFetch(`/api/pipeline/${id}/activity`)
+      .then(r => r.ok ? r.json() : [])
+      .then(rows => setActivity(Array.isArray(rows) ? rows : []))
+      .catch(() => {})
+      .finally(() => setActivityLoading(false))
+  }, [id])
+
+  useEffect(() => { loadActivity() }, [loadActivity])
 
   // OP-108: búsqueda de leads existentes para añadir como contacto (mismo
   // patrón que NewOportunidadModal / NewReunionModal: debounce + /api/leads?search=).
@@ -432,11 +454,7 @@ export default function OpportunityDetailPage() {
     }
   }
 
-  if (loading) return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
-      {locale === 'en' ? 'Loading…' : 'Cargando…'}
-    </div>
-  )
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading opportunity' : 'Cargando oportunidad'} />
 
   if (!opp) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--dim)', fontSize:16 }}>
@@ -457,7 +475,7 @@ export default function OpportunityDetailPage() {
   }, {})
 
   return (
-    <div className="dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
+    <div className="sales-detail-page dark-scroll" style={{ flex:1, overflowY:'auto', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
 
       {/* Back */}
       <div style={{ padding:'20px clamp(12px,4vw,28px) 0', flexShrink:0 }}>
@@ -469,6 +487,7 @@ export default function OpportunityDetailPage() {
           Volver a Pipeline
         </button>
       </div>
+      <div style={{ padding:'12px clamp(12px,4vw,28px) 0' }}><MicroappSurfaceActions surface="opportunity" entityId={id} /><MicroappProjectionPanel surface="opportunity" entityId={id} /></div>
 
       {/* Hero */}
       <div style={{ padding:'20px clamp(12px,4vw,28px)', flexShrink:0 }}>
@@ -618,15 +637,20 @@ export default function OpportunityDetailPage() {
                 ))}
               </div>
               <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Próximas acciones recomendadas</p>
-                {['Enviar propuesta actualizada', 'Agendar reunión de seguimiento', 'Consultar decision-maker'].map((a, i) => (
-                  <div key={i} style={{ display:'flex', gap:9, marginBottom:9 }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Siguiente paso</p>
+                {nextTask ? (
+                  <div style={{ display:'flex', gap:9, marginBottom:9 }}>
                     <div style={{ width:16, height:16, borderRadius:5, background:`color-mix(in srgb, ${stageColor} 8%, transparent)`, border:`1px solid color-mix(in srgb, ${stageColor} 19%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>
                       <RiCheckLine style={{ width:10, height:10, color:stageColor }} />
                     </div>
-                    <p style={{ margin:0, fontSize:12.5, color:'var(--muted)' }}>{a}</p>
+                    <p style={{ margin:0, fontSize:12.5, color:'var(--muted)' }}>
+                      {nextTask.title}
+                      {nextTask.dueAt && <span style={{ color:'var(--dim)' }}> · {new Date(nextTask.dueAt).toLocaleDateString(localeCode(getLocale()), { day:'numeric', month:'short' })}</span>}
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  <p style={{ margin:0, fontSize:12.5, color:'var(--dim)' }}>No hay tarea abierta. Al mover la oportunidad de etapa se crea una automáticamente.</p>
+                )}
               </div>
             </div>
           )}
@@ -821,22 +845,22 @@ export default function OpportunityDetailPage() {
           {tab === 'Actividad' && (
             <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
               <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Historial de actividad</p>
-              {[
-                { type:'Llamada', desc:'Llamada de presentación realizada', date:opp.date, color:'var(--accent)' },
-                { type:'Email', desc:'Email de seguimiento enviado', date:'Hace 2 días', color:'var(--cyan-deep)' },
-                { type:'Lead', desc:'Lead creado en el sistema', date:'Hace 5 días', color:'var(--success)' },
-              ].map((a, i) => (
-                <div key={i} style={{ display:'flex', gap:12, marginBottom:14 }}>
+              {activityLoading && activity.length === 0 ? (
+                <p style={{ margin:0, fontSize:12.5, color:'var(--dim)' }}>Cargando actividad…</p>
+              ) : activity.length === 0 ? (
+                <p style={{ margin:0, fontSize:12.5, color:'var(--dim)' }}>Sin actividad registrada todavía. Las llamadas, emails y cambios de etapa aparecerán aquí.</p>
+              ) : activity.map((a, i) => (
+                <div key={a.id} style={{ display:'flex', gap:12, marginBottom:14 }}>
                   <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:0 }}>
-                    <div style={{ width:8, height:8, borderRadius:'50%', background:a.color, boxShadow:`0 0 5px color-mix(in srgb, ${a.color} 50%, transparent)`, flexShrink:0 }} />
-                    {i < 2 && <div style={{ width:1, height:30, background:'var(--line)', margin:'4px 0' }} />}
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:ACTIVITY_COLORS[a.type] ?? 'var(--muted)', boxShadow:`0 0 5px color-mix(in srgb, ${ACTIVITY_COLORS[a.type] ?? 'var(--muted)'} 50%, transparent)`, flexShrink:0 }} />
+                    {i < activity.length - 1 && <div style={{ width:1, height:30, background:'var(--line)', margin:'4px 0' }} />}
                   </div>
                   <div style={{ flex:1, paddingTop:0 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                      <span style={{ fontSize:12, fontWeight:600, color:a.color }}>{a.type}</span>
-                      <span style={{ fontSize:11, color: 'var(--dim)' }}>{a.date}</span>
+                      <span style={{ fontSize:12, fontWeight:600, color:ACTIVITY_COLORS[a.type] ?? 'var(--muted)' }}>{ACTIVITY_LABELS[a.type] ?? a.type}</span>
+                      <span style={{ fontSize:11, color: 'var(--dim)' }}>{a.occurredAt ? new Date(a.occurredAt).toLocaleString(localeCode(getLocale()), { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '—'}</span>
                     </div>
-                    <p style={{ margin:0, fontSize:12.5, color:'var(--muted)' }}>{a.desc}</p>
+                    <p style={{ margin:0, fontSize:12.5, color:'var(--muted)' }}>{a.subject || a.body || '—'}</p>
                   </div>
                 </div>
               ))}

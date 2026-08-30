@@ -11,6 +11,7 @@ export async function callsRoutes(app: FastifyInstance) {
   app.get('/', canRead, ctrl.list as any)
   app.get('/live', canRead, ctrl.live as any)
   app.get('/voice-metrics', canRead, ctrl.voiceMetrics as any)
+  app.post('/tts-latency-demo', canMutate, ctrl.ttsLatencyDemo as any)
   app.post('/bulk-actions', canMutate, ctrl.bulkActions as any)
   app.get('/:id/trace', canRead, ctrl.trace as any)
   app.get('/:id/metrics', canRead, ctrl.metrics as any)

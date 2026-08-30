@@ -14,7 +14,9 @@ import path from 'node:path'
  * pública, que es justo lo que protege de servir archivos arbitrarios.
  */
 // ponytail: disco local — mover a S3/R2 si el backend escala a varias réplicas.
-const MEDIA_DIR = path.resolve(process.cwd(), 'uploads', 'generated')
+// Exportado para que lib/storage.ts pueda usar el MISMO directorio como
+// fallback de desarrollo sin duplicar la ruta en dos sitios.
+export const MEDIA_DIR = path.resolve(process.cwd(), 'uploads', 'generated')
 const FILE_NAME_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(png|jpg|webp|svg|wav|mp3)$/
 
 export const MEDIA_CONTENT_TYPES: Record<string, string> = {

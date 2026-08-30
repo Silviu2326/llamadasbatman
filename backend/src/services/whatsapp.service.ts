@@ -6,6 +6,8 @@ import {
   verifyTwilioSignatureWithAuthToken,
   type TwilioIntegrationConfig,
 } from './twilioIntegration.service'
+import { consumeWhiteLabelMessage, generateWhiteLabelReply } from './whiteLabel.service'
+import { detectVoiceConsentReply, grantVoiceConsent } from '../voice/compliance'
 
 /**
  * Twilio WhatsApp integration. Persistence stays behind the existing dynamic
@@ -152,11 +154,36 @@ export async function handleInbound(params: TwilioParams) {
         } })
       }
     })
+
+    // "Yes, call me" en una respuesta entrante es consentimiento por escrito
+    // para la llamada del agente. Se registra con el texto literal y el
+    // identificador del mensaje: la prueba se captura ahora o no existe nunca.
+    // Fuera de la transacción a propósito — un fallo aquí no debe tirar el
+    // mensaje recibido, que es el dato que no se puede recuperar.
+    if (leadId && params.Body && detectVoiceConsentReply(params.Body)) {
+      await grantVoiceConsent(identity.orgId, leadId, {
+        source: 'whatsapp_reply',
+        evidence: params.Body,
+        metadata: { providerMessageId: externalEventId, from: address, receivedAt: receivedAt.toISOString() },
+      }).catch(error => console.warn('[WhatsApp] no se pudo registrar el consentimiento de voz:', (error as Error).message))
+    }
+
     return { duplicate: false }
   } catch (error: any) {
     if (error?.code === 'P2002') return { duplicate: true }
     throw error
   }
+
+  const reply = params.Body?.trim() ? await generateWhiteLabelReply(identity.orgId, params.Body) : null
+  if (reply === null) return { duplicate: false, replied: false }
+  if (Object.prototype.hasOwnProperty.call(reply, 'error')) return { duplicate: false, replied: false }
+  const replyText = (reply as { text: string }).text
+  try {
+    await sendWhatsAppInternal({ orgId: identity.orgId, leadId, conversationId: conversation.id, to: address, body: replyText, metadata: { source: 'white-label-auto-reply' } }, false)
+  } catch (error) {
+    console.warn('[WhatsApp] no se pudo enviar la respuesta automática white-label:', (error as Error).message)
+  }
+  return { duplicate: false, replied: true }
 }
 
 export async function handleStatus(params: TwilioParams) {
@@ -192,7 +219,7 @@ export async function handleStatus(params: TwilioParams) {
   }
 }
 
-export async function sendWhatsApp(input: SendWhatsAppInput): Promise<WhatsAppResult> {
+async function sendWhatsAppInternal(input: SendWhatsAppInput, countQuota = true): Promise<WhatsAppResult> {
   const to = asAddress(input.to)
   const conversation = await resolveConversation(input.orgId, to, input.leadId, input.conversationId)
   const lastInboundAt = conversation.lastInboundAt ? new Date(conversation.lastInboundAt).getTime() : 0
@@ -202,6 +229,7 @@ export async function sendWhatsApp(input: SendWhatsAppInput): Promise<WhatsAppRe
   }
   const { client, config } = await twilioClient(input.orgId)
   const sender = fromAddress(config)
+  if (countQuota && !await consumeWhiteLabelMessage(input.orgId)) throw new Error('WHITELABEL_MESSAGE_LIMIT_REACHED')
   await db.channelIdentity.upsert({
     where: { orgId_provider_address: { orgId: input.orgId, provider: 'twilio', address: sender } },
     create: { orgId: input.orgId, channel: 'whatsapp', provider: 'twilio', address: sender, isActive: true },
@@ -220,4 +248,8 @@ export async function sendWhatsApp(input: SendWhatsAppInput): Promise<WhatsAppRe
   await db.deliveryAttempt.create({ data: { messageId: saved.id, provider: 'twilio', status: message.status, providerMessageId: message.sid, metadata: {} } })
   await db.conversation.update({ where: { id: conversation.id }, data: { updatedAt: createdAt, lastMessageAt: createdAt } })
   return { id: saved.id, providerMessageId: message.sid, status: message.status, conversationId: conversation.id }
+}
+
+export async function sendWhatsApp(input: SendWhatsAppInput): Promise<WhatsAppResult> {
+  return sendWhatsAppInternal(input, true)
 }

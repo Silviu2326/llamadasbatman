@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { SequenceEnrollPanel, SequenceStepsEditor } from './growth/SequenceSteps'
 import {
   RiAddLine,
   RiAlertLine,
@@ -26,11 +27,13 @@ import {
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { formatLocaleDate, localeCode, useI18n } from '../i18n'
+import PageLoadingState from '../components/ui/PageLoadingState'
+import ProductPageHeader from '../components/ui/ProductPageHeader'
 import growthJourneyBanner from '../assets/growth/growth-journey-banner.png'
 import customerPulseImage from '../assets/growth/customer-pulse.png'
 import './growth-hub.css'
 import './growth-hub-assets.css'
-import './growth-hub-assets.css'
+import './growth-visual-standard.css'
 
 const AREA_META = {
   acquisition: { label: 'Captación', icon: RiUserAddLine, color: 'cyan' },
@@ -74,6 +77,7 @@ const EMPTY_FORM = {
   type: 'lead_magnet',
   description: '',
   status: 'draft',
+  steps: [],
 }
 
 function normalizePrograms(payload) {
@@ -131,6 +135,7 @@ function ProgramRow({ program, onToggle, onEdit, busyId }) {
       </button> : null}
       <button type="button" className="growth-icon-button" onClick={() => onEdit(program)} aria-label={`Editar ${program.name}`}><RiMore2Fill /></button>
     </div>
+    {program.type === 'sales_sequence' && <SequenceEnrollPanel program={program} />}
   </article>
 }
 
@@ -146,7 +151,13 @@ function SuggestedProgram({ item, onUse }) {
 
 function ProgramModal({ program, initial, onClose, onSubmit, saving, requestError }) {
   const isEditing = Boolean(program)
-  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...(initial || {}), ...(program || {}) }))
+  const [form, setForm] = useState(() => ({
+    ...EMPTY_FORM,
+    ...(initial || {}),
+    ...(program || {}),
+    steps: program?.config?.steps ?? initial?.steps ?? [],
+  }))
+  const isSequence = form.type === 'sales_sequence'
 
   useEffect(() => {
     function closeOnEscape(event) {
@@ -176,6 +187,8 @@ function ProgramModal({ program, initial, onClose, onSubmit, saving, requestErro
       status: form.status || 'draft',
     }
     if (!isEditing) payload.type = form.type
+    // Los pasos son lo que ejecuta el runner: sin ellos, matricular falla.
+    if (isSequence) payload.config = { ...(program?.config || {}), steps: form.steps }
     onSubmit(payload)
   }
 
@@ -191,6 +204,7 @@ function ProgramModal({ program, initial, onClose, onSubmit, saving, requestErro
         <label className="growth-field"><span>Formato {isEditing ? '(no editable)' : ''}</span><select value={form.type} onChange={event => update('type', event.target.value)} disabled={isEditing}>{TYPE_OPTIONS.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
         <label className="growth-field wide"><span>Objetivo y notas de configuración</span><textarea value={form.description || ''} onChange={event => update('description', event.target.value)} rows="4" maxLength="1600" placeholder="Objetivo, audiencia, disparador, oferta o regla comercial…" /></label>
         <label className="growth-field"><span>Estado inicial</span><select value={form.status || 'draft'} onChange={event => update('status', event.target.value)}><option value="draft">Borrador</option><option value="active">Activo</option><option value="paused">Pausado</option></select></label>
+        {isSequence && <SequenceStepsEditor steps={form.steps} onChange={steps => update('steps', steps)} />}
         <aside className="growth-modal-note"><RiCheckboxCircleLine /><span>El programa queda guardado para tu organización. Podrás activarlo o pausarlo desde este centro.</span></aside>
       </div>
       {requestError ? <p className="growth-modal-error" role="alert"><RiAlertLine /> {requestError}</p> : null}
@@ -299,11 +313,10 @@ export default function GrowthHubPage() {
     }
   }
 
+  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading Growth Hub' : 'Cargando Growth Hub'} />
+
   return <main className="growth-page">
-    <header className="growth-header">
-      <div className="growth-heading"><span className="growth-brand-icon"><RiMegaphoneLine /></span><div><h1>Growth Hub</h1><p>{locale === 'en' ? 'Design how to acquire, engage, sell and retain without losing the thread between teams.' : 'Diseña cómo captar, conversar, vender y fidelizar sin perder el hilo entre equipos.'}</p></div></div>
-      <button className="growth-button primary" type="button" onClick={() => openCreate()}><RiAddLine /> {locale === 'en' ? 'New program' : 'Nuevo programa'}</button>
-    </header>
+    <ProductPageHeader Icon={RiMegaphoneLine} title="Growth" description={locale === 'en' ? 'Design how to acquire, engage, sell and retain without losing the thread between teams.' : 'Diseña cómo captar, conversar, vender y fidelizar sin perder el hilo entre equipos.'} actions={<button className="growth-button primary" type="button" onClick={() => openCreate()}><RiAddLine /> {locale === 'en' ? 'New program' : 'Nuevo programa'}</button>} />
 
     <section className="growth-command" aria-label="Resumen de crecimiento">
       <div className="growth-command-intro"><span>Centro de operaciones</span><h2>Convierte cada señal en una siguiente acción.</h2><p>Los programas guardan intención, responsable operativo y estado en una misma vista.</p></div>
@@ -318,7 +331,7 @@ export default function GrowthHubPage() {
 
     <section className="growth-workspace">
       <div className="growth-list-panel">
-        <div className="growth-list-head"><div><span>Programas</span><h2>Iniciativas guardadas</h2></div><button className="growth-text-button" type="button" onClick={loadPrograms} disabled={loading}><RiRefreshLine className={loading ? 'growth-spin' : ''} /> Actualizar</button></div>
+        <div className="growth-list-head"><div><span>Programas</span><h2>Iniciativas guardadas</h2></div></div>
         <div className="growth-toolbar"><label className="growth-search"><RiSearchLine /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar por nombre, objetivo o formato" aria-label="Buscar programas" /></label><label className="growth-status-filter"><RiFilter3Line /><span className="sr-only">Filtrar por estado</span><select value={activeStatus} onChange={event => setActiveStatus(event.target.value)}><option value="all">Todos los estados</option><option value="active">Activos</option><option value="draft">Borradores</option><option value="paused">Pausados</option><option value="completed">Completados</option></select></label></div>
 
         {loading ? <div className="growth-state loading"><span /><p>Preparando tu mapa de crecimiento…</p></div> : loadError ? <div className="growth-state error" role="alert"><RiAlertLine /><h3>No pudimos cargar Growth Hub</h3><p>{loadError}</p><button type="button" className="growth-button subtle" onClick={loadPrograms}><RiRefreshLine /> Reintentar</button></div> : programs.length === 0 ? <div className="growth-empty"><span className="growth-empty-icon"><RiFlashlightLine /></span><div><h3>Elige un movimiento para empezar</h3><p>No hay programas guardados todavía. Estas sugerencias no son datos demo: son puntos de partida que puedes configurar para tu organización.</p></div><div className="growth-suggestions">{SUGGESTIONS.map(item => <SuggestedProgram key={item.type} item={item} onUse={openCreate} />)}</div></div> : filteredPrograms.length ? <div className="growth-program-list">{filteredPrograms.map(program => <ProgramRow key={program.id} program={program} onToggle={toggleProgram} onEdit={openEdit} busyId={busyId} />)}</div> : <div className="growth-state filtered"><RiSearchLine /><h3>No hay programas con estos filtros</h3><p>Prueba con otro término o restablece los filtros para volver a ver todas las iniciativas.</p><button type="button" className="growth-button subtle" onClick={() => { setQuery(''); setActiveStatus('all'); setActiveArea('all') }}>Limpiar filtros</button></div>}

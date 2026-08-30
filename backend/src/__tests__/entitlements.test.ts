@@ -21,7 +21,7 @@ test('normaliza planes y mantiene las capacidades cerradas por defecto', () => {
   assert.equal(normalisePlan('agencia'), 'agency')
   assert.equal(normalisePlan('un-plan-inventado'), 'free')
   assert.equal(hasCapability('free', 'crm'), true)
-  assert.equal(hasCapability('free', 'ads'), false)
+  assert.equal(hasCapability('free', 'ads'), true)
   assert.equal(hasCapability('pro', 'ads'), true)
   assert.equal(hasCapability('completo', 'email_marketing'), true)
   assert.equal(hasCapability('agency', 'multiworkspace'), true)
@@ -43,8 +43,9 @@ test('el entitlement consulta plan y uso de la organización, nunca el cliente',
   const snapshot = await getEntitlementSnapshot('org-a', fakeDb('free', { agents: 1 }) as never)
   assert.equal(snapshot.plan, 'free')
   assert.equal(snapshot.usage.agents, 1)
+  await assert.doesNotReject(() => assertCapability('org-a', 'ads', { snapshot }))
   await assert.rejects(
-    () => assertCapability('org-a', 'ads', { snapshot }),
+    () => assertCapability('org-a', 'email_marketing', { snapshot }),
     (error: { code?: string; statusCode?: number; details?: Record<string, unknown> }) => {
       assert.equal(error.code, 'PLAN_CAPABILITY_REQUIRED')
       assert.equal(error.statusCode, 403)

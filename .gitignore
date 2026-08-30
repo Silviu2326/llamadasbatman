@@ -57,3 +57,6 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Banco de voz de referencia: audios y manifest con rutas locales, nunca en Git
+private-voice-assets/

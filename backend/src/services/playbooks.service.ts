@@ -5,10 +5,14 @@ export async function getPlaybook(orgId: string, id: string) {
 }
 
 export async function listPlaybooks(orgId: string) {
-  return prisma.playbook.findMany({
+  // `campaignCount` alimenta la tarjeta "Usados en campañas", que hasta ahora
+  // enseñaba un guion fijo por no tener de dónde sacarlo.
+  const playbooks = await prisma.playbook.findMany({
     where: { orgId, isActive: true },
     orderBy: { createdAt: 'desc' },
+    include: { _count: { select: { campaigns: true } } },
   })
+  return playbooks.map(({ _count, ...playbook }) => ({ ...playbook, campaignCount: _count.campaigns }))
 }
 
 export async function createPlaybook(orgId: string, data: {

@@ -3,6 +3,14 @@ import { z } from 'zod'
 import { parseRequest } from '../lib/validation'
 import { hasPermission } from '../access-control'
 import * as service from '../services/revenueIntelligence.service'
+import {
+  getBusinessIntelligenceContext,
+  listBusinessInvestigations,
+  RESEARCH_LENSES,
+  type ResearchLensKey,
+  BUSINESS_INTELLIGENCE_MICROAPP_ID,
+} from '../services/businessIntelligence.service'
+import { startMicroappRun } from '../microapps/runtime'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -82,12 +90,94 @@ const reviewMemorySchema = z.object({
 }).strict()
 
 const policySchema = z.object({ enabled: z.boolean(), config: objectSchema.nullable().optional() }).strict()
+const investigationQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(20).optional() }).strict()
+const startInvestigationSchema = z.object({
+  lens: z.enum(RESEARCH_LENSES),
+  focus: z.string().trim().max(1200).optional().default(''),
+  allowExternalReview: z.literal(true),
+}).strict()
 
 function handleServiceError(error: unknown, reply: FastifyReply) {
   if (error instanceof service.RevenueIntelligenceNotFoundError) return reply.status(404).send({ error: error.message })
   if (error instanceof service.RevenueIntelligenceStateError) return reply.status(409).send({ error: error.message })
   if (error instanceof service.RevenueIntelligencePolicyError) return reply.status(403).send({ error: error.message })
   throw error
+}
+
+export async function getBusinessContext(request: FastifyRequest, reply: FastifyReply) {
+  const { orgId } = request.user as JWTUser
+  const context = await getBusinessIntelligenceContext(orgId)
+  if (!context) return reply.status(404).send({ error: 'Organización no encontrada', code: 'ORGANIZATION_NOT_FOUND' })
+  return reply.send(context)
+}
+
+export async function listInvestigations(request: FastifyRequest, reply: FastifyReply) {
+  const { orgId } = request.user as JWTUser
+  const query = parseRequest(reply, investigationQuerySchema, request.query)
+  if (!query) return
+  return reply.send(await listBusinessInvestigations(orgId, query.limit))
+}
+
+export async function startInvestigation(request: FastifyRequest, reply: FastifyReply) {
+  const { orgId, userId } = request.user as JWTUser
+  const body = parseRequest(reply, startInvestigationSchema, request.body ?? {})
+  if (!body) return
+  const context = await getBusinessIntelligenceContext(orgId)
+  if (!context) return reply.status(404).send({ error: 'Organización no encontrada', code: 'ORGANIZATION_NOT_FOUND' })
+  if (!context.intelligenceReadiness.canResearch) {
+    return reply.status(409).send({
+      error: 'Completa al menos la descripción o el sector de la empresa antes de investigar.',
+      code: 'BUSINESS_CONTEXT_INCOMPLETE',
+      details: { missing: context.intelligenceReadiness.missing },
+    })
+  }
+  const lens = context.lenses.find(item => item.key === body.lens)
+  if (!lens) return reply.status(400).send({ error: 'Lente de investigación desconocida', code: 'RESEARCH_LENS_UNKNOWN' })
+
+  try {
+    const description = context.profile.description.trim()
+      || `${context.company.name} opera en el sector ${context.company.industry || context.vertical.label}.`
+    const result = await startMicroappRun({
+      orgId,
+      createdById: userId,
+      microappId: BUSINESS_INTELLIGENCE_MICROAPP_ID,
+      input: {
+        company: {
+          name: context.company.name,
+          website: context.company.website,
+          industry: context.company.industry,
+          address: context.company.address,
+          currency: context.company.currency,
+        },
+        businessDescription: description,
+        idealCustomer: context.profile.idealCustomer,
+        valueProposition: context.profile.valueProposition,
+        differentiators: context.profile.differentiators,
+        offers: context.profile.offers.filter(offer => offer.active && offer.name.trim()).map(offer => ({ name: offer.name, description: offer.description })),
+        vertical: context.vertical.label,
+        lens: body.lens as ResearchLensKey,
+        lensTitle: lens.title,
+        queryAngles: lens.queryAngles,
+        focus: body.focus,
+      },
+      agentic: {
+        enabled: true,
+        strategy: 'closed_loop',
+        rounds: 2,
+        qualityThreshold: 88,
+        maxAdditionalCostCents: 200,
+        allowExternalReview: body.allowExternalReview,
+      },
+      idempotencyKey: `business-radar:${body.lens}:${Date.now()}`,
+    })
+    return reply.status(202).send({ ...result, microappId: BUSINESS_INTELLIGENCE_MICROAPP_ID })
+  } catch (error) {
+    const details = error as { message?: string; code?: string; statusCode?: number }
+    return reply.status(details.statusCode && details.statusCode >= 400 && details.statusCode < 600 ? details.statusCode : 500).send({
+      error: details.message || 'No se pudo iniciar la investigación',
+      code: details.code || 'BUSINESS_INVESTIGATION_START_FAILED',
+    })
+  }
 }
 
 export async function listNextActions(request: FastifyRequest, reply: FastifyReply) {

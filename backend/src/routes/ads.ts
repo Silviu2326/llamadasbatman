@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middlewares/authenticate'
 import { requireEntitlement, requirePermission } from '../access-control'
 import * as ctrl from '../controllers/ads.controller'
+import * as plan from '../controllers/adsPlan.controller'
 
 export async function adsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
@@ -71,4 +72,25 @@ export async function adsRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>('/campaigns/:id/activate', canUsePaidProvider, ctrl.activate)
   app.post<{ Params: { id: string } }>('/campaigns/:id/pause', canMutate, ctrl.pause)
   app.put<{ Params: { id: string }; Body: { maxCostPerLeadCents: number } }>('/campaigns/:id/max-cpl', canMutate, ctrl.updateMaxCpl)
+
+  // ─── Nivel de campaña global: plan, activaciones, audiencias y creatividades.
+  // Todo va con las guardas existentes: leer el plan es leer Ads y componer la
+  // estrategia es escribir Ads; nada de aquí toca Meta ni gasta dinero, así
+  // que ninguna ruta exige costs.request.
+  app.get('/global-campaigns', canRead, plan.listGlobalCampaigns)
+  app.get<{ Querystring: { campaignId?: string } }>('/plan', canRead, plan.getPlan)
+  app.post<{ Body: unknown }>('/activations', canMutate, plan.createActivation)
+  app.put<{ Params: { id: string }; Body: unknown }>('/activations/:id', canMutate, plan.updateActivation)
+  app.get<{ Querystring: { campaignId?: string; includeArchived?: string } }>('/audiences', canRead, plan.listAudiences)
+  app.post<{ Body: unknown }>('/audiences', canMutate, plan.createAudience)
+  app.put<{ Params: { id: string }; Body: unknown }>('/audiences/:id', canMutate, plan.updateAudience)
+  app.post<{ Params: { id: string } }>('/audiences/:id/archive', canMutate, plan.archiveAudience)
+  app.post<{ Body: unknown }>('/briefs', canMutate, plan.createBrief)
+  app.put<{ Params: { id: string }; Body: unknown }>('/briefs/:id', canMutate, plan.updateBrief)
+  app.post<{ Params: { id: string }; Body: unknown }>('/briefs/:id/status', canMutate, plan.setBriefStatus)
+  app.post<{ Body: unknown }>('/creatives', canMutate, plan.createCreative)
+  app.put<{ Params: { id: string }; Body: unknown }>('/creatives/:id', canMutate, plan.updateCreative)
+  app.post<{ Params: { id: string } }>('/creatives/:id/submit', canMutate, plan.submitCreative)
+  app.post<{ Params: { id: string } }>('/creatives/:id/approve', canMutate, plan.approveCreative)
+  app.post<{ Params: { id: string }; Body: unknown }>('/creatives/:id/reject', canMutate, plan.rejectCreative)
 }

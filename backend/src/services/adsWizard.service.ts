@@ -10,6 +10,9 @@ export async function runWizard(orgId: string, input: {
   objetivo: string
   presupuestoMensual: number
   audience?: string
+  campaignFocus: string
+  destination: 'landing' | 'website' | 'whatsapp' | 'calendar' | 'app'
+  knowledgeContext?: { id: string; name: string; type?: string; content: string } | null
   strategy?: Record<string, unknown>
   // Margen por venta y porcentaje admisible para adquisicion. De aqui salen
   // el CAC, el CPQL y el CPL objetivo (ads.md 9). Sin margen la pagina solo
@@ -28,19 +31,22 @@ export async function runWizard(orgId: string, input: {
         imagePrompt: playbook.imagePrompt,
         source: 'playbook' as const,
       }
-    : { ...(await generateFallbackAssets(input)), source: 'generated' as const }
+    : { ...(await generateFallbackAssets({ ...input, orgId })), source: 'generated' as const }
 
   const adAssets = {
     ...assets,
     presupuestoMensual: input.presupuestoMensual,
     ...(input.audience?.trim() ? { audience: input.audience.trim() } : {}),
     ...(input.strategy ? { strategy: input.strategy } : {}),
+    campaignFocus: input.campaignFocus.trim(),
+    destination: input.destination,
+    ...(input.knowledgeContext ? { knowledgeContext: input.knowledgeContext } : {}),
   } as Prisma.InputJsonValue
 
   const campaign = await prisma.campaign.create({
     data: {
       orgId,
-      name: `${input.vertical} — ${input.objetivo}`,
+      name: `${input.campaignFocus} — ${input.objetivo}`,
       objective: input.objetivo,
       adPlaybookId: playbook?.id,
       adAssets,
@@ -48,6 +54,9 @@ export async function runWizard(orgId: string, input: {
       budgetCents: Math.round(input.presupuestoMensual * 100),
       marginPerSaleCents: input.marginPerSaleCents ?? null,
       acquisitionSharePct: input.acquisitionSharePct ?? null,
+      // Conservamos una URL de seguimiento incluso si el destino final será
+      // WhatsApp, calendario, web o app: el editor del anuncio resuelve ese
+      // enlace antes de publicar y Meta siempre recibe una URL válida.
       landingSlug: `${input.vertical}-${randomUUID().slice(0, 8)}`,
       status: 'draft',
     },

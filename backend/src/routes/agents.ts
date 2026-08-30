@@ -11,9 +11,11 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   app.get('/', canRead, ctrl.list)
   app.post('/', canCreate, ctrl.create as any)
+  app.get('/strategies', canRead, ctrl.strategies)
   app.get('/:id', canRead, ctrl.get as any)
   app.put('/:id', canMutate, ctrl.update as any)
   app.delete('/:id', canMutate, ctrl.deactivate as any)
   app.get('/:id/stats', canRead, ctrl.stats as any)
   app.get('/:id/timeseries', canRead, ctrl.timeseries as any)
+  app.get('/:id/strategy-performance', canRead, ctrl.strategyPerformance as any)
 }

@@ -54,3 +54,63 @@ test('enrolment and worker are idempotent for a CRM task sequence', async () => 
   assert.equal(taskCount, 1)
   assert.equal(enrollment?.status, 'completed')
 })
+
+// EM-113: un paso de llamada o de WhatsApp sobre un lead sin teléfono no puede
+// ejecutarse nunca. Se dice al matricular, no días después en un log que nadie
+// mira, y la secuencia no se queda "activa" prometiendo algo que no hará.
+test('a call step blocks enrolment when the lead has no phone', async () => {
+  const org = await createTestOrg('test-sequence-call')
+  orgIds.push(org.id)
+  const lead = await createTestLead(org.id, { name: 'Lead sin teléfono' })
+  const program = await prisma.growthProgram.create({
+    data: {
+      orgId: org.id,
+      type: 'sales_sequence',
+      name: 'Secuencia con llamada',
+      status: 'draft',
+      config: {
+        leadIds: [lead.id],
+        steps: [{ key: 'llamada', type: 'call', delayDays: 0 }],
+      },
+    },
+  })
+
+  const result = await enrollSalesSequence(org.id, program.id, [lead.id], 'test-user')
+  assert.equal(result.created, 0)
+  assert.equal(result.blocked, 1)
+
+  const enrollment = await prisma.salesSequenceEnrollment.findUnique({
+    where: { programId_leadId: { programId: program.id, leadId: lead.id } },
+  })
+  assert.equal(enrollment?.status, 'blocked')
+  assert.equal(enrollment?.stopReason, 'LEAD_PHONE_MISSING')
+
+  // Y el paso no queda pendiente: el worker no debe reclamarlo jamás.
+  const pending = await prisma.salesSequenceStepRun.count({ where: { programId: program.id, status: 'pending' } })
+  assert.equal(pending, 0)
+})
+
+test('a WhatsApp step without an approved template is rejected at configuration time', async () => {
+  const org = await createTestOrg('test-sequence-whatsapp')
+  orgIds.push(org.id)
+  const lead = await createTestLead(org.id, { name: 'Lead WhatsApp' })
+  const program = await prisma.growthProgram.create({
+    data: {
+      orgId: org.id,
+      type: 'sales_sequence',
+      name: 'Secuencia WhatsApp',
+      status: 'draft',
+      config: {
+        leadIds: [lead.id],
+        // Sin contentSid: fuera de la ventana de 24 h Twilio rechazaría el
+        // texto libre, así que se corta al configurar y no en ejecución.
+        steps: [{ key: 'wa', type: 'whatsapp', delayDays: 1, body: 'Hola' }],
+      },
+    },
+  })
+
+  await assert.rejects(
+    () => enrollSalesSequence(org.id, program.id, [lead.id], 'test-user'),
+    (error: Error & { code?: string }) => error.code === 'SEQUENCE_TEMPLATE_REQUIRED',
+  )
+})

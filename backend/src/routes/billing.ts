@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middlewares/authenticate'
 import * as billing from '../services/billing.service'
+import { consumptionSnapshot } from '../access-control/consumption'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -9,6 +10,12 @@ export async function billingRoutes(app: FastifyInstance) {
     enabled: billing.billingEnabled(),
     plans: billing.availablePlans(),
   }))
+
+  /** Consumo del periodo frente al techo del plan (minutos de voz y envíos). */
+  app.get('/usage', { preHandler: authenticate }, async request => {
+    const { orgId } = request.user as JWTUser
+    return consumptionSnapshot(orgId)
+  })
 
   app.post<{ Body: { plan?: string } }>('/checkout', { preHandler: authenticate }, async (request, reply) => {
     const { orgId, email, role } = request.user as JWTUser

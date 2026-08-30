@@ -138,103 +138,144 @@ model Organization {
   address  String?
   currency String  @default("EUR")
 
-  users                        User[]
-  agents                       Agent[]
-  campaigns                    Campaign[]
-  leads                        Lead[]
-  calls                        Call[]
-  voiceCallEvents              VoiceCallEvent[]
-  voiceCallMetrics             VoiceCallMetric[]
-  voiceCallEvaluations         VoiceCallEvaluation[]
-  meetings                     Meeting[]
-  opportunities                Opportunity[]
-  playbooks                    Playbook[]
-  automations                  Automation[]
-  knowledgeBases               KnowledgeBase[]
-  metaAdAccounts               MetaAdAccount[]
-  adInsightSnapshots           AdInsightSnapshot[]
-  adDataQualityStatus          AdDataQualityStatus?
-  adDecisions                  AdDecision[]
-  adConversionSignals          AdConversionSignal[]
-  adOptimizationPolicy         AdOptimizationPolicy?
-  adActions                    AdAction[]
-  adActionResults              AdActionResult[]
-  adRuleAutonomies             AdRuleAutonomy[]
-  adExperiments                AdExperiment[]
-  adExperimentVariants         AdExperimentVariant[]
-  optOuts                      OptOut[]
-  leadNotes                    LeadNote[]
-  leadAudits                   LeadAudit[]
-  leadFiles                    LeadFile[]
-  adWizardDrafts               AdWizardDraft[]
-  callTasks                    CallTask[]
-  knowledgeFavorites           KnowledgeFavorite[]
-  acquisitionEvents            AcquisitionEvent[]
-  channelIdentities            ChannelIdentity[]
-  conversations                Conversation[]
-  messages                     Message[]
-  contactConsents              ContactConsent[]
-  messageTemplates             MessageTemplate[]
-  webhookEvents                WebhookEvent[]
-  automationRuns               AutomationRun[]
-  outboxEvents                 OutboxEvent[]
-  nextBestActions              NextBestAction[]
-  auditLogs                    AuditLog[]
-  mauticAssetBindings          MauticAssetBinding[]
-  automationStepRuns           AutomationStepRun[]
-  scheduledTriggers            ScheduledTrigger[]
-  salesActivities              SalesActivity[]
-  tasks                        Task[]
-  opportunityStageHistory      OpportunityStageHistory[]
-  automationVersions           AutomationVersion[]
-  importJobs                   ImportJob[]
-  mauticContactBindings        MauticContactBinding[]
-  marketingCampaigns           MarketingCampaign[]
-  emailDeliveries              EmailDelivery[]
-  emailEvents                  EmailEvent[]
-  accounts                     Account[]
-  opportunityContacts          OpportunityContact[]
-  products                     Product[]
-  opportunityLineItems         OpportunityLineItem[]
-  growthPrograms               GrowthProgram[]
-  metaOAuthStates              MetaOAuthState[]
-  revenueExperiments           RevenueExperiment[]
-  experimentAssignments        RevenueExperimentAssignment[]
-  operationalMemoryProposals   OperationalMemoryProposal[]
-  governancePolicies           GovernancePolicy[]
-  accessControlRequests        AccessControlRequest[]
-  sensitiveApprovalRequests    SensitiveApprovalRequest[]
-  organicProjects              OrganicProject[]
-  organicOpportunities         OrganicOpportunity[]
-  organicAssets                OrganicAsset[]
-  organicActions               OrganicAction[]
-  organicIntegrations          OrganicIntegration[]
-  organicContentRules          OrganicContentRule[]
-  organicChannelSnapshots      OrganicChannelSnapshot[]
-  organicTrafficDaily          OrganicTrafficDaily[]
-  verticalConnectors           VerticalConnector[]
-  organicRecommendationWeights OrganicRecommendationWeight[]
-  verticalEvents               VerticalEvent[]
-  organicOAuthStates           OrganicOAuthState[]
-  actionItems                  ActionItem[]
-  actionItemHistory            ActionItemHistory[]
-  salesSequenceEnrollments     SalesSequenceEnrollment[]
-  salesSequenceStepRuns        SalesSequenceStepRun[]
-  integrationCredentials       OrganizationIntegrationCredential[]
-  seoReports                   SeoReport[]
-  seoProjects                  SeoProject[]
-  seoKeywordRanks              SeoKeywordRank[]
-  landingVersions              LandingVersion[]
-  landingEvents                LandingEvent[]
-  landingDailyRollups          LandingDailyRollup[]
-  landingSnapshots             LandingPerformanceSnapshot[]
-  LandingHealthCheck           LandingHealthCheck[]
-  landingVariants              LandingVariant[]
-  LandingAutonomyDecision      LandingAutonomyDecision[]
-  ContentOpportunity           ContentOpportunity[]
-  ContentPiece                 ContentPiece[]
-  ContentPieceEvent            ContentPieceEvent[]
-  ContentApprovalLink          ContentApprovalLink[]
+  users                          User[]
+  apiKeys                        ApiKey[]
+  webhookSubscriptions           WebhookSubscription[]
+  agents                         Agent[]
+  campaigns                      Campaign[]
+  leads                          Lead[]
+  calls                          Call[]
+  voiceCallEvents                VoiceCallEvent[]
+  voiceCallMetrics               VoiceCallMetric[]
+  voiceCallEvaluations           VoiceCallEvaluation[]
+  meetings                       Meeting[]
+  opportunities                  Opportunity[]
+  playbooks                      Playbook[]
+  automations                    Automation[]
+  knowledgeBases                 KnowledgeBase[]
+  metaAdAccounts                 MetaAdAccount[]
+  adInsightSnapshots             AdInsightSnapshot[]
+  adDataQualityStatus            AdDataQualityStatus?
+  adDecisions                    AdDecision[]
+  adConversionSignals            AdConversionSignal[]
+  adOptimizationPolicy           AdOptimizationPolicy?
+  adActions                      AdAction[]
+  adActionResults                AdActionResult[]
+  adRuleAutonomies               AdRuleAutonomy[]
+  adExperiments                  AdExperiment[]
+  adExperimentVariants           AdExperimentVariant[]
+  adActivations                  AdActivation[]
+  adAudiences                    AdAudience[]
+  creativeBriefs                 CreativeBrief[]
+  adCreatives                    AdCreative[]
+  optOuts                        OptOut[]
+  leadNotes                      LeadNote[]
+  leadAudits                     LeadAudit[]
+  leadFiles                      LeadFile[]
+  adWizardDrafts                 AdWizardDraft[]
+  callTasks                      CallTask[]
+  knowledgeFavorites             KnowledgeFavorite[]
+  acquisitionEvents              AcquisitionEvent[]
+  channelIdentities              ChannelIdentity[]
+  conversations                  Conversation[]
+  messages                       Message[]
+  contactConsents                ContactConsent[]
+  messageTemplates               MessageTemplate[]
+  webhookEvents                  WebhookEvent[]
+  automationRuns                 AutomationRun[]
+  outboxEvents                   OutboxEvent[]
+  nextBestActions                NextBestAction[]
+  auditLogs                      AuditLog[]
+  mauticAssetBindings            MauticAssetBinding[]
+  automationStepRuns             AutomationStepRun[]
+  scheduledTriggers              ScheduledTrigger[]
+  salesActivities                SalesActivity[]
+  tasks                          Task[]
+  opportunityStageHistory        OpportunityStageHistory[]
+  automationVersions             AutomationVersion[]
+  importJobs                     ImportJob[]
+  mauticContactBindings          MauticContactBinding[]
+  marketingCampaigns             MarketingCampaign[]
+  emailDeliveries                EmailDelivery[]
+  emailEvents                    EmailEvent[]
+  accounts                       Account[]
+  opportunityContacts            OpportunityContact[]
+  products                       Product[]
+  opportunityLineItems           OpportunityLineItem[]
+  growthPrograms                 GrowthProgram[]
+  metaOAuthStates                MetaOAuthState[]
+  revenueExperiments             RevenueExperiment[]
+  experimentAssignments          RevenueExperimentAssignment[]
+  operationalMemoryProposals     OperationalMemoryProposal[]
+  governancePolicies             GovernancePolicy[]
+  accessControlRequests          AccessControlRequest[]
+  sensitiveApprovalRequests      SensitiveApprovalRequest[]
+  organicProjects                OrganicProject[]
+  organicOpportunities           OrganicOpportunity[]
+  organicAssets                  OrganicAsset[]
+  organicActions                 OrganicAction[]
+  organicIntegrations            OrganicIntegration[]
+  organicContentRules            OrganicContentRule[]
+  organicChannelSnapshots        OrganicChannelSnapshot[]
+  organicTrafficDaily            OrganicTrafficDaily[]
+  verticalConnectors             VerticalConnector[]
+  organicRecommendationWeights   OrganicRecommendationWeight[]
+  verticalEvents                 VerticalEvent[]
+  organicOAuthStates             OrganicOAuthState[]
+  actionItems                    ActionItem[]
+  actionItemHistory              ActionItemHistory[]
+  salesSequenceEnrollments       SalesSequenceEnrollment[]
+  salesSequenceStepRuns          SalesSequenceStepRun[]
+  integrationCredentials         OrganizationIntegrationCredential[]
+  seoReports                     SeoReport[]
+  seoProjects                    SeoProject[]
+  seoKeywordRanks                SeoKeywordRank[]
+  landingVersions                LandingVersion[]
+  landingEvents                  LandingEvent[]
+  landingDailyRollups            LandingDailyRollup[]
+  landingSnapshots               LandingPerformanceSnapshot[]
+  LandingHealthCheck             LandingHealthCheck[]
+  landingVariants                LandingVariant[]
+  LandingAutonomyDecision        LandingAutonomyDecision[]
+  ContentOpportunity             ContentOpportunity[]
+  ContentPiece                   ContentPiece[]
+  ContentPieceEvent              ContentPieceEvent[]
+  ContentApprovalLink            ContentApprovalLink[]
+  agencyClientsOwned             AgencyClient[]                      @relation("AgencyOwner")
+  agencyClientWorkspace          AgencyClient?                       @relation("AgencyWorkspace")
+  whiteLabelConfig               WhiteLabelConfig?
+  trainingJobs                   WhiteLabelTrainingJob[]
+  whiteLabelUsage                WhiteLabelUsage[]
+  jobs                           Job[]
+  assets                         Asset[]
+  assetVersions                  AssetVersion[]
+  assetRelations                 AssetRelation[]
+  usageRecords                   UsageRecord[]
+  wallet                         Wallet?
+  walletHolds                    WalletHold[]
+  walletTransactions             WalletTransaction[]
+  flows                          Flow[]
+  flowRuns                       FlowRun[]
+  flowStepRuns                   FlowStepRun[]
+  microappRuns                   MicroappRun[]
+  microappProjections            MicroappProjection[]
+  microappConfigs                MicroappConfig[]
+  consentGrants                  ConsentGrant[]
+  outcomeEvents                  OutcomeEvent[]
+  productions                    Production[]
+  studioReviewLinks              StudioReviewLink[]
+  studioReviewComments           StudioReviewComment[]
+  productionConcepts             Concept[]
+  productionBibleEntries         ProductionBibleEntry[]
+  productionScenes               Scene[]
+  productionShots                Shot[]
+  productionTakes                Take[]
+  memberships                    OrganizationMembership[]
+  marketplaceListings            MarketplaceListing[]                @relation("MarketplacePublisher")
+  marketplaceInstalls            MarketplaceInstall[]
+  marketplaceEntitlements        MarketplaceEntitlement[]
+  marketplaceLedgerEntries       MarketplaceLedgerEntry[]            @relation("MarketplaceLedgerOwner")
+  marketplaceCounterpartyEntries MarketplaceLedgerEntry[]            @relation("MarketplaceLedgerCounterparty")
 }
 
 // Informe SEO (página /seo): un registro por análisis, manual (auto=false) o
@@ -319,6 +360,7 @@ model User {
   ownedLeads                  Lead[]                      @relation("LeadOwner")
   ownedAccounts               Account[]                   @relation("AccountOwner")
   authSessions                AuthSession[]
+  apiKeys                     ApiKey[]
   createdRevenueExperiments   RevenueExperiment[]         @relation("RevenueExperimentCreatedBy")
   createdLandingVariants      LandingVariant[]            @relation("LandingVariantCreatedBy")
   landingAutonomyDecisions    LandingAutonomyDecision[]   @relation("LandingAutonomyActor")
@@ -335,19 +377,23 @@ model User {
   updatedAdPolicies           AdOptimizationPolicy[]      @relation("AdPolicyUpdatedBy")
   approvedAdActions           AdAction[]                  @relation("AdActionApprovedBy")
   promotedAdRules             AdRuleAutonomy[]            @relation("AdRulePromotedBy")
+  memberships                 OrganizationMembership[]
 }
 
 // Sesiones de refresco opacas y revocables. El navegador recibe solo el
 // secreto aleatorio; la base conserva su hash para que una filtración de la
 // base de datos no se convierta directamente en una sesión válida.
 model AuthSession {
-  id         String    @id @default(cuid())
-  userId     String
-  tokenHash  String    @unique
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  lastUsedAt DateTime?
-  createdAt  DateTime  @default(now())
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  // Organización seleccionada en la sesión. User.orgId sigue siendo la
+  // organización primaria para compatibilidad durante la migración N:M.
+  activeOrgId String?
+  createdAt   DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -493,6 +539,10 @@ model Campaign {
   adConversionSignals     AdConversionSignal[]
   adActions               AdAction[]
   adExperiments           AdExperiment[]
+  adActivations           AdActivation[]
+  adAudiences             AdAudience[]
+  creativeBriefs          CreativeBrief[]
+  adCreatives             AdCreative[]
   acquisitionEvents       AcquisitionEvent[]
   importJobs              ImportJob[]
   organicOpportunities    OrganicOpportunity[]
@@ -1365,6 +1415,151 @@ model AdExperimentVariant {
   @@index([orgId, experimentId])
 }
 
+// ─── Nivel de campaña global ───────────────────────────────────────────────
+//
+// `Campaign` es la campaña global: la estrategia multicanal (objetivo, oferta,
+// presupuesto total, periodo, landing y meta comercial). La presencia de esa
+// estrategia en cada plataforma publicitaria es una AdActivation. Los campos
+// metaCampaignId/metaAdSetId/metaAdId/adStatus de Campaign se conservan como
+// almacenamiento del canal Meta (todos los servicios existentes los leen); la
+// activación 'meta' se deriva de ellos cuando todavía no existe fila propia.
+
+model AdActivation {
+  id         String @id @default(cuid())
+  orgId      String
+  campaignId String
+
+  /// meta | google (linkedin y tiktok, más adelante)
+  platform String
+  /// unconfigured | draft | ready | active | paused | finished
+  status   String @default("unconfigured")
+
+  /// Objetivo publicitario del canal; puede diferir del objetivo global
+  objective       String?
+  /// Presupuesto asignado a esta plataforma, parte del budgetCents global
+  budgetCents     Int?
+  startDate       DateTime?
+  endDate         DateTime?
+  /// Cuenta publicitaria usada (MetaAdAccount.id u homóloga de otra plataforma)
+  adAccountRef    String?
+  /// Evento de conversión configurado (Lead, Schedule…)
+  conversionEvent String?
+  /// Última salud de conexión conocida: permisos, píxel, CAPI…
+  health          Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  briefs   CreativeBrief[]
+
+  @@unique([campaignId, platform])
+  @@index([orgId, platform, status])
+}
+
+model AdAudience {
+  id         String  @id @default(cuid())
+  orgId      String
+  /// Audiencia ligada a una campaña global; null = reutilizable en toda la org
+  campaignId String?
+
+  name            String
+  /// Quién es esta audiencia (descripción del segmento)
+  segment         String?
+  location        String?
+  ageRange        String?
+  interests       String[]  @default([])
+  /// Audiencias propias (custom/lookalike) por nombre o id externo
+  customAudiences String[]  @default([])
+  exclusions      String[]  @default([])
+  /// null = sin estimación, nunca 0
+  estimatedSize   Int?
+  /// De dónde salen los datos (píxel, CRM, intereses declarados…)
+  dataSource      String?
+  /// Base de consentimiento cuando la audiencia usa datos propios
+  consentBasis    String?
+  archivedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  briefs   CreativeBrief[]
+
+  @@index([orgId, archivedAt])
+}
+
+model CreativeBrief {
+  id           String  @id @default(cuid())
+  orgId        String
+  campaignId   String
+  activationId String?
+  audienceId   String?
+
+  /// Canal de destino: meta | google
+  channel      String   @default("meta")
+  /// imagen | video | carrusel
+  format       String?
+  /// Mensaje heredado de la campaña global:
+  /// {problema, promesa, oferta, prueba, cta, objeciones, restricciones}
+  message      Json?
+  cta          String?
+  /// Landing o destino del anuncio
+  destination  String?
+  references   String[] @default([])
+  restrictions String?
+  variantCount Int      @default(1)
+  /// draft | in_studio | delivered | archived
+  status       String   @default("draft")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org        Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign   Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  activation AdActivation? @relation(fields: [activationId], references: [id], onDelete: SetNull)
+  audience   AdAudience?   @relation(fields: [audienceId], references: [id], onDelete: SetNull)
+  creatives  AdCreative[]
+
+  @@index([orgId, campaignId, status])
+}
+
+model AdCreative {
+  id         String  @id @default(cuid())
+  orgId      String
+  campaignId String
+  briefId    String?
+  /// Referencia blanda a Asset (mismo criterio que Asset.campaignId): el
+  /// binario vive en la biblioteca y borrarla no debe romper la creatividad
+  assetId    String?
+
+  format      String?
+  headline    String?
+  primaryText String?
+  description String?
+  cta         String?
+  version     Int     @default(1)
+
+  /// draft | in_review | approved | rejected
+  approvalStatus String    @default("draft")
+  approvedById   String?
+  approvedAt     DateTime?
+  rejectedReason String?
+  /// Anuncio de Meta que usa esta creatividad, cuando se publica
+  metaAdId       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  brief    CreativeBrief? @relation(fields: [briefId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, campaignId, approvalStatus])
+}
+
 model Automation {
   id          String    @id @default(cuid())
   orgId       String
@@ -1593,25 +1788,32 @@ model ContactConsent {
 // Inbox durable para callbacks externos. externalEventId evita reprocesar
 // reintentos del proveedor y permite contestar el webhook rapidamente.
 model WebhookEvent {
-  id              String    @id @default(cuid())
-  orgId           String?
-  externalEventId String    @unique
-  provider        String
-  channel         String
-  eventType       String?
-  status          String    @default("received") // received|processing|processed|failed|dead_letter
-  attempts        Int       @default(0)
-  lastAttemptAt   DateTime?
-  correlationId   String?
-  errorCode       String?
-  metadata        Json?
-  error           String?
-  receivedAt      DateTime  @default(now())
-  processedAt     DateTime?
+  id               String    @id @default(cuid())
+  orgId            String?
+  externalEventId  String
+  provider         String
+  channel          String
+  eventType        String?
+  status           String    @default("received") // received|processing|processed|failed|dead_letter
+  attempts         Int       @default(0)
+  lastAttemptAt    DateTime?
+  correlationId    String?
+  providerJobId    String?
+  eventTimestamp   DateTime?
+  payloadHash      String?
+  signatureValid   Boolean?
+  signatureVersion String?
+  errorCode        String?
+  metadata         Json?
+  error            String?
+  receivedAt       DateTime  @default(now())
+  processedAt      DateTime?
 
   org Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
+  @@unique([provider, externalEventId])
   @@index([provider, channel, receivedAt])
+  @@index([provider, providerJobId])
   @@index([orgId, status, receivedAt])
   @@index([status, lastAttemptAt])
   @@index([orgId, correlationId])
@@ -1675,6 +1877,43 @@ model OutboxEvent {
   @@index([status, availableAt, leaseExpiresAt])
   @@index([orgId, aggregateType, aggregateId])
   @@index([orgId, correlationId])
+}
+
+// Cola local durable para ejecutar workers sin Redis/BullMQ. Redis sigue
+// disponible como backend de alta concurrencia en producción.
+model WorkerQueueJob {
+  id             String    @id @default(cuid())
+  queue          String
+  kind           String
+  payload        Json
+  dedupeKey      String?
+  status         String    @default("pending") // pending|processing|completed|failed
+  priority       Int       @default(0)
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  availableAt    DateTime  @default(now())
+  lockedAt       DateTime?
+  leaseExpiresAt DateTime?
+  workerId       String?
+  lastError      String?
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([queue, dedupeKey])
+  @@index([queue, status, availableAt])
+  @@index([status, leaseExpiresAt])
+}
+
+// Heartbeat del worker cuando el backend de colas es PostgreSQL.
+model WorkerHeartbeat {
+  role       String   @id
+  pid        Int
+  startedAt  DateTime
+  lastSeenAt DateTime
+  updatedAt  DateTime @updatedAt
+
+  @@index([lastSeenAt])
 }
 
 // Importación asíncrona de CSV (LE-103). El controller solo crea la fila y
@@ -1808,6 +2047,8 @@ model KnowledgeBase {
   type        String    @default("document")
   content     String?
   fileUrl     String?
+  sourceType  String    @default("manual") // manual | url | upload | generated
+  sourceUrl   String?
   isActive    Boolean   @default(true)
   // Publicación en el blog público de una landing (solo artículos SEO):
   // slug de la URL pública y fecha de publicación. Null = borrador interno.
@@ -1818,6 +2059,137 @@ model KnowledgeBase {
 
   org       Organization        @relation(fields: [orgId], references: [id])
   favorites KnowledgeFavorite[]
+}
+
+// Cuenta de cliente gestionada por una agencia. El cliente es un workspace
+// normal de Vendrava: el modelo solo añade la relación comercial, el estado
+// de activación y los límites que la agencia vende.
+model AgencyClient {
+  id                  String    @id @default(cuid())
+  agencyOrgId         String
+  clientOrgId         String    @unique
+  displayName         String
+  clientEmail         String?   @unique
+  status              String    @default("draft") // draft | trial | active | paused | archived
+  monthlyPriceCents   Int       @default(0)
+  wholesaleCostCents  Int       @default(0)
+  monthlyVoiceMinutes Int       @default(500)
+  monthlyMessages     Int       @default(1000)
+  activatedAt         DateTime?
+  trialEndsAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  agency Organization @relation("AgencyOwner", fields: [agencyOrgId], references: [id], onDelete: Cascade)
+  client Organization @relation("AgencyWorkspace", fields: [clientOrgId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyOrgId, displayName])
+  @@index([agencyOrgId, status])
+}
+
+// Clave de API pública. Actúa *como un usuario concreto*: de ahí salen el rol,
+// los permisos y la atribución de lo que cree. Así la API pública no estrena un
+// modelo de autorización propio, reutiliza el que ya decide en la interfaz.
+model ApiKey {
+  id         String    @id @default(cuid())
+  orgId      String
+  userId     String
+  name       String
+  // Prefijo visible para identificar la clave en la lista; el secreto solo se
+  // guarda hasheado y solo se muestra entero en el momento de crearlo.
+  prefix     String
+  keyHash    String    @unique
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, revokedAt])
+}
+
+// Suscripción a un topic del outbox. Es lo que consumen Zapier/Make y cualquier
+// integración propia: el mismo despachador que ya reintenta las automatizaciones
+// entrega estos avisos.
+model WebhookSubscription {
+  id              String    @id @default(cuid())
+  orgId           String
+  topic           String
+  targetUrl       String
+  secret          String
+  createdById     String?
+  lastStatus      Int?
+  lastError       String?
+  lastDeliveredAt DateTime?
+  failureCount    Int       @default(0)
+  disabledAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, topic, targetUrl])
+  @@index([orgId, topic, disabledAt])
+}
+
+// Identidad visible al cliente final y configuración del widget. Se separa
+// de Organization.settings para que el contrato white-label sea explícito y
+// pueda validarse sin exponer ajustes internos del workspace.
+model WhiteLabelConfig {
+  id             String   @id @default(cuid())
+  clientOrgId    String   @unique
+  agencyOrgId    String
+  widgetKeyHash  String   @unique
+  brandName      String
+  logoUrl        String?
+  primaryColor   String   @default("#4F46E5")
+  accentColor    String   @default("#22D3EE")
+  textColor      String   @default("#FFFFFF")
+  widgetTitle    String   @default("¿En qué podemos ayudarte?")
+  welcomeMessage String   @default("Hola, soy el asistente virtual. ¿En qué puedo ayudarte?")
+  enabled        Boolean  @default(false)
+  allowedOrigins String[] @default([])
+  // Dominio desde el que se sirve el panel para esta marca. Sin él el panel
+  // sigue funcionando: la marca se resuelve por la organización tras el login.
+  appDomain      String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client Organization @relation(fields: [clientOrgId], references: [id], onDelete: Cascade)
+
+  @@index([agencyOrgId])
+}
+
+model WhiteLabelTrainingJob {
+  id               String    @id @default(cuid())
+  clientOrgId      String
+  sourceUrl        String
+  status           String    @default("queued") // queued | running | completed | failed
+  pagesDiscovered  Int       @default(0)
+  documentsCreated Int       @default(0)
+  error            String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  client Organization @relation(fields: [clientOrgId], references: [id], onDelete: Cascade)
+
+  @@index([clientOrgId, createdAt])
+}
+
+model WhiteLabelUsage {
+  id           String   @id @default(cuid())
+  clientOrgId  String
+  monthStart   DateTime
+  voiceMinutes Int      @default(0)
+  messages     Int      @default(0)
+  trainingRuns Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  client Organization @relation(fields: [clientOrgId], references: [id], onDelete: Cascade)
+
+  @@unique([clientOrgId, monthStart])
 }
 
 // Favorito ("guardado") o reacción ("útil") de un artículo por usuario —
@@ -2046,6 +2418,11 @@ model MarketingCampaign {
   audienceDefinition    Json?
   audienceSnapshotCount Int?
   templateBindingId     String?
+  // EM-113: prueba A/B de asunto. Array de `{ key, templateExternalId, externalCampaignId? }`.
+  // Cada variante es una plantilla distinta de Mautic (el asunto vive en la
+  // plantilla, no aquí), así que probar asuntos es probar plantillas. Null =
+  // campaña de una sola versión, el camino de siempre.
+  variantDefinition     Json?
   sender                String?
   replyTo               String?
   timezone              String    @default("Europe/Madrid")
@@ -2072,6 +2449,8 @@ model EmailDelivery {
   campaignId          String?
   leadId              String
   templateExternalId  String?
+  // EM-113: variante asignada en la publicación. Null en campañas sin A/B.
+  variantKey          String?
   toAddress           String
   idempotencyKey      String    @unique
   providerMessageId   String?
@@ -2099,6 +2478,7 @@ model EmailDelivery {
   @@index([orgId, leadId, createdAt])
   @@index([orgId, campaignId, status])
   @@index([orgId, campaignId, status, availableAt])
+  @@index([orgId, campaignId, variantKey])
 }
 
 // EM-102/EM-08: evento normalizado (open/click/bounce/unsubscribe/complaint),
@@ -3511,4 +3891,833 @@ model ContentApprovalLink {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, revokedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Plataforma abierta — Fase 0 (docs/plataforma-abierta/02-FUNDAMENTOS.md)
+// ---------------------------------------------------------------------------
+
+// Contrato universal de trabajo asíncrono. Toda generación o investigación
+// larga (imagen, vídeo, microapp) es un Job: cola común, lease sobre Postgres
+// (mismo patrón que OutboxEvent), coste estimado/real y salida referenciable.
+// Los trabajos asíncronos en el proveedor guardan providerJobId y se cierran
+// por webhook con polling de respaldo.
+model Job {
+  id             String  @id @default(cuid())
+  orgId          String
+  // "image.generate", "audio.tts", "microapp.run", "video.generate"...
+  kind           String
+  // pending | running | waiting_provider | awaiting_approval | succeeded |
+  // failed | cancel_requested | canceled. `pending` se conserva por
+  // compatibilidad con los productores existentes; equivale a queued.
+  status         String  @default("pending")
+  priority       Int     @default(0)
+  idempotencyKey String?
+
+  createdById String?
+  microappId  String?
+  flowRunId   String?
+  parentJobId String?
+
+  // Resueltos por el router: proveedor elegido y, si el trabajo corre en el
+  // proveedor, el id remoto para correlacionar su webhook.
+  provider          String?
+  providerJobId     String?
+  currency          String   @default("EUR")
+  // El nombre conserva la unidad histórica (céntimos), pero el tipo NO
+  // redondea: 0.0001 cents sigue siendo medible y auditable.
+  costEstimateCents Decimal? @db.Decimal(20, 8)
+  costActualCents   Decimal? @db.Decimal(20, 8)
+
+  // input incluye `_routing` (decisión completa del router: elegido,
+  // alternativas y exclusiones con motivo) para que la UI la muestre tal cual.
+  input  Json
+  output Json?
+  // { code, message } ya pasado por redactProviderError — nunca secretos.
+  error  Json?
+
+  leaseExpiresAt DateTime?
+  workerId       String?
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  nextPollAt     DateTime?
+  progress       Int?
+
+  createdAt         DateTime  @default(now())
+  startedAt         DateTime?
+  submittedAt       DateTime?
+  cancelRequestedAt DateTime?
+  canceledAt        DateTime?
+  finishedAt        DateTime?
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assets Asset[]
+
+  @@unique([orgId, kind, idempotencyKey])
+  @@unique([provider, providerJobId])
+  @@index([orgId, status, createdAt])
+  @@index([status, leaseExpiresAt])
+  @@index([status, nextPollAt])
+}
+
+// Biblioteca universal de activos. Cada activo conserva su genealogía
+// (job, proveedor, modelo, prompt, coste, activo padre) — la "genealogía del
+// activo" de la visión §2.7. El binario vive en S3/R2 bajo
+// org/<orgId>/assets/<assetId>/<filename>; nunca en disco local.
+model Asset {
+  id         String  @id @default(cuid())
+  orgId      String
+  // image | video | audio | document | dataset | text
+  kind       String
+  mimeType   String
+  storageKey String
+  bytes      BigInt
+  width      Int?
+  height     Int?
+  durationMs Int?
+  // sha256 del binario, para deduplicar generaciones idénticas.
+  checksum   String?
+
+  jobId         String?
+  parentAssetId String?
+  provider      String?
+  model         String?
+  prompt        String?
+  params        Json?
+  costCents     Decimal? @db.Decimal(20, 8)
+  currency      String?  @default("EUR")
+
+  // Pertenencia y derechos. campaignId/contentPieceId sin FK a propósito en
+  // v1: referencias blandas mientras los módulos existentes migran.
+  campaignId     String?
+  contentPieceId String?
+  brandScope     String?
+  license        Json?
+  consentGrantId String?
+  expiresAt      DateTime?
+
+  // draft | approved | published | archived
+  status              String    @default("draft")
+  // El original siempre permanece privado. Publicar crea una copia inmutable
+  // distinta, apta para Meta/Metricool, y guarda su clave/URL estables.
+  accessClass         String    @default("private")
+  publishedStorageKey String?
+  publishedUrl        String?
+  publishedAt         DateTime?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+
+  org               Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  job               Job?               @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  // Compatibilidad legacy. La FK también incluye orgId para que ni SQL
+  // directo pueda enlazar un padre de otro tenant. NoAction evita intentar
+  // poner a null el orgId obligatorio al borrar el padre.
+  parent            Asset?             @relation("AssetLineage", fields: [parentAssetId, orgId], references: [id, orgId], onDelete: NoAction)
+  children          Asset[]            @relation("AssetLineage")
+  versions          AssetVersion[]
+  inputs            AssetRelation[]    @relation("AssetRelationChild")
+  outputs           AssetRelation[]    @relation("AssetRelationParent")
+  studioReviewLinks StudioReviewLink[]
+  consentGrant      ConsentGrant?      @relation("AssetConsent", fields: [consentGrantId, orgId], references: [id, orgId], onDelete: Restrict)
+
+  @@unique([orgId, checksum])
+  @@unique([id, orgId])
+  @@index([orgId, kind, status, createdAt])
+  @@index([orgId, campaignId])
+  @@index([checksum])
+}
+
+// Transformaciones de un activo (upscale, subtitulado, doblaje) sin perder el
+// original: cada versión apunta a su propio binario y registra parámetros y
+// coste de la transformación.
+model AssetVersion {
+  id             String   @id @default(cuid())
+  orgId          String
+  assetId        String
+  storageKey     String
+  // "original", "upscaled-magnific", "subtitled-es"...
+  label          String?
+  params         Json?
+  costCents      Decimal? @db.Decimal(20, 8)
+  idempotencyKey String?
+  createdAt      DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  asset Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, assetId, createdAt])
+}
+
+// Genealogía N:M tipada: una composición puede depender simultáneamente de
+// imagen, audio, subtítulos, logo y referencias. orgId forma parte de ambas
+// FK para impedir relaciones cruzadas entre tenants incluso por SQL directo.
+model AssetRelation {
+  id        String   @id @default(cuid())
+  orgId     String
+  parentId  String
+  childId   String
+  // source | image | audio | subtitle | logo | reference | upscale_of | ...
+  role      String
+  createdAt DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent Asset        @relation("AssetRelationParent", fields: [parentId, orgId], references: [id, orgId], onDelete: Cascade)
+  child  Asset        @relation("AssetRelationChild", fields: [childId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@unique([parentId, childId, role])
+  @@index([orgId, childId])
+  @@index([orgId, parentId])
+}
+
+// Ledger de consumo. Una fila por uso de proveedor: registrar siempre, cobrar
+// después. quantity/cost con precisión subcéntimo (los proveedores facturan
+// fracciones); el redondeo a céntimos ocurre solo al capturar contra Wallet.
+// billingMode separa contablemente BYOK (coste 0 para Vendrava) de gestionado.
+model UsageRecord {
+  id             String   @id @default(cuid())
+  orgId          String
+  provider       String
+  capability     String
+  jobId          String?
+  quantity       Decimal  @db.Decimal(20, 8)
+  // "tokens" | "seconds" | "images" | "chars" | "requests"
+  unit           String
+  costCents      Decimal  @default(0) @db.Decimal(20, 8)
+  priceCents     Decimal  @default(0) @db.Decimal(20, 8)
+  currency       String   @default("EUR")
+  // Versión de la tarifa aplicada, para reconstruir precios históricos.
+  rateVersion    String
+  idempotencyKey String
+  // "managed" | "byok"
+  billingMode    String   @default("byok")
+  meta           Json?
+  createdAt      DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, createdAt])
+  @@index([orgId, provider, capability, createdAt])
+  @@index([jobId])
+}
+
+// Saldo de créditos gestionados de una org, en céntimos. El disponible real es
+// balanceCents menos los holds activos — nunca se comprueba el saldo de forma
+// optimista: la reserva es atómica (ver wallet.service).
+model Wallet {
+  id             String   @id @default(cuid())
+  orgId          String   @unique
+  balanceCents   Int      @default(0)
+  softLimitCents Int?
+  hardLimitCents Int?
+  currency       String   @default("EUR")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  org          Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+  holds        WalletHold[]
+
+  // Soporta FK compuestas desde holds/transacciones: la organización del
+  // movimiento debe ser necesariamente la del wallet.
+  @@unique([id, orgId])
+}
+
+// Reserva del coste estimado de un Job antes de ejecutarlo. active bloquea
+// disponible; al terminar se captura por el coste real (transacción) y se
+// libera la diferencia. jobId único = idempotencia: un job nunca reserva dos
+// veces aunque el dispatcher reintente.
+model WalletHold {
+  id          String    @id @default(cuid())
+  orgId       String
+  walletId    String
+  jobId       String    @unique
+  amountCents Int
+  // active | captured | released
+  status      String    @default("active")
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  wallet Wallet       @relation(fields: [walletId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@index([walletId, status, expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Plataforma abierta — Fase 2 (docs/plataforma-abierta/05-FLUJOS.md,
+// 07-MICROAPPS.md, 08-SEGURIDAD-Y-DERECHOS.md, 09-MODELO §5)
+// ---------------------------------------------------------------------------
+
+// Receta de flujo. orgId null = receta de sistema (plantilla Vendrava) que
+// cualquier org puede ejecutar; las versiones son inmutables (patrón
+// AutomationVersion): editar es publicar una versión nueva.
+model Flow {
+  id               String   @id @default(cuid())
+  orgId            String?
+  slug             String
+  name             String
+  description      String?
+  currentVersionId String?
+  createdAt        DateTime @default(now())
+
+  org      Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  versions FlowVersion[]
+  runs     FlowRun[]
+
+  @@unique([orgId, slug])
+}
+
+model FlowVersion {
+  id          String   @id @default(cuid())
+  flowId      String
+  version     Int
+  // Grafo declarativo validado con zod: nodos capability | microapp | action |
+  // approval | condition | map | wait y sus aristas.
+  graph       Json
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  flow         Flow                       @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  runs         FlowRun[]
+  dependencies FlowCapabilityDependency[]
+
+  @@unique([flowId, version])
+}
+
+// Dependencias materializadas al publicar una versión (anotación de revisión
+// de 05-FLUJOS): qué capabilities y proveedores usa el grafo, sin tener que
+// bucear en el JSON. Alimenta el "qué dejaría de funcionar si desconectas X".
+model FlowCapabilityDependency {
+  id             String  @id @default(cuid())
+  flowVersionId  String
+  capability     String
+  // Proveedor fijado explícitamente en el nodo, si lo hay.
+  pinnedProvider String?
+
+  version FlowVersion @relation(fields: [flowVersionId], references: [id], onDelete: Cascade)
+
+  @@index([capability, pinnedProvider])
+}
+
+model FlowRun {
+  id             String    @id @default(cuid())
+  orgId          String
+  flowId         String
+  flowVersionId  String
+  // Reintentos HTTP/MCP y redespachos de eventos devuelven el mismo run.
+  // NULL permite múltiples ejecuciones intencionales sin clave.
+  idempotencyKey String?
+  // running | awaiting_approval | succeeded | failed | canceled
+  status         String    @default("running")
+  trigger        Json
+  variables      Json
+  budgetCents    Int?
+  spentCents     Int       @default(0)
+  // Modo simulación (microapp #75): estima rutas y costes sin ejecutar
+  // acciones externas.
+  dryRun         Boolean   @default(false)
+  error          Json?
+  leaseExpiresAt DateTime?
+  workerId       String?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  org     Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  flow    Flow          @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  version FlowVersion   @relation(fields: [flowVersionId], references: [id], onDelete: Cascade)
+  steps   FlowStepRun[]
+
+  @@unique([orgId, flowId, idempotencyKey])
+  @@index([orgId, status, startedAt])
+  @@index([status, leaseExpiresAt])
+}
+
+model FlowStepRun {
+  id                String    @id @default(cuid())
+  orgId             String
+  flowRunId         String
+  nodeKey           String
+  // pending | running | awaiting_approval | succeeded | failed | skipped | blocked
+  status            String    @default("pending")
+  jobId             String?
+  approvalRequestId String?
+  input             Json?
+  output            Json?
+  error             Json?
+  startedAt         DateTime?
+  finishedAt        DateTime?
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  flowRun FlowRun      @relation(fields: [flowRunId], references: [id], onDelete: Cascade)
+
+  @@unique([flowRunId, nodeKey])
+  @@index([orgId, status])
+}
+
+// Ejecución de una microapp (07-MICROAPPS §1). El trabajo pesado vive en su
+// Job (kind 'microapp.run'); aquí queda el resultado consultable y sus
+// vínculos al negocio. staleAt materializa la caducidad declarada por el
+// manifiesto ("este dossier tiene 45 días, ¿actualizar?").
+model MicroappRun {
+  id                  String    @id @default(cuid())
+  orgId               String
+  microappId          String
+  version             String
+  jobId               String    @unique
+  input               Json
+  result              Json?
+  // Contrato RBAC inmutable de la versión ejecutada. Los NULL pertenecen a
+  // runs legacy y se resuelven contra el manifiesto actual por compatibilidad.
+  dataAccessSnapshot  Json?
+  accessRolesSnapshot Json?
+  staleAt             DateTime?
+  leadId              String?
+  accountId           String?
+  productionId        String?
+  callId              String?
+  opportunityId       String?
+  conversationId      String?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  marketplaceLedgerEntries MarketplaceLedgerEntry[]
+  projection               MicroappProjection?
+
+  @@index([orgId, microappId, createdAt])
+  @@index([leadId])
+  @@index([accountId])
+  @@index([callId])
+  @@index([opportunityId])
+  @@index([conversationId])
+  @@index([accessRolesSnapshot], type: Gin)
+}
+
+model MicroappProjection {
+  id        String    @id @default(cuid())
+  orgId     String
+  runId     String    @unique
+  kind      String
+  surface   String
+  entityId  String
+  payload   Json
+  pinned    Boolean   @default(true)
+  staleAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  run MicroappRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, surface, entityId, pinned])
+}
+
+model MicroappConfig {
+  id         String   @id @default(cuid())
+  orgId      String
+  microappId String
+  scope      String
+  scopeId    String?
+  values     Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, microappId, scope, scopeId])
+  @@index([orgId, microappId, scope])
+}
+
+// Consentimiento de identidad (08-SEGURIDAD §2): uso de la voz, rostro,
+// avatar, personaje o estilo de una persona en contenido generado. Hermano de
+// ContactConsent (que cubre el canal de contacto comercial). El enforcement es
+// real: sin grant activo y con alcance compatible, el router no crea el job y
+// la publicación se bloquea.
+model ConsentGrant {
+  id              String    @id @default(cuid())
+  orgId           String
+  subjectName     String
+  subjectContact  String?
+  // voice | face | avatar | character | testimonial | written_style
+  kind            String
+  // { channels: [], regions: [], purposes: [], exclusions: [] }
+  scope           Json
+  evidenceAssetId String?
+  grantedAt       DateTime
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  // active | expired | revoked
+  status          String    @default("active")
+  createdById     String
+  createdAt       DateTime  @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assets Asset[]      @relation("AssetConsent")
+
+  @@unique([id, orgId])
+  @@index([orgId, kind, status])
+}
+
+// North star (09-MODELO §5): resultados de negocio completados. Se emite desde
+// suscriptores del outbox en los puntos que ya existen (oportunidad ganada,
+// campaña publicada, reunión creada, contenido aprobado) — sin tocar la
+// lógica de negocio.
+model OutcomeEvent {
+  id             String   @id @default(cuid())
+  orgId          String
+  // research_used | ad_approved | meeting_booked | campaign_published |
+  // deal_won | asset_published
+  kind           String
+  sourceRef      Json
+  valueCents     Int?
+  // La clave identifica el efecto de negocio, no el intento del subscriber.
+  idempotencyKey String
+  createdAt      DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, kind, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Studio de Cine (docs/plataforma-abierta/06-STUDIO-DE-CINE.md)
+// ---------------------------------------------------------------------------
+
+model Production {
+  id            String    @id @default(cuid())
+  orgId         String
+  title         String
+  // brief | concepts | script | storyboard | shooting | post | review | delivered
+  status        String    @default("brief")
+  brief         Json
+  budgetCents   Int?
+  spentCents    Int       @default(0)
+  brandScope    String?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  archivedAt    DateTime?
+  exportVersion Int       @default(1)
+
+  org          Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  concepts     Concept[]
+  scenes       Scene[]
+  bibleEntries ProductionBibleEntry[]
+  reviewLinks  StudioReviewLink[]
+
+  @@unique([id, orgId])
+  @@index([orgId, status])
+  @@index([orgId, archivedAt, updatedAt])
+}
+
+// Sala pública de revisión de un master concreto. El token vive únicamente
+// como SHA-256 y su alcance no se comparte con ContentApprovalLink: abrir un
+// vídeo nunca concede acceso a la cola general de contenido de la org.
+model StudioReviewLink {
+  id           String    @id @default(cuid())
+  orgId        String
+  productionId String
+  assetId      String
+  tokenHash    String    @unique
+  label        String?
+  createdById  String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  lastUsedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  org        Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  production Production            @relation(fields: [productionId, orgId], references: [id, orgId], onDelete: Cascade)
+  asset      Asset                 @relation(fields: [assetId, orgId], references: [id, orgId], onDelete: Cascade)
+  comments   StudioReviewComment[]
+
+  @@unique([id, orgId])
+  @@index([orgId, productionId, createdAt])
+  @@index([orgId, revokedAt, expiresAt])
+}
+
+model StudioReviewComment {
+  id           String    @id @default(cuid())
+  orgId        String
+  linkId       String
+  timecodeMs   Int
+  body         String
+  authorName   String?
+  // open | resolved | hidden
+  status       String    @default("open")
+  resolvedAt   DateTime?
+  resolvedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  org  Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  link StudioReviewLink @relation(fields: [linkId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@index([orgId, linkId, timecodeMs, createdAt])
+  @@index([orgId, status, createdAt])
+}
+
+model Concept {
+  id           String   @id @default(cuid())
+  orgId        String
+  productionId String
+  title        String
+  logline      String
+  treatment    Json
+  // proposed | approved | discarded
+  status       String   @default("proposed")
+  createdAt    DateTime @default(now())
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  production Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, productionId])
+}
+
+// Biblia de producción: personajes, producto, localizaciones, estilo y reglas
+// de continuidad. Si la entrada es una persona real, exige ConsentGrant.
+model ProductionBibleEntry {
+  id             String   @id @default(cuid())
+  orgId          String
+  productionId   String
+  // character | product | location | style | rule
+  kind           String
+  name           String
+  data           Json
+  refAssetIds    String[] @default([])
+  consentGrantId String?
+  createdAt      DateTime @default(now())
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  production Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, productionId, kind])
+}
+
+model Scene {
+  id           String @id @default(cuid())
+  orgId        String
+  productionId String
+  order        Int
+  scriptText   Json
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  production Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  shots      Shot[]
+
+  @@index([orgId, productionId, order])
+}
+
+model Shot {
+  id                String  @id @default(cuid())
+  orgId             String
+  sceneId           String
+  order             Int
+  // duración, encuadre, movimiento, acción, audio, modelo recomendado
+  spec              Json
+  storyboardAssetId String?
+  // planned | boarded | generating | takes_ready | approved
+  status            String  @default("planned")
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  scene Scene        @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  takes Take[]
+
+  @@index([orgId, sceneId, order])
+}
+
+// Una toma = un Job de video.generate. El coste, proveedor y decisión de
+// routing viven en el Job; el clip resultante es un Asset — el Studio no
+// inventa su propia media.
+model Take {
+  id        String   @id @default(cuid())
+  orgId     String
+  shotId    String
+  jobId     String
+  assetId   String?
+  // draft | final
+  tier      String   @default("draft")
+  selected  Boolean  @default(false)
+  qcReport  Json?
+  createdAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  shot Shot         @relation(fields: [shotId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, shotId])
+}
+
+// Movimientos del wallet: recargas Stripe, capturas de consumo, ajustes.
+// idempotencyKey única evita el doble abono de un mismo webhook de pago o la
+// doble captura de un mismo job.
+model WalletTransaction {
+  id             String   @id @default(cuid())
+  orgId          String
+  walletId       String
+  // + recarga, - consumo
+  amountCents    Int
+  // "topup" | "usage" | "refund" | "adjustment" | "transfer"
+  reason         String
+  usageRecordId  String?
+  jobId          String?
+  stripeRef      String?
+  idempotencyKey String?
+  createdAt      DateTime @default(now())
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  wallet Wallet       @relation(fields: [walletId, orgId], references: [id, orgId], onDelete: Cascade)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([walletId, createdAt])
+  @@index([orgId, reason, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Plataforma abierta — Fase 3: organizaciones y marketplace declarativo
+// ---------------------------------------------------------------------------
+
+// Membresía N:M retrocompatible. User.orgId conserva la organización primaria
+// mientras las sesiones nuevas seleccionan una membresía activa.
+model OrganizationMembership {
+  id          String   @id @default(cuid())
+  orgId       String
+  userId      String
+  role        UserRole
+  status      String   @default("active") // active | invited | suspended
+  isDefault   Boolean  @default(false)
+  invitedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId, status, isDefault])
+  @@index([orgId, role, status])
+}
+
+// Entrada editorial. No contiene código: cada versión es un manifiesto de
+// receta (capabilities, prompts y transformaciones declarativas).
+model MarketplaceListing {
+  id              String    @id @default(cuid())
+  publisherOrgId  String?
+  slug            String    @unique
+  kind            String // microapp | flow
+  name            String
+  description     String
+  category        String
+  status          String    @default("draft") // draft|in_review|approved|published|rejected|suspended
+  latestVersionId String?
+  revenueShareBps Int       @default(7000)
+  createdById     String
+  reviewedById    String?
+  reviewNotes     String?
+  reviewedAt      DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  publisher     Organization?            @relation("MarketplacePublisher", fields: [publisherOrgId], references: [id], onDelete: SetNull)
+  versions      MarketplaceVersion[]
+  installs      MarketplaceInstall[]
+  entitlements  MarketplaceEntitlement[]
+  ledgerEntries MarketplaceLedgerEntry[]
+
+  @@index([status, category, publishedAt])
+  @@index([publisherOrgId, status, updatedAt])
+}
+
+model MarketplaceVersion {
+  id                     String   @id @default(cuid())
+  listingId              String
+  version                String
+  manifest               Json
+  checksum               String
+  signature              String?
+  capabilityDependencies String[] @default([])
+  permissions            String[] @default([])
+  priceCents             Int      @default(0)
+  createdById            String
+  createdAt              DateTime @default(now())
+
+  listing       MarketplaceListing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  installs      MarketplaceInstall[]
+  entitlements  MarketplaceEntitlement[]
+  ledgerEntries MarketplaceLedgerEntry[]
+
+  @@unique([listingId, version])
+  @@unique([listingId, checksum])
+}
+
+model MarketplaceInstall {
+  id            String   @id @default(cuid())
+  orgId         String
+  listingId     String
+  versionId     String
+  status        String   @default("installed") // installed | disabled | uninstalled
+  installedById String
+  config        Json?
+  installedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  org     Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  version MarketplaceVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, listingId])
+  @@index([orgId, status, updatedAt])
+}
+
+model MarketplaceEntitlement {
+  id          String    @id @default(cuid())
+  orgId       String
+  listingId   String
+  versionId   String
+  status      String    @default("active") // active | suspended | expired | revoked
+  source      String    @default("install") // install | purchase | admin
+  grantedById String?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org     Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  version MarketplaceVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, listingId])
+  @@index([orgId, status, expiresAt])
+}
+
+// Ledger inmutable del reparto. Un settlement produce charge, publisher_share
+// y platform_fee con una misma settlementKey; las claves únicas hacen seguro
+// reintentar el cierre de una ejecución.
+model MarketplaceLedgerEntry {
+  id                String   @id @default(cuid())
+  orgId             String
+  counterpartyOrgId String?
+  listingId         String
+  versionId         String
+  microappRunId     String?
+  kind              String // customer_charge | publisher_share | platform_fee | refund
+  amountCents       Int
+  currency          String   @default("EUR")
+  settlementKey     String
+  idempotencyKey    String
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  org          Organization       @relation("MarketplaceLedgerOwner", fields: [orgId], references: [id], onDelete: Restrict)
+  counterparty Organization?      @relation("MarketplaceLedgerCounterparty", fields: [counterpartyOrgId], references: [id], onDelete: SetNull)
+  listing      MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  version      MarketplaceVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  microappRun  MicroappRun?       @relation(fields: [microappRunId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, idempotencyKey])
+  @@index([settlementKey, createdAt])
+  @@index([listingId, kind, createdAt])
 }

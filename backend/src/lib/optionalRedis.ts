@@ -1,4 +1,5 @@
 import Redis from 'ioredis'
+import { isPostgresQueueBackend } from './queueBackend'
 
 const REDIS_CONNECT_TIMEOUT_MS = Number(process.env.REDIS_CONNECT_TIMEOUT_MS ?? 1500)
 
@@ -8,7 +9,7 @@ const REDIS_CONNECT_TIMEOUT_MS = Number(process.env.REDIS_CONNECT_TIMEOUT_MS ?? 
  */
 export async function connectOptionalRedis(scope: string): Promise<Redis | null> {
   const url = process.env.REDIS_URL?.trim()
-  if (!url || process.env.REDIS_ENABLED === 'false') return null
+  if (!url || process.env.REDIS_ENABLED === 'false' || isPostgresQueueBackend()) return null
 
   const connection = new Redis(url, {
     lazyConnect: true,

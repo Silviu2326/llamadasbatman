@@ -1,13 +1,14 @@
 import { WebSocket } from 'ws'
 import { AudioBridge } from '../audio/bridge'
-import { rmsLevel, preprocessInbound } from '../audio/dsp'
+import { InboundAudioProcessor, rmsLevel } from '../audio/dsp'
 import { NoiseClassifier } from '../audio/noiseClassifier'
 import { detectOptout, registerOptout, detectTransferRequest, detectRecordingConsentResponse } from '../compliance'
 import { createCallContext, CallContext } from '../intelligence/conversation/callContext'
 import { loadAgentConfig } from '../agentConfig'
 import { createVoiceSession } from '../engine/factory'
-import type { VoiceSession } from '../engine/voiceSession'
-import { recordingPolicy, startCallRecording, transferCall } from './twilioClient'
+import { buildIntelligentPrompt } from '../intelligence/promptContext'
+import type { VoiceSession, VoiceSessionEvent } from '../engine/voiceSession'
+import { endCall, recordingPolicy, startCallRecording, transferCall } from './twilioClient'
 import { getTwilioIntegrationConfig } from '../../services/twilioIntegration.service'
 import { emitToOrg } from '../../websockets/index'
 import { ingestCall as persistCall } from '../../services/calls.service'
@@ -15,8 +16,6 @@ import { prisma } from '../../lib/prisma'
 import type { MediaStreamClaims } from './streamAuth'
 import { registerLiveCall, unregisterLiveCall } from './liveCalls'
 import { buildVoiceRuntimeSnapshot, VoiceTrace } from '../observability/voiceTrace'
-import { TurnManager } from '../turn/turnManager'
-import { decideNextAction } from '../intelligence/salesBrain'
 import { classifyAmd } from './amd'
 import { evaluateVoiceCall } from '../evaluation/callJudgeService'
 import { recordVoiceExperimentOutcome, resolveVoiceExperiment } from '../experiments/voiceExperiment'
@@ -122,6 +121,7 @@ async function ingestCall(ctx: CallContext, durationS: number): Promise<{ id: st
       campaignId: ctx.campaignId || undefined,
       duration: durationS,
       transcript,
+      transcriptWords: Array.isArray(ctx.metadata.transcriptWords) ? ctx.metadata.transcriptWords : undefined,
       sentiment,
       sentimentScore: score,
       outcome,
@@ -158,6 +158,7 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
   let ownsCallSid = false
   let sessionDeadline: NodeJS.Timeout | null = null
   const bridge = new AudioBridge()
+  const inboundAudio = new InboundAudioProcessor()
   const noiseCLF = new NoiseClassifier()
   const allowMessage = createRateGuard()
   let trace: VoiceTrace | null = null
@@ -169,18 +170,12 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
     if (!started) closeUnsafeConnection(connection, 'start event deadline exceeded')
   }, START_DEADLINE_MS)
 
-  const turnManager = new TurnManager({
-    threshold: 0.04,
-    requiredFrames: 4,
-    minimumSpeechMs: 200,
-    debounceMs: 500,
-  })
-
   async function sendToTwilio(audio: Buffer): Promise<void> {
     if (!streamSid || connection.readyState !== WebSocket.OPEN) return
-    if (!assistantAudioActive) {
+    const audible = rmsLevel(audio) >= 0.0015
+    if (!assistantAudioActive && audible) {
       assistantAudioActive = true
-      trace?.record({ type: 'audio.output_started', role: 'assistant', payload: { bytes: audio.length }, component: 'mediaStream' })
+      trace?.record({ type: 'audio.output_started', role: 'assistant', payload: { bytes: audio.length, audible: true }, component: 'mediaStream' })
       if (lastUserTurnFinishedAt > 0) {
         trace?.metric('turn.time_to_first_audio_ms', Date.now() - lastUserTurnFinishedAt, 'ms')
         lastUserTurnFinishedAt = 0
@@ -209,11 +204,9 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
     const summary = {
       callSid: callCtx.callSid,
       leadId: callCtx.leadId,
-      contact: callCtx.prospectState.evidence.find(item => item.source === 'crm')?.text ?? callCtx.businessName,
-      need: callCtx.prospectState.needs.at(-1) ?? null,
-      objection: callCtx.prospectState.objections.find(item => !item.resolved)?.label ?? null,
+      contact: callCtx.businessName,
+      emotion: callCtx.emotion,
       reason,
-      nextBestAction: callCtx.prospectState.nextBestAction,
       transcript: callCtx.transcript.slice(-6),
     }
     trace?.record({ type: 'transfer.requested', role: 'system', payload: summary, component: 'transfer' })
@@ -232,85 +225,139 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
 
   async function onTranscript(role: string, text: string, meta?: Record<string, unknown>): Promise<void> {
     if (!ctx) return
-    if (role === 'prospecto_partial') {
+    if (role === 'prospecto_partial' || role === 'partial') {
       trace?.record({ type: 'stt.partial', role: 'user', payload: { text: text.slice(0, 1000), ...meta }, component: 'mediaStream' })
       return
     }
+    if (role !== 'prospecto' && role !== 'agente') return
     trace?.record({
       type: role === 'prospecto' ? 'stt.final' : 'transcript.final',
       role: role === 'prospecto' ? 'user' : 'assistant',
       payload: { role, text: text.slice(0, 4000), ...meta },
       component: 'mediaStream',
     })
-    if (role === 'prospecto') {
-      assistantAudioActive = false
-      lastUserTurnFinishedAt = Date.now()
-      trace?.record({ type: 'turn.user_finished', role: 'user', payload: { textLength: text.length }, component: 'mediaStream' })
-      const decision = decideNextAction(ctx.prospectState, text)
-      ctx.prospectState = decision.state
-      trace?.record({
-        type: 'sales_action.selected',
-        role: 'system',
-        payload: { action: decision.action, stage: decision.state.stage, signal: decision.signal ?? null },
-        component: 'salesBrain',
-        componentVer: process.env.VOICE_SALES_BRAIN_VERSION?.trim() || '1',
-      })
-      trace?.record({
-        type: 'prospect_state.updated',
-        role: 'system',
-        payload: decision.state as unknown as Record<string, unknown>,
-        component: 'salesBrain',
-      })
-      if (ctx.transcript.filter(item => item.role === 'prospecto').length === 0) {
-        const opening = classifyAmd({ answeredBy: 'human', speechResult: text })
-        ctx.metadata.contactClassification = opening.classification
-        ctx.metadata.contactClassificationConfidence = opening.confidence
-        ctx.metadata.amdResult = { ...opening, source: 'opening_speech' }
-        trace?.record({ type: 'contact.classified', role: 'system', payload: opening, component: 'amd', provider: 'opening_speech' })
-      }
-    }
     ctx.turns++
     ctx.transcript.push({ role, text })
+    if (role === 'prospecto' && Array.isArray(meta?.words)) {
+      const existing = Array.isArray(ctx.metadata.transcriptWords) ? ctx.metadata.transcriptWords : []
+      ctx.metadata.transcriptWords = [...existing, {
+        turnId: meta?.turnId,
+        generationId: meta?.generationId,
+        provider: meta?.provider,
+        model: meta?.model,
+        confidence: meta?.confidence,
+        words: meta.words,
+      }].slice(-200)
+    }
 
-    if (role === 'prospecto') {
-      if (ctx.recordingConsentPending) {
-        const consent = detectRecordingConsentResponse(text)
-        if (consent) {
-          ctx.recordingConsentPending = false
-          ctx.recordingConsented = consent === 'granted'
-          trace?.record({ type: 'compliance.recording_consent', role: 'user', payload: { consent }, component: 'compliance' })
-          if (consent === 'granted') {
-            try {
-              await startCallRecording({ callSid: ctx.callSid, orgId: ctx.orgId, campaignId: ctx.campaignId, agentId: ctx.agentId, leadId: ctx.leadId })
-            } catch (error) {
+    if (role !== 'prospecto') return
+
+    assistantAudioActive = false
+    lastUserTurnFinishedAt = Date.now()
+    trace?.record({ type: 'turn.user_finished', role: 'user', payload: { textLength: text.length }, component: 'mediaStream' })
+    if (ctx.transcript.filter(item => item.role === 'prospecto').length === 1) {
+      const opening = classifyAmd({ answeredBy: 'human', speechResult: text })
+      ctx.metadata.contactClassification = opening.classification
+      ctx.metadata.contactClassificationConfidence = opening.confidence
+      ctx.metadata.amdResult = { ...opening, source: 'opening_speech' }
+      trace?.record({ type: 'contact.classified', role: 'system', payload: opening, component: 'amd', provider: 'opening_speech' })
+    }
+
+    if (ctx.recordingConsentPending) {
+      const consent = detectRecordingConsentResponse(text)
+      if (consent) {
+        ctx.recordingConsentPending = false
+        ctx.recordingConsented = consent === 'granted'
+        trace?.record({ type: 'compliance.recording_consent', role: 'user', payload: { consent }, component: 'compliance' })
+        if (consent === 'granted') {
+          void startCallRecording({ callSid: ctx.callSid, orgId: ctx.orgId, campaignId: ctx.campaignId, agentId: ctx.agentId, leadId: ctx.leadId })
+            .catch(error => {
               trace?.record({ type: 'runtime.warning', role: 'system', payload: { code: 'RECORDING_START_FAILED' }, component: 'compliance' })
               console.warn('[MEDIA] startCallRecording failed:', error)
-            }
-          }
+            })
         }
       }
-      if (detectOptout(text)) {
-        ctx.outcome = 'optout'
-        trace?.record({ type: 'compliance.opt_out', role: 'user', payload: { text: text.slice(0, 500) }, component: 'compliance' })
-        await registerOptout(ctx.orgId, ctx.phone, 'detected_in_call')
-      } else if (!ctx.transferRequested && detectTransferRequest(text)) {
-        await requestTransfer(ctx, 'solicitado_explicitamente')
-      } else if (!ctx.transferRequested) {
-        const frustrated = ['molesto', 'frustrado', 'agitado'].includes(ctx.emotion)
-        ctx.frustration = frustrated ? ctx.frustration + 1 : 0
-        if (ctx.frustration >= 3) await requestTransfer(ctx, 'frustracion_alta')
+    }
+
+    const optedOut = detectOptout(text)
+    const explicitTransfer = !ctx.transferRequested && detectTransferRequest(text)
+    const frustrated = ['molesto', 'frustrado', 'agitado'].includes(ctx.emotion)
+    ctx.frustration = frustrated ? ctx.frustration + 1 : 0
+    const frustrationTransfer = !ctx.transferRequested && ctx.frustration >= 3
+    let action: 'respond' | 'transfer' | 'stop' = 'respond'
+    let reason: string | undefined
+    if (optedOut) {
+      action = 'stop'
+      reason = 'opt_out'
+      ctx.outcome = 'optout'
+    } else if (explicitTransfer || frustrationTransfer) {
+      action = 'transfer'
+      reason = explicitTransfer ? 'solicitado_explicitamente' : 'frustracion_alta'
+    }
+
+    if (action === 'stop' || action === 'transfer') {
+      trace?.record({ type: 'turn.blocked', role: 'system', payload: { action, reason }, component: 'compliance' })
+      await session?.stopResponding(reason ?? action)
+      bridge.clearOutput()
+      assistantAudioActive = false
+      if (streamSid && connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ event: 'clear', streamSid }))
+    }
+    if (optedOut) {
+      trace?.record({ type: 'compliance.opt_out', role: 'user', payload: { text: text.slice(0, 500) }, component: 'compliance' })
+      await registerOptout(ctx.orgId, ctx.phone, 'detected_in_call')
+      try {
+        await endCall(ctx.callSid, ctx.orgId)
+        trace?.record({ type: 'compliance.opt_out_completed', role: 'system', component: 'compliance' })
+      } catch (error) {
+        trace?.record({ type: 'runtime.warning', role: 'system', payload: { code: 'OPT_OUT_HANGUP_FAILED' }, component: 'compliance' })
+        console.warn('[MEDIA] opt-out hangup failed:', error)
       }
+    } else if (action === 'transfer') {
+      await requestTransfer(ctx, reason ?? 'policy_transfer')
     }
   }
 
-  async function checkBargeIn(rms: number): Promise<void> {
-    const decision = turnManager.observeRms(rms)
-    if (decision?.state === 'USER_INTERRUPTING') {
-      inputSpeaking = true
-      trace?.record({ type: 'turn.interruption', role: 'user', payload: { source: 'rms', rms }, component: 'turnManager' })
-      await onInterrupt()
-    } else if (decision?.state === 'LISTENING') {
-      inputSpeaking = false
+  // ponytail: el barge-in lo decide Flux por semántica de turno, no el RMS.
+  // Aquí solo se marca si entra voz, para las métricas de solape.
+  function checkBargeIn(rms: number): void {
+    inputSpeaking = rms >= 0.04
+  }
+
+  function onSessionEvent(event: VoiceSessionEvent): void {
+    trace?.record(event)
+    const latencyMs = typeof event.payload?.latencyMs === 'number' ? event.payload.latencyMs : null
+    if (latencyMs !== null) {
+      if (event.type === 'turn.directive_applied') trace?.metric('turn.policy_gate_ms', latencyMs, 'ms')
+      else if (event.type === 'supervisor.updated') trace?.metric('turn.supervisor_latency_ms', latencyMs, 'ms', { model: event.model })
+      else if (event.type.startsWith('stt.')) trace?.metric(`turn.${event.type.replaceAll('.', '_')}_ms`, latencyMs, 'ms', { model: event.model })
+    }
+    const metadata = event.payload?.metadata
+    if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+      const timing = metadata as Record<string, unknown>
+      if (typeof timing.queueWaitMs === 'number') trace?.metric('turn.stt_queue_wait_ms', timing.queueWaitMs, 'ms', { model: event.model })
+      if (typeof timing.inferenceMs === 'number') trace?.metric('turn.stt_inference_ms', timing.inferenceMs, 'ms', { model: event.model })
+    }
+    if (!ctx || event.type !== 'turn.emotion') return
+    const label = typeof event.payload?.label === 'string' ? event.payload.label.toLowerCase() : ''
+    const confidence = typeof event.payload?.confidence === 'number' ? event.payload.confidence : 0
+    if (!label || confidence < 0.4) return
+    const normalized: Record<string, string> = {
+      neutral: 'neutro',
+      positive: 'interesado',
+      engaged: 'interesado',
+      concerned: 'frustrado',
+      frustrated: 'frustrado',
+      angry: 'molesto',
+      confused: 'neutro',
+      uncertain: 'neutro',
+    }
+    ctx.emotion = normalized[label] ?? label
+    ctx.metadata.lastEmotion = {
+      label,
+      normalized: ctx.emotion,
+      confidence,
+      scores: event.payload?.scores,
+      generationId: event.payload?.generationId,
     }
   }
 
@@ -350,6 +397,7 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
       agentId: claims.agentId,
       leadId: claims.leadId,
       agentConfig,
+      direction: claims.direction,
     })
     // With policy 'consent' the Twilio call was created without record:true;
     // the agent must obtain consent in-call before any recording starts.
@@ -364,17 +412,29 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
       startedAt: ctx.startedAt,
     })
 
-    const systemPrompt = agentConfig?.playbook?.scripts?.base_prompt as string ?? ''
+    const systemPrompt = await buildIntelligentPrompt({
+      orgId: ctx.orgId,
+      basePrompt: (agentConfig?.playbook?.scripts?.base_prompt as string) ?? '',
+      leadId: ctx.leadId,
+      agentType: agentConfig?.agentType,
+      direction: ctx.direction,
+      strategyId: agentConfig?.playbook.strategy,
+      keyMessages: agentConfig?.playbook.scripts.key_messages as string | undefined,
+      escalationRules: agentConfig?.playbook.scripts.escalation_rules as string | undefined,
+      customPlaybook: agentConfig?.playbook.scripts.custom_playbook as string | undefined,
+      behavior: agentConfig?.behavior,
+      agentName: agentConfig?.identity?.agentName,
+    })
     const experiment = await resolveVoiceExperiment(ctx.orgId, ctx.leadId, ctx.campaignId).catch(error => {
       console.warn('[VOICE_EXPERIMENT] assignment failed:', error)
       return null
     })
-    trace = new VoiceTrace(ctx, buildVoiceRuntimeSnapshot(ctx, systemPrompt, experiment))
     if (experiment) ctx.metadata.voiceExperiment = experiment
+    trace = new VoiceTrace(ctx, buildVoiceRuntimeSnapshot(ctx, systemPrompt, experiment))
     if (experiment) trace.record({ type: 'experiment.assigned', role: 'system', payload: experiment, component: 'voiceExperiment' })
     trace.record({ type: 'call.connected', role: 'system', payload: { streamSid }, component: 'mediaStream' })
     session = await createVoiceSession(ctx, systemPrompt)
-    await session.attach({ onAudio: sendToTwilio, onInterrupt, onTranscript, onEvent: event => trace?.record(event) })
+    await session.attach({ onAudio: sendToTwilio, onInterrupt, onTranscript, onEvent: onSessionEvent })
     session.run().catch(error => console.error('[MEDIA] session.run error:', error))
     sessionDeadline = setTimeout(() => closeUnsafeConnection(connection, 'maximum call duration exceeded'), MAX_CALL_DURATION_MS)
     console.info('[MEDIA] Call started stream=%s call=%s org=%s', streamSid, claims.callSid, claims.orgId)
@@ -408,7 +468,7 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
       noiseCLF.setSpeaking(inputSpeaking || rms > 0.02)
       noiseCLF.update(rms)
       if (noiseCLF.noiseTypeChanged()) await session.updateEotTimeout(noiseCLF.suggestedEotMs())
-      await session.sendAudio(preprocessInbound(pcm16k))
+      await session.sendAudio(inboundAudio.process(pcm16k))
     } else if (data.event === 'stop') {
       console.info('[MEDIA] Stop received stream=%s', streamSid)
     }

@@ -14,6 +14,7 @@ export const CAPABILITIES = [
   'agents',
   'automations',
   'integrations',
+  'microapps',
   'growth',
   'revenue_intelligence',
   'advanced_analytics',
@@ -31,11 +32,16 @@ export type PlanPolicy = Readonly<{
   limits: Readonly<Record<LimitResource, number>>
 }>
 
-const CORE_CAPABILITIES: readonly Capability[] = ['crm']
+// Ads forma parte de la captación base: cualquier plan puede consultar y
+// configurar su operación. Las acciones con coste siguen requiriendo los
+// permisos de Ads y de gasto definidos por cada rol.
+// Agentes está disponible en todos los planes; la cuota sigue limitando
+// cuántos agentes puede tener cada organización.
+const CORE_CAPABILITIES: readonly Capability[] = ['crm', 'ads', 'agents']
 const PRO_CAPABILITIES: readonly Capability[] = [
   ...CORE_CAPABILITIES,
-  'ads', 'organic', 'social', 'prospecting', 'agents', 'automations',
-  'integrations', 'growth', 'revenue_intelligence', 'advanced_analytics',
+  'organic', 'social', 'prospecting', 'automations',
+  'integrations', 'microapps', 'growth', 'revenue_intelligence', 'advanced_analytics',
 ]
 const COMPLETE_CAPABILITIES: readonly Capability[] = [
   ...PRO_CAPABILITIES,
@@ -123,7 +129,7 @@ export class EntitlementError extends Error {
   constructor(
     message: string,
     public readonly statusCode: 403 | 404 | 409,
-    public readonly code: 'ORGANIZATION_NOT_FOUND' | 'PLAN_CAPABILITY_REQUIRED' | 'LIMIT_REACHED' | 'INTEGRATION_DISABLED',
+    public readonly code: 'ORGANIZATION_NOT_FOUND' | 'PLAN_CAPABILITY_REQUIRED' | 'LIMIT_REACHED' | 'CONSUMPTION_LIMIT_REACHED' | 'INTEGRATION_DISABLED',
     public readonly details: Readonly<Record<string, unknown>> = {},
   ) {
     super(message)

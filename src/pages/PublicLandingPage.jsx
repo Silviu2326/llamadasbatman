@@ -22,6 +22,7 @@ import {
 import './landing.css'
 import { useI18n } from '../i18n'
 import { createLandingTelemetry, observeScrollDepth } from '../lib/landingTelemetry'
+import PageLoadingState from '../components/ui/PageLoadingState'
 
 const PREVIEW_LANDING = {
   campaignId: 'preview-campaign',
@@ -455,14 +456,7 @@ export default function PublicLandingPage() {
   const copy = useMemo(() => getCopy(landing, slug, locale), [landing, locale, slug])
   const faqs = locale === 'en' ? FAQS_EN : FAQS
 
-  if (loading) {
-    return (
-      <main className="landing-loading">
-        <div className="landing-loading-mark"><RiSparkling2Line /></div>
-        <span>{t('landing.loading')}</span>
-      </main>
-    )
-  }
+  if (loading) return <PageLoadingState label={t('landing.loading')} />
 
   if (error || !landing) {
     return (

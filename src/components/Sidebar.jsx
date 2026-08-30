@@ -1,24 +1,27 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import '../sidebar.css'
 import {
   RiDashboard3Fill, RiPhoneLine, RiGroupLine, RiMessage3Line,
   RiRobot2Line, RiShoppingCart2Line, RiCalendarLine, RiBook2Line,
   RiBarChartLine, RiFlowChart, RiBookReadLine, RiSettings4Line, RiLineChartLine,
-  RiLogoutBoxLine, RiMicLine, RiCompass3Line, RiShareForwardLine, RiMailLine, RiGlobalLine, RiLeafLine, RiSparkling2Line,
+  RiLogoutBoxLine, RiMicLine, RiCompass3Line, RiShareForwardLine, RiMailLine, RiGlobalLine, RiLeafLine, RiSparkling2Line, RiBuilding2Line, RiPlugLine,
+  RiListCheck2, RiFolderImageLine, RiApps2Line, RiClapperboardLine, RiStore2Line, RiRocket2Line, RiMagicLine,
 } from 'react-icons/ri'
 import { HiChevronDown } from 'react-icons/hi'
 import { useAuth } from '../contexts/AuthContext'
 import { canNavigateTo, filterNavigationSections } from '../lib/navigationPermissions'
+import { useBrand } from '../lib/brand'
 import { useExperience } from '../contexts/ExperienceContext'
 import { useTheme } from '../hooks/useTheme'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import OnboardingModal from './OnboardingModal'
 import { useI18n } from '../i18n'
+import { apiFetch } from '../lib/api'
 
 const NAV_LABEL_KEYS = {
-  dashboard: 'nav.dashboard', objectives: 'nav.objectives', campaigns: 'nav.campaigns', ads: 'nav.ads', social: 'nav.social',
-  'prospect-finder': 'nav.prospectFinder', landings: 'nav.landings', funnels: 'nav.funnels', organic: 'nav.organicLeads', seo: 'nav.seo', inbox: 'nav.inbox',
+  dashboard: 'nav.dashboard', objectives: 'nav.objectives', campaigns: 'nav.campaigns', ads: 'nav.ads',
+  'prospect-finder': 'nav.prospectFinder', landings: 'nav.landings', funnels: 'nav.funnels', organic: 'nav.organicLeads', inbox: 'nav.inbox',
   calls: 'nav.calls', agents: 'nav.agents', playbooks: 'nav.playbooks', 'voice-test': 'nav.voiceTest', email: 'nav.emailMarketing',
   automations: 'nav.automations', growth: 'nav.growthHub', leads: 'nav.leads', pipeline: 'nav.pipeline', meetings: 'nav.meetings',
   'revenue-intelligence': 'nav.revenueIntelligence', insights: 'nav.insights', knowledge: 'nav.knowledgeBase', settings: 'nav.settings',
@@ -31,6 +34,7 @@ const SECTION_LABEL_KEYS = {
 
 function getNavLabel(item, t) {
   if (item.to === '/orquestador') return t('nav.objectives')
+  if (item.to === '/captacion') return t('nav.acquisition')
   return item.moduleId && NAV_LABEL_KEYS[item.moduleId] ? t(NAV_LABEL_KEYS[item.moduleId]) : item.label
 }
 
@@ -39,20 +43,22 @@ function getNavLabel(item, t) {
 // para que una lista de 17 items no sea un solo bloque plano.
 const DASHBOARD_ITEM = { label: 'Dashboard', color: 'var(--accent)', to: '/dashboard', moduleId: 'dashboard' }
 const OBJECTIVE_ITEM = { icon: RiSparkling2Line, label: 'Objetivos', color: 'var(--violet)', to: '/orquestador', moduleId: 'dashboard' }
+// Plan de crecimiento: qué hacer, en qué invertir y cuánto puedes conseguir.
+const PLAN_ITEM = { icon: RiLineChartLine, label: 'Plan de crecimiento', color: 'var(--success)', to: '/plan', moduleId: 'dashboard' }
+// Microapps va arriba, junto al home: es el catálogo de recetas por objetivo
+// (07-MICROAPPS §3), no una herramienta de sistema.
+const MICROAPPS_ITEM = { icon: RiApps2Line, label: 'Microapps', color: 'var(--cyan)', to: '/microapps', moduleId: 'microapps' }
+const MARKETPLACE_ITEM = { icon: RiStore2Line, label: 'Marketplace', color: 'var(--violet)', to: '/marketplace', moduleId: 'marketplace' }
 
 const SECTIONS = [
   {
     id: 'captacion',
     label: 'Captación',
     items: [
-      { icon: RiShareForwardLine, label: 'Campañas',        color: 'var(--pink)', to: '/campanas', moduleId: 'campaigns' },
-      { icon: RiBarChartLine,     label: 'Ads',             color: 'var(--accent-soft)', to: '/ads', moduleId: 'ads' },
-      { icon: RiShareForwardLine, label: 'Redes sociales',  color: 'var(--pink)', to: '/redes-sociales', moduleId: 'social' },
-      { icon: RiCompass3Line,     label: 'Buscador de prospectos', color: 'var(--cyan)', to: '/prospectos', moduleId: 'prospect-finder' },
-      { icon: RiGlobalLine,       label: 'Landings y webs', color: 'var(--cyan)', to: '/landings', moduleId: 'landings' },
-      { icon: RiFlowChart,        label: 'Funnels',         color: 'var(--violet)', to: '/funnels', moduleId: 'funnels' },
-      { icon: RiLeafLine,         label: 'Captación orgánica',   color: 'var(--lime)', to: '/organic', moduleId: 'organic' },
-      { icon: RiLineChartLine,    label: 'SEO',             color: 'var(--success)', to: '/seo', moduleId: 'seo' },
+      // Todo el recorrido (Campañas, Ads, Orgánico y social, Prospectos, Web y
+      // SEO, Funnels) vive en la sección /captacion con su barra de etapas.
+      { icon: RiRocket2Line,      label: 'Captación',       color: 'var(--pink)', to: '/captacion', moduleId: 'campaigns' },
+      { icon: RiClapperboardLine, label: 'Studio de Cine',  color: 'var(--violet)', to: '/studio', moduleId: 'studio' },
     ],
   },
   {
@@ -63,8 +69,7 @@ const SECTIONS = [
       { icon: RiPhoneLine,  label: 'Llamadas',   color: 'var(--success)', to: '/llamadas', moduleId: 'calls' },
       { icon: RiRobot2Line, label: 'Agentes IA', color: 'var(--violet)', to: '/agentes', moduleId: 'agents' },
       { icon: RiBook2Line,  label: 'Playbooks',  color: 'var(--success)', to: '/playbooks', moduleId: 'playbooks' },
-      { icon: RiMicLine,    label: 'Probar voz', color: 'var(--danger)', to: '/voz/test', moduleId: 'voice-test' },
-      { icon: RiMicLine,    label: 'Qwen Omni (beta)', color: 'var(--cyan)', to: '/voz/omni', moduleId: 'qwen-omni' },
+      { icon: RiMicLine,    label: 'Cabina de voz', color: 'var(--danger)', to: '/voz/cabina', moduleId: 'voice-test' },
     ],
   },
   {
@@ -97,10 +102,17 @@ const SECTIONS = [
     label: 'Sistema',
     items: [
       { icon: RiBarChartLine, label: 'Insights',       color: 'var(--violet)', to: '/insights', moduleId: 'insights' },
+      { icon: RiBuilding2Line, label: 'Información de empresa', color: 'var(--violet)', to: '/informacion-empresa', moduleId: 'business-info' },
+      { icon: RiMagicLine, label: 'Rellenar desde la web', color: 'var(--violet-soft)', to: '/rellenar-desde-web', moduleId: 'business-info' },
       { icon: RiBookReadLine, label: 'Base de conocimiento', color: 'var(--success)', to: '/knowledge-base', moduleId: 'knowledge' },
+      { icon: RiListCheck2, label: 'Centro de trabajos', color: 'var(--accent-soft)', to: '/trabajos', moduleId: 'jobs' },
+      { icon: RiFolderImageLine, label: 'Biblioteca de activos', color: 'var(--violet-soft)', to: '/activos', moduleId: 'assets' },
+      { icon: RiPlugLine, label: 'Conexiones', color: 'var(--cyan-soft)', to: '/conexiones', moduleId: 'connections' },
       { icon: RiSettings4Line, label: 'Configuración', color: 'var(--muted)', to: '/configuracion', moduleId: 'settings' },
       { icon: RiSettings4Line, label: 'Gobierno empresarial', color: 'var(--cyan-soft)', to: '/gobierno-empresarial', moduleId: 'governance' },
       { icon: RiSettings4Line, label: 'Control de accesos', color: 'var(--warn)', to: '/access-control', moduleId: 'access-control' },
+      { icon: RiBuilding2Line, label: 'Clientes white-label', color: 'var(--cyan-soft)', to: '/agencia/clientes', moduleId: 'settings' },
+      { icon: RiPlugLine, label: 'API y webhooks', color: 'var(--violet-soft)', to: '/desarrolladores', moduleId: 'settings' },
       { icon: RiBook2Line, label: 'Recetas Ads', color: 'var(--violet-deep)', to: '/admin/ad-playbooks', moduleId: 'ad-playbooks' },
     ],
   },
@@ -113,19 +125,12 @@ const STORAGE_KEY = 'vendrava_sidebar_collapsed:v1'
 const SIDEBAR_ICONS = {
   '/dashboard': 'dashboard',
   '/orquestador': 'objectives',
-  '/campanas': 'campaigns',
-  '/ads': 'ads',
-  '/redes-sociales': 'social',
-  '/prospectos': 'prospect-finder',
-  '/landings': 'landings',
-  '/funnels': 'funnels',
-  '/organic': 'organic',
+  '/captacion': 'campaigns',
   '/conversacion/inbox': 'inbox',
   '/llamadas': 'calls',
   '/agentes': 'agents',
   '/playbooks': 'playbooks',
-  '/voz/test': 'voice-test',
-  '/voz/omni': 'qwen-omni',
+  '/voz/cabina': 'voice-test',
   '/email-marketing': 'email',
   '/automatizaciones': 'automations',
   '/growth': 'growth',
@@ -138,6 +143,7 @@ const SIDEBAR_ICONS = {
   '/configuracion': 'settings',
   '/gobierno-empresarial': 'governance',
   '/access-control': 'access-control',
+  '/agencia/clientes': 'settings',
   '/admin/ad-playbooks': 'ad-playbooks',
 }
 
@@ -214,13 +220,16 @@ function NavItem({ item, isHovered, onHover, onLeave, ripple, onClick, t, theme 
 export default function Sidebar({ isOpen }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout } = useAuth()
+  const { user, logout, switchOrganization } = useAuth()
+  const brand = useBrand()
   const { t, locale, setLocale } = useI18n()
   const [hoveredKey, setHoveredKey] = useState(null)
   const [ripple, setRipple] = useState(null)
   const [collapsed, setCollapsed] = useState(loadCollapsed)
   const experience = useExperience()
   const [theme, setTheme, isAutoTheme] = useTheme()
+  const [organizations, setOrganizations] = useState([])
+  const [organizationState, setOrganizationState] = useState('idle')
   // A <=768px la barra sale del flujo y pasa a ser un cajon superpuesto.
   const isDrawer = useMediaQuery('(max-width: 768px)')
   const permittedSections = useMemo(() => filterNavigationSections(user, SECTIONS), [user])
@@ -237,6 +246,41 @@ export default function Sidebar({ isOpen }) {
     DASHBOARD_ITEM.moduleId,
     { isActive: location.pathname.startsWith(DASHBOARD_ITEM.to) },
   )
+  // Mismo trato que el home: entrada fija arriba, con su propio permiso
+  // (costs.request) y su propio módulo de experiencia.
+  const canSeeMicroapps = canNavigateTo(user, MICROAPPS_ITEM.to) && experience.isModuleVisible(
+    MICROAPPS_ITEM.moduleId,
+    { isActive: location.pathname.startsWith(MICROAPPS_ITEM.to) },
+  )
+  const canSeeMarketplace = canNavigateTo(user, MARKETPLACE_ITEM.to) && experience.isModuleVisible(
+    MARKETPLACE_ITEM.moduleId,
+    { isActive: location.pathname.startsWith(MARKETPLACE_ITEM.to) },
+  )
+
+  useEffect(() => {
+    if (!user) return undefined
+    let active = true
+    setOrganizationState('loading')
+    apiFetch('/api/auth/organizations')
+      .then(async response => {
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || 'organizations')
+        if (active) { setOrganizations(Array.isArray(data.organizations) ? data.organizations : []); setOrganizationState('ready') }
+      })
+      .catch(() => { if (active) setOrganizationState('error') })
+    return () => { active = false }
+  }, [user?.id, user?.orgId])
+
+  async function handleOrganizationChange(event) {
+    const orgId = event.target.value
+    if (!orgId || orgId === user?.orgId) return
+    setOrganizationState('switching')
+    try {
+      await switchOrganization(orgId)
+      navigate('/dashboard', { replace: true })
+      setOrganizationState('ready')
+    } catch { setOrganizationState('error') }
+  }
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -268,7 +312,7 @@ export default function Sidebar({ isOpen }) {
       style={styles.aside}
       // Con el cajon cerrado en movil, sus ~25 enlaces seguian siendo enfocables
       // fuera de pantalla. inert los saca del foco y del arbol accesible.
-      inert={isDrawer && !isOpen ? '' : undefined}
+      inert={isDrawer && !isOpen ? true : undefined}
     >
       {/* Animated top glow border */}
       <div style={styles.topGlow} />
@@ -277,13 +321,13 @@ export default function Sidebar({ isOpen }) {
       <div style={{ padding: '24px 20px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img
-            src="/logo.png"
-            alt="Vendrava"
+            src={brand.logoUrl || '/logo.png'}
+            alt={brand.brandName}
             className="logo-spin-hover"
-            style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, cursor: 'pointer', boxShadow: '0 0 22px #6366f155' }}
+            style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, cursor: 'pointer', boxShadow: `0 0 22px ${brand.primaryColor}55` }}
           />
           <div>
-            <p style={styles.logoText}>Vendrava</p>
+            <p style={styles.logoText}>{brand.brandName}</p>
             <p style={styles.logoSub}>AI Voice Revenue Platform</p>
           </div>
         </div>
@@ -315,6 +359,45 @@ export default function Sidebar({ isOpen }) {
             onLeave={() => setHoveredKey(null)}
             ripple={ripple?.key === OBJECTIVE_ITEM.to ? ripple : null}
             onClick={e => handleClick(OBJECTIVE_ITEM.to, e)}
+            t={t}
+            theme={theme}
+          />
+        )}
+
+        {canSeeDashboard && (
+          <NavItem
+            item={PLAN_ITEM}
+            isHovered={hoveredKey === PLAN_ITEM.to}
+            onHover={() => setHoveredKey(PLAN_ITEM.to)}
+            onLeave={() => setHoveredKey(null)}
+            ripple={ripple?.key === PLAN_ITEM.to ? ripple : null}
+            onClick={e => handleClick(PLAN_ITEM.to, e)}
+            t={t}
+            theme={theme}
+          />
+        )}
+
+        {canSeeMicroapps && (
+          <NavItem
+            item={MICROAPPS_ITEM}
+            isHovered={hoveredKey === MICROAPPS_ITEM.to}
+            onHover={() => setHoveredKey(MICROAPPS_ITEM.to)}
+            onLeave={() => setHoveredKey(null)}
+            ripple={ripple?.key === MICROAPPS_ITEM.to ? ripple : null}
+            onClick={e => handleClick(MICROAPPS_ITEM.to, e)}
+            t={t}
+            theme={theme}
+          />
+        )}
+
+        {canSeeMarketplace && (
+          <NavItem
+            item={MARKETPLACE_ITEM}
+            isHovered={hoveredKey === MARKETPLACE_ITEM.to}
+            onHover={() => setHoveredKey(MARKETPLACE_ITEM.to)}
+            onLeave={() => setHoveredKey(null)}
+            ripple={ripple?.key === MARKETPLACE_ITEM.to ? ripple : null}
+            onClick={e => handleClick(MARKETPLACE_ITEM.to, e)}
             t={t}
             theme={theme}
           />
@@ -388,6 +471,15 @@ export default function Sidebar({ isOpen }) {
       {/* User */}
       <div style={styles.divider} />
       <div style={{ padding: '10px 12px 16px' }}>
+        {organizations.length > 1 && (
+          <label className="sidebar-org-switcher">
+            <span>Organización</span>
+            <select value={user?.orgId || ''} onChange={handleOrganizationChange} disabled={organizationState === 'switching'}>
+              {organizations.map(org => <option key={org.id} value={org.id}>{org.name} · {org.role}</option>)}
+            </select>
+          </label>
+        )}
+        {organizationState === 'error' && <p className="sidebar-org-error" role="alert">No se pudo cambiar la organización.</p>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             onClick={() => navigate('/configuracion')}

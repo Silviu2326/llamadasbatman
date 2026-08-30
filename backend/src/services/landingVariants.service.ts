@@ -1,6 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
+import { askJson, isDeepseekConfigured, smartModel } from '../lib/deepseek'
 import { writeAuditLog } from '../lib/audit'
 import { diagnoseOrganization, type LandingDiagnosis } from './landingDiagnostics.service'
 
@@ -62,9 +62,8 @@ const FIELD_KEYS: Record<string, string> = {
   consentimiento: 'consent',
 }
 
-function getClient(): Anthropic | null {
-  const apiKey = process.env.CLAUDE_API_KEY
-  return apiKey ? new Anthropic({ apiKey }) : null
+function getClient(): boolean {
+  return isDeepseekConfigured()
 }
 
 /**
@@ -115,26 +114,20 @@ Devuelve SOLO JSON válido:
 {"name":"...","justification":"...","patch":{"title":"..."}}`
 
 async function llmProposal(diagnosis: LandingDiagnosis, content: Record<string, unknown>, brandContext: string) {
-  const client = getClient()
-  if (!client) return null
+  if (!getClient()) return null
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 900,
+    const parsed = await askJson<any>({
+      model: smartModel(),
+      maxTokens: 900,
+      label: 'landing:variant',
       system: VARIANT_PROMPT,
-      messages: [{
-        role: 'user',
-        content: JSON.stringify({
-          diagnostico: { titulo: diagnosis.title, problema: diagnosis.problem, evidencia: diagnosis.evidence, recomendacion: diagnosis.recommendation },
-          landingActual: content,
-          contextoDeMarca: brandContext.slice(0, 4000),
-        }),
-      }],
+      prompt: JSON.stringify({
+        diagnostico: { titulo: diagnosis.title, problema: diagnosis.problem, evidencia: diagnosis.evidence, recomendacion: diagnosis.recommendation },
+        landingActual: content,
+        contextoDeMarca: brandContext.slice(0, 4000),
+      }),
     })
-    const text = response.content.find(block => block.type === 'text')
-    if (!text || text.type !== 'text') return null
-    const parsed = JSON.parse(text.text.replace(/^```json\s*|\s*```$/g, '').trim())
     if (typeof parsed?.name !== 'string' || typeof parsed?.justification !== 'string' || !parsed?.patch) return null
 
     // Se filtra el parche contra la lista cerrada: el modelo no decide qué
