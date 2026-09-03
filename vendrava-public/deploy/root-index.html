@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vendrava</title>
+  <meta name="robots" content="noindex" />
+  <link rel="alternate" hreflang="es" href="https://www.vendrava.com/es/" />
+  <link rel="alternate" hreflang="en" href="https://www.vendrava.com/en/" />
+  <link rel="alternate" hreflang="x-default" href="https://www.vendrava.com/en/" />
+  <script>
+    (function () {
+      var lang = (navigator.language || navigator.userLanguage || "en").toLowerCase();
+      window.location.replace(lang.indexOf("es") === 0 ? "/es/" : "/en/");
+    })();
+  </script>
+  <meta http-equiv="refresh" content="0; url=/en/" />
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: #050816; color: #cbd5e1; font-family: system-ui, sans-serif; }
+    a { color: #22d3ee; }
+  </style>
+</head>
+<body>
+  <p>Redirecting to Vendrava… <a href="/en/">English</a> · <a href="/es/">Español</a></p>
+</body>
+</html>

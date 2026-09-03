@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --font-sans: var(--font-ibm-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-bg: #050816;
+  --color-navy: #0f172a;
+  --color-deep-blue: #111827;
+  --color-panel: #0e1628;
+  --color-panel-2: #0a0f1e;
+  --color-electric: #3b82f6;
+  --color-cyan: #22d3ee;
+  --color-violet: #8b5cf6;
+  --color-gold: #c9a84c;
+  --color-white: #ffffff;
+  --color-soft: #cbd5e1;
+  --color-muted: #94a3b8;
+  --color-faint: #64748b;
+  --color-danger: #f87171;
+  --color-success: #4ade80;
+  --color-border: rgba(148, 163, 184, 0.2);
+
+  /* Light-zone tokens (institutional / confidence sections) */
+  --color-light: #f8fafc;
+  --color-light-2: #f1f5f9;
+  --color-light-border: #e2e8f0;
+  --color-ink: #0f172a; /* titles on light — AA on #F8FAFC */
+  --color-ink-soft: #475569; /* body on light */
+  --color-ink-muted: #64748b; /* secondary on light */
+  --color-electric-ink: #2563eb; /* accent text that passes contrast on light */
+  --color-violet-ink: #7c3aed; /* violet accent on light */
+
+  --animate-fadeup: fadeup 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-drift: drift 24s ease-in-out infinite;
+  --animate-blink: blink 1.6s infinite;
+  --animate-pulse-soft: pulse-soft 1.3s infinite;
+  --animate-orbit: orbit 30s linear infinite;
+  --animate-orbit-reverse: orbit 20s linear infinite reverse;
+  --animate-vw: vw 0.9s ease-in-out infinite;
+  --animate-flow: flow 3s linear infinite;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-soft);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.35);
+    color: #fff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 8px;
+    border: 2px solid var(--color-bg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-cyan);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(28px, -22px);
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vw {
+  0%,
+  100% {
+    transform: scaleY(0.28);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes flow {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

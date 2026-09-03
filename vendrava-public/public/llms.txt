@@ -1,0 +1,60 @@
+# Vendrava
+
+> Vendrava is an AI Sales CRM that answers, qualifies and books your leads over voice and WhatsApp — inbound and outbound, including cold calling — with human control. It behaves like a sales advisor trained on each business's niche, and works across multiple languages and markets.
+
+Vendrava is a product of SprintMarkt (Valencia, Spain). It combines AI voice agents (inbound + outbound / cold calling), WhatsApp CRM, email marketing, lead & pipeline management, sales automation, sales proposals, analytics and a growth marketing hub in one platform. It is compliance-first: AI disclosure on calls, consent, permitted calling hours, do-not-call/exclusion lists and human handoff. The site is bilingual: English at `/en/` and Spanish at `/es/`.
+
+Positioning: not a generic bot and not a single-vertical tool — a self-verticalizing AI sales system that learns each niche's scripts, qualifying questions and objections.
+
+## Product
+- [AI CRM](https://vendrava.com/en/ai-crm/): AI-powered sales CRM for teams that need to respond faster.
+- [AI voice agents](https://vendrava.com/en/ai-voice-agents/): voice agents that contact and answer leads and qualify them.
+- [AI calling](https://vendrava.com/en/ai-calling/): AI calls for sales, follow-up, lead qualification and cold-calling campaigns.
+- [Sales automation](https://vendrava.com/en/sales-automation/): workflows to accelerate every opportunity.
+- [Lead management](https://vendrava.com/en/lead-management/): pipeline, scoring and intelligent follow-up.
+- [WhatsApp CRM](https://vendrava.com/en/whatsapp-crm/): respond, follow up and convert WhatsApp conversations.
+- [Email marketing](https://vendrava.com/en/email-marketing/): email connected to the sales CRM.
+- [Sales proposals](https://vendrava.com/en/sales-proposals/): proposals connected to leads and opportunities.
+- [Sales analytics](https://vendrava.com/en/sales-analytics/): understand what converts.
+- [Growth marketing CRM](https://vendrava.com/en/growth-marketing-crm/): CRM and growth marketing in one platform.
+
+## Industries
+- [Clinics](https://vendrava.com/en/industries/clinics/)
+- [Dental clinics](https://vendrava.com/en/industries/dental-clinics/)
+- [Veterinary clinics](https://vendrava.com/en/industries/veterinary-clinics/)
+- [Pet grooming](https://vendrava.com/en/industries/pet-grooming/)
+- [Beauty & aesthetics](https://vendrava.com/en/industries/beauty-aesthetics/)
+- [Real estate](https://vendrava.com/en/industries/real-estate/)
+- [Car dealerships](https://vendrava.com/en/industries/car-dealerships/)
+- [Home services](https://vendrava.com/en/industries/home-services/)
+- [Insurance](https://vendrava.com/en/industries/insurance/)
+- [Call centers](https://vendrava.com/en/industries/call-centers/)
+- [Marketing agencies](https://vendrava.com/en/industries/marketing-agencies/)
+- [SaaS](https://vendrava.com/en/industries/saas/)
+- [Education](https://vendrava.com/en/industries/education/)
+- [Professional services](https://vendrava.com/en/industries/professional-services/)
+
+## Comparisons
+- [Vendrava vs GoHighLevel](https://vendrava.com/en/comparisons/vendrava-vs-gohighlevel/)
+- [Vendrava vs HubSpot](https://vendrava.com/en/comparisons/vendrava-vs-hubspot/)
+- [Vendrava vs Salesforce](https://vendrava.com/en/comparisons/vendrava-vs-salesforce/)
+- [Vendrava vs Pipedrive](https://vendrava.com/en/comparisons/vendrava-vs-pipedrive/)
+- [Vendrava vs Zoho](https://vendrava.com/en/comparisons/vendrava-vs-zoho/)
+- [Vendrava vs Close](https://vendrava.com/en/comparisons/vendrava-vs-close/)
+- [Vendrava vs Kommo](https://vendrava.com/en/comparisons/vendrava-vs-kommo/)
+
+## Company
+- [Pricing](https://vendrava.com/en/pricing/): per-account plans with transparent AI voice credits.
+- [Security & compliance](https://vendrava.com/en/security/): AI disclosure, consent, human control, data protection.
+- [Book a demo](https://vendrava.com/en/demo/)
+- [Contact](https://vendrava.com/en/contact/)
+- [Resources](https://vendrava.com/en/resources/)
+
+## Español
+- [Inicio](https://vendrava.com/es/)
+- [CRM con IA](https://vendrava.com/es/crm-con-ia/)
+- [Agentes IA de voz](https://vendrava.com/es/agentes-ia-voz/)
+- [Llamadas IA](https://vendrava.com/es/llamadas-ia/)
+- [Sectores](https://vendrava.com/es/sectores/)
+- [Comparativas](https://vendrava.com/es/comparativas/)
+- [Precios](https://vendrava.com/es/precios/)
