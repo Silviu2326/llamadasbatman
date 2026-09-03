@@ -36,7 +36,7 @@ function Copyable({ value, label }) {
   )
 }
 
-export default function DeveloperPortalPage() {
+export default function DeveloperPortalPage({ embedded = false }) {
   const [keys, setKeys] = useState([])
   const [hooks, setHooks] = useState([])
   const [topics, setTopics] = useState([])
@@ -111,8 +111,10 @@ export default function DeveloperPortalPage() {
   const origin = window.location.origin
   const curlExample = `curl ${origin}/api/developer/whoami \\\n  -H "X-API-Key: vk_tu_clave"`
 
-  return <main className="dev-page">
-    <header className="dev-header">
+  const Root = embedded ? 'section' : 'main'
+
+  return <Root className={`dev-page${embedded ? ' is-embedded' : ''}`}>
+    {!embedded ? <header className="dev-header">
       <div className="dev-title">
         <span className="dev-icon"><RiPlugLine /></span>
         <div>
@@ -121,7 +123,7 @@ export default function DeveloperPortalPage() {
           <p>Una clave de API te da acceso a la misma API que usa esta interfaz. Los webhooks avisan a Zapier, Make o a tu propio código en cuanto pasa algo.</p>
         </div>
       </div>
-    </header>
+    </header> : null}
 
     {(notice || error) && <div className={`dev-notice ${error ? 'error' : ''}`}><span>{error || notice}</span><button onClick={() => { setError(''); setNotice('') }}>×</button></div>}
 
@@ -218,5 +220,5 @@ const expected = crypto.createHmac('sha256', secret)
       </ol>
       <p className="dev-note">Si prefieres consultar en vez de recibir, cualquier listado sirve como disparador por sondeo: Zapier deduplica por <code>id</code>.</p>
     </section>
-  </main>
+  </Root>
 }

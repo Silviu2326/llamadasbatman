@@ -171,7 +171,7 @@ function AuditEvent({ event }) {
   </li>
 }
 
-export default function EnterpriseGovernancePage() {
+export default function EnterpriseGovernancePage({ embedded = false }) {
   const { locale } = useI18n()
   const [overview, setOverview] = useState(() => normalizeOverview(null))
   const [loading, setLoading] = useState(true)
@@ -237,10 +237,12 @@ export default function EnterpriseGovernancePage() {
     }
   }
 
-  return <main className="governance-page">
-    <header className="governance-header">
+  const Root = embedded ? 'section' : 'main'
+
+  return <Root className={`governance-page${embedded ? ' is-embedded' : ''}`}>
+    {!embedded ? <header className="governance-header">
       <div className="governance-heading"><span className="governance-brand-icon"><RiGovernmentLine aria-hidden="true" /></span><div><h1>{locale === 'en' ? 'Enterprise governance' : 'Gobierno empresarial'}</h1><p>{locale === 'en' ? 'Protect consent, budget and operational decisions without taking people out of control.' : 'Protege consentimiento, presupuesto y decisiones operativas sin apartar a las personas del control.'}</p></div></div>
-    </header>
+    </header> : null}
 
     <section className="governance-command" aria-label="Principios de gobierno empresarial">
       <div><span className="governance-eyebrow">Decisiones con trazabilidad</span><h2>La automatización avanza dentro de límites revisables.</h2><p>Las políticas no sustituyen la revisión humana: documentan qué se permite, quién puede cambiarlo y qué ocurrió después.</p></div>
@@ -268,5 +270,5 @@ export default function EnterpriseGovernancePage() {
     </>}
 
     {notice ? <div className="governance-toast" role="status"><RiCheckboxCircleLine aria-hidden="true" />{notice}<button type="button" onClick={() => setNotice('')} aria-label="Cerrar aviso">×</button></div> : null}
-  </main>
+  </Root>
 }

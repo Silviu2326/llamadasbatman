@@ -159,6 +159,7 @@ const NAVIGATION_REQUIREMENTS = {
   // Ejecutar una microapp gasta presupuesto (LLM/proveedores): misma barrera de
   // coste que /prospectos. No hay un "microapps.read" en la política actual.
   '/microapps': { anyOf: ['jobs.read', 'costs.request'] },
+  '/integraciones': ['integrations.read'],
   '/conexiones': ['integrations.read'],
   '/conexiones/web': ['integrations.read'],
   '/studio': ['social.read'],
@@ -184,6 +185,7 @@ const NAVIGATION_REQUIREMENTS = {
   '/configuracion': ['organization.read'],
   '/gobierno-empresarial': ['governance.read'],
   '/access-control': ['access_control.read'],
+  '/administracion': { anyOf: ['access_control.read', 'governance.read', 'organization.manage'] },
   '/agencia/clientes': ['organization.manage'],
   '/desarrolladores': ['integrations.read'],
   '/admin/ad-playbooks': ['playbooks.manage_global'],

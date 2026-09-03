@@ -261,7 +261,7 @@ function ProviderCard({ provider, onChanged, canManage }) {
   )
 }
 
-export default function ConnectionsCenterPage() {
+export default function ConnectionsCenterPage({ embedded = false }) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [providers, setProviders] = useState([])
@@ -292,9 +292,11 @@ export default function ConnectionsCenterPage() {
 
   if (listState === 'loading') return <PageLoadingState label="Cargando conexiones" />
 
+  const Root = embedded ? 'section' : 'main'
+
   return (
-    <main className="conn-page dark-scroll">
-      <header className="conn-header">
+    <Root className={`conn-page dark-scroll${embedded ? ' is-embedded' : ''}`}>
+      {!embedded ? <header className="conn-header">
         <div className="conn-title">
           <div className="conn-title-icon"><RiPlugLine /></div>
           <div>
@@ -303,7 +305,7 @@ export default function ConnectionsCenterPage() {
           </div>
         </div>
         <button type="button" className="conn-button primary" onClick={() => navigate('/conexiones/web')}><RiGlobalLine /> Conectar una web</button>
-      </header>
+      </header> : null}
 
       {listState === 'loading' && <div className="conn-state" role="status"><RiLoader4Line className="conn-spin" /><strong>Cargando proveedores…</strong></div>}
 
@@ -345,6 +347,6 @@ export default function ConnectionsCenterPage() {
           )}
         </>
       )}
-    </main>
+    </Root>
   )
 }

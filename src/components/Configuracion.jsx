@@ -22,16 +22,7 @@ import { useI18n } from '../i18n'
 // ponytail: solo apartados con pantalla real; el resto navega a su página o no existe aún
 const NAV = [
   { section: 'GENERAL', items: [
-    { id: 'perfil',     Icon: RiBuilding2Line,  label: 'Perfil de la empresa' },
     { id: 'miperfil',   Icon: RiUserLine,       label: 'Mi perfil' },
-  ]},
-  { section: 'PLATAFORMA', items: [
-    // Las credenciales de proveedores viven en el Centro de conexiones (03-PROVEEDORES §6),
-    // no en formularios a medida dentro de esta pantalla.
-    { id: 'conexiones', Icon: RiKeyLine,        label: 'Centro de conexiones', to: '/conexiones' },
-    { id: 'agentes',    Icon: RiRobot2Line,     label: 'Agentes IA', to: '/agentes' },
-    { id: 'autos',      Icon: RiFlowChart,      label: 'Automatizaciones', to: '/automatizaciones' },
-    { id: 'email',      Icon: RiMailLine,       label: 'Email marketing', to: '/email-marketing' },
   ]},
 ]
 
@@ -202,7 +193,7 @@ export default function Configuracion() {
   }
   const { locale, setLocale, t } = useI18n()
   const isViewer = user?.role === 'viewer'
-  const [activeNav, setActiveNav] = useState('perfil')
+  const [activeNav, setActiveNav] = useState('miperfil')
   const [stats, setStats] = useState(null)
   const [agentCount, setAgentCount] = useState(null)
 
@@ -265,24 +256,6 @@ export default function Configuracion() {
         setMeLoaded(true)
       } catch { failed = true }
 
-      try {
-        const res = await apiFetch('/api/settings/organization')
-        if (!res.ok) { gate = gate || await readPlanGate(res); throw new Error('organization') }
-        const data = await res.json()
-        if (!active) return
-        setOrg({
-          name: data.name ?? '',
-          email: data.email ?? '',
-          website: data.website ?? '',
-          phone: data.phone ?? '',
-          industry: data.industry ?? '',
-          timezone: data.timezone ?? 'Europe/Madrid',
-          address: data.address ?? '',
-          currency: data.currency ?? 'EUR',
-        })
-        setOrgLoaded(true)
-      } catch { failed = true }
-
       if (!active) return
       if (!failed) { setLoadStatus(''); setLoadMessage(''); return }
       setLoadStatus(gate ? 'plan' : 'error')
@@ -302,7 +275,7 @@ export default function Configuracion() {
 
   // El formulario de empresa toca organización + preferencia del usuario, así
   // que necesita que ambas cargas hayan ido bien.
-  const formLoaded = activeNav === 'miperfil' ? meLoaded : meLoaded && orgLoaded
+  const formLoaded = meLoaded
 
   async function handleSave() {
     if (!formLoaded) {
@@ -312,25 +285,12 @@ export default function Configuracion() {
     setSaving(true)
     setSaveMessage(null)
     try {
-      if (activeNav === 'miperfil') {
-        const res = await apiFetch('/api/settings/me', {
-          method: 'PUT',
-          body: JSON.stringify({ name: profile.name, locale: preference.locale }),
-        })
-        if (!res.ok) throw new Error('save failed')
-        setSaveMessage('Cambios guardados.')
-      } else {
-        if (isViewer) {
-          setSaveMessage('Tu rol de solo lectura no permite modificar la organización.')
-          return
-        }
-        const [orgRes, meRes] = await Promise.all([
-          apiFetch('/api/settings/organization', { method: 'PUT', body: JSON.stringify(org) }),
-          apiFetch('/api/settings/me', { method: 'PUT', body: JSON.stringify({ locale: preference.locale }) }),
-        ])
-        if (!orgRes.ok || !meRes.ok) throw new Error('save failed')
-        setSaveMessage('Cambios guardados.')
-      }
+      const res = await apiFetch('/api/settings/me', {
+        method: 'PUT',
+        body: JSON.stringify({ name: profile.name, locale: preference.locale }),
+      })
+      if (!res.ok) throw new Error('save failed')
+      setSaveMessage('Cambios guardados.')
     } catch {
       setSaveMessage('No se pudieron guardar los cambios.')
     } finally {
@@ -378,7 +338,7 @@ export default function Configuracion() {
             {t('settings.title')}
             <RiSettings4Line style={{ width: 22, height: 22, color: 'var(--dim)' }} />
           </h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: 'var(--dim)' }}>{locale === 'en' ? 'Manage your account, personalize the platform and configure team preferences.' : 'Administra tu cuenta, personaliza la plataforma y configura las preferencias de tu equipo.'}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: 'var(--dim)' }}>{locale === 'en' ? 'Manage your account, security, preferences and plan.' : 'Administra tu cuenta, seguridad, preferencias y plan.'}</p>
         </div>
       </div>
 
@@ -386,7 +346,7 @@ export default function Configuracion() {
           El nav lateral de abajo lleva .panel-desktop y vive dentro del
           .split-pane, así que se oculta por debajo de 900px (style.css). Sin
           este reemplazo la página quedaba sin forma de cambiar de sección. */}
-      <div className="section-tabs-mobile" role="tablist" aria-label={t('settings.title')}>
+      <div className="section-tabs-mobile" role="tablist" aria-label={t('settings.title')} style={{ display: 'none' }}>
         {NAV.flatMap(section => section.items).map(item => {
           const active = activeNav === item.id
           const Icon = item.Icon
@@ -414,7 +374,7 @@ export default function Configuracion() {
       <div className="split-pane split-pane--fill">
 
         {/* ── Config Nav ── */}
-        <div className="dark-scroll panel-desktop" style={{ width: 195, flexShrink: 0, borderRight: '1px solid var(--line)', overflowY: 'auto', padding: '8px 0 20px' }}>
+        <div className="dark-scroll panel-desktop" style={{ display: 'none' }}>
           {NAV.map(section => (
             <div key={section.section} style={{ marginBottom: 4 }}>
               <p style={{ margin: '16px 16px 6px', fontSize: 10, color: 'var(--dim)', fontWeight: 700, letterSpacing: 0.8 }}>{SETTINGS_SECTION_KEYS[section.section] ? t(SETTINGS_SECTION_KEYS[section.section]) : section.section}</p>
@@ -460,12 +420,12 @@ export default function Configuracion() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
               <button
                 onClick={handleSave}
-                disabled={saving || !formLoaded || (activeNav !== 'miperfil' && isViewer)}
+                disabled={saving || !formLoaded}
                 title={!formLoaded ? 'No se pueden guardar cambios hasta que se carguen tus datos actuales.' : undefined}
                 style={{
                   background: 'linear-gradient(135deg,var(--accent-deep),var(--violet-deep))', border: 'none', borderRadius: 10, padding: '10px 20px',
-                  color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving || !formLoaded || (activeNav !== 'miperfil' && isViewer) ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 0 20px #6366f145', opacity: saving || !formLoaded || (activeNav !== 'miperfil' && isViewer) ? 0.6 : 1,
+                  color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving || !formLoaded ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 0 20px #6366f145', opacity: saving || !formLoaded ? 0.6 : 1,
                 }}
               >
                 {saving ? t('common.saving') : t('common.save')}
@@ -700,7 +660,7 @@ export default function Configuracion() {
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Integraciones</p>
-              <button type="button" onClick={() => navigate('/conexiones')} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--accent-soft)', fontSize: 11.5, fontWeight: 650, cursor: 'pointer' }}>Gestionar todas</button>
+              <button type="button" onClick={() => navigate('/integraciones')} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--accent-soft)', fontSize: 11.5, fontWeight: 650, cursor: 'pointer' }}>Gestionar todas</button>
             </div>
             {!integrations && (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px', textAlign: 'center' }}>

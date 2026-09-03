@@ -50,10 +50,6 @@ const AdsWizardPage = lazy(() => import('./pages/AdsWizardPage'))
 const AdsPage = lazy(() => import('./pages/ads/AdsPage'))
 const FunnelsPage = lazy(() => import('./pages/FunnelsPage'))
 const GrowthHubPage = lazy(() => import('./pages/GrowthHubPage'))
-const EnterpriseGovernancePage = lazy(() => import('./pages/EnterpriseGovernancePage'))
-const AccessControlPage = lazy(() => import('./pages/AccessControlPage'))
-const AgencyWhiteLabelPage = lazy(() => import('./pages/AgencyWhiteLabelPage'))
-const DeveloperPortalPage = lazy(() => import('./pages/DeveloperPortalPage'))
 import NotFoundPage from './pages/NotFoundPage'
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
@@ -63,7 +59,6 @@ const GrowthOperationsPage = lazy(() => import('./pages/GrowthOperationsPage'))
 const AssetsLibraryPage = lazy(() => import('./pages/AssetsLibraryPage'))
 const MicroappsCatalogPage = lazy(() => import('./pages/MicroappsCatalogPage'))
 const MicroappRunnerPage = lazy(() => import('./pages/MicroappRunnerPage'))
-const ConnectionsCenterPage = lazy(() => import('./pages/ConnectionsCenterPage'))
 const WebsiteConnectionsPage = lazy(() => import('./pages/WebsiteConnectionsPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
@@ -73,8 +68,9 @@ const SalesHubPage = lazy(() => import('./pages/SalesHubPage'))
 const SalesResourcesPage = lazy(() => import('./pages/SalesResourcesPage'))
 const SalesCalendarPage = lazy(() => import('./pages/SalesCalendarPage'))
 const SalesRecordDetailPage = lazy(() => import('./pages/SalesRecordDetailPage'))
-const CapabilitiesHubPage = lazy(() => import('./pages/CapabilitiesHubPage'))
 const LearnCenterPage = lazy(() => import('./pages/LearnCenterPage'))
+const MoreIntegrationsPage = lazy(() => import('./pages/MoreIntegrationsPage'))
+const AdministrationCenterPage = lazy(() => import('./pages/AdministrationCenterPage'))
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { I18nProvider } from './i18n'
 import { LegacyDomTranslation } from './i18n/legacyDomTranslation'
@@ -158,13 +154,14 @@ export default function App() {
             <Route path="/activos" element={<AssetsLibraryPage />} />
             <Route path="/microapps" element={<MicroappsCatalogPage />} />
             <Route path="/microapps/:id" element={<MicroappRunnerPage />} />
-            <Route path="/conexiones" element={<ConnectionsCenterPage />} />
             <Route path="/conexiones/web" element={<WebsiteConnectionsPage />} />
+            <Route path="/integraciones" element={<MoreIntegrationsPage />} />
+            <Route path="/conexiones" element={<LegacyRedirect to="/integraciones" />} />
             <Route path="/studio" element={<StudioPage />} />
             <Route path="/studio/:id" element={<StudioPage />} />
-            <Route path="/marketplace" element={<MarketplacePage />} />
+            <Route path="/marketplace" element={<LegacyRedirect to="/integraciones" tab="extensiones" />} />
             <Route path="/marketplace/:id" element={<MarketplacePage />} />
-            <Route path="/capacidades" element={<CapabilitiesHubPage />} />
+            <Route path="/capacidades" element={<LegacyRedirect to="/microapps" />} />
             <Route path="/aprender" element={<LearnCenterPage />} />
             <Route path="/tutoriales" element={<LegacyRedirect to="/aprender" />} />
             <Route path="/documentacion" element={<LegacyRedirect to="/aprender" tab="documentacion" />} />
@@ -188,10 +185,11 @@ export default function App() {
             <Route path="/conversacion/inbox" element={<Navigate to="/llamadas" replace />} />
             <Route path="/growth" element={<GrowthHubPage />} />
             <Route path="/inteligencia-comercial" element={<LegacyRedirect to="/ventas" tab="inteligencia" paramKey="vista" />} />
-            <Route path="/gobierno-empresarial" element={<AdminRoute permission="governance.read"><EnterpriseGovernancePage /></AdminRoute>} />
-            <Route path="/access-control" element={<AdminRoute permission="access_control.read"><AccessControlPage /></AdminRoute>} />
-            <Route path="/agencia/clientes" element={<AgencyWhiteLabelPage />} />
-            <Route path="/desarrolladores" element={<DeveloperPortalPage />} />
+            <Route path="/administracion" element={<AdministrationCenterPage />} />
+            <Route path="/gobierno-empresarial" element={<LegacyRedirect to="/administracion" tab="gobierno" />} />
+            <Route path="/access-control" element={<LegacyRedirect to="/administracion" tab="accesos" />} />
+            <Route path="/agencia/clientes" element={<LegacyRedirect to="/administracion" tab="clientes" />} />
+            <Route path="/desarrolladores" element={<LegacyRedirect to="/integraciones" tab="api" />} />
             <Route path="/admin/ad-playbooks" element={<AdminRoute><AdPlaybooksAdminPage /></AdminRoute>} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />

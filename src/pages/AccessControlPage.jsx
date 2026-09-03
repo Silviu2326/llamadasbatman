@@ -238,7 +238,7 @@ function ElevationModal({ members, roles, saving, error, onClose, onSubmit }) {
   </div>
 }
 
-export default function AccessControlPage() {
+export default function AccessControlPage({ embedded = false }) {
   const { locale } = useI18n()
   const [catalog, setCatalog] = useState({ roles: [], permissions: [], canManage: false, currentRole: '' })
   const [members, setMembers] = useState([])
@@ -376,8 +376,10 @@ export default function AccessControlPage() {
 
   if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading access controls' : 'Cargando accesos y permisos'} />
 
-  return <main className="ac-page">
-    <header className="ac-page-header"><div className="ac-heading"><span><RiLock2Line aria-hidden="true" /></span><div><h1>{locale === 'en' ? 'Access and permissions' : 'Accesos y permisos'}</h1><p>{locale === 'en' ? 'Manage organization roles, review elevations and preserve separation of duties.' : 'Administra roles de la organización, revisa elevaciones y conserva la separación de funciones.'}</p></div></div></header>
+  const Root = embedded ? 'section' : 'main'
+
+  return <Root className={`ac-page${embedded ? ' is-embedded' : ''}`}>
+    {!embedded ? <header className="ac-page-header"><div className="ac-heading"><span><RiLock2Line aria-hidden="true" /></span><div><h1>{locale === 'en' ? 'Access and permissions' : 'Accesos y permisos'}</h1><p>{locale === 'en' ? 'Manage organization roles, review elevations and preserve separation of duties.' : 'Administra roles de la organización, revisa elevaciones y conserva la separación de funciones.'}</p></div></div></header> : null}
 
     <section className="ac-command" aria-label="Resumen de gobierno de accesos"><div><span>Gobierno empresarial</span><h2>El acceso correcto, con una decisión trazable.</h2><p>Los permisos se organizan por función. Para accesos elevados, el flujo de solicitud y aprobación evita que una sola persona concentre toda la decisión.</p></div><dl><div><dt>{applicationRoles.length}</dt><dd>roles operativos</dd></div><div><dt>{members.length}</dt><dd>miembros visibles</dd></div><div><dt>{pendingRequests.length}</dt><dd>revisiones pendientes</dd></div></dl></section>
 
@@ -397,5 +399,5 @@ export default function AccessControlPage() {
 
     {notice ? <div className="ac-toast" role="status"><RiCheckboxCircleLine aria-hidden="true" /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Cerrar aviso"><RiCloseLine aria-hidden="true" /></button></div> : null}
     {showRequestModal ? <ElevationModal members={members} roles={applicationRoles} saving={busyKey === 'create-request'} error={requestError} onClose={() => { if (busyKey !== 'create-request') setShowRequestModal(false) }} onSubmit={submitRequest} /> : null}
-  </main>
+  </Root>
 }

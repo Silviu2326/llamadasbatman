@@ -26,7 +26,7 @@ function latestJob(client) {
   return client?.client?.trainingJobs?.[0] || client?.trainingJobs?.[0] || null
 }
 
-export default function AgencyWhiteLabelPage() {
+export default function AgencyWhiteLabelPage({ embedded = false }) {
   const [clients, setClients] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -211,9 +211,11 @@ export default function AgencyWhiteLabelPage() {
   const snippet = widgetKey ? `<script src="${window.location.origin}/api/white-label/public/widget.js?key=${widgetKey}" async></script>` : ''
   const cardUrl = widgetKey ? `${window.location.origin}/api/white-label/public/card?key=${widgetKey}` : ''
 
-  return <main className="agency-page">
+  const Root = embedded ? 'section' : 'main'
+
+  return <Root className={`agency-page${embedded ? ' is-embedded' : ''}`}>
     {inviteLink && <div className="agency-notice invite"><span>Enlace de acceso del cliente</span><code>{inviteLink}</code><button onClick={() => navigator.clipboard?.writeText(inviteLink)}>Copiar</button></div>}
-    <header className="agency-header"><div className="agency-title"><span className="agency-icon"><RiRobot2Line /></span><div><span className="agency-kicker">Agency operating system</span><h1>Clientes white-label</h1><p>Crea agentes para tus clientes, entrénalos desde su web y entrega un widget con tu marca.</p></div></div></header>
+    {!embedded ? <header className="agency-header"><div className="agency-title"><span className="agency-icon"><RiRobot2Line /></span><div><span className="agency-kicker">Agency operating system</span><h1>Clientes white-label</h1><p>Crea agentes para tus clientes, entrénalos desde su web y entrega un widget con tu marca.</p></div></div></header> : null}
 
     {(notice || error) && <div className={`agency-notice ${error ? 'error' : ''}`}><span>{error || notice}</span><button onClick={() => { setError(''); setNotice('') }}>×</button></div>}
 
@@ -252,5 +254,5 @@ export default function AgencyWhiteLabelPage() {
     </div></section>}
 
   {selected && cardUrl && <a className="agency-card-link" href={cardUrl} target="_blank" rel="noreferrer">Abrir tarjeta web del cliente</a>}
-  </main>
+  </Root>
 }

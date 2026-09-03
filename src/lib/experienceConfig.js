@@ -120,6 +120,7 @@ export const MODULES = [
   { id: 'settings', label: 'Configuración', group: 'sistema', basicVisible: false, minPlan: 'starter' },
   { id: 'governance', label: 'Gobierno empresarial', group: 'sistema', basicVisible: false, minPlan: 'enterprise' },
   { id: 'access-control', label: 'Control de accesos', group: 'sistema', basicVisible: false, minPlan: 'enterprise' },
+  { id: 'administration', label: 'Administración', group: 'sistema', basicVisible: false, minPlan: 'agency' },
   { id: 'ad-playbooks', label: 'Recetas Ads', group: 'sistema', basicVisible: false, minPlan: 'agency' },
 ]
 

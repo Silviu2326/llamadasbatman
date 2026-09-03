@@ -1,0 +1,72 @@
+.more-center-page {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  width: 100%;
+  max-width: 1224px;
+  min-width: 0;
+  margin-inline: auto;
+  padding: 30px 32px 52px;
+  flex-direction: column;
+  gap: 22px;
+  overflow-y: auto;
+  color: var(--text);
+  background: var(--bg);
+  font-family: Inter, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+}
+
+.more-center-page .product-page-header,
+.more-center-body {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+}
+
+.more-center-body { min-width: 0; }
+
+.more-center-body > :is(.conn-page, .market-page, .dev-page, .ac-page, .governance-page, .agency-page).is-embedded {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
+
+.more-center-body > .is-embedded :is(.conn-grid, .market-grid, .dev-panel, .ac-section, .governance-command, .governance-stats, .governance-workspace, .agency-command, .agency-layout, .agency-panel) {
+  max-width: 1160px;
+}
+
+.more-center-body > .market-page.is-embedded .market-filters { margin-top: 0; }
+.more-center-body > .dev-page.is-embedded .dev-panel:first-of-type { margin-top: 0; }
+.more-center-body > .ac-page.is-embedded .ac-command,
+.more-center-body > .governance-page.is-embedded .governance-command,
+.more-center-body > .agency-page.is-embedded .agency-command { margin-top: 0; }
+
+.more-center-body > .is-embedded :is(.conn-card, .market-card, .market-seller, .dev-panel, .ac-section, .governance-command, .governance-main-panel, .governance-side-panel, .agency-command, .agency-list, .agency-detail, .agency-panel) {
+  border-color: var(--line-2);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.more-center-body > .is-embedded :is(button, input, select, textarea) { font-family: inherit; }
+
+.more-center-body > .market-page.is-embedded .market-card:hover {
+  transform: none;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+
+.more-center-body > .dev-page.is-embedded {
+  color: var(--text);
+  font-family: inherit;
+}
+
+.more-center-body > .dev-page.is-embedded .dev-panel,
+.more-center-body > .agency-page.is-embedded .agency-panel { margin-bottom: 12px; }
+
+.more-center-body > .is-embedded :is(.dev-kicker, .agency-kicker, .governance-eyebrow) {
+  letter-spacing: .08em;
+}
+
+@media (max-width: 720px) {
+  .more-center-page { gap: 18px; padding: 20px 14px 36px; }
+}

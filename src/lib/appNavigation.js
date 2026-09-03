@@ -8,7 +8,6 @@ import {
   RiClapperboardLine,
   RiCompass3Line,
   RiDashboard3Line,
-  RiDatabase2Line,
   RiFlowChart,
   RiFolderImageLine,
   RiGlobalLine,
@@ -20,7 +19,6 @@ import {
   RiMailLine,
   RiMessage3Line,
   RiMicLine,
-  RiMagicLine,
   RiMore2Fill,
   RiPhoneLine,
   RiPlugLine,
@@ -30,9 +28,7 @@ import {
   RiShareForwardLine,
   RiShoppingCart2Line,
   RiSparkling2Line,
-  RiStore2Line,
   RiTeamLine,
-  RiToolsLine,
 } from 'react-icons/ri'
 
 export const APP_SPACES = [
@@ -43,7 +39,7 @@ export const APP_SPACES = [
   // encuentra, pero no ocupa un sitio en el rail. Sus vecinos (Microapps y
   // Activos) se mudaron a «Más» para no quedarse huérfanos al retirarlo.
   { id: 'learn', label: 'Aprender', labelEn: 'Learn', Icon: RiBookReadLine, fallbackPath: '/aprender' },
-  { id: 'more', label: 'Más', labelEn: 'More', Icon: RiMore2Fill, fallbackPath: '/capacidades' },
+  { id: 'more', label: 'Más', labelEn: 'More', Icon: RiMore2Fill, fallbackPath: '/configuracion' },
 ]
 
 export const APP_MODULES = [
@@ -76,19 +72,12 @@ export const APP_MODULES = [
   // /studio sigue resolviendo a un espacio y la paleta lo sigue encontrando.
   { id: 'studio', moduleId: 'studio', space: 'more', label: 'Studio de Cine', labelEn: 'Film Studio', to: '/studio', Icon: RiClapperboardLine, keywords: 'video producción storyboard tomas', showInLocalNavigation: false },
   { id: 'microapps', moduleId: 'microapps', space: 'more', label: 'Microapps', labelEn: 'Microapps', to: '/microapps', Icon: RiApps2Line, keywords: 'crear investigar generar herramientas ia' },
-  { id: 'assets', moduleId: 'assets', space: 'more', label: 'Activos', labelEn: 'Assets', to: '/activos', Icon: RiFolderImageLine, keywords: 'imágenes vídeos documentos biblioteca' },
-
-  { id: 'capabilities', moduleId: 'capabilities', space: 'more', label: 'Centro de capacidades', labelEn: 'Capability center', to: '/capacidades', Icon: RiToolsLine, keywords: 'microapps flows proveedores marketplace capacidades' },
-  { id: 'marketplace', moduleId: 'marketplace', space: 'more', label: 'Marketplace', labelEn: 'Marketplace', to: '/marketplace', Icon: RiStore2Line, keywords: 'instalar catálogo extensiones' },
-  { id: 'connections', moduleId: 'connections', space: 'more', label: 'Conexiones', labelEn: 'Connections', to: '/conexiones', Icon: RiPlugLine, keywords: 'proveedores integraciones credenciales byok' },
-  { id: 'business', moduleId: 'business-info', space: 'more', label: 'Información de empresa', labelEn: 'Business information', to: '/informacion-empresa', Icon: RiBuilding2Line, keywords: 'organización empresa perfil' },
-  { id: 'website-intake', moduleId: 'business-info', space: 'more', label: 'Rellenar desde la web', labelEn: 'Fill from website', to: '/rellenar-desde-web', Icon: RiMagicLine, keywords: 'onboarding analizar web ia autorrelleno perfil cliente' },
+  { id: 'assets', moduleId: 'assets', space: 'more', label: 'Biblioteca', labelEn: 'Library', to: '/activos', Icon: RiFolderImageLine, keywords: 'activos imágenes vídeos documentos biblioteca' },
+  { id: 'business', moduleId: 'business-info', space: 'more', label: 'Empresa', labelEn: 'Company', to: '/informacion-empresa', aliases: ['/rellenar-desde-web'], Icon: RiBuilding2Line, keywords: 'organización empresa perfil importar analizar web' },
+  { id: 'integrations', moduleId: 'connections', space: 'more', label: 'Integraciones', labelEn: 'Integrations', to: '/integraciones', aliases: ['/conexiones', '/marketplace', '/desarrolladores'], Icon: RiPlugLine, keywords: 'proveedores conexiones credenciales extensiones marketplace api webhooks byok' },
   { id: 'settings', moduleId: 'settings', space: 'more', label: 'Configuración', labelEn: 'Settings', to: '/configuracion', Icon: RiSettings4Line, keywords: 'ajustes cuenta costes plan' },
-  { id: 'governance', moduleId: 'governance', space: 'more', label: 'Gobierno', labelEn: 'Governance', to: '/gobierno-empresarial', Icon: RiDatabase2Line, keywords: 'auditoría políticas consentimiento' },
-  { id: 'access', moduleId: 'access-control', space: 'more', label: 'Accesos', labelEn: 'Access control', to: '/access-control', Icon: RiTeamLine, keywords: 'roles permisos usuarios' },
-  { id: 'agency', moduleId: 'settings', space: 'more', label: 'Clientes white-label', labelEn: 'White-label clients', to: '/agencia/clientes', Icon: RiBuilding2Line, keywords: 'agencia clientes marca blanca' },
-  { id: 'developers', moduleId: 'settings', space: 'more', label: 'API y webhooks', labelEn: 'API & webhooks', to: '/desarrolladores', Icon: RiPlugLine, keywords: 'developers api webhook claves' },
-  { id: 'ad-playbooks', moduleId: 'ad-playbooks', space: 'more', label: 'Recetas Ads', labelEn: 'Ad recipes', to: '/admin/ad-playbooks', Icon: RiBook2Line, keywords: 'admin recetas anuncios' },
+  { id: 'administration', moduleId: 'administration', space: 'more', label: 'Administración', labelEn: 'Administration', to: '/administracion', aliases: ['/gobierno-empresarial', '/access-control', '/agencia/clientes'], Icon: RiTeamLine, keywords: 'roles permisos usuarios gobierno auditoría políticas clientes white-label agencia' },
+  { id: 'ad-playbooks', moduleId: 'ad-playbooks', space: 'more', label: 'Recetas Ads', labelEn: 'Ad recipes', to: '/admin/ad-playbooks', Icon: RiBook2Line, keywords: 'admin recetas anuncios', showInLocalNavigation: false },
 
   { id: 'learn-center', moduleId: 'tutorials', space: 'learn', label: 'Centro de aprendizaje', labelEn: 'Learning center', to: '/aprender', aliases: ['/tutoriales', '/documentacion'], Icon: RiBookReadLine, keywords: 'aprender tutoriales documentación guías pasos onboarding formación referencia api ayuda configuración' },
 ]
@@ -110,10 +99,9 @@ const LOCAL_GROUPS = {
     { id: 'operations', label: 'Operación', labelEn: 'Operations', moduleIds: ['growth-operations'] },
   ],
   more: [
-    { id: 'capabilities', label: 'Capacidades', labelEn: 'Capabilities', moduleIds: ['capabilities', 'microapps', 'marketplace', 'connections'] },
-    { id: 'library', label: 'Biblioteca', labelEn: 'Library', moduleIds: ['assets'] },
-    { id: 'organization', label: 'Organización', labelEn: 'Organization', moduleIds: ['business', 'settings', 'agency', 'access', 'governance'] },
-    { id: 'platform', label: 'Plataforma', labelEn: 'Platform', moduleIds: ['developers', 'ad-playbooks'] },
+    { id: 'tools', label: 'Herramientas', labelEn: 'Tools', moduleIds: ['microapps', 'assets'] },
+    { id: 'organization', label: 'Configuración', labelEn: 'Setup', moduleIds: ['business', 'integrations', 'settings'] },
+    { id: 'administration', label: 'Administración', labelEn: 'Administration', moduleIds: ['administration'] },
   ],
   learn: [
     { id: 'learning', label: 'Aprende a usar Vendrava', labelEn: 'Learn Vendrava', moduleIds: ['learn-center'] },
