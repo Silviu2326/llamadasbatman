@@ -5,6 +5,7 @@ import {
   getTwilioIntegrationConfig,
   twilioWebhookUrl,
 } from '../../services/twilioIntegration.service'
+import { prisma } from '../../lib/prisma'
 
 /**
  * Compatibility helper for callers without tenant context. Org-bound paths
@@ -85,10 +86,13 @@ export async function startOutboundCall(params: {
   const toNumber = normalizeE164(params.toNumber)
   if (!toNumber) return { status: 'invalid_phone', to: params.toNumber }
 
-  const config = await getTwilioIntegrationConfig(params.orgId)
+  const [config, agent] = await Promise.all([
+    getTwilioIntegrationConfig(params.orgId),
+    prisma.agent.findFirst({ where: { id: params.agentId, orgId: params.orgId }, select: { phoneNumber: true } }),
+  ])
   if (!config) return { status: 'offline', to: params.toNumber }
   const client = createTwilioClient(config)
-  const from = selectCallerId(toNumber, config)
+  const from = agent?.phoneNumber || selectCallerId(toNumber, config)
   if (!from) return { status: 'offline', to: params.toNumber }
 
   const qs = new URLSearchParams({

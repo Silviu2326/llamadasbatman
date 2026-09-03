@@ -125,7 +125,7 @@ export async function loadAgentConfig(agentId: string, orgId: string): Promise<A
         scripts,
       },
       compliance: { disclosureText: `This call is handled by an AI assistant from ${agent.org.name}`, disclosureAi: true, timezone: agent.org.timezone, callHourStart: parseInt(process.env.CALL_HOUR_START ?? '9'), callHourEnd: parseInt(process.env.CALL_HOUR_END ?? '20') },
-      voice: { twilioFromNumber: twilioConfig?.fromNumber, ttsVoiceId: agent.voiceId ?? undefined, twilioName: agent.name.slice(0, 15), speed: voiceSpeed, speculative },
+      voice: { twilioFromNumber: agent.phoneNumber ?? twilioConfig?.fromNumber, ttsVoiceId: agent.voiceId ?? undefined, twilioName: agent.name.slice(0, 15), speed: voiceSpeed, speculative },
       runtime: jsonRecord(settings.runtime),
       behavior: jsonRecord(settings.behavior),
     }

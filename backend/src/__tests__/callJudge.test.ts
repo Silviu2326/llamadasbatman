@@ -54,3 +54,19 @@ test('hablar después de un opt-out sigue siendo error crítico', () => {
   assert.equal(result.dimensions.compliance, 0)
   assert.equal(result.trainingTag, 'critical_error')
 })
+
+test('la evaluación real mide saludo, objeción y cierre desde la conversación', () => {
+  const result = scoreCall([], {
+    outcome: 'meeting_scheduled',
+    transcript: [
+      'agente: Hola, soy Laura y llamo de Vendrava.',
+      'cliente: Ahora no, me parece caro.',
+      'agente: Entiendo la preocupación. ¿Qué presupuesto habías previsto?',
+      'cliente: Podemos verlo mañana.',
+      'agente: Gracias, agendamos la reunión mañana a esta hora.',
+    ].join('\n'),
+  })
+  assert.equal(result.dimensions.greeting, 100)
+  assert.equal(result.dimensions.objectionHandling, 100)
+  assert.equal(result.dimensions.closing, 100)
+})

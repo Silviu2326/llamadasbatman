@@ -13,9 +13,11 @@ export type CallJudgeResult = {
   overall: number
   dimensions: {
     turnTaking: number | null
+    greeting: number | null
     voiceNaturalness: number | null
     discovery: number | null
     objectionHandling: number | null
+    closing: number | null
     compliance: number
     crmAccuracy: number
   }
@@ -54,12 +56,26 @@ function agentQuestions(transcript?: string | null): { turns: number; questions:
   return { turns: agentLines.length, questions: agentLines.filter(line => line.includes('?')).length }
 }
 
+function conversationSignals(transcript?: string | null) {
+  const lines = (transcript || '').split('\n').map(line => ({ role: line.slice(0, line.indexOf(':')).trim().toLowerCase(), text: line.slice(line.indexOf(':') + 1).trim().toLowerCase() })).filter(line => line.text)
+  const agentLines = lines.filter(line => ['agente', 'assistant'].includes(line.role))
+  const first = agentLines[0]?.text || ''
+  const last = agentLines.at(-1)?.text || ''
+  const objectionWords = ['caro', 'precio', 'no me interesa', 'no interesa', 'ya tenemos', 'no tengo tiempo', 'ahora no']
+  const objectionIndexes = lines.map((line, index) => ({ line, index })).filter(({ line }) => ['cliente', 'usuario', 'lead', 'user'].includes(line.role) && objectionWords.some(word => line.text.includes(word)))
+  const handled = objectionIndexes.filter(({ index }) => lines.slice(index + 1, index + 3).some(line => ['agente', 'assistant'].includes(line.role) && line.text.length > 20)).length
+  const greetingHits = [/(hola|buenos días|buenas tardes)/, /(soy|mi nombre es)/, /(llamo|contacto)/].filter(pattern => pattern.test(first)).length
+  const closingHits = [/(reunión|agendar|reservar|siguiente paso)/, /(día|hora|cuándo)/, /(gracias|encantado|hasta luego)/].filter(pattern => pattern.test(last) || pattern.test(agentLines.slice(-2).map(line => line.text).join(' '))).length
+  return { greeting: agentLines.length ? clamp(40 + greetingHits * 20) : null, objections: objectionIndexes.length ? clamp(handled / objectionIndexes.length * 100) : null, closing: agentLines.length ? clamp(25 + closingHits * 25) : null }
+}
+
 export function scoreCall(events: JudgeEvent[], call: { outcome?: string | null; transcript?: string | null }): CallJudgeResult {
   const bargeIns = count(events, 'barge_in.detected')
   const userTurns = count(events, 'turn.user_finished')
   const cancelled = count(events, 'audio.clear')
   const totals = turnTotals(events)
   const { turns: agentTurns, questions } = agentQuestions(call.transcript)
+  const signals = conversationSignals(call.transcript)
 
   const optOutIndex = events.findIndex(event => event.type === 'compliance.opt_out')
   const postOptOutSpeech = optOutIndex >= 0 && events.slice(optOutIndex + 1).some(event =>
@@ -85,6 +101,7 @@ export function scoreCall(events: JudgeEvent[], call: { outcome?: string | null;
   const dimensions: CallJudgeResult['dimensions'] = {
     // Interrumpir es normal; interrumpir en cada turno es que el agente no calla.
     turnTaking: userTurns > 0 ? clamp(100 - (bargeIns / userTurns) * 60) : null,
+    greeting: signals.greeting,
     // Naturalidad medible hoy: cuántos turnos respetaron el objetivo de latencia,
     // penalizando el audio que hubo que cortar a medias.
     voiceNaturalness: totals.length
@@ -93,7 +110,8 @@ export function scoreCall(events: JudgeEvent[], call: { outcome?: string | null;
     // Sin banco de aperturas ni salesBrain, la señal es el transcripto.
     discovery: agentTurns > 0 ? clamp((questions / agentTurns) * 200) : null,
     // Requiere clasificar objeciones, que hoy no hace nadie en el camino de la llamada.
-    objectionHandling: null,
+    objectionHandling: signals.objections,
+    closing: call.outcome === 'meeting_scheduled' ? 100 : signals.closing,
     compliance: criticalErrors.length ? 0 : 100,
     crmAccuracy: call.outcome && call.outcome !== 'none' ? 92 : 78,
   }

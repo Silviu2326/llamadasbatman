@@ -142,6 +142,7 @@ model Organization {
   apiKeys                        ApiKey[]
   webhookSubscriptions           WebhookSubscription[]
   agents                         Agent[]
+  agentVersions                 AgentVersion[]
   campaigns                      Campaign[]
   leads                          Lead[]
   calls                          Call[]
@@ -379,6 +380,7 @@ model User {
   approvedAdActions           AdAction[]                  @relation("AdActionApprovedBy")
   promotedAdRules             AdRuleAutonomy[]            @relation("AdRulePromotedBy")
   memberships                 OrganizationMembership[]
+  agentVersions               AgentVersion[]               @relation("AgentVersionActor")
 }
 
 // Sesiones de refresco opacas y revocables. El navegador recibe solo el
@@ -514,6 +516,7 @@ model Agent {
   orgId         String
   name          String
   role          String
+  description   String?
   agentType     String   @default("sales")
   callDirection String   @default("both")
   personality   String?
@@ -521,14 +524,37 @@ model Agent {
   systemPrompt  String?
   language      String   @default("es")
   isActive      Boolean  @default(true)
+  phoneNumber   String?
+  lifecycleStatus String @default("draft")
+  monthlyMinuteLimit Int?
   // Límites operativos y horario activo del tab "Configuración" — sin
   // columnas propias porque son opcionales y varían por tipo de agente.
   settings      Json?
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   org       Organization @relation(fields: [orgId], references: [id])
   campaigns Campaign[]
   calls     Call[]
+  versions  AgentVersion[]
+}
+
+model AgentVersion {
+  id            String   @id @default(cuid())
+  orgId         String
+  agentId       String
+  version       Int
+  snapshot      Json
+  changedFields String[]
+  actorUserId   String?
+  createdAt     DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  agent Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  actor User?        @relation("AgentVersionActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([agentId, version])
+  @@index([orgId, createdAt])
 }
 
 model Campaign {

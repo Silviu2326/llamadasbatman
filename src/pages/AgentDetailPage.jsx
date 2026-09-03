@@ -5,7 +5,7 @@ import {
   RiCalendarLine, RiBarChartLine, RiSettings3Line, RiExternalLinkLine,
   RiBrainLine, RiMicLine, RiVolumeUpLine, RiShieldCheckLine, RiSave3Line,
   RiFlowChart, RiLockLine, RiTimeLine, RiArrowRightLine,
-  RiCheckLine, RiMessage2Line, RiPulseLine, RiCpuLine, RiSparkling2Line, RiLoader4Line,
+  RiCheckLine, RiMessage2Line, RiPulseLine, RiCpuLine, RiSparkling2Line, RiLoader4Line, RiMagicLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { OUTCOME_COLOR, outcomeLabel } from '../lib/callOutcome'
@@ -16,6 +16,8 @@ import AgentReadinessChecklist from '../components/agents/AgentReadinessChecklis
 import AgentSimulatorPanel from '../components/agents/AgentSimulatorPanel'
 import AgentPromptDebugger from '../components/agents/AgentPromptDebugger'
 import AgentSafetyPanel from '../components/agents/AgentSafetyPanel'
+import AgentGovernancePanel from '../components/agents/AgentGovernancePanel'
+import AgentSimpleSetup from '../components/agents/AgentSimpleSetup'
 import PageLoadingState from '../components/ui/PageLoadingState'
 import '../dashboard.css'
 import '../components/agents.css'
@@ -370,6 +372,14 @@ export default function AgentDetailPage() {
   const [playbooks, setPlaybooks] = useState([])
   const [recentCalls, setRecentCalls] = useState([])
   const [timeseries, setTimeseries] = useState(null)
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('agent-detail-view-mode') || 'simple')
+  const [governanceRequest, setGovernanceRequest] = useState({ section: 'basic', nonce: 0 })
+
+  const changeViewMode = mode => {
+    setViewMode(mode)
+    localStorage.setItem('agent-detail-view-mode', mode)
+    requestAnimationFrame(() => document.getElementById('agent-view-mode')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
 
   useEffect(() => {
     Promise.all([
@@ -390,6 +400,7 @@ export default function AgentDetailPage() {
         setAgentSettings(settings)
         const nextDraft = {
           name: data.name || '', role: data.role || '', agentType: data.agentType || 'sales', callDirection: data.callDirection || 'both',
+          description: data.description || '', phoneNumber: data.phoneNumber || '', monthlyMinuteLimit: data.monthlyMinuteLimit || null, lifecycleStatus: data.lifecycleStatus || 'draft',
           language: data.language || 'es', voiceId: data.voiceId || '', personality: data.personality || '', systemPrompt: data.systemPrompt || '',
           settings: updateNestedSettings(settings, {}),
         }
@@ -412,17 +423,18 @@ export default function AgentDetailPage() {
     }).catch(() => setLoading(false))
   }, [id])
 
-  const toggleActive = () => {
+  const toggleActive = async () => {
     const next = !isActive
-    setIsActive(next)
     setToggleError('')
-    // Un 403/500 resuelve la promesa: hay que revertir mirando r.ok, no solo en el catch.
-    apiFetch(`/api/agents/${id}`, { method: 'PUT', body: JSON.stringify({ isActive: next }) })
-      .then(r => { if (!r.ok) { setIsActive(!next); setToggleError('No se pudo cambiar el estado del agente.') } })
-      .catch(() => { setIsActive(!next); setToggleError('No se pudo cambiar el estado del agente. Comprueba tu conexión.') })
+    try {
+      const response = await apiFetch(next ? `/api/agents/${id}/publish` : `/api/agents/${id}`, next ? { method: 'POST' } : { method: 'PUT', body: JSON.stringify({ isActive: false, lifecycleStatus: 'paused' }) })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.blockers?.map(item => item.label).join(', ') || body.error)
+      setIsActive(next)
+    } catch (error) { setToggleError(error.message || 'No se pudo cambiar el estado del agente.') }
   }
 
-  const saveConfig = () => {
+  const saveConfig = async () => {
     setSaving(true)
     const settings = {
       ...draft.settings,
@@ -439,21 +451,25 @@ export default function AgentDetailPage() {
       },
     }
     const nextDraft = { ...draft, settings }
-    apiFetch(`/api/agents/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
+    try {
+      const response = await apiFetch(`/api/agents/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
         name: draft.name,
         role: draft.role,
+        description: draft.description,
         agentType: draft.agentType,
         callDirection: draft.callDirection,
         language: draft.language,
         systemPrompt: draft.systemPrompt,
         personality: draft.personality ?? cfgVals['Tono de voz'],
         voiceId: draft.voiceId ?? cfgVals['Voz del agente'],
-        settings,
-      }),
-    }).then(r => {
-      if (r.ok) {
+        phoneNumber: draft.phoneNumber || null,
+        monthlyMinuteLimit: draft.monthlyMinuteLimit || null,
+          settings,
+        }),
+      })
+      if (response.ok) {
         setAgentSettings(settings)
         setDraft(current => ({ ...current, settings, personality: current.personality ?? cfgVals['Tono de voz'], voiceId: current.voiceId ?? cfgVals['Voz del agente'] }))
         setSavedDraftSnapshot(JSON.stringify(nextDraft))
@@ -461,11 +477,17 @@ export default function AgentDetailPage() {
         setSaveError('')
         setSavedConfig(true)
         setTimeout(() => setSavedConfig(false), 2000)
+        return true
       } else {
         setSaveError('No se pudieron guardar los cambios. Inténtalo de nuevo.')
+        return false
       }
-    }).catch(() => setSaveError('No se pudieron guardar los cambios. Comprueba tu conexión.'))
-      .finally(() => setSaving(false))
+    } catch {
+      setSaveError('No se pudieron guardar los cambios. Comprueba tu conexión.')
+      return false
+    } finally {
+      setSaving(false)
+    }
   }
 
   const updateDraft = patch => setDraft(current => {
@@ -473,6 +495,40 @@ export default function AgentDetailPage() {
     if (patch.settings) next.settings = updateNestedSettings(current.settings || {}, patch.settings)
     return next
   })
+
+  const reloadDraftFromAgent = data => {
+    const settings = data.settings || {}
+    const nextDraft = {
+      name: data.name || '', role: data.role || '', agentType: data.agentType || 'sales', callDirection: data.callDirection || 'both',
+      description: data.description || '', phoneNumber: data.phoneNumber || '', monthlyMinuteLimit: data.monthlyMinuteLimit || null, lifecycleStatus: data.lifecycleStatus || 'draft',
+      language: data.language || 'es', voiceId: data.voiceId || '', personality: data.personality || '', systemPrompt: data.systemPrompt || '',
+      settings: updateNestedSettings(settings, {}),
+    }
+    setDraft(nextDraft)
+    setSavedDraftSnapshot(JSON.stringify(nextDraft))
+    setAgentSettings(settings)
+    setIsActive(Boolean(data.isActive))
+    setAgent(current => current ? {
+      ...current,
+      name: nextDraft.name,
+      role: nextDraft.role,
+      subrole: nextDraft.role,
+      agentType: nextDraft.agentType,
+      callDirection: nextDraft.callDirection,
+      language: nextDraft.language,
+      voiceId: nextDraft.voiceId,
+      personality: nextDraft.personality,
+      systemPrompt: nextDraft.systemPrompt,
+      desc: nextDraft.description || nextDraft.systemPrompt || nextDraft.personality,
+      objetivo: nextDraft.systemPrompt,
+      tags: nextDraft.personality ? nextDraft.personality.split(',').map(value => value.trim()).filter(Boolean) : [],
+    } : current)
+  }
+
+  const openGovernanceSection = section => {
+    setGovernanceRequest(current => ({ section, nonce: current.nonce + 1 }))
+    document.getElementById('agent-governance')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const hasUnsavedChanges = Boolean(savedDraftSnapshot && JSON.stringify(draft) !== savedDraftSnapshot)
   const handleSectionChange = sectionId => {
@@ -524,7 +580,7 @@ export default function AgentDetailPage() {
   const s = STATUS[isActive ? 'Activo' : 'Inactivo']
 
   return (
-    <div className="agent-detail-page dark-scroll" style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: 'var(--bg)', padding: '26px clamp(12px,4vw,32px) 40px' }}>
+    <div className={`agent-detail-page dark-scroll ${viewMode === 'simple' ? 'is-simple-view' : 'is-professional-view'}`} style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: 'var(--bg)', padding: '26px clamp(12px,4vw,32px) 40px' }}>
 
       {/* Back */}
       <button className="agent-detail-back" onClick={() => navigate('/agentes')} style={{
@@ -583,6 +639,17 @@ export default function AgentDetailPage() {
         </div>
       </div>
 
+      <div id="agent-view-mode" className="agent-view-mode" aria-label="Nivel de configuración">
+        <div className="agent-view-mode-current"><span className="agent-view-mode-icon"><RiMagicLine /></span><span><strong>{viewMode === 'simple' ? 'Vista sencilla' : 'Vista profesional'}</strong><small>{viewMode === 'simple' ? 'Configuración guiada' : 'Control completo'}</small></span></div>
+        <button type="button" className="agent-view-mode-toggle" onClick={() => changeViewMode(viewMode === 'simple' ? 'professional' : 'simple')} aria-label={`Cambiar a vista ${viewMode === 'simple' ? 'profesional' : 'sencilla'}`}>
+          <span className={`agent-view-mode-track ${viewMode === 'professional' ? 'is-professional' : ''}`} aria-hidden="true"><i /></span>
+          <span><small>Cambiar a</small><strong>{viewMode === 'simple' ? 'Profesional' : 'Sencilla'}</strong></span>
+          <RiArrowRightLine aria-hidden="true" />
+        </button>
+      </div>
+
+      {viewMode === 'simple' ? <AgentSimpleSetup agentId={agent.id} draft={draft} onChange={updateDraft} onSave={saveConfig} saving={saving} saved={savedConfig} onNavigate={navigate} onPublished={() => setIsActive(true)} /> : null}
+
       {/* Stat cards */}
       <div className="agent-detail-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12, marginBottom: 22 }}>
         {agent.stats.map(s => (
@@ -614,6 +681,16 @@ export default function AgentDetailPage() {
           <button type="button" className="agent-save-button" onClick={saveConfig} disabled={saving}><RiSave3Line /> {saving ? 'Guardando…' : savedConfig ? 'Guardado' : 'Guardar cambios'}</button>
         </div>
       </div>
+
+      <AgentGovernancePanel
+        agentId={agent.id}
+        draft={draft}
+        onChange={updateDraft}
+        hasUnsavedChanges={hasUnsavedChanges}
+        onNavigate={navigate}
+        requestedSection={governanceRequest}
+        onAgentReload={reloadDraftFromAgent}
+      />
 
       <div id="agent-stack">
         <AgentRuntimePanel draft={draft} agentId={agent.id} onChange={updateDraft} onNavigate={navigate} playbooks={playbooks} />
@@ -702,7 +779,7 @@ export default function AgentDetailPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(130px,100%),1fr))', gap: 7 }}>
               <button onClick={() => navigate('/playbooks')} style={{ padding: '9px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, color: 'var(--muted)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}><RiBookOpenLine /> Ver playbook</button>
               <button onClick={() => setTab('Configuración')} style={{ padding: '9px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, color: 'var(--muted)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}><RiSettings3Line /> Configurar</button>
-              <button disabled={cloning} onClick={cloneAgent} style={{ padding: '9px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, color: 'var(--muted)', fontSize: 11.5, cursor: cloning ? 'wait' : 'pointer', fontFamily: 'inherit' }}>{cloning ? 'Clonando…' : 'Clonar agente'}</button>
+              <button onClick={() => openGovernanceSection('control')} style={{ padding: '9px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, color: 'var(--muted)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit' }}>Clonar agente</button>
             </div>
           </div>
         </div>
@@ -851,4 +928,3 @@ export default function AgentDetailPage() {
     </div>
   )
 }
-
