@@ -1,0 +1,39 @@
+.plan-focused { background: var(--bg); padding: 0; }
+.plan-focused > .gs-shell { max-width: 1280px; padding: 32px 36px 64px; }
+.plan-focused .gs-header { margin-bottom: 24px; }
+.plan-focused .gs-heading h1 { font-size: 28px; font-weight: 600; letter-spacing: -.4px; }
+.plan-focused .gs-heading p { font-size: 14px; line-height: 1.6; }
+.plan-focused .pl-tabs { background: transparent; padding: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; margin-bottom: 28px; gap: 24px; }
+.plan-focused .pl-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 12px 0; font-size: 14px; font-weight: 500; }
+.plan-focused .pl-tabs button.active { border-bottom-color: var(--text); color: var(--text); background: transparent; box-shadow: none; }
+.plan-focused .home-section { margin-top: 0; padding-top: 0; }
+.plan-focused .home-section h2 { font-size: 22px; margin: 0; font-weight: 550; }
+.plan-next { display: flex; justify-content: space-between; align-items: center; gap: 24px; border-block: 1px solid var(--line); padding: 28px 0; margin: 28px 0 20px; }
+.plan-next h2 { font-size: 19px; font-weight: 550; margin: 0; }
+.plan-next p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 8px 0 0; }
+.plan-focused .gs-note { font-size: 13px; line-height: 1.7; }
+.plan-focused a { color: var(--text); text-underline-offset: 3px; }
+.plan-focused .gs-button { min-height: 40px; font-size: 13px; font-weight: 500; border-radius: 5px; }
+.plan-focused .gs-panel { box-shadow: none; background: var(--surface); border-radius: 6px; }
+.plan-focused .gs-panel h2 { font-size: 18px; font-weight: 550; }
+.plan-focused .gs-panel p, .plan-focused .pl-sim-title p { font-size: 13px; line-height: 1.6; }
+.plan-focused .pl-sim-controls, .plan-focused .pl-sim-out { padding: 24px; gap: 18px; }
+.plan-focused .pl-control-head { font-size: 13px; font-weight: 500; }
+.plan-focused .pl-control-real { font-size: 12px; }
+.plan-focused .pl-sim-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 16px; }
+.plan-focused .pl-sim-grid > div { background: transparent; padding: 0; border: 0; }
+.plan-focused .pl-sim-grid span { font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 400; line-height: 1.5; }
+.plan-focused .pl-sim-grid strong { font-size: 20px; font-weight: 550; margin-top: 8px; }
+.plan-focused .pl-sim-hero span { font-size: 13px; text-transform: none; letter-spacing: 0; }
+.plan-focused .pl-sim-hero strong { font-size: 36px; font-weight: 550; margin-top: 12px; }
+.plan-focused .pl-sim-hero em { font-size: 12px; line-height: 1.6; }
+.plan-focused .gs-queue { display: grid; grid-template-columns: 1fr; gap: 0; }
+.plan-focused .gs-queue-card { padding: 22px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; }
+.plan-focused .gs-queue-card > strong { font-size: 16px; font-weight: 550; }
+.plan-focused .pl-steps { font-size: 13px; line-height: 1.7; }
+.plan-focused .gs-queue-impact { background: transparent; }
+.plan-advanced { padding: 24px 0; margin-top: 20px; border-top: 1px solid var(--line); }
+.plan-advanced > summary { cursor: pointer; font-size: 15px; padding: 8px 0; }
+.plan-focused :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.plan-focused [hidden] { display: none !important; }
+@media(max-width: 650px) { .plan-focused > .gs-shell { padding: 24px 20px 80px; } .plan-focused .gs-heading h1 { font-size: 25px; } .plan-focused .pl-tabs { gap: 20px; } .plan-next { flex-direction: column; align-items: start; } .plan-focused .pl-sim-controls, .plan-focused .pl-sim-out { padding: 18px; } .plan-focused .pl-sim-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .plan-focused .gs-queue-card footer { flex-wrap: wrap; gap: 10px; } }

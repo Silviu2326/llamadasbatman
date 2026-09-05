@@ -111,7 +111,7 @@ export const MODULES = [
   { id: 'pipeline', label: 'Pipeline', group: 'ventas', basicVisible: true, minPlan: 'starter' },
   { id: 'meetings', label: 'Reuniones', group: 'ventas', basicVisible: true, minPlan: 'starter' },
   { id: 'revenue-intelligence', label: 'Inteligencia comercial', group: 'ventas', basicVisible: false, minPlan: 'pro' },
-  { id: 'insights', label: 'Insights', group: 'sistema', basicVisible: false, minPlan: 'pro' },
+  { id: 'insights', label: 'Análisis del negocio', group: 'sistema', basicVisible: false, minPlan: 'pro' },
   { id: 'knowledge', label: 'Knowledge Base', group: 'sistema', basicVisible: false, minPlan: 'pro' },
   { id: 'jobs', label: 'Centro de trabajos', group: 'sistema', basicVisible: false, minPlan: 'pro' },
   { id: 'assets', label: 'Biblioteca de activos', group: 'sistema', basicVisible: false, minPlan: 'pro' },

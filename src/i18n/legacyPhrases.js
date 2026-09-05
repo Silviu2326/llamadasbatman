@@ -2718,7 +2718,7 @@ export const PHRASES = [
   ['Oportunidad abierta', 'Open opportunity'],
   ['Optimizar contenido', 'Optimize content'],
   ['Periodo del gráfico', 'Chart period'],
-  ['Plan de crecimiento', 'Growth plan'],
+  ['Plan y objetivos', 'Plan & goals'],
   ['Podrás pagar hasta ', 'You can pay up to '],
   ['Precio de la oferta', 'Offer price'],
   ['Programa sin nombre', 'Unnamed program'],

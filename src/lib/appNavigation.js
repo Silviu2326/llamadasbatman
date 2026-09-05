@@ -44,8 +44,8 @@ export const APP_SPACES = [
 
 export const APP_MODULES = [
   { id: 'dashboard', moduleId: 'dashboard', space: 'home', label: 'Resumen', labelEn: 'Overview', to: '/dashboard', Icon: RiDashboard3Line, keywords: 'inicio prioridades alertas recientes dashboard' },
-  { id: 'plan', moduleId: 'dashboard', space: 'home', label: 'Plan de crecimiento', labelEn: 'Growth plan', to: '/plan', Icon: RiLineChartLine, keywords: 'plan objetivos inversión previsión' },
-  { id: 'insights', moduleId: 'insights', space: 'home', label: 'Insights', labelEn: 'Insights', to: '/insights', Icon: RiBarChartLine, keywords: 'métricas rendimiento decisiones' },
+  { id: 'plan', moduleId: 'dashboard', space: 'home', label: 'Plan y objetivos', labelEn: 'Plan & goals', to: '/plan', Icon: RiLineChartLine, keywords: 'plan objetivos inversión previsión' },
+  { id: 'insights', moduleId: 'insights', space: 'home', label: 'Análisis del negocio', labelEn: 'Business analysis', to: '/insights', Icon: RiBarChartLine, keywords: 'métricas rendimiento decisiones análisis negocio' },
 
   { id: 'growth-operations', moduleId: 'automations', space: 'growth', label: 'Operaciones', labelEn: 'Operations', to: '/operaciones-growth', aliases: ['/orquestador', '/trabajos', '/automatizaciones'], Icon: RiFlowChart, keywords: 'objetivos orquestador misiones acciones jobs trabajos ejecuciones cola aprobaciones automatizaciones flows workflows recetas disparadores' },
 

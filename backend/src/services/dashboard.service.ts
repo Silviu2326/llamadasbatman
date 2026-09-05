@@ -1,4 +1,18 @@
 import { prisma } from '../lib/prisma'
+import { Prisma } from '@prisma/client'
+
+type DashboardGoals = { monthlyRevenue: number; monthlyMeetings: number }
+
+function dashboardGoals(settings: unknown): DashboardGoals | null {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null
+  const value = (settings as Record<string, unknown>).dashboardGoals
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const monthlyRevenue = Number((value as Record<string, unknown>).monthlyRevenue)
+  const monthlyMeetings = Number((value as Record<string, unknown>).monthlyMeetings)
+  return Number.isFinite(monthlyRevenue) && monthlyRevenue > 0 && Number.isFinite(monthlyMeetings) && monthlyMeetings > 0
+    ? { monthlyRevenue, monthlyMeetings }
+    : null
+}
 
 const pct = (curr: number, prev: number) =>
   prev > 0 ? Math.round((curr - prev) / prev * 1000) / 10 : curr > 0 ? 100 : 0
@@ -13,6 +27,9 @@ const formatDuration = (seconds: number | null | undefined) => {
 export async function getStats(orgId: string, days = 7) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
   const prevSince = new Date(Date.now() - 2 * days * 24 * 60 * 60 * 1000)
+  const now = new Date()
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
 
   const [
     totalCalls, totalLeads, meetingsScheduled, activeCampaigns,
@@ -25,6 +42,7 @@ export async function getStats(orgId: string, days = 7) {
     recentContactedLeads, recentConvertedLeads,
     adSpendAgg, callDurationAgg,
     contactedPrevCount, convertedPrevCount,
+    monthlyMeetings, monthlyClosedWonAgg,
   ] = await Promise.all([
     prisma.call.count({ where: { orgId } }),
     prisma.lead.count({ where: { orgId } }),
@@ -82,6 +100,8 @@ export async function getStats(orgId: string, days = 7) {
     // Ventana anterior para el delta de conversión
     prisma.lead.count({ where: { orgId, status: 'contacted', createdAt: { gte: prevSince, lt: since } } }),
     prisma.lead.count({ where: { orgId, status: 'converted', createdAt: { gte: prevSince, lt: since } } }),
+    prisma.meeting.count({ where: { orgId, scheduledAt: { gte: monthStart, lt: monthEnd }, status: { not: 'cancelled' } } }),
+    prisma.opportunity.aggregate({ where: { orgId, stage: 'closed_won', actualCloseDate: { gte: monthStart, lte: now } }, _sum: { value: true } }),
   ])
 
   const totalLeadsSum = conversionAgg._sum.totalLeads ?? 0
@@ -94,6 +114,7 @@ export async function getStats(orgId: string, days = 7) {
   const pipelineThisWeekVal = pipelineThisWeek._sum.value ? Number(pipelineThisWeek._sum.value) : 0
   const pipelinePrevVal = pipelinePrev._sum.value ? Number(pipelinePrev._sum.value) : 0
   const callsThisWeek = recentCalls.length
+  const monthlyClosedWonValue = monthlyClosedWonAgg._sum.value ? Number(monthlyClosedWonAgg._sum.value) : 0
 
   const convRateNow = recentContactedLeads.length > 0 ? recentConvertedLeads.length / recentContactedLeads.length * 100 : 0
   const convRatePrev = contactedPrevCount > 0 ? convertedPrevCount / contactedPrevCount * 100 : 0
@@ -176,7 +197,7 @@ export async function getStats(orgId: string, days = 7) {
 
   const [userCount, org] = await Promise.all([
     prisma.user.count({ where: { orgId } }),
-    prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true, metricoolEnabled: true } }),
+    prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true, metricoolEnabled: true, settings: true } }),
   ])
 
   const sentimentTotals: Record<string, number> = {}
@@ -190,7 +211,7 @@ export async function getStats(orgId: string, days = 7) {
 
   return {
     totalCalls, totalLeads, meetingsScheduled, conversionRate, activeCampaigns,
-    pipelineValue, closedWonValue, roi, kpiPcts,
+    pipelineValue, closedWonValue, monthlyClosedWonValue, monthlyMeetings, roi, kpiPcts,
     timeSeries, funnel, agentLeaderboard,
     callsByCampaign, pipelineByDay, sentiment,
     // Consumidos por las tarjetas KPI de Leads.jsx y Calls.jsx, que hasta ahora
@@ -201,7 +222,32 @@ export async function getStats(orgId: string, days = 7) {
     userCount, orgPlan: org?.plan ?? 'free',
     mauticEnabled: org?.mauticEnabled ?? false,
     metricoolEnabled: org?.metricoolEnabled ?? false,
+    goals: dashboardGoals(org?.settings),
   }
+}
+
+export async function getDashboardGoals(orgId: string) {
+  const now = new Date()
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+  const [org, meetings, revenue] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: orgId }, select: { settings: true } }),
+    prisma.meeting.count({ where: { orgId, scheduledAt: { gte: start, lt: end }, status: { not: 'cancelled' } } }),
+    prisma.opportunity.aggregate({ where: { orgId, stage: 'closed_won', currency: 'EUR', actualCloseDate: { gte: start, lte: now } }, _sum: { value: true } }),
+  ])
+  return { goals: dashboardGoals(org?.settings), monthlyMeetings: meetings, monthlyClosedWonValue: Number(revenue._sum.value ?? 0) }
+}
+
+export async function updateDashboardGoals(orgId: string, goals: DashboardGoals) {
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { settings: true } })
+  const settings = org?.settings && typeof org.settings === 'object' && !Array.isArray(org.settings)
+    ? { ...(org.settings as Prisma.JsonObject) }
+    : {}
+  await prisma.organization.update({
+    where: { id: orgId },
+    data: { settings: { ...settings, dashboardGoals: goals } as Prisma.InputJsonValue },
+  })
+  return goals
 }
 
 export async function getActivity(orgId: string, limit = 20) {

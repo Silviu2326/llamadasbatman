@@ -1,8 +1,8 @@
-/* Plan de crecimiento: lo propio de esta página encima del marco compartido
+/* Plan y objetivos: lo propio de esta página encima del marco compartido
    (growth-surface.css). Aquí solo vive lo que ninguna otra pantalla tiene —el
    veredicto, las notas por área, el embudo, el simulador y sus gráficos—;
    cabecera, pestañas, paneles, tablas, fichas y vacíos son los del marco.
-   El acento es --success, el color que «Plan de crecimiento» tiene en el
+   El acento es --success, el color que «Plan y objetivos» tiene en el
    sidebar. */
 
 .pl-page {

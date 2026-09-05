@@ -1,0 +1,47 @@
+.business-analysis { flex: 1; min-width: 0; overflow-y: auto; background: var(--bg); color: var(--text); }
+.analysis-content { max-width: 1280px; margin: auto; padding: 32px 36px 64px; }
+.business-analysis h1 { margin: 0; font-size: 28px; font-weight: 600; }
+.business-analysis h2 { margin: 0; font-size: 19px; font-weight: 550; }
+.business-analysis p { color: var(--muted); line-height: 1.6; font-size: 14px; margin: 10px 0 18px; }
+.business-analysis a { color: var(--text); text-underline-offset: 3px; }
+.business-analysis button, .business-analysis select { background: var(--surface); color: var(--text); border: 1px solid var(--line-control); border-radius: 5px; padding: 9px 12px; min-height: 40px; font: inherit; font-size: 13px; cursor: pointer; }
+.business-analysis button:disabled { opacity: .5; cursor: default; }
+.business-analysis :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.analysis-header, .analysis-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.analysis-controls { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.analysis-controls label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+.analysis-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; padding: 28px 0; border-block: 1px solid var(--line); margin-top: 24px; }
+.analysis-metrics h2 { font-size: 14px; }
+.analysis-metrics .analysis-value { display: block; font-size: 30px; font-weight: 550; border: 0; background: transparent; padding: 10px 0; text-align: left; }
+.analysis-value:hover { text-decoration: underline; }
+.analysis-metrics p, .analysis-metrics small { font-size: 12px; margin: 0; color: var(--muted); line-height: 1.5; }
+.analysis-metrics small { display: block; margin-top: 7px; }
+.analysis-section { border-bottom: 1px solid var(--line); padding: 30px 0; min-width: 0; }
+.analysis-chart { height: 280px; margin-top: 25px; }
+.business-analysis .analysis-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.analysis-table-wrap { overflow-x: auto; margin-top: 18px; }
+.analysis-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.analysis-table th, .analysis-table td { padding: 13px 12px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.analysis-table th { font-weight: 500; }
+.analysis-table thead { color: var(--muted); font-size: 12px; }
+.analysis-table th:first-child, .analysis-table td:first-child { text-align: left; padding-left: 0; }
+.analysis-table button { border: 0; padding: 0 5px; background: none; text-decoration: underline; }
+.analysis-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px; }
+.analysis-distribution { list-style: none; padding: 0; margin: 20px 0 0; }
+.analysis-distribution li { display: grid; grid-template-columns: minmax(100px, 1fr) 1fr 40px; align-items: center; gap: 14px; min-height: 42px; font-size: 13px; }
+.analysis-distribution li > span { overflow-wrap: anywhere; }
+.analysis-distribution meter { width: 100%; height: 12px; }
+.analysis-distribution button { padding: 4px; border: 0; background: none; text-decoration: underline; }
+.business-analysis summary { cursor: pointer; font-size: 15px; padding: 8px 0; }
+.business-analysis details[open] > .analysis-columns { margin-top: 22px; }
+.analysis-message { padding: 16px 0; }
+.analysis-message.is-error { border-left: 3px solid var(--warn); padding: 12px 16px; margin: 16px 0; background: var(--surface); }
+.analysis-message.is-error p { margin: 0 0 8px; }
+.analysis-records { margin-top: 24px; padding: 24px; border: 1px solid var(--line-control); border-radius: 6px; background: var(--surface); }
+.analysis-records ul { padding: 0; list-style: none; }
+.analysis-records li { display: grid; grid-template-columns: 115px minmax(0, 1fr) minmax(90px, auto) auto; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); padding: 12px 0; font-size: 13px; }
+.analysis-records li a, .analysis-records li span { overflow-wrap: anywhere; }
+.analysis-records time, .analysis-records li > span { color: var(--muted); font-size: 12px; }
+.analysis-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; margin-top: 20px; }
+@media(max-width: 1000px) { .analysis-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } .analysis-columns { grid-template-columns: 1fr; gap: 0; } .analysis-section-heading { flex-wrap: wrap; } }
+@media(max-width: 650px) { .analysis-content { padding: 24px 20px 80px; } .analysis-header { align-items: start; flex-direction: column; gap: 8px; } .business-analysis h1 { font-size: 25px; } .analysis-metrics { gap: 24px 15px; } .analysis-metrics .analysis-value { font-size: 25px; } .analysis-records { padding: 16px; } .analysis-records li { grid-template-columns: 1fr; gap: 6px; } .analysis-distribution li { grid-template-columns: minmax(110px, 1fr) 1fr 32px; gap: 8px; } }

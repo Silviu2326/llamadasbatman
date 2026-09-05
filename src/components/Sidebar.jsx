@@ -43,8 +43,8 @@ function getNavLabel(item, t) {
 // para que una lista de 17 items no sea un solo bloque plano.
 const DASHBOARD_ITEM = { label: 'Dashboard', color: 'var(--accent)', to: '/dashboard', moduleId: 'dashboard' }
 const OBJECTIVE_ITEM = { icon: RiSparkling2Line, label: 'Objetivos', color: 'var(--violet)', to: '/orquestador', moduleId: 'dashboard' }
-// Plan de crecimiento: qué hacer, en qué invertir y cuánto puedes conseguir.
-const PLAN_ITEM = { icon: RiLineChartLine, label: 'Plan de crecimiento', color: 'var(--success)', to: '/plan', moduleId: 'dashboard' }
+// Plan y objetivos: qué hacer, en qué invertir y cuánto puedes conseguir.
+const PLAN_ITEM = { icon: RiLineChartLine, label: 'Plan y objetivos', color: 'var(--success)', to: '/plan', moduleId: 'dashboard' }
 // Microapps va arriba, junto al home: es el catálogo de recetas por objetivo
 // (07-MICROAPPS §3), no una herramienta de sistema.
 const MICROAPPS_ITEM = { icon: RiApps2Line, label: 'Microapps', color: 'var(--cyan)', to: '/microapps', moduleId: 'microapps' }
@@ -101,7 +101,7 @@ const SECTIONS = [
     id: 'sistema',
     label: 'Sistema',
     items: [
-      { icon: RiBarChartLine, label: 'Insights',       color: 'var(--violet)', to: '/insights', moduleId: 'insights' },
+      { icon: RiBarChartLine, label: 'Análisis del negocio', color: 'var(--violet)', to: '/insights', moduleId: 'insights' },
       { icon: RiBuilding2Line, label: 'Información de empresa', color: 'var(--violet)', to: '/informacion-empresa', moduleId: 'business-info' },
       { icon: RiMagicLine, label: 'Rellenar desde la web', color: 'var(--violet-soft)', to: '/rellenar-desde-web', moduleId: 'business-info' },
       { icon: RiBookReadLine, label: 'Base de conocimiento', color: 'var(--success)', to: '/knowledge-base', moduleId: 'knowledge' },

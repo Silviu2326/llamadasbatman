@@ -1,149 +1,157 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ResponsiveContainer, BarChart, Bar, Line, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ComposedChart } from 'recharts'
-import { RiArrowRightSLine, RiBarChartLine, RiCalendarLine, RiCheckLine, RiGroupLine, RiLineChartLine, RiMoneyDollarBoxLine, RiPhoneLine, RiRefreshLine, RiRocketLine, RiSparkling2Line, RiTimeLine } from 'react-icons/ri'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { apiFetch } from '../lib/api'
-import { DEMO_MODE, getApiErrorMessage, isNonEmptyPayload } from '../lib/dataMode'
-import insightsHeroImage from '../assets/insights-hero.png'
-import '../dashboard.css'
-import './insights.css'
-import { getLocale, localeCode, useI18n } from '../i18n'
+import { groupSeries, validAnalysis } from '../lib/businessAnalysis'
+import { outcomeLabel } from '../lib/callOutcome'
+import { localeCode, useI18n } from '../i18n'
+import { useAuth } from '../contexts/AuthContext'
 import { useThemeColors } from '../hooks/useTheme'
-import PageLoadingState from './ui/PageLoadingState'
+import './business-analysis.css'
 
-// Paleta categórica. Acaba en `fill` de Recharts (atributo SVG), donde var() no
-// resuelve, así que se construye con los tokens ya resueltos a hex.
-const palette = c => [c.accentSoft, c.cyan, c.success, c.warn, c.danger, c.violet]
-const tooltipProps = { contentStyle: { background: 'var(--surface)', border: '1px solid var(--line-2)', borderRadius: 9, fontSize: 11 }, labelStyle: { color: 'var(--muted)' }, itemStyle: { color: 'var(--text)' } }
-const DEMO_STATS = {
-  closedWonValue: 48600, pipelineValue: 128400, meetingsScheduled: 34, conversionRate: 18.7, totalCalls: 462, totalLeads: 186, activeCampaigns: 4,
-  kpiPcts: { pipeline: 22, meetings: 14, calls: 18, leads: 9 },
-  timeSeries: [{ date: 'Lun', llamadas: 42, reuniones: 4 }, { date: 'Mar', llamadas: 58, reuniones: 6 }, { date: 'Mié', llamadas: 51, reuniones: 5 }, { date: 'Jue', llamadas: 76, reuniones: 8 }, { date: 'Vie', llamadas: 64, reuniones: 7 }, { date: 'Sáb', llamadas: 36, reuniones: 2 }, { date: 'Dom', llamadas: 28, reuniones: 2 }],
-  callsByCampaign: [{ name: 'Outbound B2B', value: 164, pct: 35 }, { name: 'Reactivación Q3', value: 118, pct: 26 }, { name: 'Demo producto', value: 92, pct: 20 }, { name: 'Partners', value: 54, pct: 12 }, { name: 'Inbound', value: 34, pct: 7 }],
-  funnel: [{ label: 'Leads', value: 186 }, { label: 'Contactados', value: 132 }, { label: 'Cualificados', value: 74 }, { label: 'Propuesta', value: 41 }, { label: 'Ganados', value: 18 }],
-  agentLeaderboard: [{ name: 'Sofía', calls: 138 }, { name: 'Leo', calls: 112 }, { name: 'Clara', calls: 96 }, { name: 'Nora', calls: 71 }, { name: 'Hugo', calls: 45 }],
-  sentiment: { positive: 62, neutral: 27, negative: 11 },
-  pipelineByDay: [{ date: '05 Jul', value: 12400 }, { date: '06 Jul', value: 19800 }, { date: '07 Jul', value: 8200 }, { date: '08 Jul', value: 26400 }, { date: '09 Jul', value: 17200 }, { date: '10 Jul', value: 22100 }, { date: '11 Jul', value: 12300 }],
+const stages = { lead: 'Inicial', qualified: 'Cualificada', proposal: 'Propuesta', negotiation: 'Negociación', closed_won: 'Ganada', closed_lost: 'Perdida' }
+const sentiments = { positive: 'Positivo', neutral: 'Neutral', negative: 'Negativo' }
+const statuses = { scheduled: 'Programada', completed: 'Completada', no_show: 'No asistió' }
+const initial = () => ({ data: null, loading: true, error: '' })
+
+export function AnalysisState({ resource, retry }) {
+  if (resource.error) return <div className="analysis-message is-error" role="alert"><p>{resource.error} {resource.data ? 'Se mantienen los últimos datos cargados; pueden estar desactualizados.' : ''}</p><button type="button" onClick={retry} disabled={resource.loading}>Reintentar</button></div>
+  if (resource.loading) return <p className="analysis-message" role="status">{resource.data ? 'Actualizando…' : 'Cargando resultados…'}</p>
+  return null
 }
 
-const EMPTY_STATS = {
-  closedWonValue: 0,
-  pipelineValue: 0,
-  meetingsScheduled: 0,
-  conversionRate: 0,
-  totalCalls: 0,
-  totalLeads: 0,
-  activeCampaigns: 0,
-  kpiPcts: {},
-  timeSeries: [],
-  callsByCampaign: [],
-  funnel: [],
-  agentLeaderboard: [],
-  sentiment: null,
-  pipelineByDay: [],
+export function ComparisonTable({ rows, dimension, onInspect, number }) {
+  if (!rows.length) return <p className="analysis-message">No hay llamadas registradas en este periodo.</p>
+  return <div className="analysis-table-wrap" role="region" aria-label={`Resultados por ${dimension === 'campaignId' ? 'campaña' : 'agente'}`} tabIndex={0}>
+    <table className="analysis-table"><thead><tr><th>{dimension === 'campaignId' ? 'Campaña' : 'Agente'}</th><th>Llamadas</th><th>Conversaciones*</th><th>Con reunión</th><th>% con reunión</th><th>Muestra</th></tr></thead>
+      <tbody>{rows.map(row => {
+        const filter = { kind: 'calls', [dimension]: row.id ?? 'unassigned' }
+        return <tr key={row.id ?? 'unassigned'}><th scope="row">{row.id ? <Link to={`/${dimension === 'campaignId' ? 'campanas' : 'agentes'}/${encodeURIComponent(row.id)}`}>{row.name}</Link> : row.name}</th>
+          <td><button onClick={() => onInspect({ ...filter, title: `Llamadas · ${row.name}` })}>{number(row.calls)}</button></td><td>{number(row.conversations)}</td>
+          <td><button onClick={() => onInspect({ ...filter, withMeeting: true, title: `Llamadas con reunión · ${row.name}` })}>{number(row.withMeeting)}</button></td>
+          <td>{number(row.meetingRate)}%</td><td>{row.smallSample ? 'Menos de 20 llamadas' : `${number(row.calls)} llamadas`}</td></tr>
+      })}</tbody>
+    </table>
+  </div>
 }
 
-function displayValue(value, empty) {
-  return empty ? '—' : value
+function Records({ selection, period, onClose, number, money, date }) {
+  const [page, setPage] = useState(1)
+  const [version, setVersion] = useState(0)
+  const [resource, setResource] = useState(initial)
+  const panel = useRef(null)
+  useEffect(() => { panel.current?.focus(); panel.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }, [])
+  useEffect(() => {
+    const controller = new AbortController()
+    let active = true
+    setResource(initial())
+    const { title, ...filters } = selection
+    const query = new URLSearchParams({ ...filters, start: period.start, end: period.end, page })
+    apiFetch(`/api/dashboard/analysis/records?${query}`, { signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error(response.status === 403 ? 'No tienes permiso para consultar estos registros.' : 'No se pudo cargar el detalle.')
+      const data = await response.json()
+      if (!Array.isArray(data?.rows) || !Number.isFinite(data.total)) throw new Error('El detalle no está disponible.')
+      if (active) setResource({ data, loading: false, error: '' })
+    }).catch(error => { if (active) setResource({ data: null, loading: false, error: error.message }) })
+    return () => { active = false; controller.abort() }
+  }, [selection, period, page, version])
+  const data = resource.data
+  return <section className="analysis-records" ref={panel} tabIndex={-1} aria-label={selection.title}>
+    <div className="analysis-section-heading"><h2>{selection.title}</h2><button onClick={onClose}>Cerrar detalle</button></div>
+    <AnalysisState resource={resource} retry={() => setVersion(value => value + 1)} />
+    {data ? <><p>{number(data.total)} registros · {date(period.start)} – {date(period.end)} (UTC).</p>
+      {data.rows.length ? <ul>{data.rows.map(row => <li key={row.id}><time dateTime={row.date}>{date(row.date)}</time><Link to={row.href}>{row.title}</Link>
+        <span>{selection.kind === 'calls' ? outcomeLabel(row.detail) : stages[row.detail] || statuses[row.detail] || row.detail}</span>{row.value !== undefined ? <strong>{row.value == null ? 'Sin importe' : money(row.value, row.currency)}</strong> : null}</li>)}</ul> : <p>No hay registros que coincidan con este filtro.</p>}
+      <div className="analysis-pagination"><button disabled={page === 1 || resource.loading} onClick={() => setPage(value => value - 1)}>Anterior</button><span>Página {page} de {Math.max(1, Math.ceil(data.total / 25))}</span><button disabled={page * 25 >= data.total || resource.loading} onClick={() => setPage(value => value + 1)}>Siguiente</button></div>
+      <p className="analysis-note">Los registros reflejan su estado actual. Si alguien los modifica después de cargar el análisis, actualiza para recalcular las cifras.</p>
+    </> : null}
+  </section>
 }
 
-function Empty({ message }) { return <div className="insights-empty"><div><RiLineChartLine /></div><strong>Aún no hay datos suficientes</strong><p>{message}</p></div> }
-
-function Metric({ Icon, label, value, detail, color }) { return <article className="insights-metric"><div className="insights-metric-icon" style={{ color, background: `color-mix(in srgb, ${color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${color} 22%, transparent)` }}><Icon /></div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></article> }
-
-function ActivityChart({ data, period, setPeriod }) {
-  const colors = useThemeColors()
-  if (!data.length) return <Empty message="Las llamadas y reuniones aparecerán aquí cuando empiecen a registrarse." />
-  return <><div className="insights-panel-heading"><div><span className="insights-eyebrow">Ritmo comercial</span><h2>Actividad a lo largo del tiempo</h2><p>Compara volumen de llamadas con reuniones generadas.</p></div><select value={period} onChange={event => setPeriod(event.target.value)} aria-label="Periodo del gráfico">{['Diario', 'Semanal', 'Mensual'].map(item => <option key={item}>{item}</option>)}</select></div><div className="insights-legend"><span><i className="cyan" /> Llamadas</span><span><i className="green" /> Reuniones</span></div><ResponsiveContainer width="100%" height={220}><ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}><XAxis dataKey="date" tick={{ fontSize: 10, fill: colors.dim }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 9, fill: colors.faint }} axisLine={false} tickLine={false} width={30} /><Tooltip {...tooltipProps} /><Bar dataKey="llamadas" name="Llamadas" fill={colors.cyan} fillOpacity={.65} radius={[4, 4, 0, 0]} /><Line type="monotone" dataKey="reuniones" name="Reuniones" stroke={colors.success} strokeWidth={2.5} dot={{ r: 3, fill: colors.success, strokeWidth: 0 }} /></ComposedChart></ResponsiveContainer></>
+function Distribution({ rows, labels, empty, onInspect }) {
+  const total = rows.reduce((sum, row) => sum + row.count, 0)
+  return total ? <ul className="analysis-distribution">{rows.map(row => <li key={row.key}>
+    <span>{labels(row.key)}</span><meter min={0} max={total} value={row.count} aria-label={labels(row.key)} />
+    {onInspect ? <button onClick={() => onInspect(row.key)}>{row.count}</button> : <strong>{row.count}</strong>}
+  </li>)}</ul> : <p className="analysis-message">{empty}</p>
 }
 
-function CampaignMix({ data }) {
-  const COLORS = palette(useThemeColors())
-  if (!data.length) return <Empty message="Cuando haya campañas con actividad podrás comparar su peso aquí." />
-  const total = data.reduce((sum, item) => sum + item.value, 0)
-  return <div className="insights-campaign-mix"><div className="insights-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="value" innerRadius={45} outerRadius={67} strokeWidth={0}>{data.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}</Pie></PieChart></ResponsiveContainer><div><strong>{total}</strong><span>llamadas</span></div></div><div className="insights-campaign-list">{data.slice(0, 5).map((item, index) => <div key={item.name}><span><i style={{ background: COLORS[index % COLORS.length] }} />{item.name}</span><strong>{item.value}<small>{item.pct}%</small></strong></div>)}</div></div>
-}
-
-function Funnel({ data }) {
+function BusinessAnalysis() {
   const { locale } = useI18n()
-  const COLORS = palette(useThemeColors())
-  if (!data.length) return <Empty message="El embudo se activará cuando existan oportunidades en el pipeline." />
-  const max = data[0]?.value || 1
-  return <div className="insights-funnel">{data.map((item, index) => <div className="insights-funnel-row" key={item.label}><div className="insights-funnel-bar" style={{ width: `${Math.max(18, (item.value / max) * 100)}%`, background: COLORS[index % COLORS.length] }}><span>{item.label}</span><strong>{item.value.toLocaleString(localeCode(locale))}</strong></div></div>)} </div>
-}
-
-function Sentiment({ sentiment }) {
-  const { locale } = useI18n()
   const colors = useThemeColors()
-  if (!sentiment) return <Empty message="Procesaremos el sentimiento cuando existan transcripciones disponibles." />
-  const data = [{ name: locale === 'en' ? 'Positive' : 'Positivo', value: sentiment.positive, color: colors.success }, { name: 'Neutral', value: sentiment.neutral, color: colors.warn }, { name: locale === 'en' ? 'Negative' : 'Negativo', value: sentiment.negative, color: colors.danger }]
-  if (!data.some(item => Number(item.value) > 0)) return <Empty message="Procesaremos el sentimiento cuando existan transcripciones disponibles." />
-  return <div className="insights-sentiment"><div className="insights-sentiment-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.some(item => item.value > 0) ? data : [{ value: 1, color: colors.line }]} dataKey="value" innerRadius={35} outerRadius={52} strokeWidth={0}>{(data.some(item => item.value > 0) ? data : [{ color: colors.line }]).map((item, index) => <Cell key={index} fill={item.color} />)}</Pie></PieChart></ResponsiveContainer><div><strong>{sentiment.positive || '—'}%</strong><span>positivo</span></div></div><div className="insights-sentiment-list">{data.map(item => <div key={item.name}><span><i style={{ background: item.color }} />{item.name}</span><div><span className="sentiment-track"><b style={{ width: `${item.value}%`, background: item.color }} /></span><strong>{item.value}%</strong></div></div>)}</div></div>
+  const [days, setDays] = useState(30)
+  const [interval, setInterval] = useState('day')
+  const [chartMetric, setChartMetric] = useState('activity')
+  const [version, setVersion] = useState(0)
+  const [resource, setResource] = useState(initial)
+  const [selection, setSelection] = useState(null)
+  const trigger = useRef(null)
+  const retry = () => setVersion(value => value + 1)
+  const number = value => new Intl.NumberFormat(localeCode(locale), { maximumFractionDigits: 1 }).format(value)
+  const money = (value, currency = 'EUR') => new Intl.NumberFormat(localeCode(locale), { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
+  const date = value => new Intl.DateTimeFormat(localeCode(locale), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value))
+  useEffect(() => {
+    const controller = new AbortController()
+    let active = true
+    setSelection(null)
+    setResource(current => ({ data: current.data?.period.days === days ? current.data : null, loading: true, error: '' }))
+    apiFetch(`/api/dashboard/analysis?days=${days}`, { signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error(response.status === 403 ? 'No tienes permiso para consultar el análisis.' : 'No se pudieron cargar los resultados.')
+      const data = await response.json()
+      if (!validAnalysis(data) || data.period.days !== days) throw new Error('El informe recibido está incompleto. Vuelve a intentarlo.')
+      if (active) setResource({ data, loading: false, error: '' })
+    }).catch(error => { if (active) setResource(current => ({ ...current, loading: false, error: error.message })) })
+    return () => { active = false; controller.abort() }
+  }, [days, version])
+  const data = resource.data
+  const series = useMemo(() => groupSeries(data?.series || [], interval), [data?.series, interval])
+  const inspect = value => { trigger.current = document.activeElement; setSelection(value) }
+  const close = () => { setSelection(null); trigger.current?.focus() }
+  const difference = metric => metric.change == null ? 'Sin base anterior para calcular la variación' : `${metric.change > 0 ? '+' : ''}${number(metric.change)}% frente al periodo anterior`
+  return <main className="business-analysis dark-scroll"><div className="analysis-content">
+    <header className="analysis-header"><div><h1>Análisis del negocio</h1><p>Ventas, reuniones y resultados de las llamadas.</p></div>
+      <div className="analysis-controls"><label>Periodo<select value={days} onChange={event => { setDays(Number(event.target.value)); setResource(initial()); setSelection(null) }}>{[7, 30, 90].map(value => <option key={value} value={value}>Últimos {value} días</option>)}</select></label><button disabled={resource.loading} onClick={retry}>Actualizar</button></div>
+    </header>
+    <AnalysisState resource={resource} retry={retry} />
+    {data ? <>
+      <p className="analysis-note">{date(data.period.start)} – {date(data.period.end)} · UTC · Actualizado a las {new Intl.DateTimeFormat(localeCode(locale), { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }).format(new Date(data.generatedAt))}. Comparación: {date(data.period.previousStart)} – {date(data.period.previousEnd)}, hasta la misma hora.</p>
+      {data.warnings.missingCloseDates > 0 || data.warnings.otherCurrencies > 0 || data.warnings.missingValues > 0 ? <div className="analysis-message is-error" role="status">
+        {data.warnings.missingCloseDates > 0 ? <p>{data.warnings.missingCloseDates} oportunidades cerradas de la cuenta no tienen fecha de cierre y no se pueden asignar a un periodo.</p> : null}
+        {data.warnings.otherCurrencies > 0 ? <p>{data.warnings.otherCurrencies} ventas del periodo están en otra moneda. El importe mostrado suma únicamente euros, sin convertir monedas.</p> : null}
+        {data.warnings.missingValues > 0 ? <p>{data.warnings.missingValues} ventas no tienen importe registrado: la suma está incompleta.</p> : null}
+      </div> : null}
+      {selection ? <Records key={JSON.stringify(selection)} selection={selection} period={data.period} onClose={close} number={number} money={money} date={date} /> : null}
+      <section className="analysis-metrics" aria-label="Resultados del periodo">
+        {[
+          { key: 'revenue', title: 'Ventas cerradas', value: money(data.metrics.revenue.value), note: `${data.sample.won} ventas · importe en euros`, kind: 'won' },
+          { key: 'meetings', title: 'Reuniones creadas', value: number(data.metrics.meetings.value), note: 'Creadas en el periodo, sin canceladas', kind: 'meetings' },
+          { key: 'calls', title: 'Llamadas realizadas', value: number(data.metrics.calls.value), note: 'Todos los intentos registrados', kind: 'calls' },
+          { key: 'winRate', title: 'Cierre de oportunidades', value: data.metrics.winRate.value == null ? '—' : `${number(data.metrics.winRate.value)}%`, note: `${data.sample.won} ganadas de ${data.sample.closed} cerradas`, kind: 'closed' },
+        ].map(item => <article key={item.key}><h2>{item.title}</h2><button className="analysis-value" onClick={() => inspect({ kind: item.kind, title: item.title })} aria-label={`${item.title}: ${item.value}. Ver registros`}>{item.value}</button><p>{item.note}</p><small>{item.key === 'winRate' ? data.metrics.winRate.points == null ? 'Sin cierres comparables en ambos periodos' : `${number(data.metrics.winRate.points)} puntos frente al periodo anterior` : difference(data.metrics[item.key])}</small></article>)}
+      </section>
+      {data.metrics.calls.value === 0 && data.metrics.meetings.value === 0 && data.sample.closed === 0 && data.sample.opportunities === 0 ? <p className="analysis-message">No hay actividad registrada en este periodo. Prueba con un periodo más amplio o empieza añadiendo <Link to="/ventas?vista=leads">contactos</Link>.</p> : null}
+      <section className="analysis-section"><div className="analysis-section-heading"><h2>Evolución del periodo</h2><div className="analysis-controls">
+        <label>Mostrar<select value={chartMetric} onChange={event => setChartMetric(event.target.value)}><option value="activity">Llamadas y reuniones</option><option value="revenue">Ventas en euros</option></select></label>
+        <label>Agrupar por<select value={interval} onChange={event => setInterval(event.target.value)}><option value="day">Día</option><option value="week">Semana</option><option value="month">Mes</option></select></label>
+      </div></div><p>Solo se suman los días del periodo seleccionado. Las semanas empiezan el lunes; los extremos pueden estar incompletos.</p>
+        <div className="analysis-chart"><ResponsiveContainer width="100%" height={260}><BarChart data={series} accessibilityLayer><CartesianGrid vertical={false} stroke={colors.line} /><XAxis dataKey="date" tickFormatter={value => date(value).replace(/ \d{4}$/, '')} tick={{ fill: colors.dim, fontSize: 11 }} /><YAxis tick={{ fill: colors.dim, fontSize: 11 }} width={65} /><Tooltip labelFormatter={date} contentStyle={{ background: 'var(--surface)', borderColor: 'var(--line)' }} />
+          {chartMetric === 'activity' ? <><Bar dataKey="calls" name="Llamadas" fill={colors.cyan} /><Bar dataKey="meetings" name="Reuniones creadas" fill={colors.success} /></> : <Bar dataKey="revenue" name="Ventas (€)" fill={colors.success} />}
+        </BarChart></ResponsiveContainer></div>
+        <p className="analysis-note">{chartMetric === 'activity' ? 'Llamadas en azul · Reuniones en verde. Las reuniones se cuentan por su fecha de creación, aunque se celebren más adelante.' : 'Ventas ganadas en euros, agrupadas por fecha de cierre. No incluye oportunidades abiertas.'}</p>
+        <details><summary>Ver cifras del gráfico</summary><div className="analysis-table-wrap"><table className="analysis-table"><thead><tr><th>Inicio del grupo</th><th>Llamadas</th><th>Reuniones</th><th>Ventas (€)</th></tr></thead><tbody>{series.map(row => <tr key={row.date}><td>{date(row.date)}</td><td>{number(row.calls)}</td><td>{number(row.meetings)}</td><td>{money(row.revenue)}</td></tr>)}</tbody></table></div></details>
+      </section>
+      {[['campaignId', 'Resultados por campaña', data.campaigns], ['agentId', 'Resultados por agente', data.agents]].map(([dimension, title, rows]) => <section className="analysis-section" key={dimension}><h2>{title}</h2><p>Ordenados por llamadas con alguna reunión vinculada y no cancelada. Cada llamada cuenta una vez, aunque genere varias reuniones.</p><ComparisonTable rows={rows} dimension={dimension} onInspect={inspect} number={number} /><p className="analysis-note">*Conversaciones identificadas por el resultado registrado. Las reuniones pueden haberse creado después de la llamada. Con pocas llamadas, el porcentaje puede variar mucho; no indica por sí solo quién vende mejor.</p></section>)}
+      <div className="analysis-columns">
+        <section className="analysis-section"><div className="analysis-section-heading"><h2>Oportunidades del periodo</h2><button onClick={() => inspect({ kind: 'opportunities', title: 'Oportunidades creadas' })}>Ver registros</button></div><p>Estado actual de las {data.sample.opportunities} oportunidades creadas en este periodo. Cada una aparece en una sola etapa.</p><Distribution rows={data.stages} labels={key => stages[key] || key} empty="No se crearon oportunidades en este periodo." /></section>
+        <section className="analysis-section"><div className="analysis-section-heading"><h2>Motivos de pérdida</h2><button onClick={() => inspect({ kind: 'lost', title: 'Oportunidades perdidas' })}>Ver registros</button></div><p>Motivos registrados en las oportunidades perdidas por fecha de cierre.</p><Distribution rows={data.losses} labels={key => key} empty="No hay oportunidades perdidas con fecha de cierre en este periodo." /></section>
+      </div>
+      <details className="analysis-section"><summary>Resultados y sentimiento de las llamadas</summary><div className="analysis-columns"><section><h2>Resultado registrado</h2><Distribution rows={data.outcomes} labels={outcomeLabel} empty="No hay llamadas en este periodo." onInspect={outcome => inspect({ kind: 'calls', outcome, title: outcomeLabel(outcome) })} /></section><section><h2>Sentimiento</h2><p>Hay sentimiento identificado en {data.sample.sentiments} de {data.metrics.calls.value} llamadas. No equivale a satisfacción ni a una venta.</p><Distribution rows={data.sentiment} labels={key => sentiments[key]} empty="Todavía no hay sentimiento identificado." /></section></div></details>
+      <p className="analysis-note">Los resultados reflejan lo registrado en la cuenta. Puedes <Link to="/plan">fijar objetivos y organizar acciones</Link> a partir de ellos.</p>
+    </> : null}
+  </div></main>
 }
 
 export default function Insights() {
-  const { t, locale } = useI18n()
-  const navigate = useNavigate()
-  const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState('Diario')
-  const [notice, setNotice] = useState('')
-  const [dataSource, setDataSource] = useState(DEMO_MODE ? 'demo' : 'loading')
-  const [error, setError] = useState('')
-
-  async function loadStats() {
-    setLoading(true)
-    setError('')
-    try {
-      const response = await apiFetch('/api/dashboard/stats')
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(getApiErrorMessage(body, 'No se pudieron cargar los insights.'))
-      const nextStats = body && typeof body === 'object' ? { ...EMPTY_STATS, ...body } : EMPTY_STATS
-      setStats(nextStats)
-      setDataSource(isNonEmptyPayload(nextStats) ? 'live' : 'empty')
-    } catch (loadError) {
-      setError(loadError.message || 'No se pudo cargar la lectura de rendimiento.')
-      if (DEMO_MODE) {
-        setStats(DEMO_STATS)
-        setDataSource('demo')
-      } else {
-        setStats(EMPTY_STATS)
-        setDataSource('disconnected')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-  useEffect(() => { loadStats() }, [])
-
-  const metrics = useMemo(() => stats ? [
-    { Icon: RiMoneyDollarBoxLine, label: locale === 'en' ? 'Closed pipeline' : 'Pipeline cerrado', value: `€${Math.round(stats.closedWonValue ?? 0).toLocaleString(localeCode(locale))}`, detail: `${stats.kpiPcts?.pipeline ?? 0}% ${locale === 'en' ? 'vs. previous period' : 'vs. periodo anterior'}`, color: 'var(--violet)' },
-    { Icon: RiCalendarLine, label: locale === 'en' ? 'Meetings booked' : 'Reuniones agendadas', value: stats.meetingsScheduled ?? 0, detail: `${stats.kpiPcts?.meetings ?? 0}% ${locale === 'en' ? 'change' : 'de variación'}`, color: 'var(--cyan)' },
-    { Icon: RiLineChartLine, label: locale === 'en' ? 'Overall conversion' : 'Conversión global', value: `${stats.conversionRate ?? 0}%`, detail: locale === 'en' ? 'over the current funnel' : 'sobre el funnel actual', color: 'var(--success)' },
-    { Icon: RiPhoneLine, label: locale === 'en' ? 'Total calls' : 'Llamadas totales', value: stats.totalCalls ?? 0, detail: `${stats.kpiPcts?.calls ?? 0}% ${locale === 'en' ? 'change' : 'de variación'}`, color: 'var(--warn-soft)' },
-  ] : [], [stats, dataSource, locale])
-  const bestCampaign = stats?.callsByCampaign?.[0]
-  const activeCampaigns = stats?.activeCampaigns ?? 0
-
-  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading insights' : 'Cargando insights'} />
-
-  return <div className="dark-scroll insights-page">
-    {DEMO_MODE && <div className="insights-demo-banner" role="status"><RiSparkling2Line /><div><strong>Estás viendo datos demo</strong><span>Sirven para explorar la experiencia. El modo demo se ha habilitado explícitamente.</span></div><button onClick={loadStats}><RiRefreshLine /> Intentar conexión real</button></div>}
-    <header className="insights-header"><div className="insights-heading"><div className="insights-brand-icon"><RiBarChartLine /></div><div><h1>{t('modules.insightsTitle')}</h1><p>{locale === 'en' ? 'Turn CRM activity into decisions that move the pipeline.' : 'Convierte la actividad de tu CRM en decisiones que mueven el pipeline.'}</p></div></div></header>
-
-    <section className="insights-hero" aria-labelledby="insights-hero-title"><div className="insights-hero-copy"><div className="insights-hero-status"><i /> Lectura ejecutiva · datos actualizados</div><h2 id="insights-hero-title">Mira el patrón. Decide el siguiente movimiento.</h2><p>Una vista unificada de llamadas, reuniones, campañas y pipeline para entender qué está funcionando y dónde actuar ahora.</p><div className="insights-hero-actions"><button className="insights-button primary" onClick={() => document.querySelector('#insights-evidence')?.scrollIntoView({ behavior: 'smooth' })}><RiSparkling2Line /> Explorar señales</button><button className="insights-button secondary" onClick={() => document.querySelector('#insights-detail')?.scrollIntoView({ behavior: 'smooth' })}>Ver detalle <RiArrowRightSLine /></button></div><div className="insights-hero-meta"><span><RiCheckLine /> Datos agregados del CRM</span><span><RiTimeLine /> Actualización automática</span></div></div><div className="insights-hero-media"><img src={insightsHeroImage} alt="Capa visual de inteligencia sobre datos comerciales" /><div className="insights-hero-caption"><span>Revenue intelligence</span><strong>Observar · entender · actuar</strong></div></div></section>
-
-    {loading ? <div className="insights-loading"><RiBarChartLine /><span>Preparando tu lectura de rendimiento…</span></div> : stats ? <>
-      <section className="insights-metrics" aria-label="Resumen de rendimiento">{metrics.map(metric => <Metric key={metric.label} {...metric} />)}</section>
-
-      <section className="insights-signal-band" id="insights-evidence"><div className="insights-signal-intro"><span className="insights-eyebrow">Lectura rápida</span><h2>Lo que merece tu atención.</h2><p>Señales derivadas de los datos que ya tienes en Vendrava.</p></div><div className="insights-signal-grid"><article><span><RiRocketLine /> Campaña líder</span><strong>{bestCampaign?.name ?? 'Sin datos todavía'}</strong><small>{bestCampaign ? `${bestCampaign.value} llamadas · ${bestCampaign.pct}% del total` : 'Añade actividad para identificar el canal con más tracción.'}</small></article><article><span><RiGroupLine /> Base comercial</span><strong>{stats.totalLeads ?? 0} leads</strong><small>{activeCampaigns} campañas activas conectadas al análisis.</small></article><article><span><RiCalendarLine /> Próximo foco</span><strong>{stats.meetingsScheduled ?? 0} reuniones</strong><small>Revisa la conversión para saber dónde priorizar seguimiento.</small></article></div></section>
-
-      <section className="insights-evidence-grid"><article className="insights-panel insights-chart-panel"><ActivityChart data={stats.timeSeries ?? []} period={period} setPeriod={setPeriod} /></article><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Distribución</span><h2>Llamadas por campaña</h2><p>Cómo se reparte el esfuerzo comercial.</p></div></div><CampaignMix data={stats.callsByCampaign ?? []} /></article></section>
-
-      <section className="insights-detail-grid" id="insights-detail"><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Conversión</span><h2>Embudo comercial</h2><p>La progresión de oportunidades por etapa.</p></div></div><Funnel data={stats.funnel ?? []} /></article><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Equipo</span><h2>Agentes IA con más actividad</h2><p>Volumen de llamadas por agente.</p></div></div>{stats.agentLeaderboard?.length ? <div className="insights-agent-list">{stats.agentLeaderboard.slice(0, 5).map((agent, index) => <div key={agent.name}><span className="agent-rank">0{index + 1}</span><span className="insights-agent-avatar">{agent.name.slice(0, 2).toUpperCase()}</span><strong>{agent.name}</strong><b>{agent.calls}</b></div>)}</div> : <Empty message="El ranking aparecerá cuando los agentes empiecen a registrar llamadas." />}</article><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Conversaciones</span><h2>Sentimiento</h2><p>Lectura de las transcripciones procesadas.</p></div></div><Sentiment sentiment={stats.sentiment} /></article></section>
-
-      <section className="insights-bottom-grid"><article className="insights-panel"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Pipeline</span><h2>Valor generado por día</h2><p>Últimos siete días registrados.</p></div></div>{stats.pipelineByDay?.length ? <div className="insights-pipeline-list">{stats.pipelineByDay.map(item => <div key={item.date}><span>{item.date}</span><div><span><b style={{ width: `${stats.pipelineValue ? Math.min(100, (item.value / stats.pipelineValue) * 100) : 0}%` }} /></span><strong>{item.value ? `€${Math.round(item.value).toLocaleString(localeCode(getLocale()))}` : '—'}</strong></div></div>)}</div> : <Empty message="No hay oportunidades registradas esta semana." />}</article><aside className="insights-panel insights-summary"><div className="insights-panel-heading"><div><span className="insights-eyebrow">Resumen global</span><h2>Tu contexto actual</h2></div></div><div className="insights-summary-list"><div><span>Campañas activas</span><strong>{stats.activeCampaigns ?? 0}</strong></div><div><span>Pipeline total</span><strong>€{Math.round(stats.pipelineValue ?? 0).toLocaleString(localeCode(getLocale()))}</strong></div><div><span>Pipeline cerrado</span><strong>€{Math.round(stats.closedWonValue ?? 0).toLocaleString(localeCode(getLocale()))}</strong></div><div><span>Tasa de conversión</span><strong>{stats.conversionRate ?? 0}%</strong></div></div><button className="insights-link-button" onClick={() => navigate('/pipeline')}>Profundizar en el análisis <RiArrowRightSLine /></button></aside></section>
-    </> : <div className="insights-full-empty"><RiLineChartLine /><h2>No hemos podido cargar tus insights</h2><p>Comprueba la conexión y vuelve a intentarlo para ver el rendimiento de tu CRM.</p><button className="insights-button primary" onClick={loadStats}><RiRefreshLine /> Reintentar</button></div>}
-    <footer className="insights-footer"><span>Los datos se actualizan automáticamente desde tu cuenta.</span><span><RiCheckLine /> Lectura basada en actividad real</span></footer>{notice && <div className="insights-toast" role="status"><RiCheckLine /> {notice}</div>}
-  </div>
+  const { user } = useAuth()
+  return <BusinessAnalysis key={user?.orgId || user?.id || 'workspace'} />
 }

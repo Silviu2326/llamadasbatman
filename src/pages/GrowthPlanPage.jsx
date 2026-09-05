@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { MonthlyGoals } from '../components/MonthlyGoals'
+import { simulate, reversePlan } from '../lib/growthSimulation'
 import {
-  RiAddCircleLine, RiAlertLine, RiArrowRightLine, RiCheckboxCircleLine, RiCoinsLine,
-  RiCompass3Line, RiFlashlightLine, RiFocus3Line, RiHandCoinLine, RiInformationLine,
-  RiLineChartLine, RiLoader4Line, RiPhoneLine, RiPulseLine, RiRefreshLine, RiResetLeftLine,
-  RiSignalTowerLine, RiSparkling2Line, RiStackLine, RiTaskLine, RiTimeLine,
+  RiAddCircleLine, RiArrowRightLine, RiCheckboxCircleLine, RiCoinsLine,
+  RiFlashlightLine, RiFocus3Line, RiHandCoinLine, RiInformationLine,
+  RiLineChartLine, RiLoader4Line, RiRefreshLine, RiResetLeftLine,
+  RiSignalTowerLine, RiTaskLine, RiTimeLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { classifyFetchError } from '../lib/dataStatus'
@@ -14,22 +17,7 @@ import DataStatusBanner from '../components/ui/DataStatusBanner'
 import PageLoadingState from '../components/ui/PageLoadingState'
 import './growth/growth-surface.css'
 import './growth-plan.css'
-
-/**
- * Plan de crecimiento: la pantalla desde la que se dirige el departamento de
- * ventas. Mira llamadas, anuncios, redes, búsqueda, email y pipeline a la vez,
- * dice qué está roto, cuánto vale arreglarlo y deja probarlo.
- *
- * El diagnóstico viene hecho de `/api/growth-plan/board`: la página no calcula
- * veredictos por su cuenta, porque la misma cifra no puede decir dos cosas
- * según quién la mire.
- *
- * El simulador es la excepción deliberada y repite la cadena del backend
- * (`project()` en growthPredictor.service.ts): mover un control tiene que
- * responder en el mismo fotograma, y una petición por cada píxel del slider no
- * responde. Las dos cuentas tienen que dar lo mismo con las mismas tasas; si
- * una cambia, la otra cambia.
- */
+import './plan-focused.css'
 
 const WINDOWS = [
   { value: 30, label: '30 días' },
@@ -39,30 +27,17 @@ const WINDOWS = [
 ]
 
 const TABS = [
-  { key: 'simular', label: 'Simular', icon: RiSparkling2Line },
-  { key: 'ahora', label: 'Ahora', icon: RiCompass3Line },
-  { key: 'dinero', label: 'Dinero', icon: RiHandCoinLine },
-  { key: 'ventas', label: 'Ventas', icon: RiPhoneLine },
-  { key: 'hacer', label: 'Hacer', icon: RiTaskLine },
+  { key: 'objetivos', label: 'Objetivos', icon: RiFocus3Line },
+  { key: 'hacer', label: 'Plan de acción', icon: RiTaskLine },
+  { key: 'simular', label: 'Simulador', icon: RiLineChartLine },
 ]
 
-const AREA_COLOR = { bien: 'var(--success)', regular: 'var(--warn)', mal: 'var(--danger)', 'sin-datos': 'var(--dim)' }
-const STAGE_COLOR = {
-  escalando: 'var(--success)', funcionando: 'var(--accent)', aprendiendo: 'var(--warn)',
-  'en-riesgo': 'var(--danger)', arranque: 'var(--dim)',
-}
-const STAGE_LABEL = {
-  escalando: 'Listo para escalar', funcionando: 'Funcionando', aprendiendo: 'Aprendiendo',
-  'en-riesgo': 'En riesgo', arranque: 'Arranque',
-}
-const VERDICT_TONE = { escalar: 'tone-ok', mantener: 'tone-info', arreglar: 'tone-warn', parar: 'tone-bad', medir: '' }
 const HORIZON_CARD = { hoy: 'tone-danger', 'esta-semana': 'tone-warn', 'este-mes': 'tone-info' }
 const HORIZON_LABEL = { hoy: 'Hoy', 'esta-semana': 'Esta semana', 'este-mes': 'Este mes' }
 const HORIZON_ORDER = ['hoy', 'esta-semana', 'este-mes']
-const KIND_LABEL = { ingreso: 'Factura más', ahorro: 'Deja de quemar', rescate: 'Dinero parado' }
+const KIND_LABEL = { ingreso: 'Ventas estimadas', ahorro: 'Ahorro estimado', rescate: 'Recuperación estimada' }
 const KIND_CARD = { ingreso: 'tone-success', ahorro: 'tone-info', rescate: 'tone-violet' }
 const CONFIDENCE_TONE = { alta: 'tone-ok', media: 'tone-warn', baja: 'tone-bad' }
-const CHANNEL_COLOR = ['var(--success)', 'var(--accent)', 'var(--violet)', 'var(--cyan)', 'var(--warn)', 'var(--pink)', 'var(--dim)']
 
 function money(value, currency, compact = false) {
   return new Intl.NumberFormat(localeCode(getLocale()), {
@@ -83,36 +58,6 @@ function decimal(value) {
 
 function percent(value) {
   return value == null ? '—' : `${Math.round(value * 100)}%`
-}
-
-function duration(minutes) {
-  if (minutes == null) return '—'
-  if (minutes < 60) return `${Math.round(minutes)} min`
-  if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h`
-  return `${Math.round(minutes / (60 * 24))} días`
-}
-
-/** La cadena del embudo, idéntica a `project()` del backend. */
-function simulate(input) {
-  const costPerCall = input.costPerMinute * input.minutesPerCall
-  const calls = costPerCall > 0 ? Math.floor(input.budget / costPerCall) : 0
-  const conversations = calls * input.contact
-  const qualified = conversations * input.qualify
-  const opportunities = qualified * input.opportunity
-  const sales = opportunities * input.win
-  const revenue = sales * input.dealValue
-  return {
-    calls,
-    conversations,
-    qualified,
-    opportunities,
-    sales,
-    revenue,
-    profit: revenue - input.budget,
-    roi: input.budget > 0 ? revenue / input.budget : 0,
-    costPerSale: sales >= 0.1 ? input.budget / sales : null,
-    minutes: Math.round(calls * input.minutesPerCall),
-  }
 }
 
 function Panel({ title, subtitle, icon: Icon, actions, children }) {
@@ -154,79 +99,6 @@ function Detail({ label, children }) {
   )
 }
 
-function Gauge({ score, color }) {
-  const radius = 34
-  const circumference = 2 * Math.PI * radius
-  const offset = score == null ? circumference : circumference * (1 - Math.min(100, Math.max(0, score)) / 100)
-  return (
-    <div className="pl-gauge">
-      <svg viewBox="0 0 84 84" aria-hidden="true">
-        <circle className="pl-gauge-track" cx="42" cy="42" r={radius} />
-        <circle
-          className="pl-gauge-value" cx="42" cy="42" r={radius}
-          strokeDasharray={circumference} strokeDashoffset={offset} style={{ stroke: color }}
-        />
-      </svg>
-      <b>{score == null ? '—' : score}</b>
-    </div>
-  )
-}
-
-// ── Gráficos ────────────────────────────────────────────────────────────────
-
-/**
- * Embudo de verdad, no cinco barras. La forma es SVG estirado y las etiquetas
- * son HTML encima: meter el texto dentro del SVG lo deformaría con el ancho.
- */
-function FunnelChart({ steps, bottleneckKey }) {
-  const top = Math.max(1, steps[0]?.value ?? 1)
-  const widths = steps.map(step => Math.max(5, (step.value / top) * 100))
-  const rows = steps.length
-  const rowHeight = 100 / rows
-
-  return (
-    <div className="pl-funnel" style={{ '--pl-funnel-rows': rows }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        {steps.map((step, index) => {
-          const wTop = widths[index]
-          const wBottom = widths[index + 1] ?? wTop * 0.88
-          const y = index * rowHeight
-          const bottom = y + rowHeight - 1.4
-          const points = [
-            `${50 - wTop / 2},${y}`, `${50 + wTop / 2},${y}`,
-            `${50 + wBottom / 2},${bottom}`, `${50 - wBottom / 2},${bottom}`,
-          ].join(' ')
-          // El degradado se calcula aquí y no en CSS: una `color-mix` con
-          // porcentajes derivados de una variable no la resuelven todos los
-          // navegadores, y fallar ahí deja el embudo invisible.
-          const mix = Math.round(100 - (index / Math.max(1, rows - 1)) * 65)
-          return (
-            <polygon
-              key={step.key}
-              points={points}
-              className={`pl-funnel-slice${bottleneckKey === step.key ? ' is-bottleneck' : ''}`}
-              style={bottleneckKey === step.key ? undefined : { fill: `color-mix(in srgb, var(--success) ${mix}%, var(--accent))` }}
-            />
-          )
-        })}
-      </svg>
-      <div className="pl-funnel-rows">
-        {steps.map(step => (
-          <div key={step.key} className={`pl-funnel-row${bottleneckKey === step.key ? ' is-bottleneck' : ''}`}>
-            <span>{step.label}</span>
-            <b>{num(step.value)}</b>
-            <em>{step.rate ? `${percent(step.rate.value)}${step.rate.source === 'own' ? '' : ' ref.'}` : ''}</em>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Curva de inversión. Es el gráfico que invita a tocar: se puede pinchar para
- * mover el presupuesto y ver dónde el beneficio cruza el cero.
- */
 function InvestmentCurve({ params, budget, max, currency, onPick }) {
   const width = 320
   const height = 150
@@ -315,34 +187,7 @@ function Trajectory({ trajectory, currency }) {
 }
 
 /** Una barra apilada al 100 %: de dónde vienen los leads y de dónde el dinero. */
-function StackedBar({ label, items, currency, asMoney }) {
-  const total = items.reduce((sum, item) => sum + item.value, 0)
-  if (total <= 0) return null
-  return (
-    <div className="pl-stack">
-      <span className="pl-stack-label">{label}</span>
-      <div className="pl-stack-bar">
-        {items.map((item, index) => (
-          <i
-            key={item.key}
-            style={{ width: `${(item.value / total) * 100}%`, background: CHANNEL_COLOR[index % CHANNEL_COLOR.length] }}
-            title={`${item.label}: ${asMoney ? money(item.value, currency) : num(item.value)}`}
-          />
-        ))}
-      </div>
-      <div className="pl-stack-legend">
-        {items.filter(item => item.value > 0).map((item, index) => (
-          <span key={item.key}>
-            <i style={{ background: CHANNEL_COLOR[index % CHANNEL_COLOR.length] }} />
-            {item.label} · {asMoney ? money(item.value, currency) : num(item.value)}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** Cascada de hoy al techo: solo palancas de ingreso, que son las que facturan. */
+/** Escenario de referencia y mejoras estimadas. */
 function Waterfall({ upside, currency }) {
   const levers = upside.levers.filter(lever => lever.kind === 'ingreso')
   const ceiling = Math.max(1, upside.ceiling)
@@ -368,7 +213,7 @@ function Waterfall({ upside, currency }) {
         )
       })}
       <div className="pl-step is-ceiling">
-        <span>Techo con el plan</span>
+        <span>Escenario estimado</span>
         <div className="pl-step-bar"><i style={{ width: '100%' }} /></div>
         <b>{money(upside.ceiling, currency)}</b>
       </div>
@@ -400,12 +245,14 @@ function Slider({ label, value, min, max, step, onChange, format, real, realLabe
   )
 }
 
-export default function GrowthPlanPage() {
+function GrowthPlan() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [board, setBoard] = useState(null)
   const [status, setStatus] = useState('loading')
   const [notice, setNotice] = useState('')
-  const [tab, setTab] = useState(null)
+  const [tab, setTab] = useState('objetivos')
+  const [savedGoal, setSavedGoal] = useState(null)
   const [windowDays, setWindowDays] = useState(90)
   const [budget, setBudget] = useState(500)
   // La escala del slider es fija a propósito. Cuando el máximo se derivaba del
@@ -414,14 +261,22 @@ export default function GrowthPlanPage() {
   const [scale, setScale] = useState(5000)
   const [sim, setSim] = useState(null)
   const [tasks, setTasks] = useState({})
-  const firstLoad = useRef(true)
+  const [taskError, setTaskError] = useState('')
+  const pending = useRef(null)
+  const budgetRef = useRef(budget)
+  budgetRef.current = budget
+  const needsBoard = tab !== 'objetivos'
 
   const load = useCallback(async () => {
+    pending.current?.abort()
+    const controller = new AbortController()
+    pending.current = controller
     setStatus('loading')
     setNotice('')
-    const query = new URLSearchParams({ windowDays: String(windowDays), budget: String(Number(budget) || 500) })
+    const query = new URLSearchParams({ windowDays: String(windowDays), budget: String(Number(budgetRef.current) || 500) })
     try {
-      const response = await apiFetch(`/api/growth-plan/board?${query.toString()}`)
+      const response = await apiFetch(`/api/growth-plan/board?${query.toString()}`, { signal: controller.signal })
+      if (controller.signal.aborted) return
       if (!response.ok) {
         // Un 403 de plan no es una caída: la pantalla existe, no está contratada.
         const gate = await readPlanGate(response)
@@ -434,26 +289,22 @@ export default function GrowthPlanPage() {
         setNotice('No pudimos calcular el informe. Reintenta en un momento.')
         return
       }
-      setBoard(await response.json())
+      const data = await response.json()
+      if (controller.signal.aborted) return
+      if (!data?.snapshot?.rates || !Array.isArray(data.actions) || !data.upside || !data.totals) throw new Error('Informe incompleto')
+      setBoard(data)
       setStatus('live')
     } catch (error) {
+      if (controller.signal.aborted) return
       setStatus(classifyFetchError(error))
       setNotice('No pudimos hablar con el servidor. Comprueba tu conexión.')
     }
-  }, [windowDays, budget])
+  }, [windowDays])
 
-  // El presupuesto se mueve con un slider: sin espera, cada píxel sería una
-  // consulta que agrega media base de datos. Lo que se ve al instante lo
-  // calcula el simulador en local; esto solo refresca el reparto por canal.
   useEffect(() => {
-    if (firstLoad.current) {
-      firstLoad.current = false
-      load()
-      return undefined
-    }
-    const timer = setTimeout(load, 600)
-    return () => clearTimeout(timer)
-  }, [load])
+    if (needsBoard) load()
+    return () => pending.current?.abort()
+  }, [load, needsBoard])
 
   const real = useMemo(() => {
     if (!board) return null
@@ -468,10 +319,6 @@ export default function GrowthPlanPage() {
       minutesPerCall,
     }
   }, [board])
-
-  // El simulador arranca en los números reales y solo se reinicia cuando llega
-  // un informe nuevo: reiniciarlo en cada render tiraría lo que estás probando.
-  useEffect(() => { if (real) setSim(real) }, [real])
 
   const params = sim ?? real
   const result = useMemo(() => (params ? simulate({ ...params, budget }) : null), [params, budget])
@@ -501,27 +348,8 @@ export default function GrowthPlanPage() {
   }, [board, real])
 
   const currency = board?.currency ?? 'EUR'
-  const noSample = board && board.snapshot.history.calls < 20
-  const activeTab = tab ?? (noSample ? 'simular' : 'ahora')
-  const hasScores = board?.scores?.some(area => area.score != null)
-
-  const funnelSteps = useMemo(() => {
-    if (!board) return []
-    const { history, rates } = board.snapshot
-    return [
-      { key: 'calls', label: 'Llamadas', value: history.calls, rate: null, reference: null },
-      { key: 'conversations', label: 'Conversaciones', value: history.conversations, rate: rates.contact, reference: 0.35, copy: 'contactas' },
-      { key: 'qualified', label: 'Cualificados', value: history.qualified, rate: rates.qualify, reference: 0.25, copy: 'cualificas' },
-      { key: 'opportunities', label: 'Oportunidades', value: history.opportunities, rate: rates.opportunity, reference: 0.5, copy: 'abres oportunidad en' },
-      { key: 'won', label: 'Ventas', value: history.won, rate: rates.win, reference: 0.2, copy: 'cierras' },
-    ]
-  }, [board])
-
-  const bottleneck = useMemo(() => {
-    const measured = funnelSteps.filter(step => step.rate?.source === 'own')
-    if (!measured.length) return null
-    return measured.reduce((worst, step) => (step.rate.value / step.reference < worst.rate.value / worst.reference ? step : worst))
-  }, [funnelSteps])
+  const activeTab = tab
+  const hasReferences = board && (Object.values(board.snapshot.rates).some(rate => rate.source !== 'own') || board.snapshot.dealValue.source !== 'own')
 
   const actionsByHorizon = useMemo(() => {
     const groups = { hoy: [], 'esta-semana': [], 'este-mes': [] }
@@ -530,27 +358,33 @@ export default function GrowthPlanPage() {
   }, [board])
 
   const createTask = useCallback(async action => {
+    setTaskError('')
     setTasks(current => ({ ...current, [action.id]: 'saving' }))
-    const dueDays = action.horizon === 'hoy' ? 1 : action.horizon === 'esta-semana' ? 7 : 30
+    const dueDays = action.horizon === 'hoy' ? 0 : action.horizon === 'esta-semana' ? 7 : 30
+    const dueDate = new Date()
+    dueDate.setDate(dueDate.getDate() + dueDays)
+    dueDate.setHours(23, 59, 0, 0)
     try {
       const response = await apiFetch('/api/tasks', {
         method: 'POST',
         body: JSON.stringify({
           title: action.title,
+          ownerId: user?.id,
           description: `${action.evidence}\n\n${action.steps.map((step, index) => `${index + 1}. ${step}`).join('\n')}`,
           priority: action.impact === 'alto' ? 'high' : action.impact === 'medio' ? 'normal' : 'low',
-          dueAt: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000).toISOString(),
+          dueAt: dueDate.toISOString(),
           source: 'growth_plan',
           sourceId: action.id,
         }),
       })
-      setTasks(current => ({ ...current, [action.id]: response.ok ? 'done' : 'error' }))
-    } catch {
+      if (!response.ok) throw new Error(response.status === 403 ? 'No tienes permiso para crear tareas.' : 'No se pudo crear la tarea. Puedes volver a intentarlo.')
+      setTasks(current => ({ ...current, [action.id]: 'done' }))
+    } catch (error) {
       setTasks(current => ({ ...current, [action.id]: 'error' }))
+      setTaskError(error.message)
     }
-  }, [])
+  }, [user?.id])
 
-  const verdictColor = STAGE_COLOR[board?.verdict?.stage] ?? 'var(--dim)'
   const patch = next => setSim(current => ({ ...(current ?? real), ...next }))
   const nextScale = () => {
     const steps = [5000, 25_000, 100_000]
@@ -564,88 +398,42 @@ export default function GrowthPlanPage() {
   // que sigue el backend cuando marca el origen de cada número.
   const origin = (key, formatted) => `${board?.snapshot.rates[key]?.source === 'own' ? 'tuyo' : 'referencia'}: ${formatted}`
 
-  if (status === 'loading' && !board) return <PageLoadingState label="Cargando plan de crecimiento" />
-
   return (
-    <main className="gs-page pl-page">
+    <main className="gs-page pl-page plan-focused">
       <div className="gs-shell">
         <header className="gs-header pl-header">
           <div className="gs-heading">
-            <span className="gs-brand"><RiLineChartLine aria-hidden="true" /></span>
             <div>
-              <h1>Plan de crecimiento</h1>
-              <p>Qué frena tus ventas, cuánto vale arreglarlo y qué pasa si lo cambias.</p>
+              <h1>Plan y objetivos</h1>
+              <p>Define tus metas, organiza el trabajo y consulta las previsiones cuando las necesites.</p>
             </div>
           </div>
-          <div className="gs-header-actions">
-            <select className="gs-select pl-window" aria-label="Periodo analizado" value={windowDays} onChange={event => setWindowDays(Number(event.target.value))}>
+          {needsBoard ? <div className="gs-header-actions">
+            <select className="gs-select pl-window" aria-label="Periodo de referencia del plan" value={windowDays} onChange={event => { setWindowDays(Number(event.target.value)); setBoard(null); setSim(null) }}>
               {WINDOWS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <button type="button" className="gs-button" onClick={load} disabled={status === 'loading'}>
               {status === 'loading' ? <RiLoader4Line className="gs-spin" /> : <RiRefreshLine />} Recalcular
             </button>
-          </div>
+          </div> : null}
         </header>
 
-        <DataStatusBanner
-          status={status === 'live' ? 'live' : status}
-          message={notice || undefined}
-          onRetry={status === 'error' || status === 'disconnected' ? load : undefined}
-        />
-
-        {board ? (
-          <>
-            <section className="pl-verdict gs-rise" style={{ '--verdict-color': verdictColor }}>
-              <Gauge score={board.verdict.score} color={verdictColor} />
-              <div className="pl-verdict-copy">
-                <span className="pl-verdict-stage"><RiPulseLine aria-hidden="true" /> {STAGE_LABEL[board.verdict.stage] ?? 'Diagnóstico'}</span>
-                <h2>{board.verdict.headline}</h2>
-                <p>{board.verdict.money || board.verdict.summary}</p>
-              </div>
-              <div className="pl-facts">
-                <div className="pl-fact"><span>Facturas</span><strong>{money(board.upside.current, currency)}<u>/mes</u></strong></div>
-                <div className="pl-fact"><span>Techo</span><strong>{money(board.upside.ceiling, currency)}<u>/mes</u></strong></div>
-                <div className="pl-fact"><span>Parado</span><strong>{money(board.upside.recoverable, currency)}</strong></div>
-                <div className="pl-fact"><span>Oportunidades</span><strong>{num(board.pipeline.open)}</strong></div>
-              </div>
-            </section>
-
-            {hasScores ? (
-              <div className="pl-areas gs-rise">
-                {board.scores.map(area => (
-                  <button
-                    key={area.key} type="button"
-                    className={`pl-area${area.score == null ? ' is-missing' : ''}`}
-                    style={{ '--area-color': AREA_COLOR[area.state] }}
-                    onClick={() => (area.href === '/plan' ? setTab('dinero') : navigate(area.href))}
-                    title={area.evidence}
-                  >
-                    <span>{area.label}</span>
-                    <strong>{area.score == null ? '—' : area.headline}</strong>
-                    <div className="pl-area-bar"><i style={{ width: `${area.score ?? 0}%` }} /></div>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            <nav className="gs-tabs pl-tabs" aria-label="Secciones del plan">
-              {TABS.map(item => {
-                const Icon = item.icon
-                const badge = item.key === 'hacer' ? board.actions.length : item.key === 'ahora' ? board.risks.length : 0
-                return (
-                  <button
-                    key={item.key} type="button"
-                    className={`${activeTab === item.key ? 'active' : ''}${item.key === 'ahora' && board.risks.length > 0 ? ' has-issue' : ''}`.trim()}
-                    onClick={() => setTab(item.key)}
-                    aria-pressed={activeTab === item.key}
-                  >
-                    <Icon aria-hidden="true" /> {item.label}
-                    {badge > 0 ? <b>{badge}</b> : null}
-                  </button>
-                )
-              })}
-            </nav>
-
+        <nav className="gs-tabs pl-tabs" aria-label="Secciones del plan">
+          {TABS.map(item => <button key={item.key} type="button" className={activeTab === item.key ? 'active' : ''} onClick={() => setTab(item.key)} aria-pressed={activeTab === item.key}>{item.label}</button>)}
+        </nav>
+        <div hidden={activeTab !== 'objetivos'} className="plan-goals">
+          <MonthlyGoals showLinks={false} title="Objetivos del mes" onGoalLoaded={setSavedGoal} />
+          <p className="gs-note">Son los mismos objetivos que ves en Resumen. Se guardan para toda la organización y sirven como meta mensual hasta que los cambies.</p>
+          <div className="plan-next">
+            <div><h2>Organiza cómo alcanzarlos</h2><p>Revisa las acciones sugeridas y convierte las que elijas en tareas con fecha.</p></div>
+            <button className="gs-button" onClick={() => setTab('hacer')}>Ver plan de acción</button>
+          </div>
+          <p className="gs-note">Para comparar resultados por campaña o agente, entra en <Link to="/insights">Análisis del negocio</Link>.</p>
+        </div>
+        {needsBoard ? <DataStatusBanner status={status} message={notice || undefined} onRetry={load} /> : null}
+        {needsBoard && status === 'loading' && !board ? <PageLoadingState label="Cargando datos del plan" /> : null}
+        {needsBoard && board ? (<>
+          {status !== 'live' ? <p className="gs-note" role="status">El informe anterior puede estar desactualizado. Actualízalo antes de tomar decisiones.</p> : null}
             {/* ── Simular ─────────────────────────────────────────────── */}
             {activeTab === 'simular' && params && result ? (
               <div className="gs-stack">
@@ -653,12 +441,12 @@ export default function GrowthPlanPage() {
                   <div className="pl-sim-controls">
                     <div className="pl-sim-title">
                       <h2>¿Y si…?</h2>
-                      <p>Mueve cualquier cosa y mira qué pasa. Se calcula al instante con tu embudo.</p>
+                      <p>Prueba un presupuesto y unas tasas. Este cálculo no modifica tus objetivos ni pone campañas en marcha.</p>
                     </div>
 
                     <div className="pl-budget">
                       <Slider
-                        label="Invierto al mes" value={budget} min={0} max={scale} step={scale / 200}
+                        label="Presupuesto mensual de llamadas" value={budget} min={0} max={scale} step={scale / 200}
                         onChange={setBudget} format={value => money(value, currency)}
                       />
                       <button type="button" className="gs-button small" onClick={nextScale} title="Cambiar la escala del control">
@@ -666,27 +454,27 @@ export default function GrowthPlanPage() {
                       </button>
                     </div>
                     <Slider
-                      label="Contacto" value={params.contact} min={0.05} max={0.95} step={0.01}
+                      label="Contacto" value={params.contact} min={0} max={1} step={0.01}
                       onChange={value => patch({ contact: value })} format={percent}
                       real={real.contact} realLabel={origin('contact', percent(real.contact))}
                     />
                     <Slider
-                      label="Cualifico" value={params.qualify} min={0.02} max={0.9} step={0.01}
+                      label="Cualifico" value={params.qualify} min={0} max={1} step={0.01}
                       onChange={value => patch({ qualify: value })} format={percent}
                       real={real.qualify} realLabel={origin('qualify', percent(real.qualify))}
                     />
                     <Slider
-                      label="Abro oportunidad" value={params.opportunity} min={0.05} max={1} step={0.01}
+                      label="Abro oportunidad" value={params.opportunity} min={0} max={1} step={0.01}
                       onChange={value => patch({ opportunity: value })} format={percent}
                       real={real.opportunity} realLabel={origin('opportunity', percent(real.opportunity))}
                     />
                     <Slider
-                      label="Cierro" value={params.win} min={0.02} max={0.9} step={0.01}
+                      label="Cierro" value={params.win} min={0} max={1} step={0.01}
                       onChange={value => patch({ win: value })} format={percent}
                       real={real.win} realLabel={origin('win', percent(real.win))}
                     />
                     <Slider
-                      label="Ticket medio" value={params.dealValue} min={100} max={Math.max(6000, Math.round(real.dealValue * 3))} step={50}
+                      label="Importe medio por venta" value={params.dealValue} min={0} max={Math.max(6000, Math.round(real.dealValue * 3))} step={1}
                       onChange={value => patch({ dealValue: value })} format={value => money(value, currency)}
                       real={real.dealValue}
                       realLabel={`${board.snapshot.dealValue.source === 'own' ? 'tuyo' : 'referencia'}: ${money(real.dealValue, currency)}`}
@@ -698,22 +486,22 @@ export default function GrowthPlanPage() {
                           {preset.label}
                         </button>
                       ))}
-                      <button type="button" className="gs-button small" onClick={() => { setSim(real); setBudget(500) }} disabled={!touched && budget === 500}>
-                        <RiResetLeftLine /> Mis números
+                      <button type="button" className="gs-button small" onClick={() => { setSim(null); setBudget(500) }} disabled={!touched && budget === 500}>
+                        <RiResetLeftLine /> Restablecer datos de partida
                       </button>
                     </div>
                   </div>
 
                   <div className="pl-sim-out">
                     <div className="pl-sim-hero">
-                      <span>Facturarías al mes</span>
+                      <span>Ventas mensuales estimadas</span>
                       <strong>{money(result.revenue, currency)}</strong>
                       {baseline && Math.abs(result.revenue - baseline.revenue) >= 1 ? (
                         <em className={result.revenue >= baseline.revenue ? 'is-up' : 'is-down'}>
-                          {result.revenue >= baseline.revenue ? '+' : ''}{money(result.revenue - baseline.revenue, currency)} respecto a tus tasas reales
+                          {result.revenue >= baseline.revenue ? '+' : ''}{money(result.revenue - baseline.revenue, currency)} respecto a los datos de partida
                         </em>
                       ) : (
-                        <em>con tus tasas reales, sin tocar nada</em>
+                        <em>con los datos de partida del periodo</em>
                       )}
                     </div>
 
@@ -722,9 +510,9 @@ export default function GrowthPlanPage() {
                     <div className="pl-sim-grid">
                       <div><span>Ventas</span><strong>{decimal(result.sales)}</strong></div>
                       <div><span>Llamadas</span><strong>{num(result.calls)}</strong></div>
-                      <div><span>Beneficio</span><strong className={result.profit >= 0 ? 'is-up' : 'is-down'}>{money(result.profit, currency)}</strong></div>
-                      <div><span>Retorno</span><strong>{decimal(result.roi)}×</strong></div>
-                      <div><span>Coste por venta</span><strong>{result.costPerSale ? money(result.costPerSale, currency) : '—'}</strong></div>
+                      <div><span>Ventas menos llamadas*</span><strong className={result.profit >= 0 ? 'is-up' : 'is-down'}>{money(result.profit, currency)}</strong></div>
+                      <div><span>Ventas / gasto en llamadas</span><strong>{decimal(result.roi)}×</strong></div>
+                      <div><span>Coste de llamadas por venta</span><strong>{result.costPerSale ? money(result.costPerSale, currency) : '—'}</strong></div>
                       <div><span>Minutos</span><strong>{num(result.minutes)}</strong></div>
                     </div>
 
@@ -733,109 +521,56 @@ export default function GrowthPlanPage() {
                         <RiSignalTowerLine /> Tu plan da {num(board.totals.minutesAllowed)} minutos al mes y esto necesita {num(result.minutes)}.
                       </p>
                     ) : null}
+                    <p className="gs-note">*Solo resta el presupuesto de llamadas. No es beneficio neto: faltan producto, personal, impuestos y otros gastos. Coste de voz de referencia: {new Intl.NumberFormat(localeCode(getLocale()), { maximumFractionDigits: 3 }).format(params.costPerMinute)} €/min · {decimal(params.minutesPerCall)} min/llamada.</p>
+                    <p className="gs-note" role="status">{hasReferences ? 'Faltan datos propios: parte del cálculo utiliza tasas de referencia, indicadas junto a cada control.' : 'Los datos de partida proceden de tu actividad registrada; las previsiones no garantizan el resultado.'}</p>
                     {touched ? (
                       <p className="gs-note">
-                        Estás simulando con tasas que aún no son tuyas. Para que lo sean, mira <button type="button" className="gs-link" onClick={() => setTab('hacer')}>qué hacer</button>.
+                        Has modificado las tasas del cálculo. Puedes consultar el <button type="button" className="gs-link" onClick={() => setTab('hacer')}>plan de acción</button>.
                       </p>
                     ) : null}
                   </div>
                 </section>
 
                 <Panel
-                  title="Quiero facturar…"
-                  subtitle="La cuenta al revés: pon la cifra y sale lo que hace falta."
+                  title="Calcular a partir de un importe"
+                  subtitle="Estima la actividad necesaria. Este cálculo no guarda ni cambia tus objetivos."
                   icon={RiFocus3Line}
                 >
-                  <GoalBox params={params} currency={currency} minutesAllowed={board.totals.minutesAllowed} />
+                  <GoalBox params={params} currency={currency} minutesAllowed={board.totals.minutesAllowed} savedGoal={savedGoal} />
                 </Panel>
               </div>
             ) : null}
 
-            {/* ── Ahora ───────────────────────────────────────────────── */}
-            {activeTab === 'ahora' ? (
-              <div className="gs-stack">
-                <div className="gs-cols">
-                  <Panel title="Tu embudo" subtitle={`Lo que pasó en ${board.windowDays} días. Nada de esto es estimación.`} icon={RiFlashlightLine}>
-                    <FunnelChart steps={funnelSteps} bottleneckKey={bottleneck?.key} />
-                    {bottleneck ? (
-                      <p className="gs-note">
-                        <RiAlertLine style={{ verticalAlign: -2, marginRight: 4, color: 'var(--warn)' }} />
-                        El freno está en «{bottleneck.label.toLowerCase()}»: {bottleneck.copy} el {percent(bottleneck.rate.value)} y la
-                        referencia del sector es el {percent(bottleneck.reference)}.
-                      </p>
-                    ) : (
-                      <p className="gs-note">Sin tasas propias suficientes: lo que ves son referencias del sector.</p>
-                    )}
-                  </Panel>
-
-                  <Panel title="Lo que puede romperse" subtitle="No sale en las tasas, pero corta las ventas de golpe." icon={RiAlertLine}>
-                    {board.risks.length === 0 ? (
-                      <p className="gs-empty-inline is-ok">Nada crítico: agentes activos, plan con margen y canales conectados.</p>
-                    ) : (
-                      <ul className="gs-list">
-                        {board.risks.map(risk => (
-                          <li key={risk.id} className={`gs-check ${risk.severity === 'alta' ? 'is-bad' : 'is-plain'}`}>
-                            <span className="gs-check-mark"><RiAlertLine aria-hidden="true" /></span>
-                            <div>
-                              <strong>{risk.title}</strong>
-                              <p>{risk.detail}</p>
-                              <p style={{ marginTop: 7 }}>
-                                <button type="button" className="gs-button small" onClick={() => navigate(risk.href)}>Arreglar <RiArrowRightLine /></button>
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </Panel>
-                </div>
-
-                <Panel title="Lo que alimenta el embudo" subtitle="Anuncios, contenido, búsqueda y correo, en el mismo periodo." icon={RiCoinsLine}>
-                  <div className="gs-minis">
-                    <Stat label="Gasto en anuncios" value={money(board.totals.adSpend, currency)} hint={board.totals.adLeads > 0 ? `${num(board.totals.adLeads)} leads` : 'Sin leads atribuidos'} missing={board.totals.adSpend === 0} />
-                    <Stat label="Clics" value={num(board.totals.adClicks)} hint={`${num(board.totals.adImpressions)} impresiones`} missing={board.totals.adClicks === 0} />
-                    <Stat label="Correos" value={num(board.marketing.emailsSent)} hint={`${num(board.marketing.emailOpens)} aperturas`} missing={board.marketing.emailsSent === 0} />
-                    <Stat label="Piezas publicadas" value={num(board.marketing.contentPublished)} hint={board.marketing.contentPending > 0 ? `${num(board.marketing.contentPending)} por aprobar` : 'Nada pendiente'} missing={board.marketing.contentPublished === 0 && board.marketing.contentPending === 0} />
-                    <Stat label="Nota SEO" value={board.marketing.seoScore} hint={board.marketing.seoUrl || 'Sin web analizada'} missing={board.marketing.seoScore == null} />
-                    <Stat label="Visitas orgánicas" value={num(board.marketing.organicVisits)} hint={board.marketing.organicHours > 0 ? `${Math.round(board.marketing.organicHours)} h invertidas` : 'Horas sin registrar'} missing={board.marketing.organicVisits === 0} />
-                    <Stat label="Minutos de voz" value={num(board.totals.minutesUsed)} hint={`de ${num(board.totals.minutesAllowed)} del plan`} />
-                    <Stat label="Leads" value={num(board.totals.leads)} hint={board.totals.leadsPrevious > 0 ? `antes ${num(board.totals.leadsPrevious)}` : 'Sin periodo anterior'} />
-                  </div>
-                </Panel>
-              </div>
-            ) : null}
-
-            {/* ── Dinero ──────────────────────────────────────────────── */}
-            {activeTab === 'dinero' ? (
-              <div className="gs-stack">
+            {activeTab === 'simular' ? (
+              <details className="plan-advanced"><summary>Más previsiones y reparto del presupuesto</summary><p className="gs-note">Escenarios estimados con el informe de referencia. No son ingresos asegurados y no cambian al mover las tasas del simulador. Pulsa Recalcular para actualizar el reparto con el presupuesto elegido.</p><div className="gs-stack">
                 <div className="gs-cols">
                   <Panel
-                    title="De dónde a dónde puedes llegar"
-                    subtitle="Cada palanca compara contra algo que ya has medido."
+                    title="Escenario de mejora estimado"
+                    subtitle="Estimaciones basadas en los supuestos del informe."
                     icon={RiHandCoinLine}
                     actions={<span className={`gs-pill ${CONFIDENCE_TONE[board.upside.confidence]}`}>Confianza {board.upside.confidence}</span>}
                   >
                     {board.upside.levers.length === 0 ? (
-                      <p className="gs-empty-inline">Sin palancas con dinero medible todavía. Lo primero es volumen.</p>
+                      <p className="gs-empty-inline">Todavía no hay datos suficientes para estimar mejoras.</p>
                     ) : (
                       <Waterfall upside={board.upside} currency={currency} />
                     )}
                     <Detail label="Cómo se calcula">{board.upside.confidenceNote}</Detail>
                   </Panel>
 
-                  <Panel title="Doce meses" subtitle="Con el plan y sin él, entrando por rampa." icon={RiLineChartLine}>
+                  <Panel title="Doce meses" subtitle="Dos escenarios estimados con una aplicación gradual de las mejoras." icon={RiLineChartLine}>
                     <Trajectory trajectory={board.upside.trajectory} currency={currency} />
                     <div className="gs-minis" style={{ marginTop: 12 }}>
                       <Stat label="Diferencia en 12 meses" value={money(board.upside.twelveMonthGap, currency)} />
-                      <Stat label="Cada semana sin actuar" value={money(board.upside.weeklyCostOfInaction, currency)} />
-                      <Stat label="Vale una llamada" value={money(board.upside.unit.perCall, currency)} hint={`cuesta ${money(board.upside.unit.costPerCall, currency)}`} />
+                      <Stat label="Diferencia semanal estimada" value={money(board.upside.weeklyCostOfInaction, currency)} />
+                      <Stat label="Venta media por llamada" value={money(board.upside.unit.perCall, currency)} hint={`cuesta ${money(board.upside.unit.costPerCall, currency)}`} />
                       <Stat label="Llamadas por venta" value={board.upside.unit.callsPerSale == null ? '—' : num(board.upside.unit.callsPerSale)} missing={board.upside.unit.callsPerSale == null} />
                     </div>
                   </Panel>
                 </div>
 
                 {board.upside.levers.length > 0 ? (
-                  <Panel title="Palanca por palanca" subtitle="Ordenado por lo que vale, no por lo que suena bien." icon={RiCoinsLine}>
+                  <Panel title="Supuestos de mejora" subtitle="Revisa cómo se calcula cada estimación antes de usarla." icon={RiCoinsLine}>
                     <div className="gs-queue">
                       {board.upside.levers.map(lever => (
                         <article key={lever.id} className={`gs-queue-card ${KIND_CARD[lever.kind] ?? 'tone-info'}`}>
@@ -861,56 +596,8 @@ export default function GrowthPlanPage() {
                   </Panel>
                 ) : null}
 
-                <Panel title="De dónde sale el dinero" subtitle="Coste incluye anuncios y las llamadas hechas a sus leads." icon={RiStackLine}>
-                  {board.channels.length === 0 ? (
-                    <p className="gs-empty-inline">Todavía no hay leads que repartir por canal.</p>
-                  ) : (
-                    <>
-                      <div className="pl-stacks">
-                        <StackedBar label="De dónde vienen tus leads" items={board.channels.map(item => ({ key: item.channel, label: item.label, value: item.leads }))} />
-                        <StackedBar label="De dónde viene tu dinero" items={board.channels.map(item => ({ key: item.channel, label: item.label, value: item.revenue }))} currency={currency} asMoney />
-                      </div>
-                      <div className="gs-table-scroll" style={{ marginTop: 14 }}>
-                        <table className="gs-table">
-                          <thead>
-                            <tr>
-                              <th>Canal</th>
-                              <th className="num">Leads</th>
-                              <th className="num">Ventas</th>
-                              <th className="num">Coste</th>
-                              <th className="num">Ingresos</th>
-                              <th className="num">Retorno</th>
-                              <th>Veredicto</th>
-                              <th />
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {board.channels.map(item => (
-                              <tr key={item.channel}>
-                                <td><strong>{item.label}</strong><small>{item.reason}</small></td>
-                                <td className="num">{num(item.leads)}</td>
-                                <td className="num">{num(item.sales)}</td>
-                                <td className="num">{item.cost > 0 ? money(item.cost, currency) : item.hours ? `${Math.round(item.hours)} h` : '—'}</td>
-                                <td className="num">{money(item.revenue, currency)}</td>
-                                <td className={`num${item.roi != null && item.roi < 1 ? ' is-bad' : ''}${item.roi == null ? ' is-missing' : ''}`}>{item.roi == null ? '—' : `${item.roi}×`}</td>
-                                <td><span className={`gs-pill ${VERDICT_TONE[item.verdict] ?? ''}`}>{item.verdict}</span></td>
-                                <td className="num"><button type="button" className="gs-button small" onClick={() => navigate(item.href)}>Abrir <RiArrowRightLine /></button></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  )}
-                  <Detail label="Cuándo me puedo fiar de esto">
-                    Un canal necesita 10 leads para juzgarlo y 30 para fiarse del veredicto; por debajo pone «medir». Los canales
-                    cuyo coste es tiempo muestran horas y no euros: convertirlas con una tarifa inventada haría que el retorno
-                    pareciera medido cuando no lo está.
-                  </Detail>
-                </Panel>
-
                 {board.allocation.items.length > 0 ? (
-                  <Panel title={`Dónde poner ${money(board.allocation.total, currency)}`} subtitle="El grueso a lo que devuelve, cero a lo que ya se demostró que no." icon={RiCoinsLine}>
+                  <Panel title={`Dónde poner ${money(board.allocation.total, currency)}`} subtitle="Propuesta orientativa basada en el rendimiento registrado." icon={RiCoinsLine}>
                     <div className="pl-alloc">
                       {board.allocation.items.map(item => (
                         <div key={item.channel} className="pl-alloc-row">
@@ -924,168 +611,20 @@ export default function GrowthPlanPage() {
                     <p className="gs-note">{board.allocation.note}</p>
                   </Panel>
                 ) : null}
-              </div>
-            ) : null}
-
-            {/* ── Ventas ──────────────────────────────────────────────── */}
-            {activeTab === 'ventas' ? (
-              <div className="gs-stack">
-                <Panel
-                  title="Llamadas"
-                  subtitle={`${num(board.calls.total)} en la ventana. Esto es lo que hace tu equipo comercial.`}
-                  icon={RiPhoneLine}
-                  actions={<button type="button" className="gs-button small" onClick={() => navigate('/llamadas')}>Ver llamadas <RiArrowRightLine /></button>}
-                >
-                  <div className="gs-minis">
-                    <Stat label="Contacto" value={percent(board.calls.contactRate)} hint={`${num(board.calls.contacted)} conversaciones`} missing={board.calls.contactRate == null} />
-                    <Stat label="Cualificas" value={percent(board.calls.qualifyRate)} missing={board.calls.qualifyRate == null} />
-                    <Stat label="Reuniones" value={percent(board.calls.meetingRate)} hint={`${num(board.calls.meetings)} agendadas`} missing={board.calls.meetingRate == null} />
-                    <Stat label="Duración" value={board.calls.averageMinutes == null ? '—' : `${board.calls.averageMinutes} min`} missing={board.calls.averageMinutes == null} />
-                    <Stat label="Buzón" value={percent(board.calls.machineRate)} hint="Si pasa del 40%, es la lista" missing={board.calls.machineRate == null} />
-                    <Stat label="Te dicen que no" value={percent(board.calls.rejectionRate)} missing={board.calls.rejectionRate == null} />
-                  </div>
-
-                  {board.calls.byHour.length > 0 ? (
-                    <>
-                      <h3 className="gs-subhead">Contacto por hora <small>{board.timezone} · gris = sin muestra</small></h3>
-                      <div className="pl-hours">
-                        {board.calls.byHour.map(hour => {
-                          const isBest = board.calls.bestHour?.hour === hour.hour
-                          const isWorst = board.calls.worstHour?.hour === hour.hour
-                          return (
-                            <div
-                              key={hour.hour}
-                              className={`pl-hour${!hour.reliable ? ' is-thin' : isBest ? ' is-best' : isWorst ? ' is-worst' : ''}`}
-                              title={`${hour.hour}:00 · ${hour.calls} llamadas · ${percent(hour.contactRate)}`}
-                            >
-                              <i style={{ height: `${Math.max(4, hour.contactRate * 100)}%` }} />
-                              <span>{hour.hour}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {board.calls.bestHour ? (
-                        <p className="gs-note">
-                          <RiTimeLine style={{ verticalAlign: -2, marginRight: 4, color: 'var(--success)' }} />
-                          A las {board.calls.bestHour.hour}:00 contactas el {percent(board.calls.bestHour.contactRate)}
-                          {board.calls.worstHour ? `, a las ${board.calls.worstHour.hour}:00 el ${percent(board.calls.worstHour.contactRate)}` : ''}.
-                          {' '}<button type="button" className="gs-link" onClick={() => { patch({ contact: board.calls.bestHour.contactRate }); setTab('simular') }}>Ver qué pasa si llamo solo ahí</button>
-                        </p>
-                      ) : null}
-                    </>
-                  ) : null}
-                </Panel>
-
-                <div className="gs-cols-even">
-                  <Panel title="Agentes" subtitle="Comparables a partir de 15 llamadas." icon={RiFlashlightLine}>
-                    {board.calls.byAgent.length === 0 ? (
-                      <p className="gs-empty-inline">Ninguna llamada tiene agente asignado.</p>
-                    ) : (
-                      <div className="gs-table-scroll">
-                        <table className="gs-table">
-                          <thead>
-                            <tr><th>Agente</th><th className="num">Llamadas</th><th className="num">Contacto</th><th className="num">Cualifica</th></tr>
-                          </thead>
-                          <tbody>
-                            {board.calls.byAgent.map(agent => (
-                              <tr key={agent.agentId}>
-                                <td><strong>{agent.name}</strong>{!agent.reliable ? <small>Muestra corta</small> : null}</td>
-                                <td className="num">{num(agent.calls)}</td>
-                                <td className="num">{percent(agent.contactRate)}</td>
-                                <td className="num">{percent(agent.qualifyRate)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </Panel>
-
-                  <Panel title="Cómo acaban" subtitle="Sin agrupar lo que no se parece." icon={RiCompass3Line}>
-                    {board.calls.outcomes.length === 0 ? (
-                      <p className="gs-empty-inline">Sin llamadas registradas.</p>
-                    ) : (
-                      <div className="gs-bars">
-                        {board.calls.outcomes.map(outcome => (
-                          <div key={outcome.outcome} className="gs-bar-row">
-                            <span>{outcome.label}</span>
-                            <div className="gs-bar-track"><i style={{ width: `${outcome.share}%` }} /></div>
-                            <strong>{num(outcome.count)}</strong>
-                            <small>{outcome.share}%</small>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </Panel>
-                </div>
-
-                <Panel
-                  title="Pipeline"
-                  subtitle="Parada según lo que aguanta su etapa, no según su antigüedad."
-                  icon={RiStackLine}
-                  actions={<button type="button" className="gs-button small" onClick={() => navigate('/ventas?vista=pipeline')}>Abrir <RiArrowRightLine /></button>}
-                >
-                  <div className="gs-minis">
-                    <Stat label="Abiertas" value={num(board.pipeline.open)} hint={money(board.pipeline.openValue, currency)} />
-                    <Stat label="Previsión" value={money(board.pipeline.weightedValue, currency)} hint="Importe por probabilidad" />
-                    <Stat label="Comprometido" value={money(board.pipeline.commitValue, currency)} hint={board.pipeline.uncategorized > 0 ? `${num(board.pipeline.uncategorized)} sin categoría` : 'Todas categorizadas'} />
-                    <Stat label="Cierras" value={percent(board.pipeline.winRate)} hint={`${num(board.pipeline.won)} ganadas · ${num(board.pipeline.lost)} perdidas`} missing={board.pipeline.winRate == null} />
-                    <Stat label="Ciclo" value={board.pipeline.averageCycleDays == null ? '—' : `${board.pipeline.averageCycleDays} días`} missing={board.pipeline.averageCycleDays == null} />
-                    <Stat label="Primera respuesta" value={duration(board.speed.medianMinutes)} hint={`${num(board.speed.untouched)} sin tocar`} missing={board.speed.medianMinutes == null} />
-                  </div>
-
-                  {board.pipeline.byStage.some(stage => stage.count > 0) ? (
-                    <div className="gs-bars" style={{ marginTop: 14 }}>
-                      {board.pipeline.byStage.map(stage => {
-                        const top = Math.max(1, ...board.pipeline.byStage.map(item => item.value))
-                        return (
-                          <div key={stage.stage} className="gs-bar-row">
-                            <span>{stage.label}</span>
-                            <div className="gs-bar-track"><i style={{ width: `${(stage.value / top) * 100}%` }} /></div>
-                            <strong>{money(stage.value, currency, true)}</strong>
-                            <small className={stage.stalled > 0 ? 'pl-warn-text' : undefined}>{stage.stalled > 0 ? `${stage.stalled} paradas` : `${stage.count}`}</small>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : null}
-
-                  {board.pipeline.stalled.length > 0 ? (
-                    <>
-                      <h3 className="gs-subhead">Paradas, por importe</h3>
-                      <div className="gs-queue">
-                        {board.pipeline.stalled.slice(0, 4).map(item => (
-                          <article key={item.id} className="gs-queue-card tone-warn">
-                            <header>
-                              <span className="gs-queue-kind">{item.label}</span>
-                              <span className="gs-queue-meta">{item.days} días quieta</span>
-                            </header>
-                            <strong>{item.name}</strong>
-                            <p><b>{money(item.value, currency)}</b> en juego.</p>
-                            <footer>
-                              <div><button type="button" className="gs-button small" onClick={() => navigate(`/pipeline/${item.id}`)}>Abrir <RiArrowRightLine /></button></div>
-                            </footer>
-                          </article>
-                        ))}
-                      </div>
-                    </>
-                  ) : null}
-
-                  {board.pipeline.lossReasons.length > 0 ? (
-                    <p className="gs-note">Por qué pierdes: {board.pipeline.lossReasons.map(reason => `${reason.reason} (${reason.share}%)`).join(' · ')}.</p>
-                  ) : null}
-                </Panel>
-              </div>
+              </div></details>
             ) : null}
 
             {/* ── Hacer ───────────────────────────────────────────────── */}
             {activeTab === 'hacer' ? (
               <div className="gs-stack">
+                <p className="gs-note">Elige una acción y crea una tarea asignada a ti, con vencimiento al final de hoy, en 7 días o en 30 días según el grupo. Puedes consultarla en el <Link to="/calendario">Calendario</Link>. Las sugerencias se calculan con los últimos {board.windowDays} días.</p>
+                {taskError ? <p className="gs-note" role="alert">{taskError}</p> : null}
+                {Object.values(tasks).includes('done') ? <p className="gs-note" role="status">Tarea guardada. Ya aparece en el calendario.</p> : null}
                 {board.actions.length === 0 ? (
-                  <Panel title="Nada urgente" icon={RiCheckboxCircleLine}>
+                  <Panel title="Sin acciones sugeridas" icon={RiCheckboxCircleLine}>
                     <p className="gs-empty-inline is-ok">
-                      No hay cuellos de botella claros. Lo que más mueve la aguja es volumen:{' '}
-                      <button type="button" className="gs-link" onClick={() => setTab('simular')}>pruébalo en el simulador</button>.
+                      Con los datos disponibles no se han identificado acciones concretas. Puedes revisar tus resultados en Análisis o explorar supuestos en el{' '}
+                      <button type="button" className="gs-link" onClick={() => setTab('simular')}>simulador</button>.
                     </p>
                   </Panel>
                 ) : null}
@@ -1107,7 +646,7 @@ export default function GrowthPlanPage() {
                             <ol className="pl-steps">{action.steps.map(step => <li key={step}>{step}</li>)}</ol>
                             {action.expectedGain ? (
                               <div className="gs-queue-impact">
-                                <span>{action.gainKind === 'rescate' ? 'De una vez' : action.gainKind === 'ahorro' ? 'Dejas de quemar' : 'Cada mes'}</span>
+                                <span>{action.gainKind === 'rescate' ? 'De una vez' : action.gainKind === 'ahorro' ? 'Ahorro estimado' : 'Cada mes'}</span>
                                 <strong>{action.gainKind === 'ahorro' ? '' : '+'}{money(action.expectedGain, currency)}</strong>
                               </div>
                             ) : null}
@@ -1135,7 +674,7 @@ export default function GrowthPlanPage() {
                 })}
 
                 {board.recommendations?.length ? (
-                  <Panel title="Otras cosas que hemos visto" icon={RiInformationLine}>
+                  <Panel title="Otras acciones sugeridas" icon={RiInformationLine}>
                     <ul className="gs-list">
                       {board.recommendations.map(item => (
                         <li key={item.id} className="gs-check is-plain">
@@ -1171,35 +710,22 @@ export default function GrowthPlanPage() {
 }
 
 /** La cuenta al revés, en local: pones la cifra y sale lo que hace falta. */
-function GoalBox({ params, currency, minutesAllowed }) {
-  const [goal, setGoal] = useState('')
-  const target = Number(goal) || 0
+export function GoalBox({ params, currency, minutesAllowed, savedGoal }) {
+  const [goal, setGoal] = useState(null)
+  const target = Number(goal ?? savedGoal) || 0
 
-  const plan = useMemo(() => {
-    if (target <= 0 || !params) return null
-    const sales = params.dealValue > 0 ? target / params.dealValue : 0
-    const opportunities = params.win > 0 ? sales / params.win : 0
-    const qualified = params.opportunity > 0 ? opportunities / params.opportunity : 0
-    const conversations = params.qualify > 0 ? qualified / params.qualify : 0
-    const calls = params.contact > 0 ? conversations / params.contact : 0
-    const minutes = Math.round(calls * params.minutesPerCall)
-    return {
-      sales, opportunities, qualified, conversations, calls, minutes,
-      leads: Math.ceil(calls / 2.2),
-      budget: Math.ceil(calls * params.minutesPerCall * params.costPerMinute),
-      fits: minutes <= minutesAllowed,
-    }
-  }, [target, params, minutesAllowed])
+  const plan = useMemo(() => reversePlan(target, params, minutesAllowed), [target, params, minutesAllowed])
 
   return (
     <div className="pl-goal">
       <label className="pl-control">
-        <span className="pl-control-head">Quiero facturar al mes</span>
+        <span className="pl-control-head">Importe mensual a simular</span>
         <input
           className="gs-input" type="number" min="0" step="500" placeholder="20000"
-          value={goal} onChange={event => setGoal(event.target.value)}
+          value={goal ?? savedGoal ?? ''} onChange={event => setGoal(event.target.value)}
         />
       </label>
+      {savedGoal ? <button className="gs-button small" onClick={() => setGoal(null)}>Usar objetivo guardado: {money(savedGoal, currency)}</button> : null}
       {plan ? (
         <>
           <div className="pl-sim-grid">
@@ -1207,7 +733,7 @@ function GoalBox({ params, currency, minutesAllowed }) {
             <div><span>Oportunidades</span><strong>{num(plan.opportunities)}</strong></div>
             <div><span>Conversaciones</span><strong>{num(plan.conversations)}</strong></div>
             <div><span>Llamadas</span><strong>{num(plan.calls)}</strong></div>
-            <div><span>Leads</span><strong>{num(plan.leads)}</strong></div>
+            <div><span>Minutos</span><strong>{num(plan.minutes)}</strong></div>
             <div><span>Presupuesto</span><strong>{money(plan.budget, currency)}</strong></div>
           </div>
           {!plan.fits ? (
@@ -1217,8 +743,13 @@ function GoalBox({ params, currency, minutesAllowed }) {
           ) : null}
         </>
       ) : (
-        <p className="gs-empty-inline">Pon una cifra y sale la cadena entera con tus tasas.</p>
+        <p className="gs-empty-inline">Introduce un importe positivo. Para calcularlo, todas las tasas y costes deben ser mayores que cero.</p>
       )}
     </div>
   )
+}
+
+export default function GrowthPlanPage() {
+  const { user } = useAuth()
+  return <GrowthPlan key={user?.orgId || user?.id || 'workspace'} />
 }
