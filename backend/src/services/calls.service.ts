@@ -19,6 +19,9 @@ function voiceCostPerMinuteCents(): number {
 }
 
 interface CallFilters {
+  leadId?: string
+  search?: string
+  highIntent?: boolean
   agentId?: string
   campaignId?: string
   status?: CallStatus
@@ -99,10 +102,13 @@ export async function validateVoiceResourceOwnership(
 }
 
 export async function listCalls(orgId: string, filters: CallFilters = {}) {
-  const { agentId, campaignId, status, outcome, dateFrom, dateTo, page = 1, limit = 20 } = filters
+  const { leadId, search, highIntent, agentId, campaignId, status, outcome, dateFrom, dateTo, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
 
-  const where: Record<string, unknown> = { orgId }
+  const where: Prisma.CallWhereInput = { orgId }
+  if (leadId) where.leadId = leadId
+  if (search) where.lead = { OR: ['name', 'company', 'phone', 'email'].map(field => ({ [field]: { contains: search, mode: 'insensitive' } })) }
+  if (highIntent) where.AND = [{ outcome: { in: ['interested', 'meeting_scheduled'] } }]
   if (agentId) where.agentId = agentId
   if (campaignId) where.campaignId = campaignId
   if (status) where.status = status

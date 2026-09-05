@@ -9,7 +9,7 @@ const RevenueIntelligencePage = lazy(() => import('./RevenueIntelligencePage'))
 
 const SECTIONS = [
   { id: 'crm', label: 'CRM', Icon: RiGroupLine },
-  { id: 'inteligencia', label: 'Inteligencia', Icon: RiSparkling2Line },
+  { id: 'inteligencia', label: 'Prioridades', Icon: RiSparkling2Line },
 ]
 
 export default function SalesHubPage() {

@@ -179,6 +179,7 @@ export async function listByStage(orgId: string, actor: DataActor) {
 const SORTABLE_OPPORTUNITY_FIELDS = new Set(['createdAt', 'updatedAt', 'expectedCloseDate', 'value', 'name'])
 
 interface OpportunityListFilters {
+  leadId?: string
   search?: string
   stage?: OpportunityStage
   /** Propietario de la oportunidad (Opportunity.assignedTo). */
@@ -199,10 +200,11 @@ interface OpportunityListFilters {
  * (RE-103): filtros server-side + paginado.
  */
 function buildOpportunityQuery(orgId: string, actor: DataActor, filters: Omit<OpportunityListFilters, 'page' | 'limit'>) {
-  const { search, stage, ownerId, closeFrom, closeTo, source, sort } = filters
+  const { search, leadId, stage, ownerId, closeFrom, closeTo, source, sort } = filters
 
   const where: Record<string, unknown> = { orgId }
   const forcedOwnerId = opportunityOwner(actor, 'pipeline.read')
+  if (leadId) where.leadId = leadId
   if (stage) where.stage = stage
   if (forcedOwnerId !== undefined) where.assignedTo = forcedOwnerId
   else if (ownerId) where.assignedTo = ownerId

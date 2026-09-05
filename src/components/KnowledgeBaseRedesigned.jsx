@@ -165,7 +165,7 @@ export default function KnowledgeBaseRedesigned({ sectionNavigation = null }) {
   }
 
   return <main className="knowledge-base-page dark-scroll">
-    <ProductPageHeader Icon={RiBookReadLine} title="Base de conocimiento" description="Añade y organiza información fiable para que tus agentes IA puedan ofrecer respuestas precisas en cada llamada." navigation={sectionNavigation} actions={<button className="kb-primary-action" onClick={() => setSourceMode('text')}><RiAddLine /> Añadir conocimiento</button>} />
+    <ProductPageHeader Icon={RiBookReadLine} title="Documentos" description="Añade y organiza información fiable para que tus agentes IA puedan ofrecer respuestas precisas en cada llamada." navigation={sectionNavigation} actions={<button className="kb-primary-action" onClick={() => setSourceMode('text')}><RiAddLine /> Añadir conocimiento</button>} />
 
     {['error', 'disconnected', 'plan'].includes(dataStatus) ? <DataStatusBanner status={dataStatus} message={dataError} onRetry={() => refresh()} /> : null}
 

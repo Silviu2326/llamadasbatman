@@ -52,6 +52,7 @@ export async function list(
       opportunityId?: string
       meetingId?: string
       status?: string
+      dueAfter?: string
       dueBefore?: string
       page?: string
       limit?: string
@@ -60,13 +61,21 @@ export async function list(
   reply: FastifyReply
 ) {
   const { orgId, userId, role, workspaceScope } = request.user as JWTUser
-  const q = request.query
+  const querySchema = z.object({
+    ownerId: z.string().optional(), leadId: z.string().optional(), opportunityId: z.string().optional(), meetingId: z.string().optional(),
+    status: z.enum(['open', 'in_progress', 'completed', 'cancelled']).optional(),
+    dueAfter: isoDateSchema.optional(), dueBefore: isoDateSchema.optional(),
+    page: z.coerce.number().int().min(1).max(100000).optional(), limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  const q = parseRequest(reply, querySchema, request.query)
+  if (!q) return
   const result = await tasksService.listTasks(orgId, { userId, role, workspaceScope }, {
     ownerId: q.ownerId,
     leadId: q.leadId,
     opportunityId: q.opportunityId,
     meetingId: q.meetingId,
     status: q.status as TaskStatus | undefined,
+    dueAfter: q.dueAfter,
     dueBefore: q.dueBefore,
     page: q.page ? Number(q.page) : undefined,
     limit: q.limit ? Number(q.limit) : undefined,

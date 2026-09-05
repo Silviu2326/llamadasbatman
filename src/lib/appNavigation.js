@@ -53,7 +53,7 @@ export const APP_MODULES = [
   { id: 'calendar', moduleId: 'meetings', space: 'sales', label: 'Calendario', labelEn: 'Calendar', to: '/calendario', aliases: ['/reuniones'], Icon: RiCalendarLine, keywords: 'calendario reuniones citas demos seguimientos' },
   { id: 'calls', moduleId: 'calls', space: 'sales', label: 'Llamadas', labelEn: 'Calls', to: '/llamadas', Icon: RiPhoneLine, keywords: 'voz conversaciones grabaciones' },
   { id: 'agents', moduleId: 'agents', space: 'sales', label: 'Agentes IA', labelEn: 'AI agents', to: '/agentes', Icon: RiRobot2Line, keywords: 'voz agentes comerciales' },
-  { id: 'resources', moduleId: 'knowledge', space: 'sales', label: 'Recursos IA', labelEn: 'AI resources', to: '/recursos-ia', aliases: ['/knowledge-base', '/playbooks'], Icon: RiBookReadLine, keywords: 'artículos fuentes conocimiento playbooks guiones plantillas ventas agentes seguimiento' },
+  { id: 'resources', moduleId: 'knowledge', space: 'sales', label: 'Documentos y guiones', labelEn: 'Documents and scripts', to: '/recursos-ia', aliases: ['/knowledge-base', '/playbooks'], Icon: RiBookReadLine, keywords: 'artículos fuentes conocimiento playbooks guiones plantillas ventas agentes seguimiento' },
 
   { id: 'growth-hub', moduleId: 'growth', space: 'growth', label: 'Resumen Growth', labelEn: 'Growth overview', to: '/growth', Icon: RiRocket2Line, keywords: 'growth hub crecimiento' },
   // El recorrido de captación es una sola sección (/captacion) con etapas

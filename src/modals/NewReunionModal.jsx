@@ -43,7 +43,7 @@ function toggleBtnStyle(active) {
  * confirmar, llama a POST /api/meetings/:id/reschedule en vez de crear una
  * reunión nueva (así no se pierde la referencia a la reunión original).
  */
-export default function NewReunionModal({ onClose, onSuccess, meeting }) {
+export default function NewReunionModal({ onClose, onSuccess, meeting, initialLead }) {
   const { t, locale } = useI18n()
   const isReschedule = !!meeting
   const initial = isReschedule ? splitDateTime(meeting.scheduledAt) : { date: '', time: '' }
@@ -59,12 +59,12 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  const [useExisting, setUseExisting] = useState(false)
+  const [useExisting, setUseExisting] = useState(Boolean(initialLead))
   const [leadQuery, setLeadQuery] = useState('')
   const [debouncedLeadQuery, setDebouncedLeadQuery] = useState('')
   const [leadResults, setLeadResults] = useState([])
   const [searchingLeads, setSearchingLeads] = useState(false)
-  const [selectedLead, setSelectedLead] = useState(null)
+  const [selectedLead, setSelectedLead] = useState(initialLead || null)
   const [leadDropdownOpen, setLeadDropdownOpen] = useState(false)
   const boxRef = useRef(null)
 
@@ -101,6 +101,8 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
 
   async function handleSubmit() {
+    if (saving) return
+    if (!form.date || !form.time) { setError(t('modal.dateTimeRequired')); return }
     setSaving(true)
     setError(null)
     try {
@@ -153,8 +155,9 @@ export default function NewReunionModal({ onClose, onSuccess, meeting }) {
   return (
     <FormModal
       title={isReschedule ? t('modal.rescheduleMeeting') : t('modal.newMeeting')}
-      onClose={onClose}
+      onClose={() => { if (!saving) onClose() }}
       onSubmit={handleSubmit}
+      submitDisabled={saving}
       submitText={saving ? t('common.saving') : (isReschedule ? t('modal.confirmNewDate') : t('modal.createMeeting'))}
     >
       {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}

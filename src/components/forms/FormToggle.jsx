@@ -14,6 +14,9 @@ export default function FormToggle({ label, checked, onChange, name }) {
       )}
       <button
         type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label || name || 'Activar opción'}
         name={name}
         onClick={() => onChange(!checked)}
         style={{

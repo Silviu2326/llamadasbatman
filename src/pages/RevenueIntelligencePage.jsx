@@ -25,6 +25,7 @@ import BusinessIntelligenceWorkspace from '../components/BusinessIntelligenceWor
 import PageLoadingState from '../components/ui/PageLoadingState'
 import ProductPageHeader from '../components/ui/ProductPageHeader'
 import './revenue-intelligence.css'
+import './sales-workspace.css'
 
 const API_ROOT = '/api/revenue-intelligence'
 
@@ -311,6 +312,8 @@ export default function RevenueIntelligencePage({ sectionNavigation = null }) {
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [failedSources, setFailedSources] = useState([])
+  const [showResearch, setShowResearch] = useState(false)
   const [notice, setNotice] = useState('')
   const [busyKey, setBusyKey] = useState('')
   const [showExperimentModal, setShowExperimentModal] = useState(false)
@@ -332,8 +335,9 @@ export default function RevenueIntelligencePage({ sectionNavigation = null }) {
     if (experimentsResult.status === 'fulfilled') setExperiments(experimentsResult.value)
     else { setExperiments([]); failures.push('experimentos') }
     if (proposalsResult.status === 'fulfilled') setProposals(proposalsResult.value)
-    else { setProposals([]); failures.push('memoria operativa') }
-    if (failures.length) setLoadError(failures.length === 3 ? 'No pudimos cargar la inteligencia comercial. Comprueba tu conexión o los permisos de esta organización.' : `No se pudo actualizar: ${failures.join(', ')}.`)
+    else { setProposals([]); failures.push('mejoras pendientes') }
+    setFailedSources(results.map((result, index) => result.status === 'rejected' ? index : -1))
+    if (failures.length) setLoadError(failures.length === 3 ? 'No pudimos cargar las prioridades de ventas. Comprueba tu conexión o los permisos de esta organización.' : `No se pudo actualizar: ${failures.join(', ')}.`)
     if (!silent) setLoading(false)
   }
 
@@ -428,36 +432,34 @@ export default function RevenueIntelligencePage({ sectionNavigation = null }) {
   if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading revenue intelligence' : 'Cargando inteligencia comercial'} />
 
   return <main className="ri-page">
-    <ProductPageHeader Icon={RiFlashlightLine} title={locale === 'en' ? 'Revenue intelligence' : 'Inteligencia comercial'} description={locale === 'en' ? 'Prioritize the next move, measure what works and turn winning conversations into reviewable proposals.' : 'Prioriza el siguiente movimiento, mide qué funciona y convierte conversaciones ganadoras en propuestas revisables.'} navigation={sectionNavigation} />
+    <ProductPageHeader Icon={RiFlashlightLine} title={locale === 'en' ? 'Revenue intelligence' : 'Prioridades de ventas'} description={locale === 'en' ? 'Prioritize the next move, measure what works and turn winning conversations into reviewable proposals.' : 'Decide a quién contactar, compara mensajes y revisa las mejoras propuestas.'} navigation={sectionNavigation} />
 
-    <BusinessIntelligenceWorkspace />
 
-    <section className="ri-command" aria-label="Resumen de inteligencia comercial">
-      <div><span>Centro de decisiones</span><h2>Acción con contexto, aprendizaje con control.</h2><p>Las recomendaciones no sustituyen al criterio del equipo: explican qué señal priorizan y dejan trazabilidad de cada decisión.</p></div>
-      <dl><div><dt>{nextActions.length}</dt><dd>acciones sugeridas</dd></div><div><dt>{runningExperiments.length}</dt><dd>experimentos en curso</dd></div><div><dt>{pendingProposals.length}</dt><dd>revisiones humanas</dd></div></dl>
-    </section>
 
     {loadError ? <div className="ri-load-error" role="alert"><RiAlertLine aria-hidden="true" /><span>{loadError}</span><button type="button" onClick={loadWorkspace}>Reintentar</button></div> : null}
 
     <section className="ri-section" aria-labelledby="ri-actions-title">
-      <SectionHeader eyebrow="Orquestación" title="Siguiente mejor acción" description="Canal, momento y mensaje priorizados con la explicación disponible." action={<button type="button" className="ri-button primary" disabled={loading || busyKey === 'refresh-actions'} onClick={refreshActions}><RiRefreshLine className={busyKey === 'refresh-actions' ? 'ri-spin' : ''} aria-hidden="true" />{busyKey === 'refresh-actions' ? 'Calculando' : 'Recalcular'}</button>} />
-      {loading ? <div className="ri-state"><span className="ri-loader" /><p>Calculando prioridades comerciales…</p></div> : nextActions.length ? <div className="ri-action-list">{nextActions.map(action => <RecommendationCard key={action.id} action={action} busy={busyKey === `action-${action.id}`} onAct={updateAction} />)}</div> : <EmptyState icon={RiFlashlightLine} title="Aún no hay acciones priorizadas"><p>Cuando haya contactos, señales y permisos suficientes, las recomendaciones aparecerán aquí. No se muestran contactos de ejemplo.</p><button type="button" className="ri-button subtle" onClick={refreshActions} disabled={busyKey === 'refresh-actions'}>Recalcular ahora</button></EmptyState>}
+      <SectionHeader eyebrow="Seguimiento" title="A quién contactar" description="Consulta el motivo, el canal y el mensaje sugerido para cada contacto." action={<button type="button" className="ri-button primary" disabled={loading || busyKey === 'refresh-actions'} onClick={refreshActions}><RiRefreshLine className={busyKey === 'refresh-actions' ? 'ri-spin' : ''} aria-hidden="true" />{busyKey === 'refresh-actions' ? 'Calculando' : 'Recalcular'}</button>} />
+      {loading ? <div className="ri-state"><span className="ri-loader" /><p>Calculando prioridades comerciales…</p></div> : failedSources.includes(0) ? <p role="status">No se han podido consultar los contactos prioritarios. Usa Reintentar para cargarlos.</p> : nextActions.length ? <div className="ri-action-list">{nextActions.map(action => <RecommendationCard key={action.id} action={action} busy={busyKey === `action-${action.id}`} onAct={updateAction} />)}</div> : <EmptyState icon={RiFlashlightLine} title="Aún no hay acciones priorizadas"><p>Cuando haya contactos, señales y permisos suficientes, las recomendaciones aparecerán aquí. No se muestran contactos de ejemplo.</p><button type="button" className="ri-button subtle" onClick={refreshActions} disabled={busyKey === 'refresh-actions'}>Recalcular ahora</button></EmptyState>}
     </section>
 
+    <details className="sales-advanced"><summary>Pruebas y mejoras pendientes</summary>
     <section className="ri-lower-grid">
       <section className="ri-section ri-card-section" aria-labelledby="ri-experiments-title">
-        <SectionHeader eyebrow="Experimentación" title="Pruebas comerciales" description="Compara superficies, mensajes y audiencias con una métrica explícita." action={<button type="button" className="ri-icon-button add" onClick={() => { setSaveError(''); setShowExperimentModal(true) }} aria-label="Crear experimento"><RiAddLine aria-hidden="true" /></button>} />
-        {loading ? <div className="ri-state compact"><span className="ri-loader" /><p>Cargando experimentos…</p></div> : experiments.length ? <div className="ri-experiment-list">{experiments.map(experiment => <ExperimentCard key={experiment.id} experiment={experiment} busy={busyKey === `experiment-${experiment.id}`} onStart={item => updateExperiment(item, 'start')} onPause={item => updateExperiment(item, 'pause')} />)}</div> : <EmptyState icon={RiFilter3Line} title="Sin experimentos registrados"><p>Crea un borrador cuando exista una hipótesis y una métrica que el equipo pueda atribuir.</p><button type="button" className="ri-button subtle" onClick={() => setShowExperimentModal(true)}>Crear experimento</button></EmptyState>}
+        <SectionHeader eyebrow="Comparar resultados" title="Pruebas comerciales" description="Compara dos mensajes o formas de vender y elige qué resultado quieres medir." action={<button type="button" className="ri-icon-button add" onClick={() => { setSaveError(''); setShowExperimentModal(true) }} aria-label="Crear experimento"><RiAddLine aria-hidden="true" /></button>} />
+        {loading ? <div className="ri-state compact"><span className="ri-loader" /><p>Cargando experimentos…</p></div> : failedSources.includes(1) ? <p>No se han podido consultar las pruebas.</p> : experiments.length ? <div className="ri-experiment-list">{experiments.map(experiment => <ExperimentCard key={experiment.id} experiment={experiment} busy={busyKey === `experiment-${experiment.id}`} onStart={item => updateExperiment(item, 'start')} onPause={item => updateExperiment(item, 'pause')} />)}</div> : <EmptyState icon={RiFilter3Line} title="Sin experimentos registrados"><p>Crea una prueba indicando qué quieres comparar y cómo medirás el resultado.</p><button type="button" className="ri-button subtle" onClick={() => setShowExperimentModal(true)}>Crear experimento</button></EmptyState>}
       </section>
 
       <section className="ri-section ri-card-section" aria-labelledby="ri-memory-title">
-        <SectionHeader eyebrow="Memoria operativa" title="Aprendizajes a revisión" description="Las propuestas nacen de señales y conversaciones; una persona decide si avanzan." />
+        <SectionHeader eyebrow="Revisión del equipo" title="Mejoras pendientes" description="Revisa qué se propone cambiar y qué conversaciones lo justifican." />
         <div className="ri-human-note"><RiInformationLine aria-hidden="true" /><p><strong>Aprobación humana obligatoria.</strong> Una propuesta nunca cambia un playbook ni contenido por sí sola; la aprobación queda registrada antes de cualquier aplicación.</p></div>
-        {loading ? <div className="ri-state compact"><span className="ri-loader" /><p>Buscando propuestas…</p></div> : proposals.length ? <div className="ri-proposal-list">{proposals.map(proposal => <ProposalCard key={proposal.id} proposal={proposal} busy={busyKey === `proposal-${proposal.id}`} onReview={reviewProposal} />)}</div> : <EmptyState icon={RiFlowChart} title="No hay aprendizajes pendientes"><p>Cuando el sistema detecte un patrón con evidencia suficiente, lo presentará como propuesta para que el equipo la revise.</p></EmptyState>}
+        {loading ? <div className="ri-state compact"><span className="ri-loader" /><p>Buscando propuestas…</p></div> : failedSources.includes(2) ? <p>No se han podido consultar las mejoras pendientes.</p> : proposals.length ? <div className="ri-proposal-list">{proposals.map(proposal => <ProposalCard key={proposal.id} proposal={proposal} busy={busyKey === `proposal-${proposal.id}`} onReview={reviewProposal} />)}</div> : <EmptyState icon={RiFlowChart} title="No hay aprendizajes pendientes"><p>Cuando el sistema detecte un patrón con evidencia suficiente, lo presentará como propuesta para que el equipo la revise.</p></EmptyState>}
       </section>
     </section>
 
+    </details>
     {notice ? <div className="ri-toast" role="status"><RiCheckboxCircleLine aria-hidden="true" /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Cerrar aviso"><RiCloseLine aria-hidden="true" /></button></div> : null}
+    <details className="sales-advanced" onToggle={event => setShowResearch(event.currentTarget.open)}><summary>Investigar una pregunta sobre mi negocio</summary>{showResearch && <BusinessIntelligenceWorkspace />}</details>
     {showExperimentModal ? <ExperimentModal saving={busyKey === 'create-experiment'} error={saveError} onClose={() => { if (busyKey !== 'create-experiment') setShowExperimentModal(false) }} onSubmit={createExperiment} /> : null}
   </main>
 }

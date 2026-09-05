@@ -8,7 +8,7 @@ import {
 } from '../services/pipeline.service'
 import { parseRequest } from '../lib/validation'
 
-type JWTUser = { userId: string; orgId: string; role: string; email: string }
+type JWTUser = { userId: string; orgId: string; role: string; email: string; workspaceScope?: 'own' | 'team' | 'org' }
 
 const OPPORTUNITY_STAGES = ['lead', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] as const
 // OP-104: reopen() vuelve la oportunidad a una etapa activa; no tiene
@@ -28,6 +28,7 @@ const OPPORTUNITY_SORT_OPTIONS = [
 ] as const
 
 const listQuerySchema = z.object({
+  leadId: z.string().trim().min(1).max(128).optional(),
   search: z.string().trim().min(1).max(200).optional(),
   stage: z.enum(OPPORTUNITY_STAGES).optional(),
   ownerId: z.string().trim().min(1).max(128).optional(),
@@ -340,6 +341,7 @@ export async function activity(
 export async function list(
   request: FastifyRequest<{
     Querystring: {
+      leadId?: string
       search?: string
       stage?: string
       ownerId?: string
@@ -353,10 +355,10 @@ export async function list(
   }>,
   reply: FastifyReply
 ) {
-  const { orgId, userId, role } = request.user as JWTUser
+  const { orgId, userId, role, workspaceScope } = request.user as JWTUser
   const query = parseRequest(reply, listQuerySchema, request.query)
   if (!query) return
-  const result = await pipelineService.listOpportunities(orgId, { userId, role }, query)
+  const result = await pipelineService.listOpportunities(orgId, { userId, role, workspaceScope }, query)
   return reply.send(result)
 }
 

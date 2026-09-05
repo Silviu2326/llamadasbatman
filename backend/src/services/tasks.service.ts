@@ -9,6 +9,7 @@ interface TaskFilters {
   opportunityId?: string
   meetingId?: string
   status?: TaskStatus
+  dueAfter?: string
   dueBefore?: string
   page?: number
   limit?: number
@@ -31,7 +32,7 @@ export class TaskNotFoundError extends Error {
 }
 
 export async function listTasks(orgId: string, actor: DataActor, filters: TaskFilters = {}) {
-  const { ownerId, leadId, opportunityId, meetingId, status, dueBefore, page = 1, limit = 20 } = filters
+  const { ownerId, leadId, opportunityId, meetingId, status, dueAfter, dueBefore, page = 1, limit = 20 } = filters
   const skip = (page - 1) * limit
 
   const where: Record<string, unknown> = { orgId }
@@ -42,7 +43,7 @@ export async function listTasks(orgId: string, actor: DataActor, filters: TaskFi
   if (opportunityId) where.opportunityId = opportunityId
   if (meetingId) where.meetingId = meetingId
   if (status) where.status = status
-  if (dueBefore) where.dueAt = { lte: new Date(dueBefore) }
+  if (dueAfter || dueBefore) where.dueAt = { ...(dueAfter ? { gte: new Date(dueAfter) } : {}), ...(dueBefore ? { lte: new Date(dueBefore) } : {}) }
 
   const [data, total] = await Promise.all([
     prisma.task.findMany({

@@ -56,6 +56,9 @@ export async function ttsLatencyDemo(
 export async function list(
   request: FastifyRequest<{
     Querystring: {
+      leadId?: string
+      search?: string
+      highIntent?: string
       agentId?: string
       campaignId?: string
       status?: string
@@ -71,6 +74,9 @@ export async function list(
   const { orgId } = request.user as JWTUser
   const q = request.query
   const result = await callsService.listCalls(orgId, {
+    leadId: q.leadId,
+    search: typeof q.search === 'string' ? q.search.trim().slice(0, 200) : undefined,
+    highIntent: q.highIntent === 'true',
     agentId: q.agentId,
     campaignId: q.campaignId,
     status: q.status as CallStatus | undefined,

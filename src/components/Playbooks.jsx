@@ -264,7 +264,7 @@ export default function Playbooks({ sectionNavigation = null }) {
       <div className="dark-scroll ui-page-scroll">
 
         {/* Header */}
-        <ProductPageHeader Icon={RiBook2Line} title="Playbooks" description="Biblioteca de estrategias conversacionales listas para usar o personalizar." navigation={sectionNavigation} actions={<div className="ui-page-actions"><button className="ui-primary-action" onClick={() => setShowNewPlaybook(true)}><RiAddLine />{locale === 'en' ? 'Create playbook' : 'Crear playbook'}<HiChevronDown /></button></div>} />
+        <ProductPageHeader Icon={RiBook2Line} title="Guiones de conversación" description="Prepara lo que dirán tus agentes y cómo responderán a las dudas de los clientes." navigation={sectionNavigation} actions={<div className="ui-page-actions"><button className="ui-primary-action" onClick={() => setShowNewPlaybook(true)}><RiAddLine />{locale === 'en' ? 'Create playbook' : 'Crear guion'}<HiChevronDown /></button></div>} />
 
         {showNewPlaybook && <NewPlaybookModal onClose={() => setShowNewPlaybook(false)} onSuccess={() => { setShowNewPlaybook(false); setRefreshKey(k => k + 1) }} />}
 
@@ -274,7 +274,7 @@ export default function Playbooks({ sectionNavigation = null }) {
         <div className="ui-toolbar-row">
           <label className="ui-search-field">
             <RiSearchLine />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={locale === 'en' ? 'Search playbooks...' : 'Buscar playbooks...'} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={locale === 'en' ? 'Search playbooks...' : 'Buscar guiones...'} />
           </label>
         </div>
 
@@ -288,14 +288,14 @@ export default function Playbooks({ sectionNavigation = null }) {
         {/* Playbooks */}
         <section className="ui-page-section">
           <h2 className="ui-section-title">
-            {playbooks.length > 0 ? (locale === 'en' ? 'Popular playbooks' : 'Playbooks populares') : 'Playbooks'}
+            {playbooks.length > 0 ? (locale === 'en' ? 'Popular playbooks' : 'Tus guiones') : 'Playbooks'}
           </h2>
           {playbooks.length === 0
             ? (
               <p style={{ textAlign: 'center', color: 'var(--dim)', fontSize: 13, padding: '40px 0' }}>
                 {loadStatus
                   ? (locale === 'en' ? 'The list could not be loaded, so we cannot show your playbooks.' : 'No se pudo cargar la lista, así que no podemos mostrar tus playbooks.')
-                  : 'Sin playbooks. Crea el primero con el botón de arriba.'}
+                  : 'Aún no tienes guiones. Crea el primero con el botón de arriba.'}
               </p>
             )
             : (
