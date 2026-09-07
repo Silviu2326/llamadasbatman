@@ -27,12 +27,12 @@ export function PendingList({ resource, retry, newWorkspace }) {
   const incomplete = data?.degraded || data?.warnings?.length > 0
   const truncated = data?.total > data?.received
   return <section className="home-section" aria-labelledby="home-pending-title" aria-busy={resource.loading}>
-    <div className="home-section-title"><h2 id="home-pending-title">{newWorkspace ? 'Empieza por aquí' : 'Pendientes de hoy'}</h2></div>
-    <p className="home-description">{newWorkspace ? 'Añade los primeros contactos para empezar a trabajar.' : 'Revisa cada pendiente y continúa en su sección.'}</p>
+    <div className="home-section-title"><h2 id="home-pending-title">{newWorkspace ? 'Empieza por aquí' : 'Tu siguiente paso'}</h2></div>
+    <p className="home-description">{newWorkspace ? 'Toda venta empieza con una conversación. Prepara la primera.' : 'Un contacto por conocer, una oportunidad que retomar. Empieza por lo más urgente.'}</p>
     <Notice resource={resource} retry={retry} />
     {incomplete ? <p className="home-message is-error" role="status">Faltan datos de algunas secciones. Esta lista puede estar incompleta.</p> : null}
     {items.length > 0 ? <>
-      <div className="home-task-head" aria-hidden="true"><span>Urgencia</span><span>Pendiente</span><span>Descripción</span><span>Acción</span></div>
+      <div className="home-task-head" aria-hidden="true"><span>Prioridad</span><span>Qué puedes hacer</span><span>Por qué ahora</span><span>Siguiente paso</span></div>
       <ul className="home-task-list">{(expanded ? items : items.slice(0, 3)).map((item, index) => {
         const copy = actionCopy(item)
         return <li className="home-task" key={item.id || index}>
@@ -45,9 +45,9 @@ export function PendingList({ resource, retry, newWorkspace }) {
         {expanded ? 'Mostrar menos' : `Ver todos los pendientes (${items.length})`}
       </button> : null}
     </> : !resource.loading && !resource.error && !incomplete && !truncated && data ? newWorkspace ? <ol className="home-onboarding">
-      <li><div><strong>Añade tus contactos</strong><p>Importa una lista o crea el primer contacto.</p></div><Link className="home-button" to="/ventas?vista=leads">Añadir contactos<RiArrowRightSLine aria-hidden="true" /></Link></li>
-      <li><div><strong>Prepara un agente si vas a llamar</strong><p>Configura su voz e instrucciones y haz una prueba.</p></div><Link className="home-button" to="/agentes">Ver agentes<RiArrowRightSLine aria-hidden="true" /></Link></li>
-    </ol> : <p className="home-message">No hay pendientes detectados en las secciones consultadas.</p> : null}
+      <li><div><strong>Elige con quién empezar</strong><p>Importa tu lista o añade un contacto. El primer paso lo marcas tú.</p></div><Link className="home-button" to="/ventas?vista=leads">Añadir contactos<RiArrowRightSLine aria-hidden="true" /></Link></li>
+      <li><div><strong>Dale voz a tu negocio</strong><p>Si vas a llamar, elige la voz de tu agente, explícale qué necesitas y pruébalo antes de contactar.</p></div><Link className="home-button" to="/agentes">Preparar agente<RiArrowRightSLine aria-hidden="true" /></Link></li>
+    </ol> : <p className="home-message">No hay pendientes detectados en las secciones consultadas. Aprovecha para preparar tu próxima conversación o revisar tus metas.</p> : null}
     {truncated ? <p className="home-description">Se han cargado los primeros {data.received} registros. Consulta el resto en sus secciones.</p> : null}
   </section>
 }
@@ -55,7 +55,7 @@ export function PendingList({ resource, retry, newWorkspace }) {
 export function RecentActivity({ resource, retry, locale }) {
   const items = resource.data || []
   return <section className="home-section home-recent" aria-labelledby="home-activity-title" aria-busy={resource.loading}>
-    <h2 id="home-activity-title">Actividad reciente</h2>
+    <h2 id="home-activity-title">Tus últimas conversaciones</h2>
     <Notice resource={resource} retry={retry} />
     {items.length ? <ul className="home-activity-list">{items.map((item, index) => {
       const meeting = item.type === 'meeting'
@@ -67,7 +67,7 @@ export function RecentActivity({ resource, retry, locale }) {
         <time dateTime={Number.isNaN(date.getTime()) ? undefined : date.toISOString()}>{time}</time>
         {path ? <Link to={path}>{label}<RiArrowRightSLine aria-hidden="true" /></Link> : <span>{label}</span>}
       </li>
-    })}</ul> : !resource.loading && !resource.error && resource.data ? <p className="home-message">Aquí aparecerán las llamadas y reuniones que se registren.</p> : null}
+    })}</ul> : !resource.loading && !resource.error && resource.data ? <p className="home-message">Tu primera conversación abre el camino. Aquí podrás volver a cada llamada y reunión registrada para retomar el hilo.</p> : null}
   </section>
 }
 
@@ -106,11 +106,10 @@ function HomeOverview() {
     return () => { active = false; controller.abort() }
   }, [reloadKey])
 
-  const loading = stats.loading || actions.loading || activity.loading
   const newWorkspace = !stats.error && !activity.error && !stats.loading && !activity.loading && isNewWorkspace(stats.data, activity.data)
   return <main className="home-command dark-scroll">
     <div className="home-content">
-      <header className="home-header"><h1>Resumen</h1><button className="home-button" type="button" onClick={retry} disabled={loading}>{loading ? 'Actualizando…' : 'Actualizar'}</button></header>
+      <header className="home-header"><div><h1>Dale impulso a tus ventas</h1><p className="home-description">Contacta, retoma conversaciones y sigue tus objetivos. Elige tu siguiente paso.</p></div></header>
       <PendingList resource={actions} retry={retry} newWorkspace={newWorkspace} />
       <MonthlyGoals refreshKey={reloadKey} />
       <RecentActivity resource={activity} retry={retry} locale={locale} />

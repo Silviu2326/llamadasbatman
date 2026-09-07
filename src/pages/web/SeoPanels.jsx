@@ -410,14 +410,42 @@ export function WebVitalsPanel({ vitals }) {
 
 /** El puente entre las dos mitades de la página: el SEO aplicado a la landing con un clic. */
 export function SnippetsPanel({ seo, landingCampaigns }) {
-  const { snippets, landingApply, setLandingApply, applyToLanding } = seo
+  const { snippets, landingApply, setLandingApply, applyToLanding, wordpress, setWordpress, applyToWordPress, git, setGit, applyToGit } = seo
   if (!snippets) return null
+  const wpSites = wordpress?.connections ?? []
+  const gitSites = git?.connections ?? []
   return (
     <section className="gs-panel is-accent">
-      <header className="gs-panel-head"><div><span className="gs-overline">Landing ↔ SEO</span><h2><span className="gs-panel-icon"><RiFileCopyLine /></span>Aplicar los arreglos</h2><p>Snippets listos para pegar en cualquier web — y aplicación con un clic en tus landings de Vendrava.</p></div></header>
+      <header className="gs-panel-head"><div><span className="gs-overline">Landing ↔ SEO</span><h2><span className="gs-panel-icon"><RiFileCopyLine /></span>Aplicar los arreglos</h2><p>Snippets listos para pegar en cualquier web — y aplicación con un clic en tus landings de Vendrava{wpSites.length ? ' o en tu WordPress conectado' : ''}.</p></div></header>
       <div className="gs-panel-body">
         <CopyBlock label="Title + meta description" value={snippets.html} />
         <CopyBlock label="Datos estructurados (Schema.org)" value={snippets.jsonld} />
+        {wpSites.length ? (
+          <div className="wb-apply-row">
+            <select className="gs-select" value={wordpress.connectionId} onChange={event => setWordpress(prev => ({ ...prev, connectionId: event.target.value, done: '', error: '' }))} aria-label="Web WordPress">
+              <option value="">Elige una web WordPress…</option>
+              {wpSites.map(site => <option key={site.id} value={site.id}>{site.domain}</option>)}
+            </select>
+            <select className="gs-select" value={wordpress.pageId} onChange={event => setWordpress(prev => ({ ...prev, pageId: event.target.value, done: '', error: '' }))} disabled={!wordpress.connectionId || wordpress.pagesLoading} aria-label="Página de WordPress">
+              <option value="">{wordpress.pagesLoading ? 'Cargando páginas…' : 'Elige la página…'}</option>
+              {wordpress.pages.map(page => <option key={page.id} value={page.id}>{page.title || page.slug || `#${page.id}`}</option>)}
+            </select>
+            <button type="button" className="gs-button" onClick={applyToWordPress} disabled={!wordpress.connectionId || !wordpress.pageId || wordpress.saving}>{wordpress.saving ? <><Spinner /> Aplicando…</> : 'Aplicar en WordPress'}</button>
+          </div>
+        ) : null}
+        {wordpress?.done ? <p className="gs-inline-ok">{wordpress.done}</p> : null}
+        {wordpress?.error ? <p className="gs-inline-error">{wordpress.error}</p> : null}
+        {gitSites.length ? (
+          <div className="wb-apply-row">
+            <select className="gs-select" value={git.connectionId} onChange={event => setGit(prev => ({ ...prev, connectionId: event.target.value, done: '', error: '' }))} aria-label="Repositorio conectado">
+              <option value="">Elige una web con repositorio…</option>
+              {gitSites.map(site => <option key={site.id} value={site.id}>{site.domain} · {site.connector.owner}/{site.connector.repo}</option>)}
+            </select>
+            <button type="button" className="gs-button" onClick={applyToGit} disabled={!git.connectionId || git.saving}>{git.saving ? <><Spinner /> Encolando…</> : 'Proponer pull request'}</button>
+          </div>
+        ) : null}
+        {git?.done ? <p className="gs-inline-ok">{git.done}</p> : null}
+        {git?.error ? <p className="gs-inline-error">{git.error}</p> : null}
         <div className="wb-apply-row">
           <select className="gs-select" value={landingApply.campaignId} onChange={event => setLandingApply(prev => ({ ...prev, campaignId: event.target.value, done: '', error: '' }))}>
             <option value="">Elige una landing de Vendrava…</option>

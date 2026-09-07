@@ -729,7 +729,7 @@ export default function CreativeCommandCenterPage({ onOpenPerformance, brief = n
             <Link to="/activos" className="ccc-rail-item"><RiBookShelfLine /> Biblioteca</Link>
             <Link to="/trabajos" className="ccc-rail-item"><RiTimeLine /> Trabajos</Link>
             <Link to="/captacion/atraer/organico?tab=fuentes" className="ccc-rail-item"><RiSettings4Line /> Marca</Link>
-            <Link to="/configuracion" className="ccc-rail-item"><RiPlugLine /> Integraciones</Link>
+            <Link to="/configuracion/integraciones" className="ccc-rail-item"><RiPlugLine /> Integraciones</Link>
             <div className="ccc-workspace-card"><span className="ccc-workspace-avatar">{(orgName || 'V').charAt(0).toUpperCase()}</span><div><strong>{orgName || 'Tu organización'}</strong><small>{user?.email ?? 'Estudio creativo'}</small></div></div>
           </aside>
 

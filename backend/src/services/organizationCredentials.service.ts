@@ -25,8 +25,15 @@ export const ORGANIZATION_CREDENTIAL_PROVIDERS = [
  * adapters se registran al arrancar y congelar la lista en un const de módulo
  * dejaría fuera a los registrados después de la primera importación.
  */
+/**
+ * Conectores de webs de clientes (routes/webConnections). Usan la misma tabla
+ * cifrada con un slot por conexión, pero no aparecen en el catálogo de
+ * proveedores: no son BYOK de la organización sino credenciales de un sitio.
+ */
+export const WEBSITE_CONNECTOR_PROVIDERS = ['wordpress', 'github'] as const
+
 export function supportedOrganizationCredentialProviders(): string[] {
-  return mergeCredentialProviders(ORGANIZATION_CREDENTIAL_PROVIDERS, byokProviderIds())
+  return mergeCredentialProviders([...ORGANIZATION_CREDENTIAL_PROVIDERS, ...WEBSITE_CONNECTOR_PROVIDERS], byokProviderIds())
 }
 
 export type OrganizationCredentialProvider = typeof ORGANIZATION_CREDENTIAL_PROVIDERS[number]
@@ -231,9 +238,20 @@ export async function decryptDefaultOrganizationCredential(
   orgId: string,
   rawProvider: string,
 ): Promise<Record<string, string> | null> {
+  return decryptOrganizationCredentialSlot(orgId, rawProvider, 'default')
+}
+
+/** Misma lectura que el slot por defecto, para credenciales con un slot por
+ * recurso (una por web conectada). */
+export async function decryptOrganizationCredentialSlot(
+  orgId: string,
+  rawProvider: string,
+  rawSlot: string,
+): Promise<Record<string, string> | null> {
   const providerName = provider(rawProvider)
+  const credentialSlot = slot(rawSlot)
   const record = await prisma.organizationIntegrationCredential.findUnique({
-    where: { orgId_provider_slot: { orgId, provider: providerName, slot: 'default' } },
+    where: { orgId_provider_slot: { orgId, provider: providerName, slot: credentialSlot } },
   })
   if (!record || record.status === 'revoked' || !record.secretEnc) return null
   const fields = decryptCredentialFieldsOrNull(record.secretEnc)

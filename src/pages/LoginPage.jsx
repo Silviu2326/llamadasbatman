@@ -198,7 +198,9 @@ export default function LoginPage() {
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || data.message || t('auth.invalidCredentials'))
       login(data.token, data.user, data.brand)
-      navigate('/dashboard', { replace: true })
+      // Un operador de plataforma entra a trabajar en el back office, no en el
+      // panel de su propia organización de servicio, que está vacío a propósito.
+      navigate(data.user?.isPlatformAdmin ? '/backoffice' : '/dashboard', { replace: true })
     } catch (submitError) {
       setError(submitError.message || t('auth.signInError'))
     } finally {
@@ -318,16 +320,21 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* El alta es una acción, no letra pequeña: vivía dentro de
+              `.login-legal`, con el mismo gris y el mismo cuerpo que la línea de
+              Términos y Privacidad que va justo debajo, así que se leía como
+              texto legal y no como una salida. Sube junto al formulario. */}
+          <p className="login-signup">
+            {locale === 'en' ? "Don't have an account? " : '¿Aún no tienes cuenta? '}
+            <Link to="/registro">{locale === 'en' ? 'Create one free' : 'Créala gratis'}</Link>
+          </p>
+
           <div className="login-trust" aria-label={t('auth.protectedAccess')}>
             {TRUST_ITEMS.map(({ icon: Icon, key }) => (
               <span key={key}><Icon aria-hidden="true" />{t(`auth.${key}`)}</span>
             ))}
           </div>
 
-          <p className="login-legal">
-            {locale === 'en' ? "Don't have an account? " : '¿Aún no tienes cuenta? '}
-            <Link to="/registro" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Create one' : 'Créala aquí'}</Link>
-          </p>
           <p className="login-legal">
             {locale === 'en' ? 'By signing in you accept the ' : 'Al acceder aceptas los '}<Link to="/terminos" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Terms' : 'Términos'}</Link>{locale === 'en' ? ' and ' : ' y la '}<Link to="/privacidad" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Privacy Policy' : 'Privacidad'}</Link>.
           </p>

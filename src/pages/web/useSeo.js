@@ -57,6 +57,12 @@ export function useSeo({ landingCampaigns }) {
 
   const [contentState, setContentState] = useState({})
   const [landingApply, setLandingApply] = useState({ campaignId: '', saving: false, done: '', error: '' })
+  // Webs del cliente con WordPress + plugin Vendrava Connect: ahí el título y
+  // la meta se aplican directamente en la página real, no solo en la landing.
+  const [wordpress, setWordpress] = useState({ connections: [], connectionId: '', pages: [], pagesLoading: false, pageId: '', saving: false, done: '', error: '' })
+  // Webs de código con repositorio conectado: el título y la meta llegan como
+  // pull request que el cliente revisa y fusiona.
+  const [git, setGit] = useState({ connections: [], connectionId: '', saving: false, done: '', error: '' })
   const [adsState, setAdsState] = useState({ saving: false, error: '' })
   const [share, setShare] = useState({ loading: false, url: '', error: '' })
   const [magnetCampaignId, setMagnetCampaignId] = useState('')
@@ -321,6 +327,75 @@ export function useSeo({ landingCampaigns }) {
     }
   }, [report, form.business, form.city])
 
+  useEffect(() => {
+    if (!report) return
+    let cancelled = false
+    apiFetch('/api/web-connections')
+      .then(response => (response.ok ? response.json() : []))
+      .then(list => {
+        if (cancelled || !Array.isArray(list)) return
+        const usable = list.filter(item => item.connector?.kind === 'wordpress' && item.connector.canEdit && item.connector.plugin)
+        setWordpress(prev => ({ ...prev, connections: usable, connectionId: prev.connectionId || (usable.length === 1 ? usable[0].id : '') }))
+        const repos = list.filter(item => item.connector?.kind === 'git' && item.connector.canPush)
+        setGit(prev => ({ ...prev, connections: repos, connectionId: prev.connectionId || (repos.length === 1 ? repos[0].id : '') }))
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [report])
+
+  useEffect(() => {
+    if (!wordpress.connectionId) return
+    let cancelled = false
+    setWordpress(prev => ({ ...prev, pagesLoading: true, pages: [], pageId: '' }))
+    apiFetch(`/api/web-connections/${wordpress.connectionId}/wordpress/pages?type=pages`)
+      .then(response => readJson(response, 'No se pudieron cargar las páginas de WordPress.'))
+      .then(body => {
+        if (cancelled) return
+        const pages = Array.isArray(body.items) ? body.items : []
+        // La portada suele ser la página con slug vacío o "home"/"inicio".
+        const home = pages.find(page => /^(home|inicio|portada)?$/i.test(page.slug || ''))
+        setWordpress(prev => ({ ...prev, pages, pagesLoading: false, pageId: home ? String(home.id) : '' }))
+      })
+      .catch(loadError => { if (!cancelled) setWordpress(prev => ({ ...prev, pagesLoading: false, error: loadError.message })) })
+    return () => { cancelled = true }
+  }, [wordpress.connectionId])
+
+  async function applyToWordPress() {
+    if (!wordpress.connectionId || !wordpress.pageId || !snippets) return
+    setWordpress(prev => ({ ...prev, saving: true, error: '', done: '' }))
+    try {
+      const response = await apiFetch(`/api/web-connections/${wordpress.connectionId}/wordpress/pages/${wordpress.pageId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ type: 'pages', seoTitle: snippets.title, metaDescription: snippets.metaDescription }),
+      })
+      const page = await readJson(response, 'WordPress no aceptó el cambio.')
+      setWordpress(prev => ({ ...prev, saving: false, done: `Aplicado en ${page.link || 'la página'}`, pages: prev.pages.map(item => item.id === page.id ? { ...item, ...page } : item) }))
+    } catch (applyError) {
+      setWordpress(prev => ({ ...prev, saving: false, error: applyError.message }))
+    }
+  }
+
+  async function applyToGit() {
+    if (!git.connectionId || !snippets) return
+    setGit(prev => ({ ...prev, saving: true, error: '', done: '' }))
+    try {
+      const instructions = [
+        `Actualiza el SEO de la página de inicio de la web.`,
+        `Título (<title>): "${snippets.title}".`,
+        `Meta description: "${snippets.metaDescription}".`,
+        'Si el proyecto genera estas etiquetas desde un archivo de configuración, layout o componente de cabecera compartido, cámbialo ahí. No modifiques nada más.',
+      ].join('\n')
+      const response = await apiFetch(`/api/web-connections/${git.connectionId}/git/proposals`, {
+        method: 'POST',
+        body: JSON.stringify({ instructions, title: 'SEO: título y meta description de la portada', source: 'seo' }),
+      })
+      await readJson(response, 'No se pudo crear el pull request.')
+      setGit(prev => ({ ...prev, saving: false, done: 'Propuesta encolada: el agente abrirá un pull request en unos minutos. Síguelo en Conexiones → Web.' }))
+    } catch (applyError) {
+      setGit(prev => ({ ...prev, saving: false, error: applyError.message }))
+    }
+  }
+
   async function applyToLanding() {
     if (!landingApply.campaignId || !snippets) return
     setLandingApply(prev => ({ ...prev, saving: true, error: '', done: '' }))
@@ -456,6 +531,8 @@ export function useSeo({ landingCampaigns }) {
     competitors, competitorsLoading, competitorsError, runCompare,
     contentState, patchContent, writeArticle, publishArticle, shareArticle,
     snippets, landingApply, setLandingApply, applyToLanding,
+    wordpress, setWordpress, applyToWordPress,
+    git, setGit, applyToGit,
     adsState, keywordsToAds, share, shareReport,
     magnetCampaignId, setMagnetCampaignId, magnetUrl,
     gap, runKeywordGap, cannibal, runCannibalization, stale, staleState, refreshStale,

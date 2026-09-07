@@ -59,6 +59,13 @@ export {
 export { requireEntitlement, type EntitlementOptions } from './requireEntitlement'
 
 export {
+  getPlatformActor,
+  isPlatformAdmin,
+  requirePlatformAdmin,
+  type PlatformActor,
+} from './platformAdmin'
+
+export {
   CONSUMPTION_RESOURCES,
   assertConsumptionLimit,
   consumptionSnapshot,

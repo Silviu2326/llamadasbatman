@@ -239,6 +239,18 @@ kbd { display: inline-grid; min-width: 24px; height: 22px; place-items: center; 
 .shell-icon-button { width: 36px; padding: 0; }
 .shell-approval-link svg, .shell-icon-button svg { width: 16px; height: 16px; }
 .shell-approval-link:hover, .shell-icon-button:hover { background: var(--surface-hover); }
+
+/* Suplantación activa. Barra fija arriba, fuera del área desplazable: el error
+   caro aquí es olvidar que está puesta, así que no puede irse con el scroll. */
+.app-shell.shell-impersonating { padding-block-start: 44px; }
+.shell-impersonation-banner { position: fixed; inset-block-start: 0; inset-inline: 0; z-index: 200; display: flex; height: 44px; align-items: center; gap: 12px; padding: 0 16px; border-block-end: 1px solid color-mix(in srgb, var(--warn) 55%, transparent); background: color-mix(in srgb, var(--warn-bg) 92%, var(--bg)); color: var(--warn-faint); }
+.shell-impersonation-banner > svg { flex: none; width: 18px; height: 18px; }
+.shell-impersonation-banner p { flex: 1; min-width: 0; margin: 0; overflow: hidden; font-size: 11.5px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.shell-impersonation-banner strong { color: var(--text-strong); }
+.shell-impersonation-timer { flex: none; padding: 3px 8px; border-radius: 6px; background: color-mix(in srgb, var(--warn) 20%, transparent); font: 700 11px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.shell-impersonation-banner button { flex: none; height: 28px; padding: 0 12px; border: 1px solid var(--warn-soft); border-radius: 7px; color: var(--bg); background: var(--warn-soft); font: 700 11px/1 inherit; cursor: pointer; }
+.shell-impersonation-banner button:disabled { opacity: .6; cursor: progress; }
+@media (max-width: 720px) { .shell-impersonation-banner p { white-space: normal; font-size: 10.5px; } }
 .shell-notification-menu { position: absolute; top: calc(100% + 10px); right: 0; z-index: 70; width: min(340px, calc(100vw - 32px)); overflow: hidden; border: 1px solid var(--line-2); border-radius: 13px; background: var(--surface); box-shadow: 0 22px 60px var(--shadow-color); }
 .shell-notification-menu > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 15px 16px 13px; border-bottom: 1px solid var(--line); }
 .shell-notification-menu > header div { display: grid; gap: 4px; }

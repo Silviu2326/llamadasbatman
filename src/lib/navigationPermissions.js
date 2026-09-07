@@ -183,6 +183,13 @@ const NAVIGATION_REQUIREMENTS = {
   // the entry visible for personal settings while excluding a zero-permission
   // account from the navigation.
   '/configuracion': ['organization.read'],
+  // Secciones anidadas de Configuración: cada una hereda el contrato de la
+  // página que absorbió, para que el gating no cambie con la reorganización.
+  '/configuracion/empresa': ['organization.read'],
+  '/configuracion/empresa/importar': ['organization.read'],
+  '/configuracion/plan': ['organization.read'],
+  '/configuracion/integraciones': ['integrations.read'],
+  '/configuracion/administracion': { anyOf: ['access_control.read', 'governance.read', 'organization.manage'] },
   '/gobierno-empresarial': ['governance.read'],
   '/access-control': ['access_control.read'],
   '/administracion': { anyOf: ['access_control.read', 'governance.read', 'organization.manage'] },
@@ -193,6 +200,15 @@ const NAVIGATION_REQUIREMENTS = {
   '/aprender': ['dashboard.read'],
   '/tutoriales': ['dashboard.read'],
   '/documentacion': ['dashboard.read'],
+  // `platform.operate` no sale de ningún rol: lo añade `isPlatformAdmin`, que
+  // es ortogonal al RBAC de organización. Ver el comentario en
+  // getEffectiveNavigationPermissions.
+  '/backoffice': ['platform.operate'],
+  '/backoffice/organizaciones': ['platform.operate'],
+  '/backoffice/usuarios': ['platform.operate'],
+  '/backoffice/permisos': ['platform.operate'],
+  '/backoffice/credenciales': ['platform.operate'],
+  '/backoffice/auditoria': ['platform.operate'],
 }
 
 function normalizeRole(role) {
@@ -243,12 +259,19 @@ export function getEffectiveNavigationPermissions(user) {
   const explicit = explicitPermissions(user)
   const role = normalizeRole(user?.role || user?.roleKey || user?.access?.role)
   const fallback = ROLE_FALLBACK_PERMISSIONS[role] || []
-  if (!explicit) return new Set(fallback)
+  const permissions = explicit || new Set(fallback)
 
   // Owner/admin siempre ven la navegación completa aunque el backend devuelva
   // una lista de permisos parcial; la API sigue autorizando cada llamada.
-  if (role === 'owner' || role === 'admin') fallback.forEach(permission => explicit.add(permission))
-  return explicit
+  if (explicit && (role === 'owner' || role === 'admin')) fallback.forEach(permission => permissions.add(permission))
+
+  // El privilegio de operador no es un rol de organización y no aparece en
+  // ningún ROLE_FALLBACK_PERMISSIONS a propósito: cruza tenants, así que se
+  // inyecta aquí como permiso sintético a partir del flag que devuelve la
+  // sesión. Falsearlo en el cliente solo pinta el menú; cada llamada del back
+  // office la sigue autorizando `requirePlatformAdmin` contra la base.
+  if (user?.isPlatformAdmin) permissions.add('platform.operate')
+  return permissions
 }
 
 export function hasNavigationPermission(user, requirement) {

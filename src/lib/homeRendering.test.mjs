@@ -31,7 +31,7 @@ test('confirmed new workspace presents first steps', () => {
   const html = render('PendingList', { resource: resource({ items: [] }), newWorkspace: true })
   assert.match(html, /Empieza por aquí/)
   assert.match(html, /Añadir contactos/)
-  assert.match(html, /Ver agentes/)
+  assert.match(html, /Preparar agente/)
 })
 
 test('a truncated response never claims there is no pending work', () => {

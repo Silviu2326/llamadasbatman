@@ -17,7 +17,11 @@ const SECTION_DEFINITIONS = [
   { id: 'clientes', label: 'Clientes white-label', Icon: RiBuilding2Line, requirement: ['organization.manage'] },
 ]
 
-export default function AdministrationCenterPage() {
+/**
+ * `embedded`: la página vive como sección de /configuracion, que ya pinta la
+ * cabecera. Aquí queda solo la barra de pestañas internas (`?tab=`).
+ */
+export default function AdministrationCenterPage({ embedded = false }) {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const sections = SECTION_DEFINITIONS.filter(section => hasNavigationPermission(user, section.requirement))
@@ -41,13 +45,17 @@ export default function AdministrationCenterPage() {
     onChange={selectSection}
   />
 
-  return <main className="more-center-page more-admin-page dark-scroll">
-    <ProductPageHeader
-      Icon={RiShieldUserLine}
-      title="Administración"
-      description="Gestiona miembros, permisos, políticas y espacios de clientes desde un único lugar."
-      navigation={navigation}
-    />
+  const Root = embedded ? 'section' : 'main'
+
+  return <Root className="more-center-page more-admin-page dark-scroll">
+    {embedded
+      ? <div className="more-center-subnav">{navigation}</div>
+      : <ProductPageHeader
+          Icon={RiShieldUserLine}
+          title="Administración"
+          description="Gestiona miembros, permisos, políticas y espacios de clientes desde un único lugar."
+          navigation={navigation}
+        />}
     <div className="more-center-body">
       <Suspense fallback={<PageLoadingState label="Cargando administración" />}>
         {activeId === 'accesos' ? <AccessControlPage embedded /> : null}
@@ -55,5 +63,5 @@ export default function AdministrationCenterPage() {
         {activeId === 'clientes' ? <AgencyWhiteLabelPage embedded /> : null}
       </Suspense>
     </div>
-  </main>
+  </Root>
 }

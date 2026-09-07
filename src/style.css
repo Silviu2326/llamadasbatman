@@ -540,6 +540,28 @@ html, body, #app {
 .login-trust svg { width: 14px; height: 14px; color: #7082e9; }
 .login-trust--mobile { display: none; }
 
+/* Enlace de alta. Va con cuerpo y color de acción, no de nota al pie: comparte
+   columna con `.login-legal` y si comparte también el gris de 11px acaba
+   leyéndose como una condición legal más. */
+.login-signup {
+  margin: 20px 0 0;
+  color: #6b7688;
+  font-size: 13px;
+  text-align: center;
+}
+
+.login-signup a {
+  color: var(--login-accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.login-signup a:hover,
+.login-signup a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .login-legal {
   margin: 30px 0 0;
   color: #98a3b3;

@@ -54,7 +54,11 @@ import NotFoundPage from './pages/NotFoundPage'
 import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import AdminRoute from './components/AdminRoute'
+import PlatformAdminRoute from './components/PlatformAdminRoute'
 import PageLoadingState from './components/ui/PageLoadingState'
+// Back office de plataforma: cruza organizaciones, así que no cuelga de
+// /configuracion (que es siempre la organización activa) sino de su propia raíz.
+const BackOfficePage = lazy(() => import('./pages/backoffice/BackOfficePage'))
 const GrowthOperationsPage = lazy(() => import('./pages/GrowthOperationsPage'))
 const AssetsLibraryPage = lazy(() => import('./pages/AssetsLibraryPage'))
 const MicroappsCatalogPage = lazy(() => import('./pages/MicroappsCatalogPage'))
@@ -71,6 +75,11 @@ const SalesRecordDetailPage = lazy(() => import('./pages/SalesRecordDetailPage')
 const LearnCenterPage = lazy(() => import('./pages/LearnCenterPage'))
 const MoreIntegrationsPage = lazy(() => import('./pages/MoreIntegrationsPage'))
 const AdministrationCenterPage = lazy(() => import('./pages/AdministrationCenterPage'))
+// Configuración reúne desde 2026-09 lo que antes eran cuatro entradas de «Más»
+// (Empresa, Integraciones, Configuración y Administración): una ruta padre con
+// barra de secciones y cada sección como ruta anidada, igual que /captacion.
+const ConfiguracionPage = lazy(() => import('./pages/configuracion/ConfiguracionPage'))
+const PlanBillingPage = lazy(() => import('./pages/configuracion/PlanBillingPage'))
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { I18nProvider } from './i18n'
 import { LegacyDomTranslation } from './i18n/legacyDomTranslation'
@@ -155,19 +164,26 @@ export default function App() {
             <Route path="/microapps" element={<MicroappsCatalogPage />} />
             <Route path="/microapps/:id" element={<MicroappRunnerPage />} />
             <Route path="/conexiones/web" element={<WebsiteConnectionsPage />} />
-            <Route path="/integraciones" element={<MoreIntegrationsPage />} />
-            <Route path="/conexiones" element={<LegacyRedirect to="/integraciones" />} />
+            <Route path="/integraciones" element={<LegacyRedirect to="/configuracion/integraciones" />} />
+            <Route path="/conexiones" element={<LegacyRedirect to="/configuracion/integraciones" />} />
             <Route path="/studio" element={<StudioPage />} />
             <Route path="/studio/:id" element={<StudioPage />} />
-            <Route path="/marketplace" element={<LegacyRedirect to="/integraciones" tab="extensiones" />} />
+            <Route path="/marketplace" element={<LegacyRedirect to="/configuracion/integraciones" tab="extensiones" />} />
             <Route path="/marketplace/:id" element={<MarketplacePage />} />
             <Route path="/capacidades" element={<LegacyRedirect to="/microapps" />} />
             <Route path="/aprender" element={<LearnCenterPage />} />
             <Route path="/tutoriales" element={<LegacyRedirect to="/aprender" />} />
             <Route path="/documentacion" element={<LegacyRedirect to="/aprender" tab="documentacion" />} />
-            <Route path="/informacion-empresa" element={<BusinessProfilePage />} />
-            <Route path="/rellenar-desde-web" element={<WebsiteIntakePage />} />
-            <Route path="/configuracion" element={<Configuracion />} />
+            <Route path="/configuracion" element={<ConfiguracionPage />}>
+              <Route index element={<Configuracion />} />
+              <Route path="empresa" element={<BusinessProfilePage embedded />} />
+              <Route path="empresa/importar" element={<WebsiteIntakePage />} />
+              <Route path="plan" element={<PlanBillingPage />} />
+              <Route path="integraciones" element={<MoreIntegrationsPage embedded />} />
+              <Route path="administracion" element={<AdministrationCenterPage embedded />} />
+            </Route>
+            <Route path="/informacion-empresa" element={<LegacyRedirect to="/configuracion/empresa" />} />
+            <Route path="/rellenar-desde-web" element={<LegacyRedirect to="/configuracion/empresa/importar" />} />
             <Route path="/agentes/:id" element={<AgentDetailPage />} />
             <Route path="/leads/:id" element={<LeadDetailPage />} />
             <Route path="/campanas/:id" element={<CampaignDetailPage />} />
@@ -185,12 +201,17 @@ export default function App() {
             <Route path="/conversacion/inbox" element={<Navigate to="/llamadas" replace />} />
             <Route path="/growth" element={<GrowthHubPage />} />
             <Route path="/inteligencia-comercial" element={<LegacyRedirect to="/ventas" tab="inteligencia" paramKey="vista" />} />
-            <Route path="/administracion" element={<AdministrationCenterPage />} />
-            <Route path="/gobierno-empresarial" element={<LegacyRedirect to="/administracion" tab="gobierno" />} />
-            <Route path="/access-control" element={<LegacyRedirect to="/administracion" tab="accesos" />} />
-            <Route path="/agencia/clientes" element={<LegacyRedirect to="/administracion" tab="clientes" />} />
-            <Route path="/desarrolladores" element={<LegacyRedirect to="/integraciones" tab="api" />} />
+            <Route path="/administracion" element={<LegacyRedirect to="/configuracion/administracion" />} />
+            <Route path="/gobierno-empresarial" element={<LegacyRedirect to="/configuracion/administracion" tab="gobierno" />} />
+            <Route path="/access-control" element={<LegacyRedirect to="/configuracion/administracion" tab="accesos" />} />
+            <Route path="/agencia/clientes" element={<LegacyRedirect to="/configuracion/administracion" tab="clientes" />} />
+            <Route path="/desarrolladores" element={<LegacyRedirect to="/configuracion/integraciones" tab="api" />} />
             <Route path="/admin/ad-playbooks" element={<AdminRoute><AdPlaybooksAdminPage /></AdminRoute>} />
+            {/* Una sola página con la sección en la ruta (`/backoffice/usuarios`)
+                en vez de en la query: la sidebar la lista como cualquier otro
+                módulo y el estado compartido (matriz, avisos) no se remonta al
+                cambiar de sección. */}
+            <Route path="/backoffice/*" element={<PlatformAdminRoute><BackOfficePage /></PlatformAdminRoute>} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
             </Routes>

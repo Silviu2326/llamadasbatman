@@ -16,6 +16,7 @@ import { registerMicroappExecutor } from '../microapps/runtime'
 import { registerStudioPostExecutor } from '../services/studioPost.service'
 import { registerMarketplaceExecutor } from '../services/marketplace.service'
 import { registerWebsiteIntakeExecutor } from '../services/websiteIntake.service'
+import { registerGitProposalExecutor } from '../services/gitConnector.service'
 
 let started = false
 
@@ -27,4 +28,5 @@ export function ensureProvidersRegistered(): void {
   registerStudioPostExecutor()
   registerMarketplaceExecutor()
   registerWebsiteIntakeExecutor()
+  registerGitProposalExecutor()
 }

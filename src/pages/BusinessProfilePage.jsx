@@ -64,7 +64,11 @@ function SourceCard({ Icon, title, detail, ready, action, onClick }) {
   </article>
 }
 
-export default function BusinessProfilePage() {
+/**
+ * `embedded`: la página vive como sección de /configuracion, que ya pinta la
+ * cabecera. Aquí la cabecera se reduce a la descripción y las acciones.
+ */
+export default function BusinessProfilePage({ embedded = false }) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const readOnly = user?.role === 'viewer'
@@ -122,10 +126,12 @@ export default function BusinessProfilePage() {
   if (!form) return <main className="business-page"><div className="business-error" role="alert"><RiErrorWarningLine /><strong>{error}</strong><button onClick={loadProfile}>Reintentar</button></div></main>
 
   return <main className="business-page dark-scroll">
-    <header className="business-header">
-      <div><span className="business-title-icon"><RiBuilding2Line /></span><div><h1>Información de empresa</h1><p>La fuente comercial compartida que usan todos tus agentes.</p></div></div>
+    <header className={`business-header${embedded ? ' is-embedded' : ''}`}>
+      {embedded
+        ? <p>La fuente comercial compartida que usan todos tus agentes.</p>
+        : <div><span className="business-title-icon"><RiBuilding2Line /></span><div><h1>Información de empresa</h1><p>La fuente comercial compartida que usan todos tus agentes.</p></div></div>}
       <div className="business-header-actions">
-        <button className="business-secondary" type="button" onClick={() => navigate('/rellenar-desde-web')}><RiMagicLine /> Rellenar desde la web</button>
+        <button className="business-secondary" type="button" onClick={() => navigate('/configuracion/empresa/importar')}><RiMagicLine /> Rellenar desde la web</button>
         <button className="business-save" type="button" onClick={save} disabled={readOnly || saving || !dirty}><RiSave3Line /> {saving ? 'Guardando…' : dirty ? 'Guardar cambios' : 'Todo guardado'}</button>
       </div>
     </header>

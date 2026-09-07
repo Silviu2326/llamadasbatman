@@ -279,7 +279,7 @@ const MICROAPP_ACTION_ROUTES = {
   open_provider_connections: '/conexiones',
   review_provider_changes: '/conexiones',
   review_route_policy: '/conexiones',
-  open_cost_center: '/configuracion?section=plan',
+  open_cost_center: '/configuracion/plan',
   open_marketplace: '/marketplace',
   open_studio: '/studio',
   create_review_room: '/studio',

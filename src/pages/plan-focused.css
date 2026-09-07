@@ -1,20 +1,59 @@
-.plan-focused { background: var(--bg); padding: 0; }
-.plan-focused > .gs-shell { max-width: 1280px; padding: 32px 36px 64px; }
-.plan-focused .gs-header { margin-bottom: 24px; }
-.plan-focused .gs-heading h1 { font-size: 28px; font-weight: 600; letter-spacing: -.4px; }
-.plan-focused .gs-heading p { font-size: 14px; line-height: 1.6; }
-.plan-focused .pl-tabs { background: transparent; padding: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; margin-bottom: 28px; gap: 24px; }
-.plan-focused .pl-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 12px 0; font-size: 14px; font-weight: 500; }
-.plan-focused .pl-tabs button.active { border-bottom-color: var(--text); color: var(--text); background: transparent; box-shadow: none; }
-.plan-focused .home-section { margin-top: 0; padding-top: 0; }
-.plan-focused .home-section h2 { font-size: 22px; margin: 0; font-weight: 550; }
-.plan-next { display: flex; justify-content: space-between; align-items: center; gap: 24px; border-block: 1px solid var(--line); padding: 28px 0; margin: 28px 0 20px; }
-.plan-next h2 { font-size: 19px; font-weight: 550; margin: 0; }
-.plan-next p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 8px 0 0; }
+.plan-focused { background: var(--bg); padding: 0; --plan-accent: var(--success-soft, var(--success)); }
+.plan-focused > .gs-shell { max-width: 1280px; padding: 32px 36px 64px; box-sizing: border-box; }
+.plan-focused .gs-header { position: relative; padding: 28px; margin-bottom: 20px; border: 1px solid color-mix(in srgb, var(--success) 24%, var(--line)); border-radius: 20px; background: radial-gradient(ellipse at 100% 0, color-mix(in srgb, var(--success) 14%, transparent), transparent 65%), var(--surface); flex-wrap: wrap; }
+.plan-focused .gs-heading h1 { font-size: clamp(27px, 3vw, 38px); font-weight: 650; letter-spacing: -1.1px; line-height: 1.15; text-wrap: balance; }
+.plan-focused .gs-heading h1 > span { color: var(--plan-accent); }
+.plan-focused .gs-heading p { font-size: 14px; line-height: 1.7; max-width: 560px; margin-top: 12px; }
+.plan-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--plan-accent); font-size: 11px; font-weight: 650; letter-spacing: 1.2px; text-transform: uppercase; }
+.plan-eyebrow svg { width: 19px; height: 19px; }
+.plan-focused .pl-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; background: transparent; padding: 0; border: 0; border-radius: 0; margin-bottom: 28px; overflow: visible; }
+.plan-focused .pl-tabs button { position: relative; display: flex; min-width: 0; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 15px 14px; font-size: 14px; font-weight: 500; text-align: left; white-space: normal; }
+.plan-focused .pl-tabs button.active { border-color: color-mix(in srgb, var(--success) 55%, var(--line)); color: var(--text-strong); background: color-mix(in srgb, var(--success) 9%, var(--surface)); box-shadow: inset 0 -2px 0 var(--success); }
+.plan-tab-icon, .plan-card-icon { display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px; color: var(--plan-accent); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.plan-focused .pl-tabs button svg { width: 19px; height: 19px; opacity: 1; color: inherit; }
+.plan-tab-copy { display: grid; gap: 5px; min-width: 0; }
+.plan-tab-copy strong { font-size: 13px; font-weight: 600; }
+.plan-tab-copy small { color: var(--muted); font-size: 11px; line-height: 1.4; font-weight: 400; }
+.plan-tab-number { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.plan-focused .home-section { margin: 0; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.plan-focused .home-section h2 { display: flex; gap: 10px; align-items: center; font-size: 20px; margin: 0; font-weight: 600; line-height: 1.4; }
+.plan-focused .home-section h2 svg { flex: 0 0 auto; color: var(--plan-accent); width: 22px; height: 22px; }
+.plan-focused .home-section-title { flex-wrap: wrap; gap: 12px; }
+.plan-focused .home-section-title .home-link { padding: 9px 14px; border: 1px solid color-mix(in srgb, var(--success) 35%, var(--line)); border-radius: 8px; color: var(--plan-accent); background: color-mix(in srgb, var(--success) 8%, transparent); text-decoration: none; font-weight: 600; }
+.plan-focused .home-month-grid { gap: 16px; margin: 22px 0 16px; }
+.plan-focused .home-month-metric { padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); border-top: 2px solid color-mix(in srgb, var(--success) 55%, var(--line)); }
+.plan-focused .home-month-metric:nth-child(2) { border-top-color: var(--accent-soft); }
+.plan-focused .home-month-metric h3 { margin: 0; font-size: 13px; }
+.plan-focused .home-month-metric > strong { margin: 14px 0 10px; font-size: 36px; font-weight: 600; letter-spacing: -1px; }
+.plan-focused .home-month-metric p { margin-bottom: 0; line-height: 1.6; }
+.plan-focused .home-month-metric progress::-webkit-progress-value { background: var(--success); }
+.plan-focused .home-month-metric progress::-moz-progress-bar { background: var(--success); }
+.plan-focused .home-metric-note { font-size: 11px; }
+.plan-shared-note { display: flex; align-items: flex-start; gap: 8px; margin: 12px 4px 24px; }
+.plan-shared-note svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 3px; }
+.plan-next-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plan-next { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 24px; border: 1px solid color-mix(in srgb, var(--success) 22%, var(--line)); border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--success) 7%, transparent), transparent), var(--surface); }
+.plan-card-icon { width: 42px; height: 42px; margin-bottom: 4px; }
+.plan-card-icon svg { width: 23px; height: 23px; }
+.plan-card-kicker { color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.plan-next h2 { color: var(--text-strong); font-size: 21px; font-weight: 600; line-height: 1.35; letter-spacing: -.4px; margin: 0; }
+.plan-next p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 0 0 8px; }
+.plan-next .gs-button { margin-top: auto; white-space: normal; text-align: left; padding: 10px 14px; }
+.plan-focused .plan-primary { border-color: var(--success); color: var(--bg); background: var(--success); font-weight: 650; }
+.plan-focused .plan-primary:hover:not(:disabled) { background: var(--success-soft); color: var(--bg); border-color: var(--success-soft); }
+.plan-next-simulator { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent), var(--surface); border-color: color-mix(in srgb, var(--accent) 24%, var(--line)); }
+.plan-next-simulator .plan-card-icon { color: var(--accent-soft); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.plan-focused .plan-insights-link { display: flex; align-items: center; gap: 12px; padding: 22px 4px 0; color: var(--muted); text-decoration: none; font-size: 13px; line-height: 1.6; }
+.plan-insights-link > svg { width: 18px; height: 18px; flex: 0 0 auto; }
+.plan-insights-link > svg:last-child { margin-left: auto; }
+.plan-focused .plan-insights-link:hover { color: var(--text-strong); }
+.plan-action-intro { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 4px; }
+.plan-action-intro h2 { color: var(--text-strong); font-size: 22px; margin: 0 0 8px; letter-spacing: -.4px; }
+.plan-action-intro p { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 0; }
 .plan-focused .gs-note { font-size: 13px; line-height: 1.7; }
 .plan-focused a { color: var(--text); text-underline-offset: 3px; }
-.plan-focused .gs-button { min-height: 40px; font-size: 13px; font-weight: 500; border-radius: 5px; }
-.plan-focused .gs-panel { box-shadow: none; background: var(--surface); border-radius: 6px; }
+.plan-focused .gs-button { min-height: 40px; font-size: 13px; font-weight: 500; border-radius: 8px; }
+.plan-focused .gs-panel { box-shadow: none; background: var(--surface); border-radius: 16px; }
 .plan-focused .gs-panel h2 { font-size: 18px; font-weight: 550; }
 .plan-focused .gs-panel p, .plan-focused .pl-sim-title p { font-size: 13px; line-height: 1.6; }
 .plan-focused .pl-sim-controls, .plan-focused .pl-sim-out { padding: 24px; gap: 18px; }
@@ -36,4 +75,25 @@
 .plan-advanced > summary { cursor: pointer; font-size: 15px; padding: 8px 0; }
 .plan-focused :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .plan-focused [hidden] { display: none !important; }
-@media(max-width: 650px) { .plan-focused > .gs-shell { padding: 24px 20px 80px; } .plan-focused .gs-heading h1 { font-size: 25px; } .plan-focused .pl-tabs { gap: 20px; } .plan-next { flex-direction: column; align-items: start; } .plan-focused .pl-sim-controls, .plan-focused .pl-sim-out { padding: 18px; } .plan-focused .pl-sim-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .plan-focused .gs-queue-card footer { flex-wrap: wrap; gap: 10px; } }
+@media(max-width: 1100px) {
+  .plan-tab-number { display: none; }
+  .plan-focused .pl-tabs button { flex-direction: column; align-items: flex-start; }
+}
+@media(max-width: 650px) {
+  .plan-focused > .gs-shell { padding: 20px 16px 80px; }
+  .plan-focused .gs-header { padding: 22px 20px; border-radius: 16px; }
+  .plan-focused .gs-heading h1 { font-size: 29px; }
+  .plan-focused .pl-tabs { gap: 8px; }
+  .plan-focused .pl-tabs button { padding: 12px 8px; gap: 8px; }
+  .plan-tab-copy strong { font-size: 12px; }
+  .plan-tab-copy small { display: none; }
+  .plan-tab-icon { width: 30px; height: 30px; }
+  .plan-focused .home-section, .plan-next { padding: 20px; }
+  .plan-focused .home-section h2 { font-size: 19px; }
+  .plan-focused .home-month-grid, .plan-next-grid { grid-template-columns: 1fr; }
+  .plan-focused .home-goal-form input { width: 100%; }
+  .plan-focused .pl-sim-controls, .plan-focused .pl-sim-out { padding: 18px; }
+  .plan-focused .pl-sim-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .plan-focused .gs-queue-card footer { flex-wrap: wrap; gap: 10px; }
+  .plan-focused .gs-queue-card footer > div { flex-wrap: wrap; }
+}

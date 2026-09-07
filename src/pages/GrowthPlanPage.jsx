@@ -27,9 +27,9 @@ const WINDOWS = [
 ]
 
 const TABS = [
-  { key: 'objetivos', label: 'Objetivos', icon: RiFocus3Line },
-  { key: 'hacer', label: 'Plan de acción', icon: RiTaskLine },
-  { key: 'simular', label: 'Simulador', icon: RiLineChartLine },
+  { key: 'objetivos', label: 'Objetivos', hint: 'Marca el destino', icon: RiFocus3Line },
+  { key: 'hacer', label: 'Plan de acción', hint: 'Da el siguiente paso', icon: RiTaskLine },
+  { key: 'simular', label: 'Simulador', hint: 'Explora lo posible', icon: RiLineChartLine },
 ]
 
 const HORIZON_CARD = { hoy: 'tone-danger', 'esta-semana': 'tone-warn', 'este-mes': 'tone-info' }
@@ -138,7 +138,7 @@ function InvestmentCurve({ params, budget, max, currency, onPick }) {
     <div className="pl-curve">
       <svg
         viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" onClick={pick}
-        role="img" aria-label="Ingresos y beneficio según la inversión mensual"
+        role="img" aria-label="Ventas estimadas y ventas menos coste de llamadas según la inversión mensual"
       >
         <line className="pl-curve-zero" x1={pad.left} x2={width - pad.right} y1={y(0)} y2={y(0)} />
         <path className="pl-curve-revenue" d={path('revenue')} />
@@ -148,9 +148,9 @@ function InvestmentCurve({ params, budget, max, currency, onPick }) {
         {breakEven ? <circle className="pl-curve-break" cx={x(breakEven.budget)} cy={y(0)} r="3" /> : null}
       </svg>
       <div className="pl-curve-legend">
-        <span className="is-revenue">Ingresos</span>
-        <span className="is-profit">Beneficio</span>
-        {breakEven ? <span className="is-break">Empiezas a ganar en {money(breakEven.budget, currency)}</span> : <span className="is-break">Con estas tasas no llegas a ganar</span>}
+        <span className="is-revenue">Ventas estimadas</span>
+        <span className="is-profit">Ventas menos llamadas</span>
+        {breakEven ? <span className="is-break">Coste de llamadas cubierto desde ≈{money(breakEven.budget, currency)}</span> : <span className="is-break">El escenario no cubre el coste de llamadas</span>}
       </div>
     </div>
   )
@@ -404,8 +404,9 @@ function GrowthPlan() {
         <header className="gs-header pl-header">
           <div className="gs-heading">
             <div>
-              <h1>Plan y objetivos</h1>
-              <p>Define tus metas, organiza el trabajo y consulta las previsiones cuando las necesites.</p>
+              <span className="plan-eyebrow"><RiFocus3Line aria-hidden="true" /> Plan y objetivos</span>
+              <h1>Tus metas merecen <span>un plan.</span></h1>
+              <p>Ponle una cifra a tu ambición. Decide qué hacer hoy y descubre qué necesitarías para llegar más lejos.</p>
             </div>
           </div>
           {needsBoard ? <div className="gs-header-actions">
@@ -419,16 +420,32 @@ function GrowthPlan() {
         </header>
 
         <nav className="gs-tabs pl-tabs" aria-label="Secciones del plan">
-          {TABS.map(item => <button key={item.key} type="button" className={activeTab === item.key ? 'active' : ''} onClick={() => setTab(item.key)} aria-pressed={activeTab === item.key}>{item.label}</button>)}
+          {TABS.map(({ key, label, hint, icon: Icon }, index) => <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => setTab(key)} aria-label={label} aria-pressed={activeTab === key}>
+            <span className="plan-tab-icon"><Icon aria-hidden="true" /></span>
+            <span className="plan-tab-copy"><strong>{label}</strong><small>{hint}</small></span>
+            <span className="plan-tab-number" aria-hidden="true">0{index + 1}</span>
+          </button>)}
         </nav>
         <div hidden={activeTab !== 'objetivos'} className="plan-goals">
-          <MonthlyGoals showLinks={false} title="Objetivos del mes" onGoalLoaded={setSavedGoal} />
-          <p className="gs-note">Son los mismos objetivos que ves en Resumen. Se guardan para toda la organización y sirven como meta mensual hasta que los cambies.</p>
-          <div className="plan-next">
-            <div><h2>Organiza cómo alcanzarlos</h2><p>Revisa las acciones sugeridas y convierte las que elijas en tareas con fecha.</p></div>
-            <button className="gs-button" onClick={() => setTab('hacer')}>Ver plan de acción</button>
+          <MonthlyGoals showLinks={false} title={<><RiFocus3Line aria-hidden="true" /> ¿Hasta dónde quieres llegar este mes?</>} onGoalLoaded={setSavedGoal} />
+          <p className="gs-note plan-shared-note"><RiInformationLine aria-hidden="true" /> Un equipo, una misma meta. Estos objetivos también aparecen en Resumen y se mantienen cada mes hasta que los cambies.</p>
+          <div className="plan-next-grid">
+            <section className="plan-next">
+              <span className="plan-card-icon"><RiFlashlightLine aria-hidden="true" /></span>
+              <span className="plan-card-kicker">De la intención a la acción</span>
+              <h2>Haz que tu meta tenga fecha.</h2>
+              <p>Elige una acción sugerida y conviértela en una tarea. Un paso concreto para empezar a avanzar.</p>
+              <button type="button" className="gs-button plan-primary" onClick={() => setTab('hacer')}>Elegir mi siguiente paso <RiArrowRightLine aria-hidden="true" /></button>
+            </section>
+            <section className="plan-next plan-next-simulator">
+              <span className="plan-card-icon"><RiLineChartLine aria-hidden="true" /></span>
+              <span className="plan-card-kicker">Antes de dar el salto</span>
+              <h2>¿Y si apuntas más alto?</h2>
+              <p>Prueba otro presupuesto o una mejor tasa de cierre. Compara escenarios estimados antes de decidir.</p>
+              <button type="button" className="gs-button" onClick={() => setTab('simular')}>Probar un escenario <RiArrowRightLine aria-hidden="true" /></button>
+            </section>
           </div>
-          <p className="gs-note">Para comparar resultados por campaña o agente, entra en <Link to="/insights">Análisis del negocio</Link>.</p>
+          <Link className="plan-insights-link" to="/insights"><RiLineChartLine aria-hidden="true" /><span>Descubre qué campañas y agentes están dando resultados</span><RiArrowRightLine aria-hidden="true" /></Link>
         </div>
         {needsBoard ? <DataStatusBanner status={status} message={notice || undefined} onRetry={load} /> : null}
         {needsBoard && status === 'loading' && !board ? <PageLoadingState label="Cargando datos del plan" /> : null}
@@ -440,8 +457,8 @@ function GrowthPlan() {
                 <section className="gs-panel pl-sim">
                   <div className="pl-sim-controls">
                     <div className="pl-sim-title">
-                      <h2>¿Y si…?</h2>
-                      <p>Prueba un presupuesto y unas tasas. Este cálculo no modifica tus objetivos ni pone campañas en marcha.</p>
+                      <h2>Prueba hoy. Decide con perspectiva.</h2>
+                      <p>Mueve los controles y explora cómo cambiarían tus resultados. Es una simulación: tus metas y campañas siguen igual.</p>
                     </div>
 
                     <div className="pl-budget">
@@ -454,22 +471,22 @@ function GrowthPlan() {
                       </button>
                     </div>
                     <Slider
-                      label="Contacto" value={params.contact} min={0} max={1} step={0.01}
+                        label="Tasa de contacto" value={params.contact} min={0} max={1} step={0.01}
                       onChange={value => patch({ contact: value })} format={percent}
                       real={real.contact} realLabel={origin('contact', percent(real.contact))}
                     />
                     <Slider
-                      label="Cualifico" value={params.qualify} min={0} max={1} step={0.01}
+                      label="Tasa de cualificación" value={params.qualify} min={0} max={1} step={0.01}
                       onChange={value => patch({ qualify: value })} format={percent}
                       real={real.qualify} realLabel={origin('qualify', percent(real.qualify))}
                     />
                     <Slider
-                      label="Abro oportunidad" value={params.opportunity} min={0} max={1} step={0.01}
+                      label="Conversión a oportunidad" value={params.opportunity} min={0} max={1} step={0.01}
                       onChange={value => patch({ opportunity: value })} format={percent}
                       real={real.opportunity} realLabel={origin('opportunity', percent(real.opportunity))}
                     />
                     <Slider
-                      label="Cierro" value={params.win} min={0} max={1} step={0.01}
+                      label="Tasa de cierre" value={params.win} min={0} max={1} step={0.01}
                       onChange={value => patch({ win: value })} format={percent}
                       real={real.win} realLabel={origin('win', percent(real.win))}
                     />
@@ -532,8 +549,8 @@ function GrowthPlan() {
                 </section>
 
                 <Panel
-                  title="Calcular a partir de un importe"
-                  subtitle="Estima la actividad necesaria. Este cálculo no guarda ni cambia tus objetivos."
+                  title="Pon la meta. Descubre el esfuerzo."
+                  subtitle="Elige una cifra de ventas y estima cuántas llamadas, conversaciones y oportunidades necesitarías. Tu objetivo guardado no cambia."
                   icon={RiFocus3Line}
                 >
                   <GoalBox params={params} currency={currency} minutesAllowed={board.totals.minutesAllowed} savedGoal={savedGoal} />
@@ -617,13 +634,14 @@ function GrowthPlan() {
             {/* ── Hacer ───────────────────────────────────────────────── */}
             {activeTab === 'hacer' ? (
               <div className="gs-stack">
-                <p className="gs-note">Elige una acción y crea una tarea asignada a ti, con vencimiento al final de hoy, en 7 días o en 30 días según el grupo. Puedes consultarla en el <Link to="/calendario">Calendario</Link>. Las sugerencias se calculan con los últimos {board.windowDays} días.</p>
+                <div className="plan-action-intro"><span className="plan-card-icon"><RiTaskLine aria-hidden="true" /></span><div><h2>El progreso empieza con una acción.</h2><p>Elige qué mover hoy. Convierte las sugerencias que encajen contigo en tareas y dales seguimiento en el <Link to="/calendario">Calendario</Link>.</p></div></div>
+                <p className="gs-note">Basado en los últimos {board.windowDays} días. Cada tarea se asigna a ti y vence hoy, en 7 días o en 30 días, según su grupo.</p>
                 {taskError ? <p className="gs-note" role="alert">{taskError}</p> : null}
                 {Object.values(tasks).includes('done') ? <p className="gs-note" role="status">Tarea guardada. Ya aparece en el calendario.</p> : null}
                 {board.actions.length === 0 ? (
-                  <Panel title="Sin acciones sugeridas" icon={RiCheckboxCircleLine}>
+                  <Panel title="Tu próximo paso lo eliges tú" icon={RiFocus3Line}>
                     <p className="gs-empty-inline is-ok">
-                      Con los datos disponibles no se han identificado acciones concretas. Puedes revisar tus resultados en Análisis o explorar supuestos en el{' '}
+                      Aún no hay sugerencias concretas con los datos disponibles. Revisa tus resultados en Análisis o prueba una idea en el{' '}
                       <button type="button" className="gs-link" onClick={() => setTab('simular')}>simulador</button>.
                     </p>
                   </Panel>
@@ -662,7 +680,7 @@ function GrowthPlan() {
                                 >
                                   {tasks[action.id] === 'saving' ? <RiLoader4Line className="gs-spin" />
                                     : tasks[action.id] === 'done' ? <RiCheckboxCircleLine /> : <RiAddCircleLine />}
-                                  {tasks[action.id] === 'done' ? 'En tareas' : tasks[action.id] === 'error' ? 'No se pudo' : 'Crear tarea'}
+                                  {tasks[action.id] === 'done' ? 'Tarea creada' : tasks[action.id] === 'saving' ? 'Creando tarea…' : tasks[action.id] === 'error' ? 'Reintentar tarea' : 'Crear tarea'}
                                 </button>
                               </div>
                             </footer>

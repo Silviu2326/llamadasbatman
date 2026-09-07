@@ -52,6 +52,7 @@ import { marketingCampaignsRoutes } from './routes/marketingCampaigns'
 import { growthProgramsRoutes } from './routes/growthPrograms'
 import { revenueIntelligenceRoutes } from './routes/revenueIntelligence'
 import { accessControlRoutes } from './routes/accessControl'
+import { backOfficeRoutes } from './routes/backOffice'
 import { organicRoutes } from './routes/organic'
 import { seoRoutes } from './routes/seo'
 import { publicSeoRoutes } from './routes/publicSeo'
@@ -74,6 +75,7 @@ import { studioRoutes } from './routes/studio'
 import { websiteIntakeRoutes } from './routes/websiteIntake'
 import { webConnectionsRoutes } from './routes/webConnections'
 import { webEventsRoutes } from './routes/webEvents'
+import { webClientRoutes } from './routes/webClient'
 import { studioReviewPublicRoutes } from './routes/studioReviewPublic'
 import { marketplaceRoutes } from './routes/marketplace'
 import { organizationsRoutes } from './routes/organizations'
@@ -86,11 +88,14 @@ import { safeOperationalError } from './observability/operationalLog'
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { userId: string; orgId: string; role: string; email: string; tokenType: 'access'; sessionId: string; workspaceScope?: 'own' | 'team' | 'org'; workspaceGrants?: Array<{ workspaceId: string; role: string; scope: 'own' | 'team' | 'org'; source: 'primary' | 'agency_config'; agencyOrgId?: string }> }
+    // `impersonated` marca las sesiones abiertas desde el back office a nombre
+    // de otra persona. Va en el token para que `requirePlatformAdmin` pueda
+    // rechazarlas sin depender de una consulta previa a la base.
+    payload: { userId: string; orgId: string; role: string; email: string; tokenType: 'access'; sessionId: string; workspaceScope?: 'own' | 'team' | 'org'; workspaceGrants?: Array<{ workspaceId: string; role: string; scope: 'own' | 'team' | 'org'; source: 'primary' | 'agency_config'; agencyOrgId?: string }>; impersonated?: boolean; impersonatorUserId?: string }
     // `payload` es lo que se firma y sigue siendo solo de sesión. `user` es lo
     // que ve el resto del stack, y ahí también puede haber una clave de API:
     // sin sessionId y con el id de la clave para trazarla.
-    user:    { userId: string; orgId: string; role: string; email: string; tokenType: 'access' | 'api_key'; sessionId?: string; apiKeyId?: string; workspaceScope?: 'own' | 'team' | 'org'; workspaceGrants?: Array<{ workspaceId: string; role: string; scope: 'own' | 'team' | 'org'; source: 'primary' | 'agency_config'; agencyOrgId?: string }> }
+    user:    { userId: string; orgId: string; role: string; email: string; tokenType: 'access' | 'api_key'; sessionId?: string; apiKeyId?: string; workspaceScope?: 'own' | 'team' | 'org'; workspaceGrants?: Array<{ workspaceId: string; role: string; scope: 'own' | 'team' | 'org'; source: 'primary' | 'agency_config'; agencyOrgId?: string }>; impersonated?: boolean; impersonatorUserId?: string }
   }
 }
 
@@ -249,6 +254,7 @@ async function build() {
   await app.register(growthProgramsRoutes, { prefix: '/api/growth-programs' })
   await app.register(revenueIntelligenceRoutes, { prefix: '/api/revenue-intelligence' })
   await app.register(accessControlRoutes, { prefix: '/api/access-control' })
+  await app.register(backOfficeRoutes, { prefix: '/api/backoffice' })
   await app.register(organicRoutes, { prefix: '/api/organic' })
   await app.register(seoRoutes, { prefix: '/api/seo' })
   await app.register(publicSeoRoutes, { prefix: '/api/public/seo' })
@@ -271,6 +277,7 @@ async function build() {
   await app.register(websiteIntakeRoutes, { prefix: '/api/intake' })
   await app.register(webConnectionsRoutes, { prefix: '/api/web-connections' })
   await app.register(webEventsRoutes, { prefix: '/api/web-events' })
+  await app.register(webClientRoutes)
   await app.register(studioReviewPublicRoutes, { prefix: '/api/public/studio-review' })
   await app.register(marketplaceRoutes, { prefix: '/api/marketplace' })
   await app.register(organizationsRoutes, { prefix: '/api/organizations' })

@@ -1,5 +1,6 @@
 import {
   RiApps2Line,
+  RiBankCardLine,
   RiBarChartLine,
   RiBook2Line,
   RiBookReadLine,
@@ -8,11 +9,13 @@ import {
   RiClapperboardLine,
   RiCompass3Line,
   RiDashboard3Line,
+  RiFileList3Line,
   RiFlowChart,
   RiFolderImageLine,
   RiGlobalLine,
   RiGroupLine,
   RiHome5Line,
+  RiKey2Line,
   RiLeafLine,
   RiLineChartLine,
   RiListCheck2,
@@ -21,10 +24,12 @@ import {
   RiMicLine,
   RiMore2Fill,
   RiPhoneLine,
+  RiPieChartLine,
   RiPlugLine,
   RiRobot2Line,
   RiRocket2Line,
   RiSettings4Line,
+  RiShieldKeyholeLine,
   RiShareForwardLine,
   RiShoppingCart2Line,
   RiSparkling2Line,
@@ -40,6 +45,11 @@ export const APP_SPACES = [
   // Activos) se mudaron a «Más» para no quedarse huérfanos al retirarlo.
   { id: 'learn', label: 'Aprender', labelEn: 'Learn', Icon: RiBookReadLine, fallbackPath: '/aprender' },
   { id: 'more', label: 'Más', labelEn: 'More', Icon: RiMore2Fill, fallbackPath: '/configuracion' },
+  // El back office no es un espacio del producto: cruza organizaciones y solo
+  // existe para un operador de plataforma. Va al final del rail, separado de la
+  // navegación del tenant, y desaparece para todos los demás porque sus módulos
+  // exigen `platform.operate`, que solo tiene quien lleva el privilegio.
+  { id: 'backoffice', label: 'Back office', labelEn: 'Back office', Icon: RiShieldKeyholeLine, fallbackPath: '/backoffice' },
 ]
 
 export const APP_MODULES = [
@@ -71,13 +81,32 @@ export const APP_MODULES = [
   // `showInLocalNavigation: false` lo esconde de los menús sin romper la ruta:
   // /studio sigue resolviendo a un espacio y la paleta lo sigue encontrando.
   { id: 'studio', moduleId: 'studio', space: 'more', label: 'Studio de Cine', labelEn: 'Film Studio', to: '/studio', Icon: RiClapperboardLine, keywords: 'video producción storyboard tomas', showInLocalNavigation: false },
-  { id: 'microapps', moduleId: 'microapps', space: 'more', label: 'Microapps', labelEn: 'Microapps', to: '/microapps', Icon: RiApps2Line, keywords: 'crear investigar generar herramientas ia' },
+  // Microapps salió de la sidebar (2026-09): se llega desde la paleta, los
+  // atajos y los enlaces de leads, pero ya no ocupa un hueco en «Más».
+  { id: 'microapps', moduleId: 'microapps', space: 'more', label: 'Microapps', labelEn: 'Microapps', to: '/microapps', Icon: RiApps2Line, keywords: 'crear investigar generar herramientas ia', showInLocalNavigation: false },
   { id: 'assets', moduleId: 'assets', space: 'more', label: 'Biblioteca', labelEn: 'Library', to: '/activos', Icon: RiFolderImageLine, keywords: 'activos imágenes vídeos documentos biblioteca' },
-  { id: 'business', moduleId: 'business-info', space: 'more', label: 'Empresa', labelEn: 'Company', to: '/informacion-empresa', aliases: ['/rellenar-desde-web'], Icon: RiBuilding2Line, keywords: 'organización empresa perfil importar analizar web' },
-  { id: 'integrations', moduleId: 'connections', space: 'more', label: 'Integraciones', labelEn: 'Integrations', to: '/integraciones', aliases: ['/conexiones', '/marketplace', '/desarrolladores'], Icon: RiPlugLine, keywords: 'proveedores conexiones credenciales extensiones marketplace api webhooks byok' },
-  { id: 'settings', moduleId: 'settings', space: 'more', label: 'Configuración', labelEn: 'Settings', to: '/configuracion', Icon: RiSettings4Line, keywords: 'ajustes cuenta costes plan' },
-  { id: 'administration', moduleId: 'administration', space: 'more', label: 'Administración', labelEn: 'Administration', to: '/administracion', aliases: ['/gobierno-empresarial', '/access-control', '/agencia/clientes'], Icon: RiTeamLine, keywords: 'roles permisos usuarios gobierno auditoría políticas clientes white-label agencia' },
+  // Configuración es una sola sección (/configuracion) con secciones anidadas,
+  // como /captacion. La portada («Mi perfil») es el módulo que se lista en la
+  // sidebar; las secciones son módulos propios, ocultos del menú, para que la
+  // paleta, los recientes y los fijados lleguen a cada una con su permiso y su
+  // gating por plan intactos. Los ids se conservan para no perder fijados.
+  { id: 'settings', moduleId: 'settings', space: 'more', label: 'Configuración', labelEn: 'Settings', to: '/configuracion', Icon: RiSettings4Line, keywords: 'ajustes cuenta perfil contraseña idioma empresa plan integraciones administración' },
+  { id: 'business', moduleId: 'business-info', space: 'more', label: 'Configuración · Empresa', labelEn: 'Settings · Company', to: '/configuracion/empresa', aliases: ['/informacion-empresa', '/rellenar-desde-web'], Icon: RiBuilding2Line, keywords: 'organización empresa perfil ofertas precios guardarraíles importar analizar web', showInLocalNavigation: false },
+  { id: 'settings-plan', moduleId: 'settings', space: 'more', label: 'Configuración · Plan y facturación', labelEn: 'Settings · Plan & billing', to: '/configuracion/plan', Icon: RiBankCardLine, keywords: 'plan costes uso facturación suscripción stripe soporte', showInLocalNavigation: false },
+  { id: 'integrations', moduleId: 'connections', space: 'more', label: 'Configuración · Integraciones', labelEn: 'Settings · Integrations', to: '/configuracion/integraciones', aliases: ['/integraciones', '/conexiones', '/marketplace', '/desarrolladores'], Icon: RiPlugLine, keywords: 'proveedores conexiones credenciales extensiones marketplace api webhooks byok', showInLocalNavigation: false },
+  { id: 'administration', moduleId: 'administration', space: 'more', label: 'Configuración · Administración', labelEn: 'Settings · Administration', to: '/configuracion/administracion', aliases: ['/administracion', '/gobierno-empresarial', '/access-control', '/agencia/clientes'], Icon: RiTeamLine, keywords: 'roles permisos usuarios gobierno auditoría políticas clientes white-label agencia', showInLocalNavigation: false },
   { id: 'ad-playbooks', moduleId: 'ad-playbooks', space: 'more', label: 'Recetas Ads', labelEn: 'Ad recipes', to: '/admin/ad-playbooks', Icon: RiBook2Line, keywords: 'admin recetas anuncios', showInLocalNavigation: false },
+
+  // Secciones del back office. Son rutas de verdad (`/backoffice/usuarios`) y no
+  // pestañas en la query: así la sidebar puede listarlas como cualquier otro
+  // módulo, la paleta las encuentra y un enlace a una sección concreta sobrevive
+  // a copiarlo y pegarlo.
+  { id: 'backoffice-overview', moduleId: 'backoffice', space: 'backoffice', label: 'Resumen', labelEn: 'Overview', to: '/backoffice', exact: true, Icon: RiPieChartLine, keywords: 'back office plataforma operador totales altas' },
+  { id: 'backoffice-organizations', moduleId: 'backoffice', space: 'backoffice', label: 'Organizaciones', labelEn: 'Organizations', to: '/backoffice/organizaciones', Icon: RiBuilding2Line, keywords: 'tenants clientes planes wallet miembros back office' },
+  { id: 'backoffice-users', moduleId: 'backoffice', space: 'backoffice', label: 'Usuarios', labelEn: 'Users', to: '/backoffice/usuarios', Icon: RiGroupLine, keywords: 'cuentas personas membresías contraseña suplantar back office' },
+  { id: 'backoffice-permissions', moduleId: 'backoffice', space: 'backoffice', label: 'Roles y permisos', labelEn: 'Roles & permissions', to: '/backoffice/permisos', Icon: RiShieldKeyholeLine, keywords: 'matriz rbac roles permisos alcance planes back office' },
+  { id: 'backoffice-credentials', moduleId: 'backoffice', space: 'backoffice', label: 'Sesiones y claves', labelEn: 'Sessions & keys', to: '/backoffice/credenciales', Icon: RiKey2Line, keywords: 'sesiones tokens api keys revocar suplantaciones back office' },
+  { id: 'backoffice-audit', moduleId: 'backoffice', space: 'backoffice', label: 'Auditoría', labelEn: 'Audit log', to: '/backoffice/auditoria', Icon: RiFileList3Line, keywords: 'registro auditoría acciones motivo antes después back office' },
 
   { id: 'learn-center', moduleId: 'tutorials', space: 'learn', label: 'Centro de aprendizaje', labelEn: 'Learning center', to: '/aprender', aliases: ['/tutoriales', '/documentacion'], Icon: RiBookReadLine, keywords: 'aprender tutoriales documentación guías pasos onboarding formación referencia api ayuda configuración' },
 ]
@@ -99,12 +128,17 @@ const LOCAL_GROUPS = {
     { id: 'operations', label: 'Operación', labelEn: 'Operations', moduleIds: ['growth-operations'] },
   ],
   more: [
-    { id: 'tools', label: 'Herramientas', labelEn: 'Tools', moduleIds: ['microapps', 'assets'] },
-    { id: 'organization', label: 'Configuración', labelEn: 'Setup', moduleIds: ['business', 'integrations', 'settings'] },
-    { id: 'administration', label: 'Administración', labelEn: 'Administration', moduleIds: ['administration'] },
+    { id: 'tools', label: 'Herramientas', labelEn: 'Tools', moduleIds: ['assets'] },
+    { id: 'organization', label: 'Organización', labelEn: 'Organization', moduleIds: ['settings'] },
   ],
   learn: [
     { id: 'learning', label: 'Aprende a usar Vendrava', labelEn: 'Learn Vendrava', moduleIds: ['learn-center'] },
+  ],
+  // Lo que se mira, y lo que decide quién puede hacer qué. La auditoría cae en
+  // el segundo grupo porque se consulta después de actuar, no para navegar.
+  backoffice: [
+    { id: 'tenants', label: 'Plataforma', labelEn: 'Platform', moduleIds: ['backoffice-overview', 'backoffice-organizations', 'backoffice-users'] },
+    { id: 'control', label: 'Control y registro', labelEn: 'Control & audit', moduleIds: ['backoffice-permissions', 'backoffice-credentials', 'backoffice-audit'] },
   ],
 }
 
@@ -129,6 +163,10 @@ export function localizedLabel(item, locale) {
 
 export function pathMatchesModule(pathname, module) {
   const paths = [module.to, ...(module.aliases || [])]
+  // `exact` es para el módulo que es la portada de una sección con hermanos
+  // visibles: sin él, `/backoffice` casa también con `/backoffice/usuarios` y la
+  // sidebar marca dos entradas activas a la vez.
+  if (module.exact) return paths.some(path => pathname === path)
   return paths.some(path => pathname === path || pathname.startsWith(`${path}/`))
 }
 

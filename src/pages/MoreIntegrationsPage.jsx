@@ -15,7 +15,11 @@ const SECTIONS = [
   { id: 'api', label: 'API y webhooks', Icon: RiCodeBoxLine },
 ]
 
-export default function MoreIntegrationsPage() {
+/**
+ * `embedded`: la página vive como sección de /configuracion, que ya pinta la
+ * cabecera. Aquí queda solo la barra de pestañas internas (`?tab=`).
+ */
+export default function MoreIntegrationsPage({ embedded = false }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const requested = searchParams.get('tab')
   const activeId = SECTIONS.some(section => section.id === requested) ? requested : 'proveedores'
@@ -34,13 +38,17 @@ export default function MoreIntegrationsPage() {
     onChange={selectSection}
   />
 
-  return <main className="more-center-page dark-scroll">
-    <ProductPageHeader
-      Icon={RiPlugLine}
-      title="Integraciones"
-      description="Conecta proveedores, instala extensiones y enlaza Vendrava con tus sistemas."
-      navigation={navigation}
-    />
+  const Root = embedded ? 'section' : 'main'
+
+  return <Root className="more-center-page dark-scroll">
+    {embedded
+      ? <div className="more-center-subnav">{navigation}</div>
+      : <ProductPageHeader
+          Icon={RiPlugLine}
+          title="Integraciones"
+          description="Conecta proveedores, instala extensiones y enlaza Vendrava con tus sistemas."
+          navigation={navigation}
+        />}
     <div className="more-center-body">
       <Suspense fallback={<PageLoadingState label="Cargando integraciones" />}>
         {activeId === 'extensiones' ? <MarketplacePage embedded /> : null}
@@ -48,5 +56,5 @@ export default function MoreIntegrationsPage() {
         {activeId === 'proveedores' ? <ConnectionsCenterPage embedded /> : null}
       </Suspense>
     </div>
-  </main>
+  </Root>
 }

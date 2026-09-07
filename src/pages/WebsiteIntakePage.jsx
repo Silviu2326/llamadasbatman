@@ -283,7 +283,7 @@ export default function WebsiteIntakePage() {
           <p>El modelo lee la web del cliente y propone su ficha. Tú revisas y decides qué se guarda.</p>
         </div>
       </div>
-      <button type="button" className="intake-ghost" onClick={() => navigate('/informacion-empresa')}>
+      <button type="button" className="intake-ghost" onClick={() => navigate('/configuracion/empresa')}>
         <RiBuilding2Line /> Ver ficha actual <RiArrowRightLine />
       </button>
     </header>

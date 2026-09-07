@@ -229,6 +229,7 @@ model Organization {
   salesSequenceStepRuns          SalesSequenceStepRun[]
   integrationCredentials         OrganizationIntegrationCredential[]
   websiteConnections             WebsiteConnection[]
+  websiteChangeProposals         WebsiteChangeProposal[]
   seoReports                     SeoReport[]
   seoProjects                    SeoProject[]
   seoKeywordRanks                SeoKeywordRank[]
@@ -345,6 +346,14 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
+  // Operador de la plataforma (back office). Es deliberadamente un flag y no un
+  // rol: `role` describe qué puede hacer alguien DENTRO de una organización, y
+  // este privilegio es ortogonal — cruza todos los tenants. Modelarlo como rol
+  // habría obligado a que el catálogo RBAC, que es por organización, concediera
+  // permisos fuera de ella. Solo se otorga desde el servidor
+  // (scripts/grant-platform-admin.mjs), nunca desde la API.
+  isPlatformAdmin Boolean @default(false)
+
   org                         Organization                @relation(fields: [orgId], references: [id])
   meetings                    Meeting[]                   @relation("AssignedMeetings")
   opportunities               Opportunity[]               @relation("AssignedOpportunities")
@@ -381,6 +390,9 @@ model User {
   promotedAdRules             AdRuleAutonomy[]            @relation("AdRulePromotedBy")
   memberships                 OrganizationMembership[]
   agentVersions               AgentVersion[]               @relation("AgentVersionActor")
+  impersonatedSessions        AuthSession[]                @relation("SessionImpersonator")
+  platformActions             PlatformAuditLog[]           @relation("PlatformAuditActor")
+  platformActionsReceived     PlatformAuditLog[]           @relation("PlatformAuditTargetUser")
 }
 
 // Sesiones de refresco opacas y revocables. El navegador recibe solo el
@@ -398,10 +410,48 @@ model AuthSession {
   activeOrgId String?
   createdAt   DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Suplantación desde el back office: la sesión pertenece a `userId`, pero la
+  // abrió otra persona. Se conserva para que la auditoría pueda atribuir a un
+  // operador real lo que se hizo con esta sesión, y para que
+  // `requirePlatformAdmin` la rechace — suplantar no debe poder encadenarse.
+  impersonatedByUserId String?
+
+  user         User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonator User? @relation("SessionImpersonator", fields: [impersonatedByUserId], references: [id], onDelete: SetNull)
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
+  @@index([impersonatedByUserId, createdAt])
+}
+
+// Rastro de auditoría del back office de plataforma. Vive aparte de `AuditLog`
+// por dos razones: aquí `orgId` es opcional (listar usuarios no pertenece a
+// ninguna organización) y, sobre todo, no hay borrado en cascada — el registro
+// de que un operador archivó una organización debe sobrevivir a esa
+// organización, que es justo lo que un `onDelete: Cascade` destruiría.
+model PlatformAuditLog {
+  id            String   @id @default(cuid())
+  actorUserId   String?
+  actorEmail    String
+  action        String // ej. "backoffice.user.role.set", "backoffice.impersonate.start"
+  entityType    String
+  entityId      String
+  orgId         String?
+  targetUserId  String?
+  before        Json?
+  after         Json?
+  reason        String?
+  ip            String?
+  correlationId String?
+  createdAt     DateTime @default(now())
+
+  actor      User? @relation("PlatformAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  targetUser User? @relation("PlatformAuditTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([orgId, createdAt])
 }
 
 // Estado efímero de OAuth: opaco, de un solo uso y con verifier PKCE cifrado.
@@ -466,14 +516,56 @@ model WebsiteConnection {
   capabilities      Json
   detection         Json?
   lastCheckedAt     DateTime?
+  // Última señal recibida del script universal. Es lo que verifica la
+  // instalación: la conexión pasa a `connected` con el primer evento.
+  lastEventAt       DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   events WebsiteEvent[]
+  proposals WebsiteChangeProposal[]
 
   @@unique([orgId, domain])
   @@index([orgId, status])
+}
+
+// Cambio propuesto sobre la web de un cliente a través de su repositorio: un
+// agente edita el código y abre un pull request. Vendrava nunca escribe en la
+// rama principal; publicar es fusionar el PR con el flujo habitual del cliente.
+model WebsiteChangeProposal {
+  id           String  @id @default(cuid())
+  orgId        String
+  connectionId String
+  jobId        String?
+  source       String  @default("manual") // manual|seo
+  // queued|running|proposed|no_changes|failed|merged|closed
+  status       String  @default("queued")
+  title        String
+  instructions String
+  baseBranch   String
+  branch       String?
+  prNumber     Int?
+  prUrl        String?
+  headSha      String?
+  summary      String?
+  // [{ path, action: created|modified, additions, deletions }]
+  files        Json?
+  // pending|success|failure|none — checks de CI del PR en la última consulta
+  checksStatus String?
+  error        String?
+  createdByUserId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  proposedAt   DateTime?
+  mergedAt     DateTime?
+  closedAt     DateTime?
+
+  org        Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  connection WebsiteConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, connectionId, createdAt])
+  @@index([status, updatedAt])
 }
 
 // Eventos mínimos de la capa universal. No se guardan valores de formularios

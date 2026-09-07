@@ -24,7 +24,7 @@ test('malformed data is a failure, never an empty success', () => {
 
 test('known rules have concrete copy and do not expose technical evidence', () => {
   const copy = actionCopy({ kind: 'lead_without_contact', impact: { value: 5 }, evidence: 'JWT org-123', target: { path: '/leads' } })
-  assert.equal(copy.title, 'Primer contacto pendiente')
+  assert.equal(copy.title, 'Abre la primera conversación')
   assert.match(copy.detail, /5 contactos/)
   assert.doesNotMatch(copy.detail, /JWT|org-123|€/)
 })

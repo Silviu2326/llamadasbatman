@@ -110,6 +110,8 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
       email: user.email,
       role: identity.role,
       orgId: identity.orgId,
+      // Un alta self-service nunca crea un operador de plataforma.
+      isPlatformAdmin: false,
       workspaces: grants.map(grant => ({ id: grant.workspaceId, role: grant.role, scope: grant.scope, primary: grant.source === 'primary' })),
     },
     brand: await brandForOrg(identity.orgId),
@@ -149,6 +151,10 @@ export async function login(request: FastifyRequest<{ Body: LoginBody }>, reply:
         email: user.email,
         role: identity.role,
         orgId: identity.orgId,
+        // Solo indica si hay que ofrecer la entrada al back office. La
+        // autorización real la decide `requirePlatformAdmin` contra la base en
+        // cada llamada, así que falsear este campo en el cliente no abre nada.
+        isPlatformAdmin: user.isPlatformAdmin,
         workspaces: grants.map(grant => ({ id: grant.workspaceId, role: grant.role, scope: grant.scope, primary: grant.source === 'primary' })),
       },
       brand: await brandForOrg(identity.orgId),
@@ -180,6 +186,7 @@ export async function refresh(request: FastifyRequest, reply: FastifyReply) {
       email: rotated.user.email,
       role: rotated.user.role,
       orgId: rotated.user.orgId,
+      isPlatformAdmin: rotated.user.isPlatformAdmin,
     workspaces: rotated.user.workspaceGrants.map(grant => ({ id: grant.workspaceId, role: grant.role, scope: grant.scope, primary: grant.source === 'primary' })),
     },
     brand: await brandForOrg(rotated.user.orgId),
@@ -211,7 +218,7 @@ export async function selectOrganization(request: FastifyRequest, reply: Fastify
   const user = { ...selected, workspaceGrants: grants }
   return reply.send({
     token: await accessToken(request, user, request.user.sessionId),
-    user: { id: selected.id, name: selected.name, email: selected.email, role: selected.role, orgId: selected.orgId, workspaces: grants.map(grant => ({ id: grant.workspaceId, role: grant.role, scope: grant.scope, primary: grant.source === 'primary' })) },
+    user: { id: selected.id, name: selected.name, email: selected.email, role: selected.role, orgId: selected.orgId, isPlatformAdmin: selected.isPlatformAdmin, workspaces: grants.map(grant => ({ id: grant.workspaceId, role: grant.role, scope: grant.scope, primary: grant.source === 'primary' })) },
     organization: selected.org,
     brand: await brandForOrg(selected.orgId),
   })

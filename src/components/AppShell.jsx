@@ -20,6 +20,7 @@ import {
   RiSunLine,
   RiTimeLine,
   RiUserLine,
+  RiUserSharedLine,
 } from 'react-icons/ri'
 import { useAuth } from '../contexts/AuthContext'
 import { useExperience } from '../contexts/ExperienceContext'
@@ -331,10 +332,54 @@ function MobileSheet({ open, onClose, locale, visibleBySpace, activeSpaceId, pat
   )
 }
 
+/**
+ * Aviso permanente mientras se está viendo la plataforma como otra persona.
+ *
+ * Va fuera de la zona desplazable y ocupa todo el ancho a propósito: el riesgo
+ * real de una suplantación es olvidar que está activa y creer que se actúa como
+ * uno mismo. El contador hasta la caducidad recuerda además que la sesión no se
+ * renueva.
+ */
+function ImpersonationBanner({ impersonation, onStop, navigate }) {
+  const [leaving, setLeaving] = useState(false)
+  const [remaining, setRemaining] = useState('')
+
+  useEffect(() => {
+    if (!impersonation?.expiresAt) return undefined
+    function tick() {
+      const seconds = Math.max(Math.round((new Date(impersonation.expiresAt).getTime() - Date.now()) / 1000), 0)
+      setRemaining(`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`)
+    }
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => clearInterval(timer)
+  }, [impersonation?.expiresAt])
+
+  if (!impersonation) return null
+
+  async function stop() {
+    setLeaving(true)
+    const restored = await onStop()
+    setLeaving(false)
+    navigate(restored ? '/backoffice/auditoria' : '/login')
+  }
+
+  return <div className="shell-impersonation-banner" role="alert">
+    <RiUserSharedLine aria-hidden="true" />
+    <p>
+      Estás viendo la plataforma como <strong>{impersonation.target?.name}</strong> ({impersonation.target?.email})
+      {impersonation.organization ? <> en <strong>{impersonation.organization.name}</strong></> : null}.
+      Todo lo que hagas queda registrado a nombre de {impersonation.operator?.email || 'tu cuenta'}.
+    </p>
+    <span className="shell-impersonation-timer" title="Tiempo restante; la sesión no se renueva">{remaining}</span>
+    <button type="button" onClick={stop} disabled={leaving}>{leaving ? 'Saliendo…' : 'Volver a mi cuenta'}</button>
+  </div>
+}
+
 export default function AppShell({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout, switchOrganization } = useAuth()
+  const { user, logout, switchOrganization, impersonation, stopImpersonation } = useAuth()
   const experience = useExperience()
   const brand = useBrand()
   const { locale, setLocale } = useI18n()
@@ -356,7 +401,10 @@ export default function AppShell({ children }) {
   const activeSpace = spaceForPath(location.pathname)
   const visibleModules = useMemo(() => APP_MODULES.filter(item => (
     canNavigateTo(user, item.to)
-    && experience.isModuleVisible(item.moduleId, { isActive: pathMatchesModule(location.pathname, item) })
+    // El back office no es producto de la organización: ni el plan ni el modo
+    // de experiencia deciden si se ve. Su única puerta es el privilegio de
+    // operador, que `canNavigateTo` ya ha comprobado.
+    && (item.space === 'backoffice' || experience.isModuleVisible(item.moduleId, { isActive: pathMatchesModule(location.pathname, item) }))
   )), [experience, location.pathname, user])
   const visibleBySpace = useMemo(() => {
     const grouped = new Map(APP_SPACES.map(space => [space.id, []]))
@@ -500,7 +548,8 @@ export default function AppShell({ children }) {
   }
 
   return (
-    <div className={`app-shell${navigationState.localPanelCollapsed ? ' shell-local-collapsed' : ''}`}>
+    <div className={`app-shell${navigationState.localPanelCollapsed ? ' shell-local-collapsed' : ''}${impersonation ? ' shell-impersonating' : ''}`}>
+      <ImpersonationBanner impersonation={impersonation} onStop={stopImpersonation} navigate={navigate} />
       <aside className="shell-desktop-nav" aria-label="Navegación principal">
         <div className="shell-rail">
           <button className="shell-brand-mark" type="button" onClick={() => navigate('/dashboard')} title={brand.brandName}>
@@ -544,6 +593,9 @@ export default function AppShell({ children }) {
           </div>
           <div className="shell-topbar-actions">
             {canNavigateTo(user, '/trabajos') ? <button type="button" className="shell-approval-link" onClick={() => navigate('/trabajos?status=awaiting_approval')}><RiCheckLine /> Aprobaciones</button> : null}
+            {/* El back office ya tiene su propio espacio en el rail, con sus
+                secciones en el panel local: un botón suelto en la barra
+                superior era una segunda puerta a lo mismo. */}
             <NotificationButton />
           </div>
         </header>

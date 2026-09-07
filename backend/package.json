@@ -16,6 +16,8 @@
     "test": "node scripts/run-tests.mjs",
     "test:offline": "node --test scripts/test-runtime.offline.test.mjs",
     "org:create": "node --env-file=.env scripts/create-org.mjs",
+    "platform:admin": "node --env-file=.env scripts/grant-platform-admin.mjs",
+    "platform:admin:create": "node --env-file=.env scripts/create-platform-admin.mjs",
     "sequence:create": "node --env-file=.env scripts/create-sales-sequence.mjs",
     "preflight:usa": "node --env-file=.env scripts/preflight-usa.mjs",
     "prospect:usa": "node --env-file=.env --import=tsx scripts/prospect-usa.ts",

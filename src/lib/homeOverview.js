@@ -18,12 +18,12 @@ export function actionCopy(item) {
   const count = Number(item.impact?.value)
   const hasCount = Number.isFinite(count) && count > 0
   const copies = {
-    lead_without_contact: ['Primer contacto pendiente', hasCount ? `${count} contactos nuevos sin intentos de contacto registrados.` : 'Hay contactos nuevos sin contactar.', 'Ver contactos'],
-    stalled_opportunity: ['Oportunidades sin seguimiento', hasCount ? `${count} oportunidades llevan al menos 7 días sin cambios.` : 'Hay oportunidades sin cambios recientes.', 'Ver oportunidades'],
-    campaign_efficiency: ['Campañas sin contactos registrados', 'Revisa las campañas activas que todavía no tienen contactos registrados.', 'Ver campañas'],
-    organic_opportunity: ['Acciones pendientes de publicación', 'Hay acciones de contenido cuya fecha prevista ya ha pasado.', 'Revisar acciones'],
-    automation_error: ['Automatizaciones con errores', 'Revisa las ejecuciones que han fallado antes de repetirlas.', 'Revisar errores'],
-    meeting_follow_up: ['Reuniones por actualizar', 'Hay reuniones pasadas que siguen programadas, sin resultado registrado.', 'Ver reuniones'],
+    lead_without_contact: ['Abre la primera conversación', hasCount ? `${count === 1 ? '1 contacto nuevo sin intentos' : `${count} contactos nuevos sin intentos`} de contacto registrados. Elige por quién empezar.` : 'Tienes contactos nuevos sin contactar. Elige por quién empezar.', 'Elegir contacto'],
+    stalled_opportunity: ['Retoma tus oportunidades', hasCount ? `${count === 1 ? '1 oportunidad lleva' : `${count} oportunidades llevan`} al menos 7 días sin cambios. Revisa el siguiente paso.` : 'Tienes oportunidades sin cambios recientes. Revisa el siguiente paso.', 'Revisar oportunidades'],
+    campaign_efficiency: ['Revisa el arranque de tus campañas', 'Hay campañas activas sin contactos registrados. Comprueba qué necesitan para empezar.', 'Revisar campañas'],
+    organic_opportunity: ['Pon al día tus publicaciones', 'La fecha prevista de algunas acciones de contenido ya ha pasado. Revisa qué queda por publicar.', 'Revisar contenido'],
+    automation_error: ['Recupera tus automatizaciones', 'Algunas ejecuciones han fallado. Revisa el error antes de volver a intentarlo.', 'Revisar errores'],
+    meeting_follow_up: ['Deja listo el próximo paso', 'Hay reuniones pasadas sin resultado registrado. Actualízalas para preparar el seguimiento.', 'Actualizar reuniones'],
   }
   const [title, detail, label] = copies[item.kind] || [item.title, typeof item.evidence === 'string' ? item.evidence : '', item.cta?.label || 'Revisar']
   const path = item.target?.path

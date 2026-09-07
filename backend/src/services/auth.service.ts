@@ -12,6 +12,7 @@ export type SessionUser = {
   role: string
   email: string
   name: string
+  isPlatformAdmin: boolean
   workspaceGrants: WorkspaceGrant[]
 }
 
@@ -128,6 +129,11 @@ export async function rotateRefreshSession(rawRefreshToken: string | undefined):
   if (!current || current.revokedAt || current.expiresAt <= new Date() || !tokenMatches(current.tokenHash, parsed.secret)) {
     return null
   }
+  // Una suplantación del back office dura lo que dura y no se renueva. Su
+  // secreto de refresco nunca se entrega, así que llegar aquí ya sería
+  // anómalo; se corta igualmente para que la caducidad de 30 minutos sea un
+  // límite real y no dependa de que nadie encuentre la forma de rotarla.
+  if (current.impersonatedByUserId) return null
   const activeOrgId = current.activeOrgId ?? current.user.orgId
   const membership = await prisma.organizationMembership.findUnique({
     where: { orgId_userId: { orgId: activeOrgId, userId: current.user.id } },
@@ -158,6 +164,7 @@ export async function rotateRefreshSession(rawRefreshToken: string | undefined):
       role: membership.role,
       email: current.user.email,
       name: current.user.name,
+      isPlatformAdmin: current.user.isPlatformAdmin,
       workspaceGrants: await getWorkspaceGrantsForUserAsync({
         userId: current.user.id,
         email: current.user.email,
@@ -173,7 +180,7 @@ export async function rotateRefreshSession(rawRefreshToken: string | undefined):
 export async function selectOrganizationForSession(input: { userId: string; sessionId: string; orgId: string }) {
   const membership = await prisma.organizationMembership.findUnique({
     where: { orgId_userId: { orgId: input.orgId, userId: input.userId } },
-    include: { org: { select: { id: true, name: true, plan: true } }, user: { select: { id: true, email: true, name: true } } },
+    include: { org: { select: { id: true, name: true, plan: true } }, user: { select: { id: true, email: true, name: true, isPlatformAdmin: true } } },
   })
   if (!membership || membership.status !== 'active') return null
   const changed = await prisma.authSession.updateMany({
@@ -181,7 +188,7 @@ export async function selectOrganizationForSession(input: { userId: string; sess
     data: { activeOrgId: input.orgId, lastUsedAt: new Date() },
   })
   if (changed.count !== 1) return null
-  return { id: membership.user.id, name: membership.user.name, email: membership.user.email, orgId: membership.orgId, role: membership.role, org: membership.org }
+  return { id: membership.user.id, name: membership.user.name, email: membership.user.email, isPlatformAdmin: membership.user.isPlatformAdmin, orgId: membership.orgId, role: membership.role, org: membership.org }
 }
 
 export async function listUserOrganizations(userId: string) {
