@@ -51,6 +51,7 @@ export async function adsRoutes(app: FastifyInstance) {
   app.get('/experiments', canRead, ctrl.listExperiments)
   app.post<{ Body: unknown }>('/experiments', canMutate, ctrl.createExperiment)
   app.get<{ Params: { id: string } }>('/experiments/:id/allocation', canRead, ctrl.experimentAllocation)
+  app.post<{ Params: { id: string } }>('/experiments/:id/start', canMutate, ctrl.startExperiment)
   app.post<{ Params: { id: string } }>('/experiments/:id/conclude', canMutate, ctrl.concludeExperiment)
   app.get('/budget-allocation', canRead, ctrl.budgetAllocation)
   app.get('/draft', canRead, ctrl.getDraft)

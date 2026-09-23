@@ -102,8 +102,13 @@ export async function createExperiment(
 }
 
 export async function startExperiment(orgId: string, experimentId: string) {
+  // Filtrar por orgId antes de escribir: el id llega de la URL y no puede
+  // arrancar experimentos de otra organización.
+  const experiment = await prisma.adExperiment.findFirst({ where: { id: experimentId, orgId }, select: { id: true, status: true } })
+  if (!experiment) return null
+  if (experiment.status !== 'draft') return prisma.adExperiment.findFirst({ where: { id: experiment.id }, include: { variants: true } })
   return prisma.adExperiment.update({
-    where: { id: experimentId },
+    where: { id: experiment.id },
     data: { status: 'running', startedAt: new Date() },
     include: { variants: true },
   })

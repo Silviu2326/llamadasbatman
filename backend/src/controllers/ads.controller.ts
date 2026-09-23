@@ -130,6 +130,13 @@ const wizardInputSchema = z.object({
   // pagina lo dice en vez de inventarse uno.
   marginPerSaleCents: z.coerce.number().int().positive().max(100_000_000).optional(),
   acquisitionSharePct: z.coerce.number().int().min(1).max(100).optional(),
+  // Variante de anuncio elegida en el asistente; se persiste en adAssets.creative.
+  creative: z.object({
+    label: z.string().trim().min(1).max(60),
+    title: z.string().trim().min(1).max(120),
+    body: z.string().trim().min(1).max(500),
+    cta: z.string().trim().min(1).max(40),
+  }).optional(),
 })
 
 export async function wizard(
@@ -189,10 +196,16 @@ async function runMetaAction(
     const result = await action()
     return reply.send(result)
   } catch (error) {
-    const message = (error as Error).message
-    const status = message === 'Campaign not found' ? 404 : 502
-    console.error(`[Ads] action failed for ${orgId}/${request.params.id}:`, message)
-    return reply.status(status).send({ error: status === 404 ? 'Campaña no encontrada' : 'Meta no pudo completar la operación' })
+    // Los fallos previos a Meta (sin página, sin creatividad, APP_URL local,
+    // consentimiento…) son 4xx con código propio: el usuario puede corregirlos
+    // y la interfaz enseña el mensaje. Solo lo que falla en Meta es 502/504.
+    const classified = metaCampaignBuilder.classifyPublishError(error)
+    console.error(`[Ads] action failed for ${orgId}/${request.params.id}:`, classified.code, (error as Error).message)
+    return reply.status(classified.status).send({
+      error: classified.message,
+      code: classified.code,
+      ...(classified.details ? { details: classified.details } : {}),
+    })
   }
 }
 
@@ -421,6 +434,16 @@ export async function experimentAllocation(
 ) {
   const { orgId } = request.user as JWTUser
   const result = await adExperimentService.computeAllocation(orgId, request.params.id)
+  if (!result) return reply.status(404).send({ error: 'Experimento no encontrado' })
+  return reply.send(result)
+}
+
+export async function startExperiment(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const result = await adExperimentService.startExperiment(orgId, request.params.id)
   if (!result) return reply.status(404).send({ error: 'Experimento no encontrado' })
   return reply.send(result)
 }

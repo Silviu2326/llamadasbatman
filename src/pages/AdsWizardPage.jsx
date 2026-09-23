@@ -28,6 +28,18 @@ import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import { hasAccessToken } from '../lib/authSession'
 import { DEMO_MODE } from '../lib/dataMode'
+import {
+  applyRecommendationEffect,
+  buildCreativeVariants,
+  buildWizardPayload,
+  describeForecast,
+  describeStrategyProvider,
+  describeWizardOutcome,
+  hasGeneratedStrategy,
+  pickCreative,
+  resolveAudience,
+  serializeDraftStrategy,
+} from '../lib/adsWizard'
 import { useExperience } from '../contexts/ExperienceContext'
 import campaignSignal from '../assets/ads/campaign-signal-orbit.png'
 import adCreativeGrowth from '../assets/ads/ad-creative-growth.png'
@@ -88,27 +100,6 @@ const DEFAULT_PLAYBOOKS = [
     objective: 'Aumentar solicitudes de contacto',
     audience: 'Personas interesadas en tratamientos',
     budget: 600,
-  },
-]
-
-const CREATIVE_VARIANTS = [
-  {
-    label: 'Growth signal',
-    title: 'Convierte intención en crecimiento',
-    body: 'Automatiza la captación y enfoca cada euro en las oportunidades con más potencial.',
-    cta: 'Descubre cómo',
-  },
-  {
-    label: 'ROI first',
-    title: 'Más señales. Menos ruido.',
-    body: 'Una estrategia de anuncios que aprende de cada conversación y mejora con cada lead.',
-    cta: 'Ver estrategia',
-  },
-  {
-    label: 'Demand capture',
-    title: 'Tu próximo cliente ya está buscando',
-    body: 'Llega antes, entiende mejor la intención y convierte el interés en una conversación.',
-    cta: 'Empezar ahora',
   },
 ]
 
@@ -214,6 +205,8 @@ function buildStrategy({ vertical, objetivo, presupuesto, audience }) {
       conversion: profile.conversion,
       reach: budget ? formatReach(budget * profile.reachFactor) + '+' : '—',
     },
+    forecastSource: 'sector_benchmark',
+    provider: 'heuristic',
     recommendations: [
       {
         ...DEFAULT_RECOMMENDATIONS[0],
@@ -255,13 +248,6 @@ function serializeStrategy(strategy) {
   }
 }
 
-function serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext) {
-  return {
-    ...(serializeStrategy(strategy) || {}),
-    brief: { campaignFocus, destination, knowledgeContext },
-  }
-}
-
 function normalizePlaybooks(data, allowDemo = DEMO_MODE) {
   if (!Array.isArray(data) || data.length === 0) return allowDemo ? DEFAULT_PLAYBOOKS : []
   return data.map((item, index) => ({
@@ -294,21 +280,23 @@ export default function AdsWizardPage() {
   const [knowledgeContext, setKnowledgeContext] = useState(draftSeed.knowledgeContext || null)
   const [presupuesto, setPresupuesto] = useState(draftSeed.presupuesto || '')
   const [audience, setAudience] = useState(draftSeed.audience || '')
-  const [margin, setMargin] = useState('')
-  const [acquisitionShare, setAcquisitionShare] = useState('30')
+  // Margen y % de adquisición también se guardan en el borrador (strategy.brief).
+  const [margin, setMargin] = useState(draftSeed.margin || '')
+  const [acquisitionShare, setAcquisitionShare] = useState(draftSeed.acquisitionShare || '30')
+  const [outcome, setOutcome] = useState(null)
   const [playbooks, setPlaybooks] = useState([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [metaAccount, setMetaAccount] = useState(undefined)
-  const [aiStatus, setAiStatus] = useState(draftSeed.strategy ? 'ready' : 'idle')
-  const [strategy, setStrategy] = useState(() => normalizeStrategy(draftSeed.strategy))
+  const [aiStatus, setAiStatus] = useState(hasGeneratedStrategy(draftSeed.strategy) ? 'ready' : 'idle')
+  const [strategy, setStrategy] = useState(() => (hasGeneratedStrategy(draftSeed.strategy) ? normalizeStrategy(draftSeed.strategy) : null))
   const [showFactors, setShowFactors] = useState(false)
   // Se enseña el CAC máximo en cuanto hay margen: convierte dos números
   // abstractos en la cifra con la que /ads juzgará la campaña.
   const marginPreview = Number(margin) > 0 && Number(acquisitionShare) > 0
     ? `Podrás pagar hasta ${((Number(margin) * Number(acquisitionShare)) / 100).toFixed(2)} € por cliente nuevo.`
     : 'Un 30 % es un punto de partida razonable si no lo tienes calculado.'
-  const [creativeIndex, setCreativeIndex] = useState(0)
+  const [creativeIndex, setCreativeIndex] = useState(Number(draftSeed.creativeIndex) || 0)
   const [appliedRecommendation, setAppliedRecommendation] = useState('')
   const [draftStatus, setDraftStatus] = useState(
     draftSeed.campaignFocus || draftSeed.objetivo ? 'Borrador restaurado' : 'Autoguardado activo',
@@ -359,7 +347,9 @@ export default function AdsWizardPage() {
         setPresupuesto(serverDraft.presupuesto ? String(serverDraft.presupuesto) : '')
         setAudience(serverDraft.audience || '')
         setCreativeIndex(Number(serverDraft.creativeIndex) || 0)
-        if (serverDraft.strategy) {
+        if (serverDraft.strategy?.brief?.margin != null) setMargin(String(serverDraft.strategy.brief.margin))
+        if (serverDraft.strategy?.brief?.acquisitionShare) setAcquisitionShare(String(serverDraft.strategy.brief.acquisitionShare))
+        if (hasGeneratedStrategy(serverDraft.strategy)) {
           setStrategy(normalizeStrategy(serverDraft.strategy))
           setAiStatus('ready')
         }
@@ -374,19 +364,26 @@ export default function AdsWizardPage() {
     }
   }, [])
 
+  const draftBrief = { campaignFocus, destination, knowledgeContext, margin, acquisitionShare }
+
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
     if (!campaignFocus && !objetivo && !presupuesto) return undefined
 
-    window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
-      vertical,
-      objetivo,
-      campaignFocus,
-      destination,
-      knowledgeContext,
-      presupuesto,
-      audience,
-    }))
+    try {
+      window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+        vertical,
+        objetivo,
+        campaignFocus,
+        destination,
+        knowledgeContext,
+        presupuesto,
+        audience,
+        margin,
+        acquisitionShare,
+        creativeIndex,
+      }))
+    } catch { /* almacenamiento local no disponible: el servidor sigue guardando */ }
     setDraftStatus('Guardando cambios…')
     window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => {
@@ -406,7 +403,7 @@ export default function AdsWizardPage() {
           knowledgeContext,
           presupuesto: presupuesto ? Number(presupuesto) : null,
           audience,
-          strategy: serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext),
+          strategy: serializeDraftStrategy(strategy, draftBrief),
           creativeIndex,
         }),
       })
@@ -417,11 +414,17 @@ export default function AdsWizardPage() {
     }, 900)
 
     return () => window.clearTimeout(saveTimerRef.current)
-  }, [vertical, objetivo, campaignFocus, destination, knowledgeContext, presupuesto, audience, strategy, creativeIndex, aiStatus])
+    // draftBrief se deriva de campos ya listados.
+  }, [vertical, objetivo, campaignFocus, destination, knowledgeContext, presupuesto, audience, margin, acquisitionShare, strategy, creativeIndex, aiStatus])
 
   const availablePlaybooks = useMemo(() => normalizePlaybooks(playbooks), [playbooks])
   const metaState = metaAccount === undefined ? 'loading' : metaAccount ? 'connected' : 'pending'
-  const currentCreative = CREATIVE_VARIANTS[creativeIndex]
+  const creativeVariants = useMemo(
+    () => buildCreativeVariants({ campaignFocus, objetivo, audience: resolveAudience(audience, knownAudience) }),
+    [campaignFocus, objetivo, audience, knownAudience],
+  )
+  const currentCreative = pickCreative(creativeVariants, creativeIndex)
+  const forecastLabel = describeForecast(strategy)
   const recommendations = strategy?.recommendations ?? []
   const budgetLabel = presupuesto ? formatCurrency(presupuesto) + ' / mes' : 'Según tu definición'
   const canGenerate = Boolean(campaignFocus.trim() && objetivo.trim() && destination && presupuesto)
@@ -484,7 +487,7 @@ export default function AdsWizardPage() {
           vertical: campaignVertical,
           objetivo: objetivo.trim(),
           presupuestoMensual: Number(presupuesto),
-          audience: knownAudience || audience.trim(),
+          audience: resolveAudience(audience, knownAudience),
           campaignFocus: campaignFocus.trim(),
           destination,
           knowledgeContext,
@@ -499,12 +502,10 @@ export default function AdsWizardPage() {
       const serverStrategy = await response.json()
       setStrategy(normalizeStrategy(serverStrategy))
       setAiStatus('ready')
-      setDraftStatus(serverStrategy.provider === 'claude'
-        ? 'Estrategia IA generada y guardada'
-        : 'Estrategia generada con la configuración por defecto')
+      setDraftStatus(describeStrategyProvider(serverStrategy.provider))
     } catch {
       if (DEMO_MODE) {
-        setStrategy(normalizeStrategy(buildStrategy({ vertical: campaignVertical, objetivo, presupuesto, audience: knownAudience || audience })))
+        setStrategy(normalizeStrategy(buildStrategy({ vertical: campaignVertical, objetivo, presupuesto, audience: resolveAudience(audience, knownAudience) })))
         setAiStatus('ready')
         setDraftStatus('Estrategia local de demostración')
         setMessage('Modo demostración: la estrategia se ha generado localmente.')
@@ -526,7 +527,10 @@ export default function AdsWizardPage() {
         destination,
         presupuesto,
         audience,
-        strategy: serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext),
+        margin,
+        acquisitionShare,
+        creativeIndex,
+        strategy: serializeDraftStrategy(strategy, draftBrief),
       }))
       if (hasAccessToken()) {
         const response = await apiFetch('/api/ads/draft', {
@@ -539,7 +543,7 @@ export default function AdsWizardPage() {
             knowledgeContext,
             presupuesto: presupuesto ? Number(presupuesto) : null,
             audience,
-            strategy: serializeDraftStrategy(strategy, campaignFocus, destination, knowledgeContext),
+            strategy: serializeDraftStrategy(strategy, draftBrief),
             creativeIndex,
           }),
         })
@@ -554,9 +558,21 @@ export default function AdsWizardPage() {
   }
 
   function applyRecommendation(recommendation) {
-    if (recommendation.action === 'audience' && strategy) setAudience(strategy.audience)
-    
-    if (recommendation.action === 'creative') setCreativeIndex(index => (index + 1) % CREATIVE_VARIANTS.length)
+    const effect = applyRecommendationEffect(recommendation, {
+      strategy,
+      objetivo,
+      creativeIndex,
+      variantCount: creativeVariants.length,
+    })
+    if (effect.patch.audience != null) setAudience(effect.patch.audience)
+    if (effect.patch.objetivo != null) setObjetivo(effect.patch.objetivo)
+    if (effect.patch.creativeIndex != null) setCreativeIndex(effect.patch.creativeIndex)
+    if (effect.hint) setMessage(`Ajusta el objetivo: ${effect.hint}`)
+    if (effect.focusId && typeof document !== 'undefined') {
+      const field = document.getElementById(effect.focusId)
+      field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      field?.focus?.({ preventScroll: true })
+    }
     setAppliedRecommendation(recommendation.title)
   }
 
@@ -569,33 +585,41 @@ export default function AdsWizardPage() {
 
     setLoading(true)
     setMessage('')
+    setOutcome(null)
     try {
       const response = await apiFetch('/api/ads/wizard', {
         method: 'POST',
-        body: JSON.stringify({
+        body: JSON.stringify(buildWizardPayload({
           vertical: campaignVertical,
-          objetivo: objetivo.trim(),
-          presupuestoMensual: Number(presupuesto),
-          audience: knownAudience || audience.trim(),
-          campaignFocus: campaignFocus.trim(),
+          objetivo,
+          presupuesto,
+          audience,
+          knownAudience,
+          campaignFocus,
           destination,
           knowledgeContext,
           strategy: serializeStrategy(strategy),
-          ...(Number(margin) > 0 ? { marginPerSaleCents: Math.round(Number(margin) * 100) } : {}),
-          ...(Number(acquisitionShare) > 0 ? { acquisitionSharePct: Number(acquisitionShare) } : {}),
-        }),
+          margin,
+          acquisitionShare,
+          creative: currentCreative,
+        })),
       })
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
-        throw new Error(body.error || 'No se pudo crear la campaña')
+        throw new Error(body.issues?.[0]?.message || body.error || 'No se pudo crear la campaña')
       }
 
       const campaign = await response.json()
-      if (campaign.adStatus === 'draft' && !campaign.metaCampaignId) {
-        setMessage('Campaña creada en borrador. Conecta una cuenta de Meta para publicarla.')
+      const result = describeWizardOutcome(campaign)
+      // Si se publicó, se va directo a la campaña. Si quedó en borrador (sin
+      // Meta o con error de publicación), el motivo se enseña aquí antes de
+      // navegar: la página de destino no lo recibe y se perdería.
+      if (result?.tone === 'success') {
+        navigate('/campanas/' + campaign.id + '?tab=anuncio', { state: { adsWizardOutcome: result } })
+        return
       }
-      navigate('/campanas/' + campaign.id + '?tab=anuncio')
+      setOutcome({ ...result, campaignId: campaign.id })
     } catch (error) {
       setMessage(error.message)
     } finally {
@@ -692,6 +716,17 @@ export default function AdsWizardPage() {
               </div>
             )}
 
+            {outcome && (
+              <div className="ads-message" role={outcome.tone === 'warning' ? 'alert' : 'status'}>
+                {outcome.tone === 'warning' ? <RiAlertLine /> : <RiInformationLine />}
+                <span>
+                  {outcome.text}{' '}
+                  <Link to={'/campanas/' + outcome.campaignId + '?tab=anuncio'}>Ir a la campaña <RiArrowRightLine /></Link>
+                  {outcome.tone === 'info' ? <> · <Link to="/captacion/conectar">Conectar Meta</Link></> : null}
+                </span>
+              </div>
+            )}
+
             <form className="ads-form" onSubmit={handleSubmit}>
               <div className="ads-fields">
                 <label className="ads-field" htmlFor="ads-focus">
@@ -777,9 +812,24 @@ export default function AdsWizardPage() {
                   </datalist>
                 </label>
 
+                <label className="ads-field" htmlFor="ads-audience">
+                  <span className="ads-field-label"><RiTeamLine /> ¿A quién te diriges? <em>opcional</em></span>
+                  <span className="ads-field-helper">{knownAudience ? `Si lo dejas vacío usaremos el público de tu perfil: ${knownAudience}.` : 'Describe el público; lo que escribas aquí tiene prioridad sobre cualquier sugerencia.'}</span>
+                  <span className="ads-input-wrap">
+                    <input
+                      id="ads-audience"
+                      value={audience}
+                      maxLength={160}
+                      onChange={event => { setAudience(event.target.value); resetStrategy() }}
+                      placeholder={knownAudience || 'Ej. dueños de clínicas en Madrid'}
+                      autoComplete="off"
+                    />
+                  </span>
+                </label>
+
                 <label className="ads-field" htmlFor="ads-budget">
                   <span className="ads-field-label"><RiMoneyDollarCircleLine /> Presupuesto mensual (€)</span>
-                  <span className="ads-field-helper">La IA repartirá el presupuesto y estimará el alcance.</span>
+                  <span className="ads-field-helper">Se reparte en un presupuesto diario al publicar en Meta.</span>
                   <span className="ads-input-wrap">
                     <input
                       id="ads-budget"
@@ -868,7 +918,7 @@ export default function AdsWizardPage() {
 
             <div className="ads-intelligence-grid">
               <div className="ads-score-block">
-                <div className="ads-score-label">Puntaje de oportunidad <span title="Estimación basada en el brief y el análisis IA">?</span></div>
+                <div className="ads-score-label">Puntaje de oportunidad <span title="Mide lo completo que está el brief y el presupuesto frente al sector; no es una predicción de resultados">?</span></div>
                 <div className="ads-score-row">
                   <strong>{strategy?.score || '—'}</strong>
                   <span>/100</span>
@@ -897,7 +947,7 @@ export default function AdsWizardPage() {
                 <div className="ads-audience-card">
                   <div className="ads-card-heading">
                     <div><RiTeamLine /><span>Audiencia recomendada</span></div>
-                    {strategy?.confidence != null && <strong>{strategy.confidence}% afinidad</strong>}
+                    {strategy?.provider && <strong>{strategy.provider === 'heuristic' || strategy.provider === 'fallback' ? 'Reglas por sector' : 'Redactada con IA'}</strong>}
                   </div>
                   <div className="ads-audience-body">
                     <img src={audienceConstellation} alt="" />
@@ -910,8 +960,8 @@ export default function AdsWizardPage() {
 
                 <div className="ads-forecast-card">
                   <div className="ads-card-heading">
-                    <div><RiBarChartBoxLine /><span>Pronóstico mensual</span></div>
-                    <small>Estimación IA</small>
+                    <div><RiBarChartBoxLine /><span>Referencia mensual</span></div>
+                    <small title={forecastLabel.note}>{forecastLabel.badge}</small>
                   </div>
                   <div className="ads-forecast-grid">
                     <div><span>Leads</span><strong>{strategy?.forecast.leads || '—'}</strong></div>
@@ -919,14 +969,14 @@ export default function AdsWizardPage() {
                     <div><span>Conversión</span><strong>{strategy?.forecast.conversion || '—'}</strong></div>
                     <div><span>Alcance</span><strong>{strategy?.forecast.reach || '—'}</strong></div>
                   </div>
-                  <small className="ads-confidence-note"><RiInformationLine /> {strategy?.confidence != null ? `Proyecciones estimadas con ${strategy.confidence}% de confianza` : 'Genera una estrategia para ver proyecciones'}</small>
+                  <small className="ads-confidence-note"><RiInformationLine /> {strategy ? forecastLabel.note : 'Genera una estrategia para ver la referencia del sector'}</small>
                 </div>
 
                 <div className="ads-creative-card">
                   <div className="ads-card-heading">
                     <div><RiPulseLine /><span>Vista previa del anuncio</span></div>
-                    <small>Ejemplo ilustrativo — el copy final se define al publicar</small>
-                    <button type="button" onClick={() => setCreativeIndex(index => (index + 1) % CREATIVE_VARIANTS.length)}>
+                    <small>La variante elegida se guarda como copy inicial; si apruebas creatividades en Ads, se publican esas</small>
+                    <button type="button" onClick={() => setCreativeIndex(index => (index + 1) % creativeVariants.length)}>
                       Variar creativo <RiRefreshLine />
                     </button>
                   </div>
@@ -940,7 +990,7 @@ export default function AdsWizardPage() {
                     </div>
                   </div>
                   <div className="ads-creative-dots" aria-label="Variaciones de creativo">
-                    {CREATIVE_VARIANTS.map((variant, index) => <i key={variant.label} className={index === creativeIndex ? 'active' : ''} />)}
+                    {creativeVariants.map((variant, index) => <i key={variant.label} className={index === creativeIndex ? 'active' : ''} />)}
                   </div>
                 </div>
               </div>

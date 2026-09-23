@@ -21,6 +21,7 @@ import { DEMO_MODE } from '../../lib/dataMode'
  * - toggleAutonomyStop(stop)
  * - refreshDataQuality()
  * - manageCampaign(campaignId, 'publish'|'activate'|'pause')
+ * - createExperiment(payload), changeExperiment(experimentId, 'start'|'conclude')
  * - syncCampaign(campaignId)
  */
 export function useAdsOverview({ locale }) {
@@ -181,19 +182,59 @@ export function useAdsOverview({ locale }) {
     }
   }, [loadOverview, showNotice])
 
+  // El backend devuelve 4xx con code y mensaje concreto (sin página, sin
+  // creatividad aprobada, APP_URL local, consentimiento…) o 502/504 si falla
+  // Meta: se enseña su mensaje en vez de uno genérico.
   const manageCampaign = useCallback(async (campaignId, action) => {
     if (!campaignId) return
     setManagingCampaign(true)
     try {
       const response = await apiFetch(`/api/ads/campaigns/${campaignId}/${action}`, { method: 'POST' })
-      if (!response.ok) throw new Error('meta-action-failed')
-      const labels = { publish: 'Borrador enviado a Meta.', activate: 'Campaña activada.', pause: 'Campaña pausada.' }
-      showNotice(labels[action])
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body?.error || 'Meta no pudo completar la operación. Revisa la cuenta y vuelve a intentarlo.')
+      const labels = { publish: 'Borrador enviado a Meta en pausa.', activate: 'Campaña activada.', pause: 'Campaña pausada.' }
+      const warnings = action === 'publish' && Array.isArray(body?.warnings) && body.warnings.length ? ` Aviso: ${body.warnings[0]}` : ''
+      showNotice(labels[action] + warnings)
       await loadOverview()
-    } catch {
-      showNotice('Meta no pudo completar la operación. Revisa la cuenta y vuelve a intentarlo.')
+    } catch (error) {
+      showNotice(error?.message || 'Meta no pudo completar la operación. Revisa la cuenta y vuelve a intentarlo.')
     } finally {
       setManagingCampaign(false)
+    }
+  }, [loadOverview, showNotice])
+
+  // Experimentos: crear (borrador), arrancar y concluir. Concluir puede
+  // devolver "sin conclusión", que es un resultado válido y se enseña tal cual.
+  const [busyExperiment, setBusyExperiment] = useState('')
+  const createExperiment = useCallback(async payload => {
+    setBusyExperiment('new')
+    try {
+      const response = await apiFetch('/api/ads/experiments', { method: 'POST', body: JSON.stringify(payload) })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body?.issues?.[0]?.message || body?.error || 'No se pudo crear el experimento.')
+      showNotice('Experimento creado en borrador.')
+      await loadOverview()
+      return body
+    } catch (error) {
+      showNotice(error?.message || 'No se pudo crear el experimento.')
+      return null
+    } finally {
+      setBusyExperiment('')
+    }
+  }, [loadOverview, showNotice])
+
+  const changeExperiment = useCallback(async (experimentId, verb) => {
+    setBusyExperiment(experimentId)
+    try {
+      const response = await apiFetch(`/api/ads/experiments/${experimentId}/${verb}`, { method: 'POST' })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body?.error || 'experiment-failed')
+      showNotice(verb === 'start' ? 'Experimento en marcha.' : (body?.conclusion || 'Experimento concluido.'))
+      await loadOverview()
+    } catch (error) {
+      showNotice(error?.message === 'experiment-failed' ? 'No se pudo actualizar el experimento.' : error?.message)
+    } finally {
+      setBusyExperiment('')
     }
   }, [loadOverview, showNotice])
 
@@ -216,10 +257,11 @@ export function useAdsOverview({ locale }) {
     overview, loading, dataStatus, dataError,
     pendingActions, rules, experiments,
     notice, showNotice,
-    decidingId, busyRule, refreshingQuality, managingCampaign,
+    decidingId, busyRule, refreshingQuality, managingCampaign, busyExperiment,
     decisionsByCampaign,
     loadOverview,
     decideOnRecommendation, runAction, changeRuleAutonomy,
     toggleAutonomyStop, refreshDataQuality, manageCampaign, syncCampaign,
+    createExperiment, changeExperiment,
   }
 }

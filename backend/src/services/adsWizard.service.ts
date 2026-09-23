@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { findByVertical } from './adPlaybook.service'
 import { generateFallbackAssets } from './assetGenerator.service'
-import { publishCampaign } from './metaCampaignBuilder.service'
+import { classifyPublishError, publishCampaign } from './metaCampaignBuilder.service'
 
 export async function runWizard(orgId: string, input: {
   vertical: string
@@ -19,6 +19,10 @@ export async function runWizard(orgId: string, input: {
   // puede comparar campanas entre si, nunca contra lo que el negocio aguanta.
   marginPerSaleCents?: number
   acquisitionSharePct?: number
+  // Variante de anuncio elegida en el asistente. Se guarda en adAssets.creative
+  // y publishCampaign la usa como copy si la campaña aún no tiene creatividades
+  // aprobadas en el plan.
+  creative?: { label: string; title: string; body: string; cta: string }
 }) {
   const playbook = await findByVertical(input.vertical)
 
@@ -41,6 +45,7 @@ export async function runWizard(orgId: string, input: {
     campaignFocus: input.campaignFocus.trim(),
     destination: input.destination,
     ...(input.knowledgeContext ? { knowledgeContext: input.knowledgeContext } : {}),
+    ...(input.creative ? { creative: input.creative } : {}),
   } as Prisma.InputJsonValue
 
   const campaign = await prisma.campaign.create({
@@ -62,19 +67,28 @@ export async function runWizard(orgId: string, input: {
     },
   })
 
-  // Si ya hay una cuenta de Meta conectada, seguimos automático: publicar y
-  // activar. Si no hay cuenta conectada (o Meta falla), la campaña queda en
-  // draft — el cliente la puede publicar después desde el detalle de campaña.
+  // Si ya hay una cuenta de Meta conectada, se intenta publicar en PAUSED. Si
+  // no hay cuenta o Meta falla, la campaña queda en draft y la respuesta dice
+  // por qué (published/publishError): el asistente lo enseña en vez de
+  // dejarlo solo en el log.
   const metaAccount = await prisma.metaAdAccount.findFirst({ where: { orgId, status: 'connected' } })
+  let published = false
+  let publishError: { code: string; message: string } | null = null
   if (metaAccount) {
     try {
       await publishCampaign(orgId, campaign.id)
+      published = true
     } catch (err) {
-      console.error(`[AdsWizard] no se pudo publicar la campaña ${campaign.id} en Meta:`, err)
+      const classified = classifyPublishError(err)
+      publishError = { code: classified.code, message: classified.message }
+      console.error(`[AdsWizard] no se pudo publicar la campaña ${campaign.id} en Meta:`, classified.code)
     }
+  } else {
+    publishError = { code: 'META_NOT_CONNECTED', message: 'No hay cuenta de Meta conectada: la campaña queda en borrador.' }
   }
 
-  return prisma.campaign.findFirst({ where: { id: campaign.id, orgId } })
+  const saved = await prisma.campaign.findFirst({ where: { id: campaign.id, orgId } })
+  return { ...saved, published, publishError }
 }
 
 export async function getCampaignAdStatus(orgId: string, campaignId: string) {

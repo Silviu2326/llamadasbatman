@@ -34,8 +34,17 @@ export interface AdsStrategy {
     conversion: string
     reach: string
   }
+  /**
+   * Las cifras de `forecast` salen de constantes de referencia por sector
+   * (getProfile), no de un modelo predictivo ni de datos de la cuenta. La
+   * interfaz debe presentarlas como referencia orientativa, nunca como
+   * predicción.
+   */
+  forecastSource: 'sector_benchmark'
+  forecastNote: string
   recommendations: AdsStrategyRecommendation[]
-  provider: 'claude' | 'fallback'
+  /** Quién redactó audiencia, resumen y recomendaciones: el LLM o la heurística. */
+  provider: 'deepseek' | 'heuristic'
   model: string
   generatedAt: string
 }
@@ -150,6 +159,8 @@ export function buildFallbackStrategy(input: AdsStrategyInput): AdsStrategy {
       conversion: profile.conversion,
       reach: budget ? `${formatReach(budget * profile.reachFactor)}+` : '—',
     },
+    forecastSource: 'sector_benchmark',
+    forecastNote: 'Referencia orientativa calculada con costes medios del sector y tu presupuesto; no es una predicción ni usa datos de tu cuenta.',
     recommendations: recommendationDefaults.map((recommendation, index) => ({
       ...recommendation,
       body: index === 0
@@ -158,13 +169,13 @@ export function buildFallbackStrategy(input: AdsStrategyInput): AdsStrategy {
           ? `Construye el mensaje alrededor de ${profile.angle} y conecta la promesa con un resultado verificable.`
           : 'Lanza una versión centrada en crecimiento y otra en ROI; deja que la primera señal decida el siguiente ajuste.',
     })),
-    provider: 'fallback',
+    provider: 'heuristic',
     model: 'deterministic-v2',
     generatedAt: new Date().toISOString(),
   }
 }
 
-async function enhanceWithClaude(input: AdsStrategyInput, fallback: AdsStrategy) {
+async function enhanceWithLlm(input: AdsStrategyInput, fallback: AdsStrategy) {
   if (!isDeepseekConfigured()) return fallback
 
   // Razonador: elegir ángulo y audiencia con un presupuesto dado es criterio,
@@ -212,7 +223,9 @@ No inventes integraciones, resultados garantizados ni datos personales.
       ...fallback.recommendations[index],
       ...recommendation,
     })),
-    provider: 'claude' as const,
+    // El motor real es DeepSeek (lib/deepseek); el pronóstico sigue siendo
+    // la referencia sectorial de buildFallbackStrategy.
+    provider: 'deepseek' as const,
     model,
     generatedAt: new Date().toISOString(),
   }
@@ -221,9 +234,9 @@ No inventes integraciones, resultados garantizados ni datos personales.
 export async function generateStrategy(input: AdsStrategyInput) {
   const fallback = buildFallbackStrategy(input)
   try {
-    return await enhanceWithClaude(input, fallback)
+    return await enhanceWithLlm(input, fallback)
   } catch (error) {
-    console.warn('[AdsStrategy] Claude no disponible; usando estrategia determinista:', (error as Error).message)
+    console.warn('[AdsStrategy] DeepSeek no disponible; usando estrategia determinista:', (error as Error).message)
     return fallback
   }
 }
