@@ -474,3 +474,289 @@ plan de orquestación.
   eso se hace en Campañas, con confirmación.
 - **Estrategia de Ads:** `provider` ya no devuelve `claude` ni `fallback`; la UI
   sigue aceptando esos valores en borradores antiguos.
+
+---
+
+## 8. Flujo de llamadas de punta a punta (revisión del 23-09-2026)
+
+Revisión de solo lectura del recorrido completo: crear un agente → añadirle
+documentos, guiones y la web → importar leads → llamar → resultado en el CRM.
+Cuatro revisiones automatizadas siguieron cada tramo hasta el backend; los puntos
+marcados con ✔ se comprobaron a mano. Misma escala que la §5. No repite los
+hallazgos de la §3 (cola solapada, `requestId` nuevo, consentimiento no
+comprobado al marcar, evaluador que aprueba monólogos…), salvo donde este tramo
+añade impacto.
+
+**Media: 5 / 10.** Cada tramo funciona por separado con backend real, pero **el
+flujo entero no se puede completar hoy desde la interfaz**: un usuario nuevo en
+España no consigue que el agente llame a un lead importado.
+
+| Tramo | Nota | Lo que lo frena |
+|---|---|---|
+| 8.1 Crear y configurar el agente | **6** | Checklist ficticio, número de salida sin validar, campos decorativos |
+| 8.2 Documentos, guiones y web → agente | **5** | Los PDF nunca llegan al agente; conocimiento elegido por fecha |
+| 8.3 Importar leads y dejarlos llamables | **4** | Importación inalcanzable; consentimiento imposible de registrar |
+| 8.4 La llamada y su resultado en el CRM | **5** | Sin buzón ni «no contesta»; el resultado casi siempre es `none` |
+
+### 8.0 Los cinco bloqueos que impiden el objetivo (50 llamadas/día)
+
+En orden: cada uno impide llegar al siguiente.
+
+1. **El modal de importar CSV no está montado en ninguna página.** ✔ Solo lo usa
+   `src/components/Leads.jsx`, y ese componente no lo carga nadie (`App.jsx` no
+   lo importa). El CRM actual (`SalesCRMPage.jsx`) solo ofrece `NewLeadModal`, de
+   uno en uno y sin campaña. Los leads solo entran en masa por Prospectos o por
+   API.
+2. **Ningún lead español importado será llamable.** ✔ `voice/compliance.ts:193`
+   exige `ContactConsent(channel='voice')` concedido para todo `+34`. Ni el CSV
+   (`jobs/importJobRunner.ts:124-132`), ni el alta manual, ni Prospectos, ni Meta
+   pasan `consent` a `createLead`, y no hay endpoint ni pantalla para registrarlo
+   a mano (`LeadDetailPage.jsx:580` es solo lectura). Solo lo registran la
+   landing propia y `grantVoiceConsent()` desde respuestas de WhatsApp/email.
+   Resultado: 100 leads importados → campaña activa → 100 trabajos descartados
+   con `missing_voice_consent` en un `console.warn`.
+3. **El rechazo es invisible.** `jobs/leadCallDispatch.ts:31-48` sale con `return`
+   sin escribir en `Lead`, `Call`, `SalesActivity` ni `AuditLog`. El usuario ve
+   «Activar y llamar (N)», después «en cola», y nunca pasa nada. Las secuencias sí
+   marcan `CALL_MISSING_VOICE_CONSENT` (`salesSequence.service.ts:393`); las
+   campañas no.
+4. **Los teléfonos no se normalizan al importar** (`leads.service.ts:253`,
+   `importJobRunner.ts:124`) y el país por defecto es **México (`52`)** en
+   `compliance.ts:51` y **EE. UU. (`1`)** en `.env.example:217`. ✔ Un CSV español
+   sin `+34` da `invalid_phone` salvo que el despliegue fije
+   `DEFAULT_PHONE_COUNTRY_CODE=34`. La deduplicación del CSV compara cadenas
+   crudas y solo dentro del fichero (`dedupeImportRows`, `leads.service.ts:313-340`):
+   importar el mismo CSV dos veces produce dos llamadas al mismo número.
+5. **La línea única quema los intentos.** Con `maxConcurrent=1`
+   (`zadarma/config.ts:32`), `startCampaign` encola todos los leads de golpe
+   (`campaigns.service.ts:196-199`); cada trabajo que coincide con una llamada en
+   curso recibe 409 `ZADARMA_CAPACITY_REACHED`, pero `attempts` ya se incrementó
+   (`leadCallDispatch.ts:50`). A la tercera coincidencia el lead queda descartado
+   para siempre, sin `Call` y sin haber sonado.
+
+### 8.1 Crear y configurar el agente — 6/10
+
+**Flujo real:** `NewAgenteModal.jsx:72-153` (4 pasos) → `POST /api/agents` con zod
+estricto y versión v1 (`agents.service.ts:20-54`) → ficha `AgentDetailPage.jsx`
+(vista sencilla de 6 pasos o profesional) → voz de catálogo Fish
+(`agentVoices.service.ts:20-38`) o clonada con subida, consentimiento atómico y
+job idempotente (`agentVoiceUpload.service.ts:82-154`) → guion en `systemPrompt`,
+mensajes clave, escalado, estrategia, playbook activo → número E.164 → prueba en
+cabina (`/voz/cabina`, sin `Call`) o real (`POST /agents/:id/test-numbers` +
+`/test-calls`, `voiceTestCall.service.ts:110-273`) con evaluación al colgar →
+readiness de 5 checks (`agents.service.ts:107-166`) → `POST /agents/:id/publish`
+con 422 y `blockers` si falta algo.
+
+| Sev. | Hallazgo | Ubicación |
+|---|---|---|
+| Alta | El checklist «Listo para operar» de la vista profesional lee campos que no existen (`testPassed`, `lastTestStatus`): «Prueba de llamada» siempre pendiente aunque haya evaluación 90/100; exige «fuentes o playbook» (el backend no) y omite el consentimiento (el backend sí). Su CTA abre la cabina, que no cuenta | `src/components/agents/AgentReadinessChecklist.jsx:199-233` |
+| Alta | El número de salida acepta cualquier E.164, pero la pasarela exige que coincida con `ZADARMA_CALLER_ID` (`runtime.ts:66`). Todos los errores de preparación se colapsan en 409 `ZADARMA_CALL_BLOCKED_OR_FAILED` (`gateway.ts:76-79`): la prueba «falla» sin causa | `agents.service.ts:128`, `AgentGovernancePanel.jsx:65` |
+| Alta | Runtime BYOK (Groq, DeepSeek, MiniMax, Cartesia) sin comprobación: las credenciales se leen de `process.env` (`runtimeConfig.ts:82-99`), readiness no las verifica; el agente publica y cada llamada falla con `ZADARMA_VOICE_RUNTIME_UNAVAILABLE` | `AgentDetailPage.jsx:56-70`, `runtime.ts:75` |
+| Alta | Un agente recién creado aparece «Activo» (`isActive` por defecto `true`, `lifecycleStatus` `draft`); lista y hero usan solo `isActive`. Pausarlo desde ahí impide hacer pruebas (`voiceTestCall.service.ts:127`) | `AgentsTeam.jsx:87`, `AgentDetailPage.jsx:361,608-630` |
+| Media | Guardar envía `speechSpeed: ''` si el agente no lo tiene (p. ej. clonado, `agents.service.ts:224`) → 400 de zod → «No se pudieron guardar los cambios» sin detalle | `AgentDetailPage.jsx:441,479` |
+| Media | Ocho campos que nada consume: `personality`, máx. llamadas/día, tiempo máx., reintentos, días activos, horario, zona horaria, `monthlyMinuteLimit` | `AgentDetailPage.jsx:329-345,442-452` |
+| Media | Simulador y «prompt compilado» con respuestas enlatadas y un prompt que no es el de `buildIntelligentPrompt` | `AgentSimulatorPanel.jsx:15-121`, `AgentPromptDebugger.jsx:210-233` |
+| Media | La evaluación que desbloquea publish no queda ligada a la versión evaluada: cambiar voz, guion o estrategia después no la invalida | `agents.service.ts:123-130` |
+| Media | Sin tests de `agents.service` (readiness, publish, consent, restore, clone) | `backend/src/__tests__` |
+| Baja | «Archivar» y «Eliminar» sin confirmación; `NewAgenteModal` pide `voiceId` como texto libre | `AgentGovernancePanel.jsx:206`, `NewAgenteModal.jsx:260` |
+
+**Bien:** puerta de prueba real (lista blanca `VoiceTestNumber`, lead interno,
+consentimiento, tope diario, `isTest`, evaluación automática); subida de voz
+clonada robusta; readiness del backend real y explicado; versionado con diff y
+auditoría; el prompt final usa de verdad instrucciones, mensajes clave, escalado,
+estrategia, playbook, perfil de empresa y base de conocimiento.
+
+### 8.2 Documentos, guiones y web → agente — 5/10
+
+**Flujo real:** `/recursos-ia` → `KnowledgeBaseRedesigned.jsx:42-62` acepta PDF,
+DOC, DOCX, TXT, MD, CSV y JSON ≤10 MB → `POST /api/knowledge` guarda `content` y
+`fileUrl` tal cual (`knowledge.service.ts:52-67`; modelo `KnowledgeBase` sin
+relación con `Agent`) → en la llamada `promptContext.ts:185-198` toma las 6
+fichas más recientes de la organización, 400 caracteres cada una, y las inyecta
+en el system prompt una sola vez antes del primer turno. Playbooks: `settings.
+activePlaybookId` → `agentConfig.ts:90-113` (caché de 5 min). Web:
+`POST /api/intake/website` → rastreo de home + 7 páginas (`websiteIntake.crawler.ts`)
+→ LLM con JSON validado y datos duros solo con cita literal → perfil de empresa
+en `Organization.settings.businessProfile` + hasta 12 fichas → `promptContext.ts:209-232`
+como «AUTHORITATIVE COMPANY PROFILE».
+
+| Sev. | Hallazgo | Ubicación |
+|---|---|---|
+| Alta ✔ | **Un PDF o DOCX llega al agente solo como la frase «Archivo importado: nombre (tamaño).»** No hay extracción de texto; `pdf-parse` y `mammoth` solo se usan en el radar (`radarDocument.ts:38-47`) | `KnowledgeBaseRedesigned.jsx:58`, `promptContext.ts:194` |
+| Alta | Los artículos de tipo URL guardan la URL como `content`, sin rastrearla | `NewArticuloModal.jsx:37` |
+| Alta ✔ | Selección de conocimiento por fecha: 6 fichas × 400 caracteres, sin relación con el agente ni con la conversación. El rastreo web crea hasta 12 fichas: las primeras quedan fuera para siempre | `promptContext.ts:13-14,186-190` |
+| Alta | Los `steps` del playbook no se pueden crear ni editar desde la UI; el «guion» real es nombre + descripción + tags | `NewPlaybookModal.jsx:27-31`, `PlaybookDetailPage.jsx` |
+| Media | Data-URL de hasta 10 MB en `fileUrl`, devuelta entera en cada listado (`findMany` sin `select`); sin validación de tamaño en backend | `knowledge.service.ts:45-50`, `knowledge.controller.ts:21-35` |
+| Media | Sin validación zod en knowledge ni playbooks (`name` vacío, `type` libre, `steps` cualquier JSON) | `knowledge.controller.ts:21-35`, `playbooks.controller.ts:102-116` |
+| Media | La caché de 5 min de `loadAgentConfig` no se invalida al editar un playbook | `agentConfig.ts:24`, `playbooks.service.ts:156` |
+| Media | Sin presupuesto global de prompt ni poda del historial de turnos | `vendravaVoice.ts:181,540,766` |
+| Media ✔ | El panel «Documentos de entrenamiento» del agente está vacío por diseño (`docs: [], extraDocs: 0`) | `AgentDetailPage.jsx:344` |
+| Baja | Los playbooks de tipo mandan usar «BUSINESS KNOWLEDGE», pero las secciones se llaman «AUTHORITATIVE COMPANY PROFILE» y «SUPPLEMENTARY KNOWLEDGE BASE» | `agentPlaybooks.ts:55,73,125` |
+
+**Bien:** el perfil de empresa rastreado sí llega al prompt con precios exactos y
+reglas anti-invención (con test); intake web sólido (URL pública validada, job
+asíncrono, contenido tratado como dato, permisos por sección, auditoría);
+extracción de documentos del radar robusta y reutilizable; aislamiento por
+`orgId`; estados de carga/error/vacío en la UI de documentos e intake.
+
+### 8.3 Importar leads y dejarlos llamables — 4/10
+
+**Flujo real:** cinco orígenes, todos por `createLead()` (`leads.service.ts:230-280`):
+CSV `POST /api/leads/import?campaignId=&autoCall=` (cabeceras literales
+`name,phone,email,company`, 25 000 filas, 202 + `ImportJob` procesado por
+`jobs/importJobRunner.ts` con lease atómica, lotes de 20, idempotencia por fila,
+reintentos y dead-letter); alta manual; Prospectos (deduplica contra la
+organización); webhook de Meta; landing propia (única que pasa `consent`).
+Lead→campaña por `campaignId` (sin UI para cambiarlo); campaña→agente por
+`PUT /api/agents/:id/campaigns`. `startCampaign` encola `status='new'` con
+teléfono; `leadCallDispatch` exige además campaña `active`, agente `active` con
+voz, prompt y número, cuota y `canCall` (E.164, minutos, opt-out, horario,
+consentimiento para `+34`).
+
+| Sev. | Hallazgo | Ubicación |
+|---|---|---|
+| Crítica ✔ | Importación CSV inalcanzable desde la UI (bloqueo 1) | `src/components/Leads.jsx:315` |
+| Crítica ✔ | Sin forma de registrar consentimiento de voz para leads importados (bloqueo 2) | `compliance.ts:193`, `conversations.service.ts:165` |
+| Crítica | Rechazo de llamada invisible (bloqueo 3) | `leadCallDispatch.ts:31-48` |
+| Alta ✔ | Teléfonos sin normalizar; país por defecto `52`/`1` (bloqueo 4) | `compliance.ts:51`, `.env.example:217` |
+| Alta | Sin deduplicación contra la base en CSV ni alta manual | `leads.service.ts:313-340` |
+| Alta | La lista de opt-out solo se consulta al llamar, no al importar: un lead excluido cuenta en «Activar y llamar (N)» | `compliance.ts:190` |
+| Alta | `startCampaign` activa aunque el agente no esté publicado; reactivar tras pausar reencola todos los `new` sin `dedupeKey` | `campaigns.service.ts:183-203` |
+| Media | `createCampaign`/`updateCampaign` aceptan `agentId` sin comprobar que sea de la organización | `campaigns.service.ts:50,77-98` |
+| Media | Las importaciones las procesa `worker.ts` con `BACKGROUND_WORKERS_ENABLED=true`, que no está desplegado en el VPS: un `ImportJob` quedaría en «Importando…» para siempre (polling sin timeout) | `importJobRunner.ts:271`, `ImportLeadsModal.jsx:32-41` |
+| Media | Mapeo CSV rígido (sin `Nombre`/`Teléfono`, sin `;`, sin XLSX ni pegar) | `leads.controller.ts:180-186` |
+| Media | Sin tests de `ImportJob`, `createImportJob`, `dedupeImportRows` ni `importJobRunner` | `backend/src/__tests__` |
+
+**Bien:** el backend de importación es sólido (por sí solo sería un 7);
+`createLead` como único punto de creación; aislamiento por `orgId`; `canCall`
+cubre lo esencial y la pasarela lo re-verifica; el confirm de activación dice
+cuántas llamadas reales se encolarán.
+
+### 8.4 La llamada y su resultado en el CRM — 5/10
+
+**Flujo real:** cola `lead-call-dispatch` → `callWorker` → `processLeadCallJob` →
+`POST /calls` a la pasarela → `prepareSipCall` (doble validación) →
+`registry.reserve` (`maxConcurrent=1`) → `Originate` AMI síncrono de 45 s →
+Asterisk `MixMonitor` + `AudioSocket` → Deepgram Flux → Cerebras → Fish, con
+saludo que incluye aviso de IA y de grabación, barge-in, generación especulativa
+y reglas de opt-out/transferencia en cada turno (`runtime.ts:115-130`) → fin por
+colgado, opt-out, error, 15 s sin entrada o 20 min → `ingestCall` con
+transcripción plana, `outcome`, consumo a 6 c/min, `SalesActivity`, outbox,
+lead `new→contacted` → `/llamadas` y `CallDetailPage` con reproductor privado.
+
+| Sev. | Hallazgo | Ubicación |
+|---|---|---|
+| Alta | La capacidad de la pasarela consume intentos sin que suene el teléfono (bloqueo 5) | `registry.ts:15`, `leadCallDispatch.ts:50` |
+| Alta | Sin detección de buzón ni de «no contesta» en Zadarma (`classifyAmd` solo en Twilio). Buzón → saludo, `outcome='none'`, lead `contacted`, minutos facturados. No contesta → 409 sin `Call`, sin `no_answer`, reintento por la cola (1-2 min) en vez de `scheduleRetry` (15 min, solo Twilio) | `ami.ts:24`, `mediaStream.ts:260-264`, `routes/voice.ts:157-162` |
+| Alta ✔ | **El `outcome` es casi siempre `none`**: solo se mapean opt-out y «llámame después». `meeting_scheduled`/`interested` son inalcanzables desde voz, así que `ensureAutoMeeting`, `highIntent` y la señal a Ads nunca se disparan. **No se puede corregir a mano**: `routes/calls.ts` no tiene `PATCH` de `outcome` | `runtime.ts:144`, `calls.service.ts:519-550`, `routes/calls.ts` |
+| Alta | La cola de reproducción admite 15 s de audio; una respuesta más larga lanza `AUDIO_PLAYBACK_BACKLOG` y cuelga (`output_backlog`). El saludo obligatorio ya ronda 10 s. **Verificar en real** | `audioSocket.ts:81-84`, `audioServer.ts:83-84` |
+| Media | Si falla `ingestCall` (BD caída), la transcripción y la traza se pierden (solo en memoria) y el WAV queda huérfano e inaccesible (`ownsRecording` exige la fila `Call`); sin reconciliación | `runtime.ts:112-113`, `audioServer.ts:53-57` |
+| Media | Sin timeout de silencio ni despedida: un teléfono descolgado sigue hasta los 20 min a 6 c/min | `vendravaVoice.ts`, `config.ts:33` |
+| Media ✔ | Transcripción guardada como texto plano `"agente: …"` sin tiempos; la UI la convierte en **una sola burbuja del contacto**, así que se pierde quién dijo qué. El detalle no muestra evaluación y `call.metrics` siempre es `{}` | `runtime.ts:143`, `CallDetailPage.jsx:25,60,84` |
+| Media | `ensureAutoMeeting` crea «mañana a las 10:00» sin hora real ni confirmación; el lead solo cambia `new→contacted` | `calls.service.ts:520-540,470-473` |
+| Media | El juez no recibe en Zadarma los eventos que espera (`turn.user_finished`, `compliance.opt_out`, rol `agente`) y solo se evalúan las pruebas, no las campañas | `callJudge.ts:73-82`, `runtime.ts:109-113,151` |
+| Baja | Coste plano de 6 c/min sin desglose por proveedor ni CDR | `calls.service.ts:16-19` |
+| Baja | Sin resumen ni sentimiento en Zadarma: el mensaje en la conversación es siempre «Llamada completada» | `runtime.ts:139-146`, `calls.service.ts:386-388` |
+
+**Bien:** la ruta es real y probada (microprueba del 19-09); cola con lease
+atómico y aislamiento por organización; pasarela con doble validación,
+idempotencia por `requestId` y AMI saneado; grabación completa, privada, servida
+solo con WAV cerrado y `RIFF` correcto, sin JWT en URL; streaming con turno
+semántico, especulación y barge-in; cumplimiento en el saludo y en cada turno;
+ingesta idempotente con vocabulario cerrado de `outcome`; tests offline de
+audio, grabaciones, pasarela, juez y worker.
+
+### 8.5 Qué hacer, por orden
+
+1. **Desbloquear el flujo en la interfaz** (~1 día): montar `ImportLeadsModal` en
+   el CRM; base legal en el CSV y control de consentimiento de voz en la ficha
+   del lead (endpoint sobre `grantVoiceConsent`); normalizar a E.164 con
+   `DEFAULT_PHONE_COUNTRY_CODE=34` explícito; deduplicar contra la base; consultar
+   opt-out al importar; persistir el motivo de cada rechazo y exponer
+   `callability { eligible, reasons[] }` en `GET /api/leads/:id`.
+2. **Que las llamadas dejen resultado**: no incrementar `attempts` hasta que la
+   pasarela confirme el marcado (reencolar sin coste ante
+   `ZADARMA_CAPACITY_REACHED`); escalonar el encolado según `maxConcurrent`;
+   crear `Call` con `no_answer`/`busy` ante timeout de `Originate`; detectar
+   buzón por el primer audio; clasificar el `outcome` al colgar (ver §9);
+   `PATCH /api/calls/:id` (outcome, summary, callbackAt) y selector en el detalle.
+3. **Que los documentos lleguen al agente**: extraer texto en el servidor con
+   `extractRadarDocument`, rastrear URLs con `collectIntakePages`, guardar el
+   binario como asset y excluir `fileUrl` del listado; `knowledgeIds` por agente
+   y selección por relevancia; editor de `steps` e invalidación de caché.
+4. **Sincerar la ficha del agente**: derivar el checklist de `workspace.readiness`;
+   mostrar `lifecycleStatus`; validar el número contra la línea y las
+   credenciales del runtime en readiness; devolver los códigos de bloqueo de la
+   pasarela; quitar o conectar los campos y paneles decorativos; ligar la
+   evaluación a la versión evaluada; tests de `agents.service`.
+5. **Robustez de la llamada**: transcripción como JSON con rol y `atMs` y vista
+   por turnos; timeout de silencio y cierre de conversación; persistencia
+   diferida y reconciliación de grabaciones si falla la ingesta; comprobar el
+   límite de 15 s de reproducción con una respuesta larga real.
+
+---
+
+## 9. Integración de Jev (TypeSafe AI) en los agentes de voz
+
+### 9.1 Qué es
+
+Jev es un «System One model» de TypeSafe AI, en acceso anticipado desde el
+15-09-2026. No genera texto: recibe un **estado** (los datos de la situación) y
+**preguntas tipadas**, y devuelve **valores tipados con probabilidad y
+confianza**: booleanos (`Noul`), elección entre opciones (`Choice`) y
+puntuaciones (`Score`). Latencia anunciada de 70–500 ms, $0,042 por millón de
+tokens de entrada, SDK `@typesafe-ai/sdk` para TypeScript (solo servidor).
+
+Encaja en Vendrava porque el flujo de voz tiene decisiones rápidas y
+estructuradas **en el camino crítico de latencia de la llamada**, donde un LLM de
+1-2 s no cabe, y hoy se resuelven con expresiones regulares, heurísticas o no se
+resuelven (§8.4).
+
+### 9.2 Puntos de integración, por impacto
+
+| # | Decisión | Hoy | Con Jev |
+|---|---|---|---|
+| 1 | **Resultado de la llamada** (`outcome`) | `runtime.ts:144`: solo opt-out y callback; todo lo demás `none` | Al colgar, estado = transcripción + lead; `Choice(interested / not_interested / callback / meeting_scheduled / voicemail / wrong_number)` + `Score(intención)` + `Noul("¿acordaron fecha?")`. Activa `ensureAutoMeeting`, `highIntent` y la señal a Ads |
+| 2 | **Opt-out** | `compliance.ts:103`: lista fija sin tuteo | `Noul("¿pide que no le llamen más?")` por turno, **en OR con la regex** (la regex se mantiene como red determinista) |
+| 3 | **Petición de humano** | `compliance.ts:108`, regex | `Noul("¿pide hablar con una persona?")` |
+| 4 | **Buzón / IVR** | Inexistente en Zadarma (`classifyAmd` solo Twilio) | `Choice(humano / buzón / IVR / ruido)` sobre los primeros 3 s de transcripción; colgar antes del discurso |
+| 5 | **Fin de turno** | `vendravaVoice.ts:451`: `turn.eager_end` de Deepgram y cancelación de la especulación | `Noul("¿ha terminado de hablar?")` con la probabilidad como umbral para especular o esperar |
+| 6 | **Consentimiento de voz por respuesta** | `compliance.ts:229`: frases en inglés | `Noul("¿acepta que le llame un agente de voz?")` en español |
+| 7 | **Evaluación** (`callJudge`) | Reglas que aprueban monólogos | `Score` por dimensión + `Noul("¿habló el interlocutor?")` |
+| 8 | **Puntuación de leads y prospectos** | Heurística en `prospecting.service.ts` | `Score` sobre el estado del negocio, barato para lotes de 25 000 |
+
+### 9.3 Diseño propuesto
+
+1. **Un adaptador único** `backend/src/voice/intelligence/decisions.ts` con
+   funciones tipadas (`classifyOutcome`, `isOptOut`, `isVoicemail`,
+   `turnEnded`…). Cada una llama a Jev con timeout de ~400 ms; si falla, agota el
+   tiempo o falta la clave, **devuelve el resultado del método actual**. Jev nunca
+   puede tumbar una llamada.
+2. **Proveedor en `runtimeConfig.ts`**: nuevo slot
+   `decisionModel: { provider: 'typesafe', model: 'jev' }` junto a `primaryLlm`,
+   `transcriptionStt` y `tts`; `TYPESAFE_API_KEY` en `runtimeCredentialName` y en
+   el check de readiness. Sin configurar, todo sigue igual.
+3. **Umbrales por decisión**: opt-out ≥ 0,7 (mejor un falso positivo), buzón
+   ≥ 0,85, `meeting_scheduled` ≥ 0,8 y si no, `callback` con revisión manual.
+4. **Traza**: cada decisión como evento `decision.*` en `VoiceCallEvent` con
+   probabilidad y confianza, para calibrar umbrales con datos reales.
+5. **Pruebas offline** con cliente simulado, como `metaCampaignBuilder.offline.test.ts`.
+
+### 9.4 Cautelas
+
+- **Español:** ninguna fuente consultada confirma soporte. Probar con
+  transcripciones reales antes de ponerlo en el opt-out.
+- **Acceso anticipado:** no usarlo como única vía de nada; el diseño mantiene
+  siempre el respaldo actual.
+- **Cumplimiento:** opt-out y aviso de grabación conservan su camino
+  determinista; Jev amplía la detección, no la sustituye.
+- **Coste:** irrelevante (una llamada de 5 min con una decisión por turno cuesta
+  una fracción de céntimo).
+- **Red del entorno:** `jevtypesafeai.com`, `typesafe.ai`, `dev.to` y
+  `developers.cloudflare.com` están bloqueados por la política de red de esta
+  sesión; la forma exacta del SDK queda por leer.
+
+Fuentes: Wikipedia «Jev (AI model)», blog de TypeSafe AI «Introducing System One
+Models & Jev», Tom's Hardware, OpenRouter «Jev SDK for TypeScript and Python»,
+Vercel KB «classify, route, and score with Jev», LangChain «What Is Jev?»,
+MarkTechPost (19-09-2026).
