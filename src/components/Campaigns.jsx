@@ -1,14 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  RiAddLine, RiArrowDownSLine, RiArrowRightLine, RiBarChartGroupedLine,
-  RiCheckboxCircleLine, RiCloseLine, RiGroupLine, RiLayoutGridLine,
-  RiMegaphoneLine, RiMore2Line, RiPauseCircleLine, RiPhoneLine,
+  RiAddLine, RiArrowRightLine, RiBarChartGroupedLine,
+  RiCheckboxCircleLine, RiCloseLine, RiEditLine, RiErrorWarningLine,
+  RiFileCopyLine, RiGroupLine, RiLayoutGridLine,
+  RiMegaphoneLine, RiPauseCircleLine, RiPhoneLine,
   RiPlayCircleLine, RiSearchLine, RiWallet3Line, RiShareForwardLine,
   RiCompass3Line, RiFlowChart,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
+import {
+  buildChannelMixView, buildFunnelView, readApiError, startConfirmation,
+  summarizeCampaigns, validateCampaignForm,
+} from '../lib/campaignsView'
+import ConfirmDialog from './ui/ConfirmDialog'
 import DataStatusBanner from './ui/DataStatusBanner'
 import PageLoadingState from './ui/PageLoadingState'
 import ProductPageHeader from './ui/ProductPageHeader'
@@ -81,47 +87,34 @@ function MetricCard({ Icon, label, value, detail, color }) {
   </article>
 }
 
-function Funnel({ stats }) {
-  const max = stats.totalLeads || 1
-  const steps = [
-    { label: 'Leads', value: stats.totalLeads, width: '100%', color: 'var(--violet-deep)' },
-    { label: 'Contactados', value: stats.contacted, width: `${Math.min(100, Math.round((stats.contacted / max) * 100))}%`, color: 'var(--cyan)' },
-    { label: 'Reuniones agendadas', value: stats.meetingsScheduled, width: `${Math.min(100, Math.round((stats.meetingsScheduled / max) * 100))}%`, color: 'var(--pink)' },
-  ]
-  return <div className="campaign-funnel">
-    <div className="campaign-funnel-shape">{steps.map(step => <div key={step.label} style={{ width: step.width, background: step.color }} />)}</div>
-    <div className="campaign-funnel-list">{steps.map(step => <div key={step.label}><span><i style={{ background: step.color }} />{step.label}</span><strong>{step.value.toLocaleString(localeCode(getLocale()))}</strong></div>)}</div>
-    <div className="campaign-funnel-total"><span>Tasa de conversión (reuniones / leads)</span><strong>{stats.conversionRate}%</strong></div>
+// Embudo y mezcla reciben la vista ya calculada (src/lib/campaignsView.js):
+// sin medición real ('loading' | 'plan' | 'error') muestran «—», no ceros.
+function Funnel({ view }) {
+  return <div className="campaign-funnel" aria-busy={!view.measured && view.note === 'Calculando…'}>
+    <div className="campaign-funnel-shape">{view.steps.map(step => <div key={step.key} style={{ width: step.width, background: step.color }} />)}</div>
+    <div className="campaign-funnel-list">{view.steps.map(step => <div key={step.key}><span><i style={{ background: step.color }} />{step.label}</span><strong>{step.display}</strong></div>)}</div>
+    <div className="campaign-funnel-total"><span>{view.measured ? 'Tasa de conversión (reuniones / leads)' : `Tasa de conversión · ${view.note}`}</span><strong>{view.conversionDisplay}</strong></div>
   </div>
 }
 
-function ChannelMix({ stats }) {
-  if (!stats.total) return <div className="campaign-empty"><RiLayoutGridLine /><strong>Sin campañas todavía</strong><span>La mezcla de canales aparecerá aquí.</span></div>
-  const channels = [
-    { id: 'ads', label: 'Publicidad', color: 'var(--warn)' },
-    { id: 'social', label: 'Redes sociales', color: 'var(--cyan)' },
-    { id: 'prospecting', label: 'Prospección', color: 'var(--success)' },
-    { id: 'multichannel', label: 'Multicanal', color: 'var(--pink)' },
-    { id: 'outbound', label: 'Llamadas outbound', color: 'var(--violet)' },
-  ].map(channel => ({ ...channel, count: stats.channelCounts[channel.id] || 0 }))
-    .filter(channel => channel.count > 0)
-  let cursor = 0
-  const segments = channels.map(channel => {
-    const start = cursor
-    cursor += (channel.count / stats.total) * 100
-    return `${channel.color} ${start}% ${cursor}%`
-  })
+function ChannelMix({ view }) {
+  if (view.state === 'unmeasured') return <div className="campaign-empty"><RiLayoutGridLine /><strong>—</strong><span>{view.note === 'Calculando…' ? 'Calculando la mezcla de canales…' : 'Sin medición: no se pudo calcular la mezcla de canales.'}</span></div>
+  if (view.state === 'empty') return <div className="campaign-empty"><RiLayoutGridLine /><strong>Sin campañas todavía</strong><span>La mezcla de canales aparecerá aquí.</span></div>
+  const total = view.channels.reduce((sum, channel) => sum + channel.count, 0)
   return <div className="campaign-channel-mix">
-    <div className="campaign-donut" style={{ background: `conic-gradient(${segments.join(', ')})` }}><span>{stats.total}<br /><small>campañas</small></span></div>
+    <div className="campaign-donut" style={{ background: view.gradient }}><span>{total}<br /><small>campañas</small></span></div>
     <div className="campaign-channel-legend">
-      {channels.map(channel => <div key={channel.id}><span><i style={{ background: channel.color }} />{channel.label}</span><strong>{Math.round((channel.count / stats.total) * 100)}%</strong></div>)}
+      {view.channels.map(channel => <div key={channel.id}><span><i style={{ background: channel.color }} />{channel.label}</span><strong>{channel.pct}%</strong></div>)}
     </div>
   </div>
 }
 
-function CampaignRow({ campaign, onOpen, onToggleStatus }) {
+function CampaignRow({ campaign, busy, onOpen, onToggleStatus, onEdit, onDuplicate }) {
   const type = TYPE_META[campaign.type] || TYPE_META.outbound
   const Icon = type.Icon
+  const toggleLabel = campaign.status === 'active' ? 'Pausar campaña' : 'Activar campaña'
+  // Los botones paran la propagación para no abrir el detalle al pulsarlos.
+  const act = handler => event => { event.stopPropagation(); handler(campaign) }
   return <article className="campaign-row" onClick={() => onOpen(campaign.id)}>
     <div className="campaign-name-cell"><span className="campaign-row-icon" style={{ '--type-color': type.color }}><Icon /></span><div><strong>{campaign.name}</strong><span>{campaign.objective || 'Sin objetivo definido'}</span></div></div>
     <StatusBadge status={campaign.status} />
@@ -129,37 +122,51 @@ function CampaignRow({ campaign, onOpen, onToggleStatus }) {
     <strong className="campaign-number-cell">{campaign.totalLeads.toLocaleString(localeCode(getLocale()))}</strong>
     <div className="campaign-response-cell"><strong>{campaign.contacted.toLocaleString(localeCode(getLocale()))}</strong><span>{campaign.conversionLabel}</span></div>
     <span className="campaign-agent-cell">{campaign.agent?.name || 'Sin agente'}</span>
-    <div className="campaign-row-actions"><button className="campaign-icon-button" title={campaign.status === 'active' ? 'Pausar campaña' : 'Activar campaña'} onClick={event => { event.stopPropagation(); onToggleStatus(campaign) }}>{campaign.status === 'active' ? <RiPauseCircleLine /> : <RiPlayCircleLine />}</button><button className="campaign-icon-button" title="Abrir campaña" onClick={event => { event.stopPropagation(); onOpen(campaign.id) }}><RiArrowRightLine /></button></div>
+    <div className="campaign-row-actions">
+      <button type="button" className="campaign-icon-button" title={toggleLabel} aria-label={`${toggleLabel}: ${campaign.name}`} disabled={busy} onClick={act(onToggleStatus)}>{campaign.status === 'active' ? <RiPauseCircleLine /> : <RiPlayCircleLine />}</button>
+      <button type="button" className="campaign-icon-button" title="Editar nombre, objetivo y presupuesto" aria-label={`Editar ${campaign.name}`} disabled={busy} onClick={act(onEdit)}><RiEditLine /></button>
+      <button type="button" className="campaign-icon-button" title="Duplicar como borrador" aria-label={`Duplicar ${campaign.name}`} disabled={busy} onClick={act(onDuplicate)}><RiFileCopyLine /></button>
+      <button type="button" className="campaign-icon-button" title="Abrir campaña" aria-label={`Abrir ${campaign.name}`} onClick={event => { event.stopPropagation(); onOpen(campaign.id) }}><RiArrowRightLine /></button>
+    </div>
   </article>
 }
 
-function CreateCampaignModal({ onClose, onCreate, creating }) {
-  const [name, setName] = useState('')
-  const [objective, setObjective] = useState('')
-  const [budget, setBudget] = useState('')
+// Modal de crear y de editar (nombre, objetivo y presupuesto). En edición usa
+// el PUT /api/campaigns/:id existente; el resto se edita en /campanas/:id.
+function CampaignFormModal({ initial = null, onClose, onSubmit, saving }) {
+  const editing = Boolean(initial)
+  const [name, setName] = useState(initial?.name || '')
+  const [objective, setObjective] = useState(initial?.objective || '')
+  const [budget, setBudget] = useState(initial?.budgetCents !== null && initial?.budgetCents !== undefined ? String(initial.budgetCents / 100) : '')
   const [formError, setFormError] = useState('')
+  const titleId = `campaign-form-title-${useId().replaceAll(':', '')}`
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  useEffect(() => {
+    const onKeyDown = event => { if (event.key === 'Escape' && !saving) onCloseRef.current() }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [saving])
 
   function submit(event) {
     event.preventDefault()
-    if (!name.trim()) { setFormError('Ponle un nombre a la campaña para continuar.'); return }
+    const result = validateCampaignForm({ name, objective, budget }, { editing })
+    if (!result.ok) { setFormError(result.error); return }
     setFormError('')
-    onCreate({
-      name: name.trim(),
-      objective: objective.trim() || undefined,
-      budgetCents: budget ? Math.round(Number(budget) * 100) : undefined,
-    })
+    onSubmit(result.payload)
   }
 
-  return <div className="campaign-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-    <form className="campaign-create-modal" onSubmit={submit}>
-      <div className="campaign-modal-head"><div><span>Nuevo workspace</span><h2>Crear campaña</h2><p>Define los datos básicos, podrás completar el resto luego.</p></div><button type="button" className="campaign-icon-button" onClick={onClose}><RiCloseLine /></button></div>
-      {formError && <p role="alert" style={{ margin: '0 0 4px', color: 'var(--danger-soft)', fontSize: 12.5 }}>{formError}</p>}
+  return <div className="campaign-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && !saving && onClose()}>
+    <form className="campaign-create-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} onSubmit={submit} noValidate>
+      <div className="campaign-modal-head"><div><span>{editing ? 'Editar campaña' : 'Nuevo workspace'}</span><h2 id={titleId}>{editing ? initial.name : 'Crear campaña'}</h2><p>{editing ? 'Cambia los datos básicos. Agente, leads y canales se editan en el detalle de la campaña.' : 'Define los datos básicos, podrás completar el resto luego.'}</p></div><button type="button" className="campaign-icon-button" onClick={onClose} aria-label="Cerrar"><RiCloseLine /></button></div>
+      {formError && <p role="alert" className="campaign-form-error">{formError}</p>}
       <div className="campaign-form-grid">
-        <label>Nombre de campaña<input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Ej. Reactivación clientes Q2" /></label>
-        <label>Objetivo<textarea value={objective} onChange={event => setObjective(event.target.value)} placeholder="¿Qué quieres conseguir?" rows="3" /></label>
-        <label>Presupuesto estimado (€)<input type="number" min="0" value={budget} onChange={event => setBudget(event.target.value)} /><small>Se podrá ajustar después.</small></label>
+        <label>Nombre de campaña<input autoFocus maxLength={140} value={name} onChange={event => setName(event.target.value)} placeholder="Ej. Reactivación clientes Q2" /></label>
+        <label>Objetivo<textarea maxLength={2000} value={objective} onChange={event => setObjective(event.target.value)} placeholder="¿Qué quieres conseguir?" rows="3" /></label>
+        <label>Presupuesto estimado (€)<input type="number" min="0" step="0.01" inputMode="decimal" value={budget} onChange={event => setBudget(event.target.value)} aria-invalid={formError.includes('presupuesto') || undefined} /><small>{editing ? 'Déjalo vacío para quitar el presupuesto.' : 'Se podrá ajustar después.'}</small></label>
       </div>
-      <div className="campaign-modal-actions"><button type="button" className="campaign-button ghost" onClick={onClose}>Cancelar</button><button className="campaign-button primary" type="submit" disabled={creating}>{creating ? 'Creando…' : 'Crear campaña'} <RiArrowRightLine /></button></div>
+      <div className="campaign-modal-actions"><button type="button" className="campaign-button ghost" onClick={onClose} disabled={saving}>Cancelar</button><button className="campaign-button primary" type="submit" disabled={saving}>{editing ? (saving ? 'Guardando…' : 'Guardar cambios') : (saving ? 'Creando…' : 'Crear campaña')} <RiArrowRightLine /></button></div>
     </form>
   </div>
 }
@@ -175,15 +182,22 @@ export default function Campaigns() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  // Solo la primera carga usa la pantalla completa; después se atenúa la tabla
+  // para no desmontar la página (el buscador perdía el foco en cada tecla).
+  const [loadedOnce, setLoadedOnce] = useState(false)
   const [error, setError] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [formModal, setFormModal] = useState(null) // null | { mode: 'create' } | { mode: 'edit', campaign }
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState(null) // { message, tone: 'ok' | 'error' }
+  const [pendingId, setPendingId] = useState('')
+  const [startPrompt, setStartPrompt] = useState(null) // { campaign, preview }
   const [allCampaigns, setAllCampaigns] = useState([])
   // 'loading' | 'live' | 'plan' | 'error' — mientras no sea 'live' las tarjetas
   // muestran «—» en vez de ceros que parecerían actividad real.
   const [statsStatus, setStatsStatus] = useState('loading')
   const [statsMessage, setStatsMessage] = useState('')
+  const listRequest = useRef(0)
+  const noticeTimer = useRef(0)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => { setSearch(searchInput); setPage(1) }, 350)
@@ -191,8 +205,11 @@ export default function Campaigns() {
   }, [searchInput])
 
   useEffect(() => { setPage(1) }, [status])
+  useEffect(() => () => window.clearTimeout(noticeTimer.current), [])
 
   async function loadCampaigns() {
+    // Descarta respuestas antiguas si el usuario sigue escribiendo o paginando.
+    const requestId = ++listRequest.current
     setLoading(true)
     setError('')
     try {
@@ -200,16 +217,21 @@ export default function Campaigns() {
       if (status !== 'all') params.set('status', status)
       if (search) params.set('search', search)
       const res = await apiFetch(`/api/campaigns?${params}`)
-      if (!res.ok) throw new Error('load failed')
+      if (!res.ok) throw new Error(await readApiError(res, 'No se pudieron cargar las campañas.'))
       const data = await res.json()
+      if (requestId !== listRequest.current) return
       setItems((data.items || []).map(toRow))
       setTotal(data.total || 0)
       setTotalPages(data.totalPages || 1)
-    } catch {
-      setError('No se pudieron cargar las campañas.')
+    } catch (err) {
+      if (requestId !== listRequest.current) return
+      setError(err?.message || 'No se pudieron cargar las campañas.')
       setItems([])
     } finally {
-      setLoading(false)
+      if (requestId === listRequest.current) {
+        setLoading(false)
+        setLoadedOnce(true)
+      }
     }
   }
 
@@ -238,52 +260,100 @@ export default function Campaigns() {
   useEffect(() => { loadCampaigns() }, [page, status, search])
   useEffect(() => { loadStats() }, [])
 
-  const stats = useMemo(() => {
-    const totalLeads = allCampaigns.reduce((s, c) => s + c.totalLeads, 0)
-    const contacted = allCampaigns.reduce((s, c) => s + c.contacted, 0)
-    const meetingsScheduled = allCampaigns.reduce((s, c) => s + c.meetingsScheduled, 0)
-    const budgetTotalCents = allCampaigns.reduce((s, c) => s + (c.budgetCents || 0), 0)
-    const activeCount = allCampaigns.filter(c => c.status === 'active').length
-    const channelCounts = allCampaigns.reduce((counts, campaign) => {
-      counts[campaign.type] = (counts[campaign.type] || 0) + 1
-      return counts
-    }, {})
-    const conversionRate = totalLeads > 0 ? Math.round((meetingsScheduled / totalLeads) * 1000) / 10 : 0
-    return { totalLeads, contacted, meetingsScheduled, budgetTotalCents, activeCount, channelCounts, conversionRate, total: allCampaigns.length }
-  }, [allCampaigns])
+  const stats = useMemo(() => summarizeCampaigns(allCampaigns), [allCampaigns])
+  const numberFormat = value => value.toLocaleString(localeCode(getLocale()))
+  const funnelView = buildFunnelView(stats, statsStatus, numberFormat)
+  const channelView = buildChannelMixView(stats, statsStatus)
 
   // Mismo patrón que Automatizaciones: sin datos reales no se pinta un 0.
   const metricValue = value => (statsStatus === 'live' ? value : '—')
 
-  function notify(message) { setNotice(message); window.setTimeout(() => setNotice(''), 2600) }
+  function notify(message, tone = 'ok') {
+    window.clearTimeout(noticeTimer.current)
+    setNotice({ message, tone })
+    noticeTimer.current = window.setTimeout(() => setNotice(null), tone === 'error' ? 6000 : 2600)
+  }
 
+  function refreshAll() {
+    loadCampaigns()
+    loadStats()
+  }
+
+  // Pausar no encola nada: va directo. Activar encola llamadas reales, así que
+  // primero se pide la vista previa (solo lectura) y se confirma con el número.
   async function toggleStatus(campaign) {
-    const isActive = campaign.status === 'active'
-    const action = isActive ? 'pause' : 'start'
+    if (pendingId) return
+    setPendingId(campaign.id)
     try {
-      const res = await apiFetch(`/api/campaigns/${campaign.id}/${action}`, { method: 'POST' })
-      if (!res.ok) throw new Error()
-      notify(isActive ? 'Campaña pausada' : 'Campaña activada')
-      loadCampaigns()
-      loadStats()
-    } catch {
-      notify('No se pudo actualizar el estado de la campaña')
+      if (campaign.status === 'active') {
+        const res = await apiFetch(`/api/campaigns/${campaign.id}/pause`, { method: 'POST' })
+        if (!res.ok) throw new Error(await readApiError(res, 'No se pudo pausar la campaña'))
+        notify('Campaña pausada')
+        refreshAll()
+        return
+      }
+      const res = await apiFetch(`/api/campaigns/${campaign.id}/start-preview`)
+      if (!res.ok) throw new Error(await readApiError(res, 'No se pudo calcular cuántas llamadas se encolarían'))
+      setStartPrompt({ campaign, preview: await res.json() })
+    } catch (err) {
+      notify(err?.message || 'No se pudo actualizar el estado de la campaña', 'error')
+    } finally {
+      setPendingId('')
     }
   }
 
-  async function createCampaign(payload) {
-    setCreating(true)
+  // Se ejecuta desde el ConfirmDialog; no relanza el error para que el
+  // diálogo se cierre y el motivo quede en el aviso.
+  async function confirmStart(campaign) {
     try {
-      const res = await apiFetch('/api/campaigns', { method: 'POST', body: JSON.stringify(payload) })
-      if (!res.ok) throw new Error()
+      const res = await apiFetch(`/api/campaigns/${campaign.id}/start`, { method: 'POST' })
+      if (!res.ok) throw new Error(await readApiError(res, 'No se pudo activar la campaña'))
+      const result = await res.json().catch(() => ({}))
+      const queued = Number(result?.queued) || 0
+      notify(queued ? `Campaña activada · ${queued} llamada${queued === 1 ? '' : 's'} en cola` : 'Campaña activada · ninguna llamada en cola')
+      refreshAll()
+    } catch (err) {
+      notify(err?.message || 'No se pudo activar la campaña', 'error')
+    }
+  }
+
+  async function duplicateCampaign(campaign) {
+    if (pendingId) return
+    setPendingId(campaign.id)
+    try {
+      const res = await apiFetch(`/api/campaigns/${campaign.id}/duplicate`, { method: 'POST' })
+      if (!res.ok) throw new Error(await readApiError(res, 'No se pudo duplicar la campaña'))
+      const copy = await res.json()
+      notify(`Creada «${copy?.name || 'copia'}» como borrador`)
+      refreshAll()
+    } catch (err) {
+      notify(err?.message || 'No se pudo duplicar la campaña', 'error')
+    } finally {
+      setPendingId('')
+    }
+  }
+
+  async function submitForm(payload) {
+    const editing = formModal?.mode === 'edit'
+    setSaving(true)
+    try {
+      const res = editing
+        ? await apiFetch(`/api/campaigns/${formModal.campaign.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+        : await apiFetch('/api/campaigns', { method: 'POST', body: JSON.stringify(payload) })
+      if (!res.ok) throw new Error(await readApiError(res, editing ? 'No se pudo guardar la campaña' : 'No se pudo crear la campaña'))
+      setFormModal(null)
+      if (editing) {
+        notify('Campaña actualizada')
+        refreshAll()
+        return
+      }
       const created = await res.json()
-      setShowCreate(false)
       notify('Campaña creada como borrador')
       navigate(`/campanas/${created.id}`)
-    } catch {
-      notify('No se pudo crear la campaña')
+    } catch (err) {
+      notify(err?.message || 'No se pudo guardar la campaña', 'error')
     } finally {
-      setCreating(false)
+      setSaving(false)
     }
   }
 
@@ -292,17 +362,20 @@ export default function Campaigns() {
     ...Object.entries(STATUS_META).map(([id, meta]) => ({ id, label: meta.label, color: meta.color })),
   ]
 
-  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading campaigns' : 'Cargando campañas'} />
+  if (!loadedOnce) return <PageLoadingState label={locale === 'en' ? 'Loading campaigns' : 'Cargando campañas'} />
+
+  const startView = startPrompt ? startConfirmation(startPrompt.preview) : null
+  const refreshing = loading && loadedOnce
 
   return <main className="dark-scroll campaign-page">
-    <ProductPageHeader Icon={RiMegaphoneLine} title={t('modules.campaignsTitle')} description={t('modules.campaignsSubtitle')} actions={<><button className="campaign-button soft" onClick={() => navigate('/captacion/cerrar')}>Ver funnel <RiArrowRightLine /></button><button className="campaign-button primary" onClick={() => setShowCreate(true)}><RiAddLine /> {t('modules.newCampaign')}</button></>} />
+    <ProductPageHeader Icon={RiMegaphoneLine} title={t('modules.campaignsTitle')} description={t('modules.campaignsSubtitle')} actions={<><button className="campaign-button soft" onClick={() => navigate('/captacion/cerrar')}>Ver funnel <RiArrowRightLine /></button><button className="campaign-button primary" onClick={() => setFormModal({ mode: 'create' })}><RiAddLine /> {t('modules.newCampaign')}</button></>} />
 
 
     {statsStatus !== 'live' && statsStatus !== 'loading' && <DataStatusBanner status={statsStatus} message={statsMessage} onRetry={statsStatus === 'error' ? loadStats : undefined} />}
 
     <section className="campaign-metrics-row">
-      <MetricCard Icon={RiGroupLine} label="Leads totales" value={metricValue(stats.totalLeads.toLocaleString(localeCode(getLocale())))} detail="en todas las campañas" color="#8b5cf6" />
-      <MetricCard Icon={RiPhoneLine} label="Contactados" value={metricValue(stats.contacted.toLocaleString(localeCode(getLocale())))} detail="leads con contacto registrado" color="#22d3ee" />
+      <MetricCard Icon={RiGroupLine} label="Leads totales" value={metricValue(numberFormat(stats.totalLeads))} detail="en todas las campañas" color="#8b5cf6" />
+      <MetricCard Icon={RiPhoneLine} label="Contactados" value={metricValue(numberFormat(stats.contacted))} detail="leads con contacto registrado" color="#22d3ee" />
       <MetricCard Icon={RiBarChartGroupedLine} label="Conversión media" value={metricValue(`${stats.conversionRate}%`)} detail="reuniones / leads" color="#ec4899" />
       <MetricCard Icon={RiWallet3Line} label="Presupuesto total" value={metricValue(formatCents(stats.budgetTotalCents))} detail="suma de presupuestos asignados" color="#34d399" />
     </section>
@@ -311,29 +384,36 @@ export default function Campaigns() {
       <div className="campaigns-list-panel" id="campaign-list">
         <div className="campaign-type-tabs" role="tablist" aria-label="Filtrar por estado">{statusTabs.map(tab => <button key={tab.id} role="tab" aria-selected={status === tab.id} className={status === tab.id ? 'active' : ''} onClick={() => setStatus(tab.id)} style={{ '--tab-color': tab.color }}>{tab.label}</button>)}</div>
         <div className="campaigns-list-toolbar"><div className="campaign-search"><RiSearchLine /><input value={searchInput} onChange={event => setSearchInput(event.target.value)} placeholder="Buscar campañas..." aria-label="Buscar campañas" /></div></div>
-        <div className="campaigns-list-heading"><div><h2>{t('modules.allCampaigns')}</h2><span>{items.length} visibles de {total}</span></div></div>
+        <div className="campaigns-list-heading"><div><h2>{t('modules.allCampaigns')}</h2><span aria-live="polite">{refreshing ? 'Actualizando…' : `${items.length} visibles de ${total}`}</span></div></div>
         <div className="campaign-table-head"><span>Campaña</span><span>Estado</span><span>Progreso</span><span>Leads</span><span>Contactados</span><span>Agente</span><span /></div>
-        <div className="campaign-rows">
-          {loading ? <div className="campaign-empty"><strong>Cargando campañas…</strong></div>
-            : error ? <div className="campaign-empty"><strong>{error}</strong><button className="campaign-button ghost" onClick={loadCampaigns}>Reintentar</button></div>
-            : items.length ? items.map(campaign => <CampaignRow key={campaign.id} campaign={campaign} onOpen={id => navigate(`/campanas/${id}`)} onToggleStatus={toggleStatus} />)
-            : <div className="campaign-empty"><RiSearchLine /><strong>{search.trim() || status !== 'all' ? 'No hemos encontrado campañas' : 'Todavía no tienes campañas'}</strong><span>{search.trim() || status !== 'all' ? 'Prueba con otro término o quita los filtros.' : 'Crea la primera para agrupar tus leads y lanzar llamadas.'}</span><button className="campaign-button primary" onClick={() => setShowCreate(true)}>Crear campaña</button></div>}
+        <div className={`campaign-rows${refreshing ? ' is-refreshing' : ''}`} aria-busy={refreshing}>
+          {error ? <div className="campaign-empty"><strong>{error}</strong><button className="campaign-button ghost" onClick={loadCampaigns}>Reintentar</button></div>
+            : items.length ? items.map(campaign => <CampaignRow key={campaign.id} campaign={campaign} busy={pendingId === campaign.id} onOpen={id => navigate(`/campanas/${id}`)} onToggleStatus={toggleStatus} onEdit={row => setFormModal({ mode: 'edit', campaign: row })} onDuplicate={duplicateCampaign} />)
+            : <div className="campaign-empty"><RiSearchLine /><strong>{search.trim() || status !== 'all' ? 'No hemos encontrado campañas' : 'Todavía no tienes campañas'}</strong><span>{search.trim() || status !== 'all' ? 'Prueba con otro término o quita los filtros.' : 'Crea la primera para agrupar tus leads y lanzar llamadas.'}</span><button className="campaign-button primary" onClick={() => setFormModal({ mode: 'create' })}>Crear campaña</button></div>}
         </div>
         <div className="campaigns-list-footer">
           <span>Mostrando {items.length ? (page - 1) * LIMIT + 1 : 0} a {(page - 1) * LIMIT + items.length} de {total} campañas</span>
           <div>
-            <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>‹</button>
-            <button className="current">{page}</button>
-            <button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>›</button>
+            <button disabled={page <= 1 || refreshing} onClick={() => setPage(p => Math.max(1, p - 1))} aria-label="Página anterior">‹</button>
+            <button className="current" aria-current="page">{page}</button>
+            <button disabled={page >= totalPages || refreshing} onClick={() => setPage(p => Math.min(totalPages, p + 1))} aria-label="Página siguiente">›</button>
           </div>
           <label>{LIMIT} por página</label>
         </div>
       </div>
       <aside className="campaigns-rail">
-        <section className="campaign-rail-panel performance-panel"><div className="campaign-panel-heading"><div><h2>Rendimiento</h2><span>Todas las campañas</span></div></div><div className="campaign-rail-section-title">Embudo de conversión</div><Funnel stats={stats} /><div className="campaign-divider" /><div className="campaign-rail-section-title">Mezcla de canales</div><ChannelMix stats={stats} /></section>
+        <section className="campaign-rail-panel performance-panel"><div className="campaign-panel-heading"><div><h2>Rendimiento</h2><span>Todas las campañas</span></div></div><div className="campaign-rail-section-title">Embudo de conversión</div><Funnel view={funnelView} /><div className="campaign-divider" /><div className="campaign-rail-section-title">Mezcla de canales</div><ChannelMix view={channelView} /></section>
       </aside>
     </section>
-    {notice && <div className="campaign-toast" role="status"><RiCheckboxCircleLine />{notice}<button onClick={() => setNotice('')} aria-label="Cerrar aviso"><RiCloseLine /></button></div>}
-    {showCreate && <CreateCampaignModal onClose={() => setShowCreate(false)} onCreate={createCampaign} creating={creating} />}
+    {notice && <div className={`campaign-toast${notice.tone === 'error' ? ' is-error' : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'}>{notice.tone === 'error' ? <RiErrorWarningLine /> : <RiCheckboxCircleLine />}{notice.message}<button onClick={() => setNotice(null)} aria-label="Cerrar aviso"><RiCloseLine /></button></div>}
+    {formModal && <CampaignFormModal initial={formModal.mode === 'edit' ? formModal.campaign : null} onClose={() => setFormModal(null)} onSubmit={submitForm} saving={saving} />}
+    {startPrompt && startView && <ConfirmDialog
+      title={startView.title}
+      message={startView.message}
+      confirmText={startView.confirmText}
+      tone={startView.count > 0 ? 'danger' : 'primary'}
+      onConfirm={() => confirmStart(startPrompt.campaign)}
+      onClose={() => setStartPrompt(null)}
+    />}
   </main>
 }

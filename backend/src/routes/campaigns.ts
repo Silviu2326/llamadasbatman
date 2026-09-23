@@ -16,6 +16,7 @@ export async function campaignsRoutes(app: FastifyInstance) {
   app.get('/:id', canRead, ctrl.get as any)
   app.put('/:id', canMutate, ctrl.update as any)
   app.put('/:id/landing', canMutate, ctrl.updateLanding as any)
+  app.get('/:id/start-preview', canStart, ctrl.startPreview as any)
   app.post('/:id/start', canStart, ctrl.start as any)
   app.post('/:id/pause', canPublish, ctrl.pause as any)
   app.get('/:id/stats', canRead, ctrl.stats as any)

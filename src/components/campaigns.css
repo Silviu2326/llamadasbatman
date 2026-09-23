@@ -160,7 +160,7 @@
 .campaigns-list-heading h2 { margin: 0; color: var(--text-strong); font-size: 14px; font-weight: 750; }
 .campaigns-list-heading span { display: block; margin-top: 4px; color: var(--dim); font-size: 10px; }
 .campaign-table-head,
-.campaign-row { display: grid; grid-template-columns: minmax(210px, 1.7fr) 85px minmax(105px, .9fr) 70px 92px 82px 64px; align-items: center; gap: 10px; padding: 0 15px; }
+.campaign-row { display: grid; grid-template-columns: minmax(210px, 1.7fr) 85px minmax(105px, .9fr) 70px 92px 82px 128px; align-items: center; gap: 10px; padding: 0 15px; }
 .campaign-table-head { min-height: 33px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--dim); background: var(--surface-soft); font-size: 9px; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; }
 .campaign-table-head > span:nth-last-child(-n+5) { text-align: right; }
 .campaign-row { min-height: 74px; border-bottom: 1px solid var(--line); cursor: pointer; transition: background .18s ease; }
@@ -200,6 +200,9 @@
 .campaign-icon-button { display: inline-grid; width: 29px; height: 29px; place-items: center; flex: 0 0 auto; border: 1px solid var(--line-2); border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer; transition: color .16s ease, background .16s ease, border-color .16s ease; }
 .campaign-icon-button:hover { color: var(--text-strong); border-color: var(--accent); background: #312e8145; }
 .campaign-icon-button svg { width: 14px; height: 14px; }
+.campaign-icon-button:disabled { opacity: .5; cursor: progress; }
+/* Recarga de lista (filtro, búsqueda, página): se atenúa sin desmontar la página. */
+.campaign-rows.is-refreshing { opacity: .55; pointer-events: none; transition: opacity .16s ease; }
 .campaign-empty { display: grid; place-items: center; gap: 7px; min-height: 250px; color: var(--dim); text-align: center; }
 .campaign-empty svg { width: 25px; height: 25px; color: var(--accent); }
 .campaign-empty strong { color: var(--text-2); font-size: 13px; }
@@ -268,6 +271,9 @@
 .campaign-toast > svg { width: 16px; height: 16px; color: var(--success); }
 .campaign-toast button { display: inline-grid; width: 22px; height: 22px; margin-left: auto; place-items: center; border: 0; color: var(--dim); background: transparent; cursor: pointer; }
 .campaign-toast button svg { width: 14px; height: 14px; }
+.campaign-toast.is-error { color: var(--danger-soft); background: var(--danger-bg); }
+.campaign-toast.is-error > svg { color: var(--danger); }
+.campaign-form-error { margin: 0 24px 12px; color: var(--danger-soft); font-size: 12.5px; }
 @keyframes campaign-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 .campaign-modal-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: var(--scrim); backdrop-filter: blur(8px); }
@@ -562,7 +568,8 @@
   .campaign-row { grid-template-columns: minmax(0, 1.7fr) 78px minmax(95px, .9fr) 60px; gap: 8px; }
   .campaign-row > :nth-child(4), .campaign-row > :nth-child(5), .campaign-row > :nth-child(6) { display: none; }
   .campaign-row-actions { grid-column: 4; }
-  .campaign-row-actions .campaign-icon-button:first-child { display: none; }
+  /* En pantallas estrechas solo queda «Abrir»: activar, editar y duplicar se hacen desde el detalle. */
+  .campaign-row-actions .campaign-icon-button:not(:last-child) { display: none; }
   .campaign-metrics-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .campaign-detail-header { align-items: flex-start; }
   .campaign-health-strip { grid-template-columns: repeat(2, 1fr); }

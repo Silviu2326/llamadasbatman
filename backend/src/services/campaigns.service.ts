@@ -122,6 +122,59 @@ export async function getCampaignStats(orgId: string, id: string) {
 }
 
 /**
+ * Condición única de "lead que startCampaign va a llamar": estado `new` y con
+ * teléfono no vacío. La comparten el arranque real y la vista previa de solo
+ * lectura para que el número que ve el usuario en la confirmación sea el mismo
+ * que se encola.
+ */
+export const START_LEAD_WHERE = {
+  status: 'new',
+  phone: { not: null },
+  NOT: { phone: '' },
+} as const
+
+/**
+ * Vista previa de solo lectura de startCampaign: cuántas llamadas se
+ * encolarían si se activa ahora. No escribe nada ni toca la cola. Devuelve
+ * null si la campaña no pertenece a la organización.
+ */
+export async function getStartPreview(orgId: string, id: string) {
+  const campaign = await prisma.campaign.findFirst({
+    where: { id, orgId },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      agent: { select: { id: true, name: true, isActive: true, lifecycleStatus: true } },
+    },
+  })
+  if (!campaign) return null
+
+  const [eligibleLeads, newLeadsWithoutPhone] = await Promise.all([
+    prisma.lead.count({ where: { orgId, campaignId: id, ...START_LEAD_WHERE } }),
+    prisma.lead.count({
+      where: { orgId, campaignId: id, status: 'new', OR: [{ phone: null }, { phone: '' }] },
+    }),
+  ])
+
+  return {
+    campaignId: campaign.id,
+    name: campaign.name,
+    status: campaign.status,
+    agent: campaign.agent
+      ? {
+          id: campaign.agent.id,
+          name: campaign.agent.name,
+          isActive: campaign.agent.isActive,
+          lifecycleStatus: campaign.agent.lifecycleStatus,
+        }
+      : null,
+    eligibleLeads,
+    newLeadsWithoutPhone,
+  }
+}
+
+/**
  * Dispatch masivo: encola una llamada por cada lead "new" de la campaña en la
  * cola real (`lead-call-dispatch`, la misma que usa la llamada individual y
  * el webhook de Meta) — antes esto pegaba a un VOICE_SERVICE_URL externo que
@@ -130,7 +183,7 @@ export async function getCampaignStats(orgId: string, id: string) {
 export async function startCampaign(orgId: string, id: string) {
   const campaign = await prisma.campaign.findFirst({
     where: { id, orgId },
-    include: { leads: { where: { status: 'new' } } },
+    include: { leads: { where: START_LEAD_WHERE } },
   })
 
   if (!campaign) throw new Error('Campaign not found')

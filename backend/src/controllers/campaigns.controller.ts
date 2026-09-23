@@ -161,6 +161,20 @@ export async function start(
   }
 }
 
+// Solo lectura: cuántas llamadas encolaría /start. Usa los mismos permisos que
+// start para que nadie sin permiso de lanzar pueda sondear la cola.
+export async function startPreview(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const { orgId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  if (!params) return
+  const result = await campaignsService.getStartPreview(orgId, params.id)
+  if (!result) return reply.status(404).send({ error: 'Not found' })
+  return reply.send(result)
+}
+
 export async function pause(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
