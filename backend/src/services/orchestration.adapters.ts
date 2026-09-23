@@ -54,19 +54,72 @@ export interface OrchestrationActionContract {
   effects: 'local' | 'external'
   compensation: 'automatic' | 'manual_review'
   retryPolicy: 'safe' | 'blocked_on_uncertain_external_outcome'
+  /** Campos que la UI debe pedir para que la acción pase la validación. */
+  fields: readonly OrchestrationActionField[]
+  /** Acciones previas que permiten resolver referencias implícitas. */
+  resolvesWith?: readonly OrchestrationActionKind[]
 }
 
+export type OrchestrationActionFieldType = 'text' | 'longText' | 'reference' | 'referenceList' | 'cents' | 'integer' | 'platforms' | 'stage'
+
+export interface OrchestrationActionField {
+  key: string
+  label: string
+  type: OrchestrationActionFieldType
+  /** true: obligatorio siempre; 'unless_resolved': obligatorio salvo que una acción previa lo resuelva. */
+  required: boolean | 'unless_resolved'
+  hint?: string
+  options?: readonly string[]
+}
+
+export const ORCHESTRATION_SOCIAL_PLATFORMS = ['facebook', 'instagram', 'linkedin', 'tiktok', 'twitter', 'youtube'] as const
+export const ORCHESTRATION_PIPELINE_STAGES = ['lead', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] as const
+
+const campaignField = (required: OrchestrationActionField['required'], hint: string): OrchestrationActionField => ({ key: 'campaignId', label: 'ID de campaña', type: 'reference', required, hint })
+
 export const ORCHESTRATION_ACTION_CATALOG: readonly OrchestrationActionContract[] = [
-  { kind: 'landing.create_draft', title: 'Crear landing en borrador', required: [], anyOf: ['campaignId', 'landingSlug'], references: ['campaignId', 'landingSlug', 'budgetCents'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
-  { kind: 'ads.publish_paused', title: 'Crear campaña Ads pausada', required: ['budgetCents'], anyOf: ['campaignId'], references: ['campaignId', 'landingSlug', 'budgetCents'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome' },
-  { kind: 'ads.activate', title: 'Activar campaña Ads', required: ['dailyBudgetCents', 'durationDays'], anyOf: ['campaignId'], references: ['campaignId', 'dailyBudgetCents', 'durationDays'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome' },
-  { kind: 'social.create_draft', title: 'Crear borrador social', required: ['text', 'platforms'], anyOf: ['campaignId', 'landingSlug'], references: ['campaignId', 'landingSlug'], effects: 'external', compensation: 'manual_review', retryPolicy: 'blocked_on_uncertain_external_outcome' },
-  { kind: 'email.publish', title: 'Publicar campaña de email', required: ['marketingCampaignId'], references: ['marketingCampaignId'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome' },
-  { kind: 'agent.activate', title: 'Activar agente comercial', required: ['agentId'], references: ['agentId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
-  { kind: 'lead.create_follow_up', title: 'Crear seguimiento de lead', required: ['leadId', 'title'], references: ['leadId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
-  { kind: 'pipeline.move_stage', title: 'Mover oportunidad en pipeline', required: ['opportunityId', 'toStage'], references: ['opportunityId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
-  { kind: 'prospecting.enrich', title: 'Enriquecer prospecto', required: ['leadId'], references: ['leadId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
-  { kind: 'sequence.create_draft', title: 'Preparar borrador de secuencia', required: ['leadIds'], references: ['leadIds'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
+  { kind: 'landing.create_draft', title: 'Crear landing en borrador', required: [], anyOf: ['campaignId', 'landingSlug'], references: ['campaignId', 'landingSlug', 'budgetCents'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe', fields: [
+    { key: 'name', label: 'Nombre de la landing', type: 'text', required: false, hint: 'Si lo dejas vacío se usa el identificador del plan.' },
+    { key: 'offer', label: 'Oferta principal', type: 'longText', required: false },
+    campaignField(false, 'Opcional: reutiliza una campaña existente en lugar de crear una nueva.'),
+  ] },
+  { kind: 'ads.publish_paused', title: 'Crear campaña Ads pausada', required: ['budgetCents'], anyOf: ['campaignId'], references: ['campaignId', 'landingSlug', 'budgetCents'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome', resolvesWith: ['landing.create_draft'], fields: [
+    { key: 'budgetCents', label: 'Presupuesto total', type: 'cents', required: true, hint: 'Límite aprobado para la campaña; se crea pausada.' },
+    campaignField('unless_resolved', 'Se resuelve solo si antes hay «Crear landing en borrador».'),
+  ] },
+  { kind: 'ads.activate', title: 'Activar campaña Ads', required: ['dailyBudgetCents', 'durationDays'], anyOf: ['campaignId'], references: ['campaignId', 'dailyBudgetCents', 'durationDays'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome', resolvesWith: ['landing.create_draft', 'ads.publish_paused'], fields: [
+    { key: 'dailyBudgetCents', label: 'Presupuesto diario', type: 'cents', required: true },
+    { key: 'durationDays', label: 'Duración (días)', type: 'integer', required: true },
+    campaignField('unless_resolved', 'Se resuelve solo si antes hay landing y campaña Ads pausada.'),
+  ] },
+  { kind: 'social.create_draft', title: 'Crear borrador social', required: ['text', 'platforms'], anyOf: ['campaignId', 'landingSlug'], references: ['campaignId', 'landingSlug'], effects: 'external', compensation: 'manual_review', retryPolicy: 'blocked_on_uncertain_external_outcome', resolvesWith: ['landing.create_draft'], fields: [
+    { key: 'text', label: 'Texto de la publicación', type: 'longText', required: true },
+    { key: 'platforms', label: 'Plataformas', type: 'platforms', required: true, options: ORCHESTRATION_SOCIAL_PLATFORMS },
+    campaignField('unless_resolved', 'Se resuelve solo si antes hay «Crear landing en borrador».'),
+  ] },
+  { kind: 'email.publish', title: 'Publicar campaña de email', required: ['marketingCampaignId'], references: ['marketingCampaignId'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome', fields: [
+    { key: 'marketingCampaignId', label: 'ID de campaña de email', type: 'reference', required: true, hint: 'Campaña de Email marketing ya validada.' },
+  ] },
+  { kind: 'agent.activate', title: 'Activar agente comercial', required: ['agentId'], references: ['agentId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe', fields: [
+    { key: 'agentId', label: 'ID del agente', type: 'reference', required: true, hint: 'El agente debe cumplir todos los checks de publicación.' },
+  ] },
+  { kind: 'lead.create_follow_up', title: 'Crear seguimiento de lead', required: ['leadId', 'title'], references: ['leadId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe', fields: [
+    { key: 'leadId', label: 'ID del lead', type: 'reference', required: true },
+    { key: 'title', label: 'Título de la tarea', type: 'text', required: true },
+    { key: 'dueInDays', label: 'Vence en (días)', type: 'integer', required: false },
+  ] },
+  { kind: 'pipeline.move_stage', title: 'Mover oportunidad en pipeline', required: ['opportunityId', 'toStage'], references: ['opportunityId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe', fields: [
+    { key: 'opportunityId', label: 'ID de la oportunidad', type: 'reference', required: true },
+    { key: 'toStage', label: 'Etapa destino', type: 'stage', required: true, options: ORCHESTRATION_PIPELINE_STAGES },
+  ] },
+  { kind: 'prospecting.enrich', title: 'Enriquecer prospecto', required: ['leadId'], references: ['leadId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe', fields: [
+    { key: 'leadId', label: 'ID del lead', type: 'reference', required: true },
+    { key: 'website', label: 'Web del prospecto', type: 'text', required: false },
+  ] },
+  { kind: 'sequence.create_draft', title: 'Preparar borrador de secuencia', required: ['leadIds'], references: ['leadIds'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe', fields: [
+    { key: 'leadIds', label: 'IDs de leads (separados por comas)', type: 'referenceList', required: true, hint: 'Entre 1 y 100 leads.' },
+    { key: 'name', label: 'Nombre de la secuencia', type: 'text', required: false },
+  ] },
 ]
 
 export interface ActionInputValidationIssue {
@@ -131,7 +184,11 @@ export function validateOrchestrationActionInput(
     case 'lead.create_follow_up':
       return requiredText(input, 'leadId') || requiredText(input, 'title')
     case 'pipeline.move_stage':
-      return requiredText(input, 'opportunityId') || requiredText(input, 'toStage')
+      return requiredText(input, 'opportunityId') || requiredText(input, 'toStage') || (
+        (ORCHESTRATION_PIPELINE_STAGES as readonly string[]).includes(String(input.toStage))
+          ? null
+          : { code: 'ACTION_INPUT_INVALID', field: 'toStage', message: `toStage debe ser una de: ${ORCHESTRATION_PIPELINE_STAGES.join(', ')}.` }
+      )
     case 'prospecting.enrich':
       return requiredText(input, 'leadId')
     case 'sequence.create_draft':
@@ -368,17 +425,18 @@ async function publishPausedAd(context: AdapterContext): Promise<AdapterResult> 
   if (requestedBudget === null || requestedBudget < 0 || requestedBudget > context.planBudgetCents) {
     return blocked('BUDGET_LIMIT_EXCEEDED', 'El presupuesto solicitado supera el límite aprobado del plan.')
   }
-  const assets = record(campaign.adAssets)
-  const configuredBudget = typeof assets.presupuestoMensual === 'number' && Number.isFinite(assets.presupuestoMensual)
-    ? Math.round(assets.presupuestoMensual * 100)
-    : null
-  if (configuredBudget === null || configuredBudget <= 0) return blocked('CAMPAIGN_BUDGET_NOT_CONFIGURED', 'La campaña no tiene presupuesto mensual configurado en sus activos.')
-  if (configuredBudget !== requestedBudget) return blocked('BUDGET_CONFIGURATION_MISMATCH', 'budgetCents no coincide con el presupuesto mensual configurado en la campaña.')
   if (campaign.status === 'active' || campaign.adStatus === 'active') return blocked('CAMPAIGN_ALREADY_ACTIVE', 'La campaña ya está activa; usa una acción de pausa o no la vuelvas a publicar.')
   try {
-    const result = await metaCampaignBuilder.publishCampaign(context.orgId, campaign.id)
+    // El presupuesto aprobado viaja a publishCampaign, que lo compara con el
+    // total del que calcula el diario (misma prioridad: activación Meta →
+    // presupuesto mensual del asistente → campaña) y aborta antes de tocar
+    // Meta si difieren. Así no se aprueba un importe y se publica otro.
+    const result = await metaCampaignBuilder.publishCampaign(context.orgId, campaign.id, { expectedTotalBudgetCents: requestedBudget })
     return { status: 'succeeded', output: { ...result, campaignId: campaign.id, externalEffect: true, remoteState: 'paused', idempotentReplay: Boolean(campaign.metaCampaignId && campaign.metaAdSetId && campaign.metaAdId) } }
   } catch (error) {
+    if (metaCampaignBuilder.isMetaPublishError(error) && (error.code === 'BUDGET_APPROVAL_MISMATCH' || error.code === 'NO_BUDGET')) {
+      return blocked(error.code === 'NO_BUDGET' ? 'CAMPAIGN_BUDGET_NOT_CONFIGURED' : 'BUDGET_CONFIGURATION_MISMATCH', error.message)
+    }
     return failed(error)
   }
 }

@@ -48,11 +48,19 @@ function EmailSequenceEditor({ steps, setSteps, drafts, templateError }) {
   </div>
 }
 
-export default function NewAutomatizacionModal({ onClose, onSuccess, initialMode = 'automation' }) {
+// initialValues permite abrir el modal desde una plantilla de inicio con
+// nombre, descripción, disparador y acción ya rellenos (siguen siendo editables).
+export default function NewAutomatizacionModal({ onClose, onSuccess, initialMode = 'automation', initialValues = null }) {
   const { t, locale } = useI18n()
   const [mode, setMode] = useState(initialMode)
-  const [form, setForm] = useState({ name: '', description: '', trigger: DISPARADORES[0].value, isActive: true })
-  const [channelAction, setChannelAction] = useState('none')
+  const [form, setForm] = useState(() => ({
+    name: initialValues?.name ?? '',
+    description: initialValues?.description ?? '',
+    trigger: DISPARADORES.some(item => item.value === initialValues?.trigger) ? initialValues.trigger : DISPARADORES[0].value,
+    isActive: true,
+  }))
+  const [channelAction, setChannelAction] = useState(() => CHANNEL_ACTIONS.some(item => item.value === initialValues?.channelAction) ? initialValues.channelAction : 'none')
+  const extraActions = Array.isArray(initialValues?.extraActions) ? initialValues.extraActions : []
   const [contentSid, setContentSid] = useState('')
   const [emailDraftId, setEmailDraftId] = useState('')
   const [sequenceSteps, setSequenceSteps] = useState([makeStep(0)])
@@ -107,11 +115,12 @@ export default function NewAutomatizacionModal({ onClose, onSuccess, initialMode
       if (channelAction === 'send_whatsapp_template') actions.push({ type: channelAction, params: { contentSid: contentSid.trim() } })
       if (channelAction === 'queue_voice_call') actions.push({ type: channelAction })
       if (channelAction === 'send_email_template') actions.push({ type: channelAction, params: { emailDraftId } })
+      actions.push(...extraActions.map(({ type, params }) => params ? { type, params } : { type }))
       const res = await apiFetch('/api/automations', {
         method: 'POST',
         body: JSON.stringify({ name: form.name, description: form.description, trigger: { event: form.trigger }, actions, isActive: form.isActive }),
       })
-      if (!res.ok) { setError(t('modal.createError')); return }
+      if (!res.ok) { const payload = await res.json().catch(() => null); setError(payload?.error || t('modal.createError')); return }
       const item = await res.json()
       onSuccess ? onSuccess(item) : onClose()
     } catch (err) {
@@ -133,6 +142,7 @@ export default function NewAutomatizacionModal({ onClose, onSuccess, initialMode
       <FormSelect label={t('modal.trigger')} value={form.trigger} onChange={e => update('trigger', e.target.value)} options={DISPARADORES} required />
       <FormSelect label={t('modal.channelResponse')} value={channelAction} onChange={e => setChannelAction(e.target.value)} options={CHANNEL_ACTIONS} />
       {channelAction === 'send_whatsapp_template' && <FormInput label="Content SID aprobado en Twilio" value={contentSid} onChange={e => setContentSid(e.target.value)} placeholder="HX..." required />}
+      {extraActions.length > 0 && <p className="automation-sequence-note">La plantilla añade además: {extraActions.map(action => action.label || action.type).join(', ')}. Podrás editarlo en Configuración.</p>}
       {channelAction === 'send_email_template' && <FormSelect label="Borrador de email" value={emailDraftId} onChange={e => setEmailDraftId(e.target.value)} options={[{ value: '', label: drafts.length ? 'Selecciona un borrador…' : 'Crea un borrador en Email marketing' }, ...drafts.map(item => ({ value: String(item.id), label: item.name }))]} required />}
     </> : <EmailSequenceEditor steps={sequenceSteps} setSteps={setSequenceSteps} drafts={drafts} templateError={templateError} />}
   </FormModal>

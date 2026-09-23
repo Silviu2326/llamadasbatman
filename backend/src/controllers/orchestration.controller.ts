@@ -47,6 +47,11 @@ const planSchema = z.object({
 }))
 
 const idParamsSchema = z.object({ id: z.string().trim().min(1).max(100) }).strict()
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(orchestrationService.PLAN_LIST_MAX_LIMIT).default(10),
+  offset: z.coerce.number().int().min(0).max(100_000).default(0),
+  status: z.enum(['proposal', 'approved', 'queued', 'running', 'executed', 'paused', 'failed', 'rejected', 'rolling_back']).optional(),
+}).strict()
 const commentSchema = z.object({ comment: z.string().trim().max(2_000).optional() }).strict()
 const keySchema = z.string().trim().min(8).max(180).regex(/^[a-zA-Z0-9._:-]+$/, 'Idempotency-Key contiene caracteres no permitidos')
 
@@ -93,6 +98,17 @@ export async function catalog(request: FastifyRequest, reply: FastifyReply) {
   const currentActor = actor(request)
   if (!currentActor) return
   return reply.send({ contractVersion: orchestrationService.ORCHESTRATION_CONTRACT_VERSION, actions: ORCHESTRATION_ACTION_CATALOG })
+}
+
+export async function listPlans(request: FastifyRequest<{ Querystring: unknown }>, reply: FastifyReply) {
+  const query = parseRequest(reply, listQuerySchema, request.query ?? {})
+  const currentActor = actor(request)
+  if (!query || !currentActor) return
+  try {
+    return reply.send(await orchestrationService.listPersistedPlans(currentActor.orgId, query))
+  } catch (error) {
+    return respondError(reply, error)
+  }
 }
 
 export async function getPlan(request: FastifyRequest<{ Params: unknown }>, reply: FastifyReply) {

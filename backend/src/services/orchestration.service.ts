@@ -359,7 +359,7 @@ function planFromStored(experiment: { id: string; status: string; createdAt: Dat
 }
 
 export async function getPersistedPlan(orgId: string, planId: string): Promise<OrchestrationPlan | null> {
-  const experiment = await prisma.revenueExperiment.findFirst({ where: { id: planId, orgId } })
+  const experiment = await prisma.revenueExperiment.findFirst({ where: { id: planId, orgId, surface: 'orchestration' } })
   if (!experiment) return null
   const payload = jsonObject(experiment.audienceDefinition)
   const runtime = jsonObject(payload.runtime)
@@ -375,6 +375,75 @@ export async function getPersistedPlan(orgId: string, planId: string): Promise<O
   const steps = run ? await prisma.automationStepRun.findMany({ where: { orgId, runId: run.id }, orderBy: { createdAt: 'asc' }, select: { stepKey: true, type: true, status: true, output: true, errorCode: true, errorDetail: true, attempt: true, finishedAt: true } }) : []
   const event = run ? await prisma.outboxEvent.findFirst({ where: { orgId, aggregateType: 'OrchestrationPlan', aggregateId: planId }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true } }) : null
   return planFromStored(experiment, approval ?? undefined, { automationId: automation?.id ?? String(runtime.automationId ?? ''), runId: run?.id ?? null, outboxEventId: event?.id ?? null, runStatus: run?.status ?? null, steps: steps.map(step => ({ ...step, finishedAt: step.finishedAt?.toISOString() ?? null })) })
+}
+
+export interface OrchestrationPlanSummary {
+  id: string
+  objective: string
+  status: OrchestrationPlanStatus
+  approval: 'pending' | 'approved' | 'rejected'
+  desiredOutcome: string
+  location: string
+  durationDays: number | null
+  budgetCents: number | null
+  actionCount: number
+  actionKinds: OrchestrationActionKind[]
+  createdAt: string
+  updatedAt: string
+}
+
+export const PLAN_LIST_MAX_LIMIT = 50
+
+/** Resumen ligero para la lista «Planes recientes»; nunca devuelve el payload completo. */
+export function summarisePlanRow(
+  row: { id: string; name: string; status: string; primaryMetric: string; budgetCents: number | null; audienceDefinition: Prisma.JsonValue | null; createdAt: Date; updatedAt: Date },
+  approvalStatus?: string | null,
+): OrchestrationPlanSummary {
+  const payload = jsonObject(row.audienceDefinition)
+  const plan = jsonObject(payload.plan)
+  const actions = Array.isArray(plan.actions) ? plan.actions.map(action => jsonObject(action)) : []
+  return {
+    id: row.id,
+    objective: typeof plan.objective === 'string' && plan.objective ? plan.objective : row.name.replace(/^Orquestación:\s*/, ''),
+    status: row.status as OrchestrationPlanStatus,
+    approval: approvalStatus === 'approved' ? 'approved' : approvalStatus === 'rejected' ? 'rejected' : 'pending',
+    desiredOutcome: typeof plan.desiredOutcome === 'string' ? plan.desiredOutcome : row.primaryMetric,
+    location: typeof plan.location === 'string' ? plan.location : '',
+    durationDays: typeof plan.durationDays === 'number' ? plan.durationDays : null,
+    budgetCents: row.budgetCents,
+    actionCount: actions.length,
+    actionKinds: actions.map(action => action.kind).filter((kind): kind is OrchestrationActionKind => typeof kind === 'string' && (ORCHESTRATION_ACTION_KINDS as readonly string[]).includes(kind)),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }
+}
+
+export async function listPersistedPlans(orgId: string, options: { limit?: number; offset?: number; status?: OrchestrationPlanStatus } = {}) {
+  const limit = Math.min(PLAN_LIST_MAX_LIMIT, Math.max(1, Math.trunc(options.limit ?? 10)))
+  const offset = Math.max(0, Math.trunc(options.offset ?? 0))
+  const where: Prisma.RevenueExperimentWhereInput = { orgId, surface: 'orchestration', ...(options.status ? { status: options.status } : {}) }
+  const [rows, total] = await Promise.all([
+    prisma.revenueExperiment.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: offset,
+      take: limit,
+      select: { id: true, name: true, status: true, primaryMetric: true, budgetCents: true, audienceDefinition: true, createdAt: true, updatedAt: true },
+    }),
+    prisma.revenueExperiment.count({ where }),
+  ])
+  const approvals = rows.length
+    ? await prisma.operationalMemoryProposal.findMany({ where: { orgId, targetType: 'orchestration_plan', targetId: { in: rows.map(row => row.id) } }, orderBy: { createdAt: 'desc' }, select: { targetId: true, status: true } })
+    : []
+  const approvalByPlan = new Map<string, string>()
+  for (const approval of approvals) if (approval.targetId && !approvalByPlan.has(approval.targetId)) approvalByPlan.set(approval.targetId, approval.status)
+  return {
+    items: rows.map(row => summarisePlanRow(row, approvalByPlan.get(row.id))),
+    total,
+    limit,
+    offset,
+    hasMore: offset + rows.length < total,
+  }
 }
 
 export async function createPersistedPlan(actor: OrchestrationActor, input: OrchestrationPlanInput, idempotencyKey: string) {

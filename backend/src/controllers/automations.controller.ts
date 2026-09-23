@@ -28,6 +28,15 @@ const createAutomationSchema = z.object({
   isDraft: z.boolean().optional(),
 }).strict()
 
+// PUT /:id — edición parcial de la copia de trabajo. Al menos un campo.
+export const updateAutomationSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  description: z.string().max(500).nullable().optional(),
+  trigger: triggerSchema.optional(),
+  actions: z.array(actionSchema).max(20).optional(),
+}).strict()
+  .refine((value) => Object.keys(value).length > 0, { message: 'Indica al menos un campo a modificar' })
+
 const listRunsQuerySchema = z.object({
   status: z.enum(AUTOMATION_RUN_STATUSES).optional(),
   page: z.coerce.number().int().min(1).max(100_000).optional(),
@@ -39,9 +48,36 @@ export async function get(
   reply: FastifyReply
 ) {
   const { orgId } = request.user as JWTUser
-  const automation = await automationsService.getAutomation(orgId, request.params.id)
+  const automation = await automationsService.getAutomationWithPublicationState(orgId, request.params.id)
   if (!automation) return reply.status(404).send({ error: 'Not found' })
   return reply.send(automation)
+}
+
+/** PUT /:id — edita nombre, disparador y acciones; con versión publicada queda como cambio sin publicar (AU-102). */
+export async function update(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const data = parseRequest(reply, updateAutomationSchema, request.body)
+  if (!data) return
+  try {
+    const result = await automationsService.updateAutomation(orgId, request.params.id, data)
+    if (!result) return reply.status(404).send({ error: 'Automation not found' })
+    await writeAuditLog({
+      orgId,
+      actorUserId: userId,
+      action: 'automation.update',
+      entityType: 'Automation',
+      entityId: result.after.id,
+      before: { name: result.before.name, description: result.before.description, trigger: result.before.trigger, actions: result.before.actions },
+      after: { name: result.after.name, description: result.after.description, trigger: result.after.trigger, actions: result.after.actions },
+      correlationId: request.correlationId,
+    })
+    return reply.send(result.after)
+  } catch (err) {
+    return reply.status(400).send({ error: (err as Error).message })
+  }
 }
 
 export async function list(request: FastifyRequest, reply: FastifyReply) {

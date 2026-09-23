@@ -43,8 +43,7 @@ const KIND_LABELS = {
 // backend rechaza el reintento automático y aquí se explica el porqué.
 const UNCERTAIN_OUTCOME = 'UNCERTAIN_EXTERNAL_OUTCOME'
 
-const PAGE_SIZE = 25
-const MAX_LIMIT = 100 // tope del backend (listQuerySchema)
+const PAGE_SIZE = 25 // el backend admite hasta 100 (listQuerySchema); se pagina con ?page=
 
 export function kindLabel(kind) {
   return KIND_LABELS[kind] || kind || '—'
@@ -290,14 +289,15 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [jobs, setJobs] = useState([])
   const [total, setTotal] = useState(0)
-  const [pagesLoaded, setPagesLoaded] = useState(1)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [statusFilter, setStatusFilter] = useState(() => {
     const requested = searchParams.get('status') || ''
     return STATUS_FILTERS.includes(requested) ? requested : ''
   })
   const [kindFilter, setKindFilter] = useState('')
   const [listState, setListState] = useState('loading') // loading | ready | empty | error
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [pageLoading, setPageLoading] = useState(false)
   // Enlazable desde otras páginas (p. ej. la Biblioteca de activos): ?job=<id>.
   const [selectedId, setSelectedId] = useState(() => searchParams.get('job') || null)
   // Los kinds vistos se acumulan para que el filtro no pierda opciones al filtrar.
@@ -306,10 +306,10 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
   const requestRef = useRef(0)
   const canManage = hasNavigationPermission(user, ['jobs.manage'])
 
-  const fetchList = useCallback(async ({ pages = 1, silent = false } = {}) => {
+  const fetchList = useCallback(async ({ page: requestedPage = 1, silent = false } = {}) => {
     const requestId = ++requestRef.current
     if (!silent) setListState('loading')
-    const params = new URLSearchParams({ page: '1', limit: String(Math.min(pages * PAGE_SIZE, MAX_LIMIT)) })
+    const params = new URLSearchParams({ page: String(requestedPage), limit: String(PAGE_SIZE) })
     if (statusFilter) params.set('status', statusFilter)
     if (kindFilter) params.set('kind', kindFilter)
     try {
@@ -319,7 +319,13 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
       if (requestRef.current !== requestId) return
       const items = Array.isArray(data?.jobs) ? data.jobs : []
       setJobs(items)
-      setTotal(Number(data?.pagination?.total) || items.length)
+      const nextTotal = Number(data?.pagination?.total) || items.length
+      const nextPages = Math.max(1, Number(data?.pagination?.pages) || Math.ceil(nextTotal / PAGE_SIZE))
+      setTotal(nextTotal)
+      setTotalPages(nextPages)
+      // Si un refresco deja la página actual vacía (trabajos que cambian de
+      // estado con un filtro activo), se retrocede a la última página válida.
+      if (!items.length && requestedPage > 1) { setPage(Math.min(requestedPage - 1, nextPages)); return }
       let changed = false
       items.forEach(job => { if (job.kind && !knownKindsRef.current.has(job.kind)) { knownKindsRef.current.add(job.kind); changed = true } })
       if (changed) setKindOptions([...knownKindsRef.current].sort())
@@ -327,13 +333,13 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
     } catch {
       if (requestRef.current === requestId && !silent) setListState('error')
     } finally {
-      if (requestRef.current === requestId) setLoadingMore(false)
+      if (requestRef.current === requestId) setPageLoading(false)
     }
   }, [statusFilter, kindFilter])
 
-  // Cambiar de filtro reinicia la paginación; "Cargar más" amplía el límite.
-  useEffect(() => { setPagesLoaded(1) }, [statusFilter, kindFilter])
-  useEffect(() => { fetchList({ pages: pagesLoaded, silent: pagesLoaded > 1 }) }, [fetchList, pagesLoaded])
+  // Cambiar de filtro vuelve a la primera página; cambiar de página pide solo esa página.
+  useEffect(() => { setPage(1) }, [statusFilter, kindFilter])
+  useEffect(() => { fetchList({ page, silent: page > 1 }) }, [fetchList, page])
 
   const hasActiveJobs = useMemo(() => jobs.some(job => ACTIVE_STATUSES.has(job.status)), [jobs])
 
@@ -341,15 +347,15 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
   // haya trabajos vivos, silencioso para no parpadear la tabla.
   useEffect(() => {
     if (!hasActiveJobs) return undefined
-    const timer = setInterval(() => fetchList({ pages: pagesLoaded, silent: true }), 10_000)
+    const timer = setInterval(() => fetchList({ page, silent: true }), 10_000)
     return () => clearInterval(timer)
-  }, [hasActiveJobs, fetchList, pagesLoaded])
+  }, [hasActiveJobs, fetchList, page])
 
-  const hasMore = jobs.length < total && jobs.length < MAX_LIMIT
-
-  async function loadMore() {
-    setLoadingMore(true)
-    setPagesLoaded(pages => pages + 1)
+  function goToPage(next) {
+    const target = Math.min(Math.max(1, next), totalPages)
+    if (target === page) return
+    setPageLoading(true)
+    setPage(target)
   }
 
   function openJob(id) {
@@ -364,7 +370,7 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
 
   function onJobChanged(summary) {
     if (summary?.id) setJobs(current => current.map(job => (job.id === summary.id ? { ...job, ...summary } : job)))
-    fetchList({ pages: pagesLoaded, silent: true })
+    fetchList({ page, silent: true })
   }
 
   const selectedListItem = jobs.find(job => job.id === selectedId) || null
@@ -405,7 +411,7 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
           <RiErrorWarningLine />
           <strong>No se pudieron cargar los trabajos.</strong>
           <span>Comprueba tu conexión o inténtalo de nuevo en unos segundos.</span>
-          <button type="button" className="jobs-button secondary" onClick={() => fetchList({ pages: pagesLoaded })}>Reintentar</button>
+          <button type="button" className="jobs-button secondary" onClick={() => fetchList({ page })}>Reintentar</button>
         </div>
       )}
 
@@ -443,14 +449,15 @@ export default function JobsCenterPage({ sectionNavigation = null }) {
             ))}
           </div>
           <footer className="jobs-table-footer">
-            <span>Mostrando {jobs.length} de {total.toLocaleString(localeCode(getLocale()))} trabajos</span>
-            {hasMore && (
-              <button type="button" className="jobs-button secondary" disabled={loadingMore} onClick={loadMore}>
-                {loadingMore ? 'Cargando…' : 'Cargar más'}
-              </button>
-            )}
-            {!hasMore && jobs.length >= MAX_LIMIT && jobs.length < total && (
-              <small>La vista muestra los {MAX_LIMIT} más recientes; usa los filtros para acotar el resto.</small>
+            <span>
+              Mostrando {jobs.length ? ((page - 1) * PAGE_SIZE + 1).toLocaleString(localeCode(getLocale())) : 0}–{((page - 1) * PAGE_SIZE + jobs.length).toLocaleString(localeCode(getLocale()))} de {total.toLocaleString(localeCode(getLocale()))} trabajos
+            </span>
+            {totalPages > 1 && (
+              <nav className="jobs-pagination" aria-label="Paginación de trabajos" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button type="button" className="jobs-button secondary" disabled={page <= 1 || pageLoading} onClick={() => goToPage(page - 1)}>Anterior</button>
+                <span aria-live="polite">{pageLoading ? 'Cargando…' : `Página ${page} de ${totalPages}`}</span>
+                <button type="button" className="jobs-button secondary" disabled={page >= totalPages || pageLoading} onClick={() => goToPage(page + 1)}>Siguiente</button>
+              </nav>
             )}
           </footer>
         </section>

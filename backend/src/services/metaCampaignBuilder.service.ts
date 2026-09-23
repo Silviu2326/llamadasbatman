@@ -27,6 +27,7 @@ export type MetaPublishErrorCode =
   | 'CREATIVE_ASSET_NOT_PUBLISHED'
   | 'NO_BUDGET'
   | 'BUDGET_ABOVE_CAP'
+  | 'BUDGET_APPROVAL_MISMATCH'
   | 'ASSET_CONSENT_INVALID'
   | 'NOT_PUBLISHED'
   | 'META_TIMEOUT'
@@ -332,18 +333,26 @@ export function mapCallToAction(cta?: string | null): string {
  * tiene presupuesto, el mensual del asistente y después el global. Un periodo
  * explícito reparte el total entre sus días; sin periodo, 30 días.
  */
-export function computeDailyBudgetCents(input: {
+type BudgetSourceInput = {
   activationBudgetCents?: number | null
   startDate?: Date | null
   endDate?: Date | null
   wizardMonthlyBudget?: number | null
   campaignBudgetCents?: number | null
-}): number | null {
+}
+
+/** Presupuesto total (céntimos) del que sale el diario; misma prioridad que computeDailyBudgetCents. */
+export function resolveTotalBudgetCents(input: BudgetSourceInput): number | null {
   const total = input.activationBudgetCents
     ?? (input.wizardMonthlyBudget ? Math.round(input.wizardMonthlyBudget * 100) : null)
     ?? input.campaignBudgetCents
     ?? null
-  if (!total || total <= 0) return null
+  return total && total > 0 ? total : null
+}
+
+export function computeDailyBudgetCents(input: BudgetSourceInput): number | null {
+  const total = resolveTotalBudgetCents(input)
+  if (!total) return null
   let days = 30
   if (input.activationBudgetCents && input.startDate && input.endDate) {
     const span = Math.ceil((input.endDate.getTime() - input.startDate.getTime()) / 86_400_000)
@@ -392,6 +401,12 @@ export interface PublishPlanInput {
   /** Asset.id → URL pública publicada (publishedUrl) */
   assetUrls?: Record<string, string | null>
   now?: Date
+  /**
+   * Presupuesto total aprobado fuera de este servicio (p. ej. un plan del
+   * orquestador). Si se indica y no coincide con el total del que sale el
+   * presupuesto diario, se aborta antes de tocar Meta.
+   */
+  expectedTotalBudgetCents?: number | null
 }
 
 function publicUrlOrThrow(value: string | undefined): URL {
@@ -474,13 +489,23 @@ export function buildPublishPlan(input: PublishPlanInput): PublishPlan {
   }
 
   const activation = input.activation ?? null
-  const dailyBudgetCents = computeDailyBudgetCents({
+  const budgetSources: BudgetSourceInput = {
     activationBudgetCents: activation?.budgetCents,
     startDate: activation?.startDate,
     endDate: activation?.endDate,
     wizardMonthlyBudget: assets?.presupuestoMensual,
     campaignBudgetCents: input.campaign.budgetCents,
-  })
+  }
+  const dailyBudgetCents = computeDailyBudgetCents(budgetSources)
+  if (input.expectedTotalBudgetCents != null) {
+    const totalBudgetCents = resolveTotalBudgetCents(budgetSources)
+    if (totalBudgetCents !== input.expectedTotalBudgetCents) {
+      throw new MetaPublishError(
+        'El presupuesto que se publicaría no coincide con el aprobado: revisa la activación Meta o la campaña.',
+        'BUDGET_APPROVAL_MISMATCH', 409, { expectedTotalBudgetCents: input.expectedTotalBudgetCents, totalBudgetCents },
+      )
+    }
+  }
   if (!dailyBudgetCents) {
     throw new MetaPublishError('La campaña no tiene presupuesto: asígnalo en la activación Meta o en la campaña.', 'NO_BUDGET', 422)
   }
@@ -603,7 +628,7 @@ export async function executePublishPlan(plan: PublishPlan, token: string): Prom
  * un Lead Form nativo de Meta (`/{page_id}/leadgen_forms`) — eso requiere una
  * Página real conectada para poder probarse.
  */
-export async function publishCampaign(orgId: string, campaignId: string) {
+export async function publishCampaign(orgId: string, campaignId: string, options: { expectedTotalBudgetCents?: number | null } = {}) {
   const campaign = await prisma.campaign.findFirst({ where: { id: campaignId, orgId } })
   if (!campaign) throw new MetaPublishError('Campaña no encontrada', 'CAMPAIGN_NOT_FOUND', 404)
 
@@ -652,6 +677,7 @@ export async function publishCampaign(orgId: string, campaignId: string) {
     audience,
     creatives: creatives.map(c => ({ ...c, destination: c.brief?.destination ?? null })),
     assetUrls: Object.fromEntries(assetRows.map(a => [a.id, a.publishedUrl])),
+    expectedTotalBudgetCents: options.expectedTotalBudgetCents,
   })
 
   const token = await getDecryptedToken(orgId)

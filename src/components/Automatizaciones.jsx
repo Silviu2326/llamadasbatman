@@ -26,11 +26,26 @@ import { getLocale, localeCode, useI18n } from '../i18n'
 
 const FILTER_TABS = ['Todas', 'Activas', 'Pausadas']
 const SORT_OPTIONS = [{ key: 'recientes', label: 'Más recientes' }, { key: 'ejecuciones', label: 'Más ejecuciones' }, { key: 'nombre', label: 'Nombre (A-Z)' }]
+// Cada plantilla abre el modal con valores iniciales reales (disparador,
+// acción de canal y acciones CRM) en lugar de un formulario vacío.
 const STARTER_TEMPLATES = [
-  { Icon: RiPhoneLine, color: 'var(--danger-soft)', title: 'Seguimiento post-llamada', detail: 'Envía un email y crea una tarea después de cada llamada.', trigger: 'Llamada completada' },
-  { Icon: RiUserAddLine, color: 'var(--cyan)', title: 'Bienvenida a nuevos leads', detail: 'Activa una primera acción cuando entra un contacto nuevo.', trigger: 'Nuevo lead creado' },
-  { Icon: RiMailLine, color: 'var(--violet)', title: 'Reactivar oportunidades', detail: 'Detecta inactividad y vuelve a abrir la conversación.', trigger: 'Lead sin actividad > 7 días' },
+  { Icon: RiPhoneLine, color: 'var(--danger-soft)', title: 'Seguimiento post-llamada', detail: 'Envía un email y crea una tarea después de cada llamada.', trigger: 'Llamada completada', initialValues: { name: 'Seguimiento post-llamada', description: 'Envía un email y crea una tarea de seguimiento después de cada llamada.', trigger: 'call.completed', channelAction: 'send_email_template', extraActions: [{ type: 'create_task', label: 'crear tarea de seguimiento', params: { title: 'Seguimiento tras la llamada', dueInDays: 2 } }] } },
+  { Icon: RiUserAddLine, color: 'var(--cyan)', title: 'Bienvenida a nuevos leads', detail: 'Activa una primera acción cuando entra un contacto nuevo.', trigger: 'Nuevo lead creado', initialValues: { name: 'Bienvenida a nuevos leads', description: 'Primera acción automática cuando entra un contacto nuevo.', trigger: 'lead.created', channelAction: 'send_email_template', extraActions: [] } },
+  { Icon: RiMailLine, color: 'var(--violet)', title: 'Reactivar oportunidades', detail: 'Detecta inactividad y vuelve a abrir la conversación.', trigger: 'Lead sin actividad > 7 días', initialValues: { name: 'Reactivar leads inactivos', description: 'Vuelve a abrir la conversación con leads sin actividad en 7 días.', trigger: 'lead.inactive.7d', channelAction: 'none', extraActions: [{ type: 'create_task', label: 'crear tarea para recontactar', params: { title: 'Recontactar lead inactivo', dueInDays: 1 } }] } },
 ]
+
+const ENGINE_STATUS = {
+  ok: { label: 'Motor operativo', tone: 'ok' },
+  degraded: { label: 'Motor con retrasos', tone: 'warn' },
+  stopped: { label: 'Workers detenidos en este entorno', tone: 'warn' },
+  unknown: { label: 'Estado del motor no disponible', tone: 'muted' },
+  loading: { label: 'Comprobando el motor…', tone: 'muted' },
+}
+
+function pageWindow(page, totalPages, size = 5) {
+  const start = Math.max(1, Math.min(page - Math.floor(size / 2), totalPages - size + 1))
+  return Array.from({ length: Math.min(size, totalPages) }, (_, index) => start + index)
+}
 
 function Metric({ Icon, label, value, detail, color }) {
   return <article className="automation-metric"><div className="automation-metric-icon" style={{ color, background: `color-mix(in srgb, ${color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${color} 22%, transparent)` }}><Icon /></div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></article>
@@ -53,6 +68,8 @@ export default function Automatizaciones({ sectionNavigation = null }) {
   const [page, setPage] = useState(1)
   const [showNewAutomation, setShowNewAutomation] = useState(false)
   const [newAutomationMode, setNewAutomationMode] = useState('automation')
+  const [newAutomationInitial, setNewAutomationInitial] = useState(null)
+  const [engineHealth, setEngineHealth] = useState({ status: 'loading' })
   const [automations, setAutomations] = useState([])
   const [emailSequences, setEmailSequences] = useState([])
   const [sequenceError, setSequenceError] = useState('')
@@ -94,6 +111,20 @@ export default function Automatizaciones({ sectionNavigation = null }) {
 
   useEffect(() => {
     let mounted = true
+    setEngineHealth({ status: 'loading' })
+    apiFetch('/api/automations/health')
+      .then(async response => {
+        const payload = await response.json().catch(() => null)
+        if (!response.ok || !payload) throw new Error(payload?.error || 'health unavailable')
+        return payload
+      })
+      .then(payload => { if (mounted) setEngineHealth(payload) })
+      .catch(() => { if (mounted) setEngineHealth({ status: 'unknown' }) })
+    return () => { mounted = false }
+  }, [refreshKey])
+
+  useEffect(() => {
+    let mounted = true
     apiFetch('/api/growth-programs?type=sales_sequence')
       .then(async response => {
         const payload = await response.json().catch(() => null)
@@ -124,27 +155,46 @@ export default function Automatizaciones({ sectionNavigation = null }) {
   const paginated = sorted.slice((page - 1) * perPage, page * perPage)
   const sortLabel = SORT_OPTIONS.find(item => item.key === sortBy)?.label
 
-  function setFilterAndReset(value) { setFilter(value); setPage(1) }
-  async function toggleStatus(id) {
-    const response = await apiFetch(`/api/automations/${id}/toggle`, { method: 'PUT' }).catch(() => null)
-    if (!response?.ok) { setToast('No se pudo cambiar el estado. Si es un borrador, añade al menos una acción antes de activarlo.'); window.setTimeout(() => setToast(''), 3600); return }
-    const updated = await response.json().catch(() => null)
-    const isActive = updated ? Boolean(updated.isActive) : (automations.find(item => item.id === id)?.status !== 'activa')
-    setAutomations(previous => previous.map(item => item.id === id ? { ...item, status: isActive ? 'activa' : 'pausada', rawStatus: updated?.status ?? item.rawStatus } : item))
-  }
-  async function deleteAutomation(id) {
-    const response = await apiFetch(`/api/automations/${id}`, { method: 'DELETE' }).catch(() => null)
-    if (response?.ok) setAutomations(previous => previous.filter(item => item.id !== id))
-    else { setToast('No se pudo eliminar la automatización.'); window.setTimeout(() => setToast(''), 3600) }
-  }
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
 
   const mutationsBlocked = loading || ['error', 'disconnected'].includes(dataStatus)
+  function flashToast(message) { setToast(message); window.setTimeout(() => setToast(''), 3600) }
+  function setFilterAndReset(value) { setFilter(value); setPage(1) }
+  function openNewAutomation(initialValues = null, mode = 'automation') {
+    setNewAutomationInitial(initialValues)
+    setNewAutomationMode(mode)
+    setShowNewAutomation(true)
+  }
+  async function toggleStatus(id) {
+    if (mutationsBlocked || busyId) return
+    setBusyId(id)
+    try {
+      const response = await apiFetch(`/api/automations/${id}/toggle`, { method: 'PUT' }).catch(() => null)
+      const updated = await response?.json().catch(() => null)
+      if (!response?.ok) { flashToast(updated?.error || 'No se pudo cambiar el estado. Si es un borrador, añade al menos una acción antes de activarlo.'); return }
+      const isActive = updated ? Boolean(updated.isActive) : (automations.find(item => item.id === id)?.status !== 'activa')
+      setAutomations(previous => previous.map(item => item.id === id ? { ...item, status: isActive ? 'activa' : 'pausada', rawStatus: updated?.status ?? item.rawStatus } : item))
+    } finally {
+      setBusyId('')
+    }
+  }
+  async function deleteAutomation(id) {
+    if (mutationsBlocked) return
+    const response = await apiFetch(`/api/automations/${id}`, { method: 'DELETE' }).catch(() => null)
+    if (response?.ok) setAutomations(previous => previous.filter(item => item.id !== id))
+    else flashToast('No se pudo eliminar la automatización.')
+  }
+  const engine = ENGINE_STATUS[engineHealth?.status] ?? ENGINE_STATUS.unknown
+  const engineDetail = engineHealth?.status === 'degraded'
+    ? `${engineHealth.outbox?.pending ?? 0} eventos pendientes · ${engineHealth.scheduler?.overdueTriggers ?? 0} disparadores atrasados`
+    : engineHealth?.status === 'stopped' ? 'Los flujos se guardan, pero no se ejecutan hasta que el worker esté activo.' : ''
+
   const metricValue = value => loading || ['error', 'disconnected'].includes(dataStatus) ? '—' : value
 
   if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading automations' : 'Cargando automatizaciones'} />
 
   return <div className="dark-scroll automation-page">
-    <ProductPageHeader Icon={RiFlowChart} title={t('modules.automationTitle')} description={t('modules.automationSubtitle')} navigation={sectionNavigation} actions={<><button className="automation-button secondary" onClick={() => document.querySelector('#automation-library')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {t('modules.viewFlows')}</button><button className="automation-button primary" onClick={() => setShowNewAutomation(true)}><RiAddLine /> {t('modal.newAutomation')}</button></>} />
+    <ProductPageHeader Icon={RiFlowChart} title={t('modules.automationTitle')} description={t('modules.automationSubtitle')} navigation={sectionNavigation} actions={<><button className="automation-button secondary" onClick={() => document.querySelector('#automation-library')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {t('modules.viewFlows')}</button><button className="automation-button primary" disabled={mutationsBlocked} onClick={() => openNewAutomation()}><RiAddLine /> {t('modal.newAutomation')}</button></>} />
     <DataStatusBanner
       status={dataStatus}
       message={loadError || statusMessage(dataStatus, { live: 'Automatizaciones sincronizadas con tu organización.', empty: 'La conexión responde, pero todavía no hay flujos creados.', disconnected: 'No se pueden consultar ni modificar flujos mientras no hay conexión con el servicio.' })}
@@ -152,18 +202,18 @@ export default function Automatizaciones({ sectionNavigation = null }) {
       onAction={dataStatus === 'disconnected' ? () => navigate('/configuracion') : undefined}
       actionLabel="Configurar conexión"
     />
-    <section className="automation-hero" aria-labelledby="automation-hero-title"><div className="automation-hero-copy"><div className="automation-hero-status"><i /> Motor operativo listo</div><h2 id="automation-hero-title">Tu operación no debería depender de recordar cada paso.</h2><p>Conecta disparadores y acciones para que el seguimiento ocurra solo, con la misma precisión cada vez.</p><div className="automation-hero-actions"><button className="automation-button primary" onClick={() => setShowNewAutomation(true)}><RiSparkling2Line /> Crear un flujo</button><button className="automation-button secondary" onClick={() => document.querySelector('#automation-library')?.scrollIntoView({ behavior: 'smooth' })}>Explorar automatizaciones <RiArrowRightSLine /></button></div><div className="automation-hero-meta"><span><RiCheckLine /> Flujos auditables</span><span><RiSendPlaneLine /> {activeCount} activos ahora</span></div></div><div className="automation-hero-media"><img src={automationHeroImage} alt="Motor visual de automatización con nodos conectados" /><div className="automation-hero-caption"><span>Workflow engine</span><strong>Disparar · decidir · actuar</strong></div></div></section>
+    <section className="automation-hero" aria-labelledby="automation-hero-title"><div className="automation-hero-copy"><div className={`automation-hero-status is-${engine.tone}`} title={engineDetail || undefined}><i /> {engine.label}{engineDetail ? <small> · {engineDetail}</small> : null}</div><h2 id="automation-hero-title">Tu operación no debería depender de recordar cada paso.</h2><p>Conecta disparadores y acciones para que el seguimiento ocurra solo, con la misma precisión cada vez.</p><div className="automation-hero-actions"><button className="automation-button primary" disabled={mutationsBlocked} onClick={() => openNewAutomation()}><RiSparkling2Line /> Crear un flujo</button><button className="automation-button secondary" onClick={() => document.querySelector('#automation-library')?.scrollIntoView({ behavior: 'smooth' })}>Explorar automatizaciones <RiArrowRightSLine /></button></div><div className="automation-hero-meta"><span><RiCheckLine /> Flujos auditables</span><span><RiSendPlaneLine /> {activeCount} activos ahora</span></div></div><div className="automation-hero-media"><img src={automationHeroImage} alt="Motor visual de automatización con nodos conectados" /><div className="automation-hero-caption"><span>Workflow engine</span><strong>Disparar · decidir · actuar</strong></div></div></section>
 
     <section className="automation-metrics" aria-label="Resumen de automatizaciones"><Metric Icon={RiFlowChart} color="#818cf8" label="Total de flujos" value={metricValue(automations.length)} detail={dataStatus === 'empty' ? 'Aún no hay flujos' : `${metricValue(activeCount)} activos`} /><Metric Icon={RiPlayCircleLine} color="#34d399" label="Activos ahora" value={metricValue(activeCount)} detail="trabajando en segundo plano" /><Metric Icon={RiSendPlaneLine} color="#22d3ee" label="Ejecuciones" value={loading || ['error', 'disconnected'].includes(dataStatus) ? '—' : totalRuns.toLocaleString(localeCode(getLocale()))} detail="total acumulado" /><Metric Icon={RiPauseCircleLine} color="#f59e0b" label="Pausados" value={metricValue(pausedCount)} detail="pendientes de revisión" /></section>
 
     <section className="automation-flow-band"><div><span>Arquitectura simple</span><h2>Menos tareas repetidas. Más tiempo para decidir.</h2><p>Cada flujo combina un evento de entrada con acciones medibles y fáciles de revisar.</p></div><div className="automation-flow-steps"><div><span className="is-purple"><RiFlowChart /></span><strong>Disparador</strong><small>Detecta una señal</small></div><i /><div><span className="is-cyan"><RiSparkling2Line /></span><strong>Regla</strong><small>Aplica contexto</small></div><i /><div><span className="is-coral"><RiSendPlaneLine /></span><strong>Acción</strong><small>Mueve el proceso</small></div></div></section>
 
-    <section className="automation-starters" aria-labelledby="automation-starters-title"><div className="automation-starters-heading"><div><span className="automation-eyebrow">Empieza rápido</span><h2 id="automation-starters-title">Tres flujos para ponerlo en marcha</h2><p>Usa una base conocida y ajusta los detalles a tu proceso.</p></div><button className="automation-link-button" onClick={() => setShowNewAutomation(true)}>Crear desde cero <RiArrowRightSLine /></button></div><div className="automation-starter-grid">{STARTER_TEMPLATES.map(template => <button className="automation-starter-card" key={template.title} onClick={() => setShowNewAutomation(true)}><span className="automation-starter-icon" style={{ color: template.color, background: `color-mix(in srgb, ${template.color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${template.color} 27%, transparent)` }}><template.Icon /></span><span className="automation-starter-copy"><strong>{template.title}</strong><small>{template.detail}</small><em><RiFlowChart /> {template.trigger}</em></span><RiArrowRightSLine className="automation-starter-arrow" /></button>)}</div></section>
+    <section className="automation-starters" aria-labelledby="automation-starters-title"><div className="automation-starters-heading"><div><span className="automation-eyebrow">Empieza rápido</span><h2 id="automation-starters-title">Tres flujos para ponerlo en marcha</h2><p>Usa una base conocida y ajusta los detalles a tu proceso.</p></div><button className="automation-link-button" disabled={mutationsBlocked} onClick={() => openNewAutomation()}>Crear desde cero <RiArrowRightSLine /></button></div><div className="automation-starter-grid">{STARTER_TEMPLATES.map(template => <button className="automation-starter-card" key={template.title} disabled={mutationsBlocked} onClick={() => openNewAutomation(template.initialValues)}><span className="automation-starter-icon" style={{ color: template.color, background: `color-mix(in srgb, ${template.color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${template.color} 27%, transparent)` }}><template.Icon /></span><span className="automation-starter-copy"><strong>{template.title}</strong><small>{template.detail}</small><em><RiFlowChart /> {template.trigger}</em></span><RiArrowRightSLine className="automation-starter-arrow" /></button>)}</div></section>
 
-    {showNewAutomation && <NewAutomatizacionModal initialMode={newAutomationMode} onClose={() => setShowNewAutomation(false)} onSuccess={(result) => { setShowNewAutomation(false); setRefreshKey(value => value + 1); if (result?.kind === 'email_sequence') setToast('Borrador de cadena guardado. Matricula contactos desde esta lista cuando quieras iniciarlo.') }} />}
+    {showNewAutomation && <NewAutomatizacionModal initialMode={newAutomationMode} initialValues={newAutomationInitial} onClose={() => setShowNewAutomation(false)} onSuccess={(result) => { setShowNewAutomation(false); setRefreshKey(value => value + 1); if (result?.kind === 'email_sequence') setToast('Borrador de cadena guardado. Matricula contactos desde esta lista cuando quieras iniciarlo.') }} />}
 
     <section className="automation-email-sequences" aria-labelledby="automation-email-sequences-title">
-      <div className="automation-library-heading"><div><span className="automation-eyebrow">Seguimientos con varios pasos</span><h2 id="automation-email-sequences-title">Cadenas de email</h2><p>Define esperas entre envíos y matricula contactos cuando la cadena esté lista.</p></div><button className="automation-button secondary" onClick={() => { setNewAutomationMode('email_sequence'); setShowNewAutomation(true) }}><RiAddLine /> Nueva cadena</button></div>
+      <div className="automation-library-heading"><div><span className="automation-eyebrow">Seguimientos con varios pasos</span><h2 id="automation-email-sequences-title">Cadenas de email</h2><p>Define esperas entre envíos y matricula contactos cuando la cadena esté lista.</p></div><button className="automation-button secondary" disabled={mutationsBlocked} onClick={() => openNewAutomation(null, 'email_sequence')}><RiAddLine /> Nueva cadena</button></div>
       {sequenceError && <p className="automation-sequence-note" role="status">{sequenceError}</p>}
       {!emailSequences.length && !sequenceError && <div className="automation-sequences-empty">Aún no hay cadenas guardadas. Puedes crear una con plantillas aprobadas o emails personalizados con IA.</div>}
       <div className="automation-sequence-list">{emailSequences.map(program => <article className="automation-sequence-card" key={program.id}>
@@ -175,9 +225,9 @@ export default function Automatizaciones({ sectionNavigation = null }) {
     <section className="automation-library" id="automation-library"><div className="automation-library-heading"><div><span className="automation-eyebrow">Centro de control</span><h2>Todos tus flujos</h2><p>Busca, filtra y revisa el estado de cada automatización.</p></div><div className="automation-library-count">{filtered.length} de {automations.length} flujos</div></div><div className="automation-toolbar"><div className="automation-search"><RiSearchLine /><input value={search} onChange={event => { setSearch(event.target.value); setPage(1) }} placeholder="Buscar por nombre o descripción…" aria-label="Buscar automatizaciones" /></div><div className="automation-tabs" role="tablist">{FILTER_TABS.map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilterAndReset(item)}>{item}<small>{item === 'Todas' ? automations.length : item === 'Activas' ? activeCount : pausedCount}</small></button>)}</div><div className="automation-sort" ref={sortRef}><button onClick={() => setOpenSort(value => !value)}>Ordenar: <strong>{sortLabel}</strong><HiChevronDown className={openSort ? 'rotate' : ''} /></button>{openSort && <div className="automation-sort-menu">{SORT_OPTIONS.map(option => <button key={option.key} className={sortBy === option.key ? 'selected' : ''} onClick={() => { setSortBy(option.key); setOpenSort(false) }}>{option.label}</button>)}</div>}</div></div>
 
       <div className="automation-table-head"><span>Automatización</span><span>Estado</span><span>Disparador</span><span>Ejecuciones</span><span>Última ejecución</span><span /></div>
-      {!paginated.length && <div className="automation-empty"><div><RiFlowChart /></div><strong>{search || filter !== 'Todas' ? 'No hay flujos con estos filtros' : 'Todavía no tienes automatizaciones'}</strong><p>{search || filter !== 'Todas' ? 'Prueba con otra búsqueda o cambia el filtro para ver más resultados.' : 'Crea tu primer flujo y deja que el seguimiento ocurra automáticamente.'}</p><button className="automation-button primary" onClick={() => setShowNewAutomation(true)}><RiAddLine /> Crear automatización</button></div>}
-      <div className="automation-list">{paginated.map((automation, index) => { const active = automation.status === 'activa'; const isDraft = automation.rawStatus === 'draft'; const Icon = automation.Icon; const TriggerIcon = automation.TriggerIcon; return <article className="automation-row" key={automation.id ?? index} onClick={() => navigate(`/automatizaciones/${automation.id}`)}><div className="automation-name"><div className="automation-row-icon" style={{ color: automation.iconColor, background: `color-mix(in srgb, ${automation.iconBg} 13%, transparent)`, borderColor: `color-mix(in srgb, ${automation.iconBg} 33%, transparent)` }}><Icon /></div><div><strong>{automation.name}</strong><p>{automation.desc}</p><div className="automation-tags">{isDraft && <span className="status-draft-badge">Borrador</span>}{automation.tags.map(tag => <span key={tag}>{tag}</span>)}</div></div></div><button className="automation-status" onClick={event => { event.stopPropagation(); toggleStatus(automation.id) }}><span className={active ? 'status-active' : 'status-paused'}>{active ? 'Activa' : 'Pausada'}</span><Toggle active={active} /></button><div className="automation-trigger"><span><TriggerIcon /></span>{automation.trigger}</div><strong className="automation-runs">{automation.execs}</strong><span className="automation-last">{automation.last}</span><div className="automation-row-menu"><button aria-label={`Más acciones para ${automation.name}`} onClick={event => { event.stopPropagation(); setOpenMenuId(value => value === automation.id ? null : automation.id) }}><RiMoreLine /></button>{openMenuId === automation.id && <div className="automation-menu" onClick={event => event.stopPropagation()}><button onClick={() => { setOpenMenuId(null); setConfirmDeleteId(automation.id) }}><RiDeleteBinLine /> Eliminar</button></div>}</div></article> })}</div>
-      <footer className="automation-pagination"><span>Mostrando {filtered.length ? Math.min((page - 1) * perPage + 1, filtered.length) : 0}–{Math.min(page * perPage, filtered.length)} de {filtered.length} automatizaciones</span><div><button disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))}><HiChevronDown /></button>{Array.from({ length: totalPages }, (_, index) => index + 1).slice(0, 3).map(number => <button key={number} className={number === page ? 'active' : ''} onClick={() => setPage(number)}>{number}</button>)}<button disabled={page === totalPages} onClick={() => setPage(value => Math.min(totalPages, value + 1))}><HiChevronDown className="next" /></button></div><span>{perPage} por página</span></footer>
+      {!paginated.length && <div className="automation-empty"><div><RiFlowChart /></div><strong>{search || filter !== 'Todas' ? 'No hay flujos con estos filtros' : 'Todavía no tienes automatizaciones'}</strong><p>{search || filter !== 'Todas' ? 'Prueba con otra búsqueda o cambia el filtro para ver más resultados.' : 'Crea tu primer flujo y deja que el seguimiento ocurra automáticamente.'}</p><button className="automation-button primary" disabled={mutationsBlocked} onClick={() => openNewAutomation()}><RiAddLine /> Crear automatización</button></div>}
+      <div className="automation-list">{paginated.map((automation, index) => { const active = automation.status === 'activa'; const isDraft = automation.rawStatus === 'draft'; const Icon = automation.Icon; const TriggerIcon = automation.TriggerIcon; return <article className="automation-row" key={automation.id ?? index} onClick={() => navigate(`/automatizaciones/${automation.id}`)}><div className="automation-name"><div className="automation-row-icon" style={{ color: automation.iconColor, background: `color-mix(in srgb, ${automation.iconBg} 13%, transparent)`, borderColor: `color-mix(in srgb, ${automation.iconBg} 33%, transparent)` }}><Icon /></div><div><strong>{automation.name}</strong><p>{automation.desc}</p><div className="automation-tags">{isDraft && <span className="status-draft-badge">Borrador</span>}{automation.tags.map(tag => <span key={tag}>{tag}</span>)}</div></div></div><button className="automation-status" disabled={mutationsBlocked || busyId === automation.id} aria-busy={busyId === automation.id} onClick={event => { event.stopPropagation(); toggleStatus(automation.id) }}><span className={active ? 'status-active' : 'status-paused'}>{active ? 'Activa' : 'Pausada'}</span><Toggle active={active} /></button><div className="automation-trigger"><span><TriggerIcon /></span>{automation.trigger}</div><strong className="automation-runs">{automation.execs}</strong><span className="automation-last">{automation.last}</span><div className="automation-row-menu"><button aria-label={`Más acciones para ${automation.name}`} onClick={event => { event.stopPropagation(); setOpenMenuId(value => value === automation.id ? null : automation.id) }}><RiMoreLine /></button>{openMenuId === automation.id && <div className="automation-menu" onClick={event => event.stopPropagation()}><button disabled={mutationsBlocked} onClick={() => { setOpenMenuId(null); setConfirmDeleteId(automation.id) }}><RiDeleteBinLine /> Eliminar</button></div>}</div></article> })}</div>
+      <footer className="automation-pagination"><span>Mostrando {filtered.length ? Math.min((page - 1) * perPage + 1, filtered.length) : 0}–{Math.min(page * perPage, filtered.length)} de {filtered.length} automatizaciones</span><div><button disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))}><HiChevronDown /></button>{pageWindow(page, totalPages).map(number => <button key={number} className={number === page ? 'active' : ''} onClick={() => setPage(number)}>{number}</button>)}<button disabled={page === totalPages} onClick={() => setPage(value => Math.min(totalPages, value + 1))}><HiChevronDown className="next" /></button></div><span>{perPage} por página</span></footer>
     </section>
     {toast && <div className="automation-toast" role="status">{toast}</div>}
     {confirmDeleteId && <ConfirmDialog

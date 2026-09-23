@@ -15,6 +15,7 @@ export async function automationsRoutes(app: FastifyInstance) {
   app.get('/health', canRead, ctrl.health)
   app.post('/', canCreate, ctrl.create as any)
   app.get('/:id', canRead, ctrl.get as any)
+  app.put('/:id', canWrite, ctrl.update as any)
   app.get('/:id/runs', canRead, ctrl.listRuns as any)
   app.get('/:id/runs/:runId', canRead, ctrl.getRunDetail as any)
   app.get('/:id/versions', canRead, ctrl.listVersions as any)

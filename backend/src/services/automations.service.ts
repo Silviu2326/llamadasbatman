@@ -355,9 +355,82 @@ export async function getAutomation(orgId: string, id: string) {
   return prisma.automation.findFirst({ where: { id, orgId } })
 }
 
+function stableJson(value: unknown): string {
+  return JSON.stringify(value ?? null)
+}
+
+/**
+ * AU-102: compara la copia de trabajo con la última versión publicada. Una
+ * automatización sin versiones publicadas nunca tiene «cambios sin publicar»
+ * porque todavía corre con su copia de trabajo.
+ */
+export function describePublicationState(
+  automation: { name: string; description: string | null; trigger: unknown; actions: unknown },
+  latestVersion: { version: number; name: string; description: string | null; trigger: unknown; actions: unknown } | null,
+) {
+  if (!latestVersion) return { latestVersion: null, hasUnpublishedChanges: false }
+  const changed = automation.name !== latestVersion.name
+    || (automation.description ?? null) !== (latestVersion.description ?? null)
+    || stableJson(automation.trigger) !== stableJson(latestVersion.trigger)
+    || stableJson(automation.actions) !== stableJson(latestVersion.actions)
+  return { latestVersion: latestVersion.version, hasUnpublishedChanges: changed }
+}
+
+export async function getAutomationWithPublicationState(orgId: string, id: string) {
+  const automation = await prisma.automation.findFirst({ where: { id, orgId } })
+  if (!automation) return null
+  const latest = await prisma.automationVersion.findFirst({
+    where: { orgId, automationId: id },
+    orderBy: { version: 'desc' },
+    select: { version: true, name: true, description: true, trigger: true, actions: true },
+  })
+  return { ...automation, ...describePublicationState(automation, latest) }
+}
+
+/**
+ * Edita la copia de trabajo. Si ya existe una versión publicada, los runs
+ * siguen usando esa versión (trigger y acciones) hasta que se publique otra:
+ * editar equivale a preparar un borrador de la siguiente versión.
+ */
+export async function updateAutomation(orgId: string, id: string, data: {
+  name?: string
+  description?: string | null
+  trigger?: Record<string, unknown>
+  actions?: unknown[]
+}) {
+  const automation = await prisma.automation.findFirst({ where: { id, orgId } })
+  if (!automation) return null
+  const trigger = data.trigger ? normalizeAutomationTrigger(data.trigger) : undefined
+  if (data.actions) validateAutomationActions(data.actions)
+  const nextActions = data.actions ?? (Array.isArray(automation.actions) ? automation.actions : [])
+  if (automation.isActive && nextActions.length === 0) {
+    throw new Error('No se puede dejar sin acciones una automatización activa; páusala antes')
+  }
+  const updated = await prisma.automation.update({
+    where: { id },
+    data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(trigger ? { trigger: trigger as any } : {}),
+      ...(data.actions ? { actions: data.actions as any } : {}),
+    },
+  })
+  const latest = await prisma.automationVersion.findFirst({
+    where: { orgId, automationId: id },
+    orderBy: { version: 'desc' },
+    select: { version: true, name: true, description: true, trigger: true, actions: true },
+  })
+  return { before: automation, after: { ...updated, ...describePublicationState(updated, latest) } }
+}
+
+// El orquestador guarda su ledger de ejecución como Automation privada
+// ("[orchestration] <planId>", ver orchestration.service.ts); no es un flujo
+// de usuario y no debe aparecer ni poder activarse desde la lista.
+export const ORCHESTRATION_LEDGER_PREFIX = '[orchestration] '
+
 export async function listAutomations(orgId: string) {
   return prisma.automation.findMany({
-    where: { orgId },
+    where: { orgId, NOT: { name: { startsWith: ORCHESTRATION_LEDGER_PREFIX } } },
     orderBy: { createdAt: 'desc' },
   })
 }
@@ -526,9 +599,23 @@ export async function runAutomationsForEvent(
     where: { orgId, isActive: true },
   })
 
+  // AU-102: si la automatización tiene versión publicada, el disparador que
+  // cuenta es el de esa versión; así editar la copia de trabajo (PUT /:id)
+  // no cambia qué eventos la activan hasta publicar de nuevo.
+  const publishedTriggers = new Map<string, unknown>()
+  if (automations.length) {
+    const versions = await prisma.automationVersion.findMany({
+      where: { orgId, automationId: { in: automations.map(a => a.id) } },
+      orderBy: { version: 'desc' },
+      select: { automationId: true, trigger: true },
+    })
+    for (const version of versions ?? []) {
+      if (!publishedTriggers.has(version.automationId)) publishedTriggers.set(version.automationId, version.trigger)
+    }
+  }
   const matching = automations.filter((a) => {
-    const trigger = a.trigger as Record<string, unknown>
-    return normalizeAutomationEvent(trigger.event ?? trigger.type) === canonicalEvent
+    const trigger = (publishedTriggers.get(a.id) ?? a.trigger) as Record<string, unknown>
+    return normalizeAutomationEvent(trigger?.event ?? trigger?.type) === canonicalEvent
   })
 
   for (const automation of matching) {

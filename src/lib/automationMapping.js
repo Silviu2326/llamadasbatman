@@ -17,6 +17,70 @@ const AUTOMATION_EVENT_LABELS = {
   'lead.created': 'Nuevo lead creado',
   'lead.inactive.30d': 'Lead sin actividad > 30 días',
   'message.received': 'Mensaje recibido',
+  'meeting.created': 'Reunión creada',
+  'meeting.rescheduled': 'Reunión reprogramada',
+  'meeting.completed': 'Reunión completada',
+  'meeting.cancelled': 'Reunión cancelada',
+  'meeting.no_show': 'Reunión sin asistencia',
+  'task.due': 'Tarea por vencer',
+  'task.overdue': 'Tarea vencida',
+  'opportunity.created': 'Oportunidad creada',
+  'opportunity.stage.changed': 'Oportunidad cambia de etapa',
+  'opportunity.won': 'Oportunidad ganada',
+  'opportunity.lost': 'Oportunidad perdida',
+  'opportunity.reopened': 'Oportunidad reabierta',
+}
+
+// Mismo catálogo que CANONICAL_AUTOMATION_EVENTS en el backend.
+export const AUTOMATION_TRIGGER_OPTIONS = Object.entries(AUTOMATION_EVENT_LABELS).map(([value, label]) => ({ value, label }))
+
+// Parámetros por acción, alineados con validateAutomationActions y el
+// ejecutor de automations.service.ts. `required` replica la validación del
+// backend para avisar antes de guardar.
+export const AUTOMATION_ACTION_DEFINITIONS = {
+  log: { label: 'Registrar en el log', params: [] },
+  update_lead_status: { label: 'Cambiar estado del lead', params: [{ key: 'status', label: 'Nuevo estado', type: 'select', options: ['new', 'contacted', 'qualified', 'unqualified', 'converted'] }] },
+  send_whatsapp_template: { label: 'Enviar plantilla de WhatsApp', params: [{ key: 'contentSid', label: 'Content SID aprobado en Twilio', required: true, placeholder: 'HX...' }] },
+  queue_voice_call: { label: 'Iniciar llamada automática', params: [] },
+  send_email_template: { label: 'Enviar plantilla de email', params: [{ key: 'emailDraftId', label: 'ID del borrador de email', required: true }] },
+  ai_reply_whatsapp: { label: 'Responder WhatsApp con IA', params: [{ key: 'tone', label: 'Tono', type: 'select', options: ['consultivo', 'cercano', 'formal'] }] },
+  create_task: { label: 'Crear tarea', params: [{ key: 'title', label: 'Título', required: true }, { key: 'dueInDays', label: 'Vence en (días)', type: 'number' }, { key: 'priority', label: 'Prioridad', type: 'select', options: ['low', 'normal', 'high', 'urgent'] }] },
+  set_owner: { label: 'Asignar responsable', params: [{ key: 'ownerId', label: 'ID del usuario responsable', required: true }] },
+  add_tag: { label: 'Añadir etiqueta', params: [{ key: 'tag', label: 'Etiqueta', required: true }] },
+  update_field: { label: 'Actualizar campo personalizado', params: [{ key: 'field', label: 'Campo', required: true }, { key: 'value', label: 'Valor' }] },
+  create_opportunity: { label: 'Crear oportunidad', params: [{ key: 'name', label: 'Nombre (opcional)' }] },
+  notify: { label: 'Notificar al responsable', params: [{ key: 'message', label: 'Mensaje' }] },
+}
+
+export function automationActionLabel(type) {
+  return AUTOMATION_ACTION_DEFINITIONS[type]?.label ?? type ?? 'acción'
+}
+
+/** Devuelve el primer error de validación local, o '' si la configuración es válida. */
+export function validateAutomationConfig({ name, trigger, actions }) {
+  if (!String(name ?? '').trim()) return 'El nombre es obligatorio.'
+  if (!AUTOMATION_EVENT_LABELS[trigger]) return 'Selecciona un disparador válido.'
+  for (const [index, action] of (actions ?? []).entries()) {
+    const definition = AUTOMATION_ACTION_DEFINITIONS[action?.type]
+    if (!definition) return `La acción ${index + 1} no es de un tipo soportado.`
+    const missing = definition.params.find(param => param.required && !String(action.params?.[param.key] ?? '').trim())
+    if (missing) return `La acción ${index + 1} (${definition.label}) necesita «${missing.label}».`
+  }
+  return ''
+}
+
+/** Limpia parámetros vacíos y convierte números antes de enviar al backend. */
+export function serializeAutomationActions(actions) {
+  return (actions ?? []).map(action => {
+    const definition = AUTOMATION_ACTION_DEFINITIONS[action.type]
+    const params = {}
+    for (const [key, value] of Object.entries(action.params ?? {})) {
+      if (value === '' || value == null) continue
+      const param = definition?.params.find(item => item.key === key)
+      params[key] = param?.type === 'number' ? Number(value) : value
+    }
+    return Object.keys(params).length ? { type: action.type, params } : { type: action.type }
+  })
 }
 
 export function normalizeAutomationEvent(value) {
@@ -28,6 +92,8 @@ export function normalizeAutomationEvent(value) {
     'nuevo lead creado': 'lead.created',
     'lead sin actividad > 30 días': 'lead.inactive.30d',
     'mensaje recibido': 'message.received', mensaje_recibido: 'message.received',
+    nuevo_lead: 'lead.created', reunion_creada: 'meeting.created', tarea_vencida: 'task.overdue',
+    oportunidad_ganada: 'opportunity.won', oportunidad_perdida: 'opportunity.lost',
   }
   const event = String(value ?? '').trim().toLowerCase()
   return AUTOMATION_EVENT_LABELS[event] ? event : aliases[event] ?? null
@@ -61,6 +127,9 @@ export function mapAutomation(a, i) {
     rawStatus: a.status ?? 'active',
     TriggerIcon: RiFlowChart,
     triggerRaw: a.trigger,
+    triggerEvent,
+    description: a.description ?? '',
+    hasUnpublishedChanges: Boolean(a.hasUnpublishedChanges),
     trigger: triggerLabel,
     actions,
     runsCount: a.runsCount ?? 0,

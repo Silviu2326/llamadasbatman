@@ -2,8 +2,9 @@
 
 Revisión de solo lectura de Vendrava/VozIA (frontend React + Vite y backend
 Fastify + Prisma). No se tocó el VPS, no se hizo ninguna llamada y no se
-imprimieron secretos. El único cambio de código fue corregir una prueba offline
-desactualizada (ver §1).
+imprimieron secretos. En la revisión solo se corrigió una prueba offline
+desactualizada (ver §1); después se corrigieron las páginas de Growth por debajo
+de 7 (ver §7).
 
 Los hallazgos marcados con ✔ se comprobaron leyendo el código a mano; el resto
 proceden de revisiones automatizadas que siguieron cada flujo hasta el backend y
@@ -118,6 +119,11 @@ backend real pero faltan piezas clave · 7–8 usable de verdad con huecos menor
 
 **Media: 6,3 / 10.** Ninguna página es una maqueta: todas usan endpoints reales con
 Prisma y proveedores reales.
+
+> **Actualización:** las seis páginas por debajo de 7 se corrigieron el mismo día.
+> La media pasa a **7,1 / 10** y ninguna página queda por debajo de 7. Los
+> detalles están en la §7; las fichas de esta sección describen el estado
+> **anterior** a esas correcciones.
 
 | Página | Ruta | Nota |
 |---|---|---|
@@ -326,3 +332,145 @@ rutas antiguas redirigen bien.
    publicación en Meta desde el plan.
 6. **Infraestructura:** proteger `/health/integrations*`, revisar `TRUST_PROXY`,
    limpiar ficheros sobrantes y datos personales versionados y añadir CI.
+
+---
+
+## 7. Correcciones aplicadas en Growth (23-09-2026)
+
+Objetivo: llevar a al menos 7/10 todas las páginas que estaban por debajo. Se
+cumplió en las seis. Rama `claude/project-review-f33u1t`.
+
+| Página | Antes | Después | Commit |
+|---|---|---|---|
+| Planificar · Campañas | 6 | **7,5** | `5d96ca0` |
+| Atraer · Ads | 6 | **7,5** | `23e7236` |
+| Resumen Growth | 6 | **7** | `2a46da5` |
+| Cerrar · Funnels | 6 | **7** | `2a46da5` |
+| Asistente de nueva campaña de Ads | 5 | **7** | `23e7236` |
+| Operaciones Growth | 5 | **7** (Centro de acciones 3→7 · Trabajos 8 · Automatizaciones 6→7-8) | `feat(operaciones)` (último commit de la rama) |
+
+**Nueva media de la sección Growth: 7,1 / 10** (antes 6,3).
+
+### 7.1 Validación
+
+| Comprobación | Resultado |
+|---|---|
+| `npm run build` (raíz y backend) | ✅ OK |
+| `npm run test:offline` (backend) | ✅ 4/4 |
+| `backend/src/__tests__/*.offline.test.ts` + contratos de orquestación y entitlements | ✅ 84/84 (antes 48; +36 nuevas) |
+| `node --test src/lib/*.test.mjs` | ✅ 84/85. El único fallo (`salesRendering.test.mjs`, reunión desde CRM) es previo y ajeno a Growth |
+
+No se ejecutaron las pruebas de integración con base de datos. En particular,
+queda por comprobar con BD el 403 de viewer para `PATCH /funnels/:id/status`
+(añadido a `authorizationRoutes.test.ts`) y una creación/aprobación real de un
+plan de orquestación.
+
+### 7.2 Endpoints nuevos o cambiados
+
+| Endpoint | Cambio |
+|---|---|
+| `GET /api/campaigns/:id/start-preview` | **Nuevo**, solo lectura. Cuenta las llamadas que encolaría `start` (misma condición `START_LEAD_WHERE`). Mismos permisos que `start` |
+| `PATCH /api/funnels/:id/status` | **Nuevo**. `active \| paused \| done`, filtrado por `orgId`, `funnels.write`, auditoría `funnel.status`. Nunca encola llamadas y no activa campañas con agente de voz (se derivan a Campañas) |
+| `POST /api/ads/campaigns/:id/{publish,activate,pause,remote-status}` | Errores tipados `{error, code, details?}` con 4xx/502/504. `publish` devuelve `adsCreated`, `objective`, `creativeSource`, `targetingSource`, `warnings` |
+| `POST /api/ads/wizard` | Acepta `creative` opcional; responde `published` y `publishError` |
+| `POST /api/ads/strategy` | `provider` pasa a `deepseek \| heuristic`; añade `forecastSource: 'sector_benchmark'` y `forecastNote` |
+| `POST /api/ads/experiments/:id/start` | **Nuevo** (`ads.write`). `startExperiment` ahora filtra por `orgId` (antes no) |
+| `GET /api/orchestration/plans` | **Nuevo**. Listado paginado de planes, filtrado por `orgId` |
+| `GET /api/orchestration/actions/catalog` | Incluye `fields` y `resolvesWith` por acción |
+| `PUT /api/automations/:id` | **Nuevo**. Edita nombre, descripción, disparador y acciones; zod estricto, `automations.write`, auditoría |
+
+### 7.3 Cambios por página
+
+**Planificar · Campañas (6 → 7,5)**
+- La carga a pantalla completa solo aparece la primera vez; buscar, filtrar y
+  paginar atenúan la tabla sin desmontarla (el buscador conserva el foco).
+- «Iniciar» abre una confirmación con el número de llamadas que se encolarán,
+  los leads sin teléfono y avisos si no hay agente o no está publicado.
+- Editar (PUT existente) y duplicar desde la lista; errores reales del backend.
+- Modal accesible (Escape, `role="dialog"`) con validación de presupuesto.
+- Embudo y mezcla muestran «—» / «Sin medición» en vez de 0.
+- Lógica en `src/lib/campaignsView.js` con 6 tests; test offline del endpoint.
+- **Pendiente:** `/campanas/:id` sigue iniciando sin confirmación; los totales
+  siguen limitados a 100 campañas; en móvil, editar/duplicar solo desde el detalle.
+
+**Resumen Growth (6 → 7)**
+- Filtro inicial «todas las áreas»; un programa recién creado siempre aparece.
+- Archivar con confirmación usando el endpoint existente.
+- Los errores de activar/pausar/archivar son un aviso y no sustituyen la lista.
+- Las secuencias usan `/pause` y `/resume`, así sus matrículas quedan alineadas.
+- Validación del nombre igual que el backend; «Detener» secuencia con confirmación.
+- Lógica en `src/lib/growthPrograms.js` con 6 tests.
+- **Pendiente:** control de permisos `growth.write` en la UI y restaurar archivados.
+
+**Cerrar · Funnels (6 → 7)**
+- Acciones Activar / Pausar / Finalizar (Finalizar = `done`, terminal) con
+  confirmación, mediante el nuevo `PATCH /api/funnels/:id/status`.
+- Botones y acciones respetan `funnels.write`; errores del backend visibles.
+- Los funnels finalizados no generan recomendación; filtros nuevos (En curso,
+  Activos, Pausados, Borradores, Sin tracking, Finalizados).
+- Lógica pura extraída de `funnels.service.ts` con 8 pruebas offline.
+- **Pendiente:** la réplica local de roles con `funnels.write` en `FunnelsPage`
+  debería sustituirse por los permisos de sesión; no se puede reabrir un funnel
+  finalizado.
+
+**Atraer · Ads (6 → 7,5)**
+- `publishCampaign` construye la campaña desde el plan: activación Meta
+  (objetivo, evento, presupuesto, fechas), audiencia del brief o de la campaña y
+  hasta 5 creatividades aprobadas con consentimiento comprobado. `adAssets`
+  queda como respaldo y España solo como respaldo explícito.
+- Objetivo coherente con Meta: con píxel, `OUTCOME_LEADS` + `OFFSITE_CONVERSIONS`
+  + `promoted_object`; sin píxel, `OUTCOME_TRAFFIC` + `LINK_CLICKS`.
+- Graph con timeout de 15 s y token en cabecera `Authorization`; los errores
+  solo propagan códigos numéricos de Meta, nunca el cuerpo.
+- Errores tipados que la UI muestra; si la publicación falla a mitad, se borran
+  en orden inverso los objetos creados (best-effort, resultado en `details.rollback`).
+- Experimentos: crear, arrancar y concluir desde el panel.
+- 11 pruebas offline con Graph simulado.
+- **Pendiente:** ciudades e intereses en texto libre no se traducen a ids de Meta
+  (se devuelven como `warnings`); sin formulario nativo de leads; `AdAudience` no
+  tiene flujo de aprobación formal.
+
+**Asistente de nueva campaña de Ads (5 → 7)**
+- El pronóstico se etiqueta como «Referencia orientativa del sector», no como
+  predicción de IA; el proveedor mostrado es el real.
+- La variante creativa elegida se envía, se valida y se usa al publicar.
+- Lo que escribe el usuario en audiencia tiene prioridad sobre el perfil orgánico.
+- La recomendación «objetivo» funciona; el borrador guarda margen y %.
+- Si Meta no publica, el motivo se muestra antes de navegar.
+- Lógica en `src/lib/adsWizard.js` con 7 tests.
+- **Pendiente:** las variantes creativas son plantillas deterministas, no generadas
+  por IA.
+
+**Operaciones Growth (5 → 7)**
+- *Centro de acciones (3 → 7):* el modo live funciona. Se carga el catálogo, un
+  selector permite elegir y ordenar acciones con sus campos (con sugerencia según
+  el objetivo), las acciones se envían con el plan y los 422 se explican. Nuevo
+  panel «Planes recientes» para reabrir planes. La demo queda etiquetada como
+  simulación.
+- *Automatizaciones (6 → 7-8):* edición real (formulario de nombre, disparador y
+  acciones) con `PUT /api/automations/:id`. Se respeta el versionado: el motor usa
+  el disparador **y** las acciones de la última versión publicada (las que nunca
+  se publicaron siguen usando su configuración actual). El interruptor ya no es
+  optimista, el estado del motor sale de `/api/automations/health`, se distingue
+  404 de error de red, la paginación muestra una ventana de 5 páginas y las
+  plantillas abren el modal prerrellenado. La lista ya no muestra los registros
+  internos `[orchestration] …`.
+- *Trabajos (8):* paginación real (`page`/`limit=25`) en lugar del tope de 100.
+- *Presupuesto de Ads en la orquestación:* el adaptador pasa el importe aprobado a
+  `publishCampaign`; si no coincide con el que se publicaría, se bloquea con
+  `BUDGET_APPROVAL_MISMATCH` (409) antes de llamar a Meta.
+- 9 pruebas offline de backend y 7 de `src/lib/orchestration.js`.
+- **Pendiente:** las acciones que necesitan un ID (agente, lead, campaña de email)
+  se rellenan a mano, sin buscador; el editor de automatizaciones no tiene
+  condiciones ni ramas.
+
+### 7.4 Cambios de comportamiento a tener en cuenta
+
+- **Automatizaciones:** tras editar una automatización ya publicada, los cambios
+  no se ejecutan hasta volver a publicarla (la UI lo avisa).
+- **Ads:** una publicación puede crear hasta 5 anuncios (uno por creatividad
+  aprobada) y usa el presupuesto de la activación Meta del plan si existe.
+- **Funnels:** no se pueden activar desde Funnels las campañas con agente de voz;
+  eso se hace en Campañas, con confirmación.
+- **Estrategia de Ads:** `provider` ya no devuelve `claude` ni `fallback`; la UI
+  sigue aceptando esos valores en borradores antiguos.

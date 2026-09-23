@@ -9,6 +9,7 @@ export async function orchestrationRoutes(app: FastifyInstance) {
 
   app.get('/actions/catalog', canRead, controller.catalog)
   app.post<{ Body: unknown }>('/plan', canRead, controller.createPlan)
+  app.get<{ Querystring: unknown }>('/plans', canRead, controller.listPlans)
   app.get<{ Params: unknown }>('/plans/:id', canRead, controller.getPlan)
   app.get('/health', canRead, controller.health)
 

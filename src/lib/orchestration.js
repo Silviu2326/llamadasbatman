@@ -290,6 +290,133 @@ function readApiPlan(payload) {
   return adaptApiPlan(plan, ORCHESTRATION_SOURCE.LIVE)
 }
 
+// ---------------------------------------------------------------------------
+// Acciones ejecutables del modo live.
+// El backend rechaza con 422 EXECUTABLE_ACTIONS_REQUIRED un plan sin acciones,
+// así que la UI carga el catálogo (GET /actions/catalog), propone una selección
+// y envía `actions` con los campos mínimos que exige cada adaptador.
+// ---------------------------------------------------------------------------
+
+export const ACTION_EFFECT_LABELS = { local: 'Efecto interno', external: 'Efecto externo' }
+
+function catalogEntry(catalog, kind) {
+  return (Array.isArray(catalog) ? catalog : []).find(item => item.kind === kind) || null
+}
+
+export function createActionSelection(kind, values = {}) {
+  return { key: `${kind}-${Math.random().toString(36).slice(2, 9)}`, kind, values: { ...values } }
+}
+
+/** Selección por defecto razonable según objetivo, presupuesto y texto del formulario. */
+export function suggestOrchestrationActions(input, catalog) {
+  const context = normaliseOrchestrationInput(input)
+  const text = `${context.objective} ${context.desiredResult}`.toLowerCase()
+  const available = kind => Boolean(catalogEntry(catalog, kind))
+  const selection = []
+  if (available('landing.create_draft')) selection.push(createActionSelection('landing.create_draft', { name: context.objective.slice(0, 120), offer: context.desiredResult }))
+  const wantsAds = context.budget > 0 && !/sin (ads|anuncios|publicidad)/.test(text)
+  if (wantsAds && available('landing.create_draft') && available('ads.publish_paused')) {
+    selection.push(createActionSelection('ads.publish_paused', { budgetCents: String(context.budget) }))
+  }
+  if (/(redes|social|instagram|facebook|linkedin|tiktok|contenido|publicaci)/.test(text) && available('social.create_draft')) {
+    selection.push(createActionSelection('social.create_draft', { text: `${context.objective}. ${context.desiredResult}`.slice(0, 500), platforms: ['instagram', 'facebook'] }))
+  }
+  return selection
+}
+
+function isBlank(value) {
+  return value == null || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && value.length === 0)
+}
+
+function parseReferenceList(value) {
+  const items = Array.isArray(value) ? value : String(value ?? '').split(/[\s,;]+/)
+  return items.map(item => String(item).trim()).filter(Boolean)
+}
+
+/**
+ * Validación local equivalente a validateOrchestrationActionInput del backend:
+ * campos obligatorios y referencias implícitas que solo se resuelven si la
+ * acción previa necesaria está antes en la lista.
+ */
+export function validateActionSelection(selection, catalog, { budget } = {}) {
+  const errors = {}
+  const list = Array.isArray(selection) ? selection : []
+  if (!list.length) return { errors, general: 'Selecciona al menos una acción ejecutable para el plan live.' }
+  let totalCents = 0
+  list.forEach((item, index) => {
+    const entry = catalogEntry(catalog, item.kind)
+    if (!entry) { errors[item.key] = 'Acción no disponible en el catálogo.'; return }
+    const previous = list.slice(0, index).map(other => other.kind)
+    const resolved = Array.isArray(entry.resolvesWith) && entry.resolvesWith.length > 0 && entry.resolvesWith.every(kind => previous.includes(kind))
+    for (const field of entry.fields || []) {
+      const value = item.values?.[field.key]
+      const required = field.required === true || (field.required === 'unless_resolved' && !resolved)
+      if (required && isBlank(field.type === 'referenceList' ? parseReferenceList(value) : value)) {
+        errors[item.key] = field.required === 'unless_resolved'
+          ? `Indica «${field.label}» o añade antes: ${(entry.resolvesWith || []).map(kind => catalogEntry(catalog, kind)?.title || kind).join(' y ')}.`
+          : `Falta «${field.label}».`
+        return
+      }
+      if (!isBlank(value) && (field.type === 'cents' || field.type === 'integer')) {
+        const numeric = Number(value)
+        if (!Number.isFinite(numeric) || numeric < (field.type === 'integer' ? 1 : 0)) { errors[item.key] = `«${field.label}» no es un número válido.`; return }
+      }
+    }
+    if (item.kind === 'ads.publish_paused') totalCents += Math.round(Number(item.values?.budgetCents || 0) * 100)
+    if (item.kind === 'ads.activate') totalCents += Math.round(Number(item.values?.dailyBudgetCents || 0) * 100) * Math.trunc(Number(item.values?.durationDays || 0))
+  })
+  const budgetCents = Math.round(Number(budget || 0) * 100)
+  const general = totalCents > budgetCents ? 'El gasto Ads de las acciones supera el presupuesto del plan.' : ''
+  return { errors, general }
+}
+
+/** Convierte la selección de la UI al contrato `actions` del backend. Los importes se escriben en euros y viajan en céntimos. */
+export function buildActionsPayload(selection, catalog) {
+  return (Array.isArray(selection) ? selection : []).map(item => {
+    const entry = catalogEntry(catalog, item.kind)
+    const input = {}
+    for (const field of entry?.fields || []) {
+      const raw = item.values?.[field.key]
+      if (isBlank(raw)) continue
+      if (field.type === 'cents') input[field.key] = Math.round(Number(raw) * 100)
+      else if (field.type === 'integer') input[field.key] = Math.trunc(Number(raw))
+      else if (field.type === 'referenceList') input[field.key] = parseReferenceList(raw)
+      else if (field.type === 'platforms') input[field.key] = parseReferenceList(raw)
+      else input[field.key] = String(raw).trim()
+    }
+    return { kind: item.kind, input }
+  })
+}
+
+/** Reconstruye la selección editable a partir de las acciones de un plan persistido. */
+export function selectionFromPlanActions(actions, catalog) {
+  return (Array.isArray(actions) ? actions : []).filter(action => catalogEntry(catalog, action?.kind)).map(action => {
+    const entry = catalogEntry(catalog, action.kind)
+    const values = {}
+    for (const field of entry.fields || []) {
+      const value = action.input?.[field.key]
+      if (value == null) continue
+      values[field.key] = field.type === 'cents' ? String(Number(value) / 100) : field.type === 'referenceList' ? parseReferenceList(value).join(', ') : field.type === 'platforms' ? parseReferenceList(value) : String(value)
+    }
+    return createActionSelection(action.kind, values)
+  })
+}
+
+export async function fetchOrchestrationActionCatalog(options = {}) {
+  const payload = await requestJson(options.fetcher || apiFetch, `${ORCHESTRATION_API_ROOT}/actions/catalog`, { method: 'GET', timeoutMs: options.timeoutMs || 10_000 })
+  const actions = Array.isArray(payload?.actions) ? payload.actions.filter(item => item && typeof item.kind === 'string') : null
+  if (!actions) throw new OrchestrationApiError('La API devolvió un catálogo de acciones inválido.', { code: 'ORCHESTRATION_CATALOG_INVALID' })
+  return { contractVersion: payload.contractVersion ?? null, actions: actions.map(item => ({ ...item, fields: Array.isArray(item.fields) ? item.fields : [] })) }
+}
+
+export async function listOrchestrationPlans(options = {}) {
+  const params = new URLSearchParams({ limit: String(options.limit || 8), offset: String(options.offset || 0) })
+  if (options.status) params.set('status', options.status)
+  const payload = await requestJson(options.fetcher || apiFetch, `${ORCHESTRATION_API_ROOT}/plans?${params}`, { method: 'GET', timeoutMs: options.timeoutMs || 10_000 })
+  const items = Array.isArray(payload?.items) ? payload.items : []
+  return { items, total: Number(payload?.total) || items.length, offset: Number(payload?.offset) || 0, limit: Number(payload?.limit) || items.length, hasMore: Boolean(payload?.hasMore) }
+}
+
 export function createIdempotencyKey(operation = 'operation') {
   const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
   return `orch-${operation}-${id}`.replace(/[^a-zA-Z0-9._:-]/g, '_').slice(0, 180)
@@ -297,19 +424,22 @@ export function createIdempotencyKey(operation = 'operation') {
 
 export async function requestOrchestrationPlan(input, options = {}) {
   const mode = options.mode || (options.useApi === false ? ORCHESTRATION_SOURCE.DEMO : ORCHESTRATION_SOURCE.LIVE)
-  if (mode === ORCHESTRATION_SOURCE.DEMO) return { plan: buildDemoPlan(input), source: ORCHESTRATION_SOURCE.DEMO, fallback: false, explicitDemo: true, reason: 'explicit_demo' }
+  if (mode === ORCHESTRATION_SOURCE.DEMO) return { plan: buildDemoPlan(input), source: ORCHESTRATION_SOURCE.DEMO, explicitDemo: true, reason: 'explicit_demo' }
+  if (!Array.isArray(options.actions) || options.actions.length === 0) {
+    throw new OrchestrationApiError('Un plan live necesita al menos una acción ejecutable configurada.', { status: 422, code: 'EXECUTABLE_ACTIONS_REQUIRED' })
+  }
   const normalised = normaliseOrchestrationInput(input)
   const idempotencyKey = options.idempotencyKey || createIdempotencyKey('create')
   const payload = await requestJson(options.fetcher || apiFetch, ORCHESTRATION_API_PATH, {
     method: 'POST', idempotencyKey, timeoutMs: options.timeoutMs || 10_000,
-    body: { objective: normalised.objective, durationDays: PERIOD_DAYS[normalised.period] || 60, location: normalised.location, budget: normalised.budget || 0, desiredOutcome: normalised.desiredResult, ...(Array.isArray(options.actions) ? { actions: options.actions } : {}) },
+    body: { objective: normalised.objective, durationDays: PERIOD_DAYS[normalised.period] || 60, location: normalised.location, budget: normalised.budget || 0, desiredOutcome: normalised.desiredResult, actions: options.actions },
   })
-  return { plan: readApiPlan(payload), source: ORCHESTRATION_SOURCE.LIVE, fallback: false, idempotencyKey }
+  return { plan: readApiPlan(payload), source: ORCHESTRATION_SOURCE.LIVE, idempotencyKey }
 }
 
 export async function getOrchestrationPlan(planId, options = {}) {
   const payload = await requestJson(options.fetcher || apiFetch, `${ORCHESTRATION_API_ROOT}/plans/${encodeURIComponent(planId)}`, { method: 'GET', timeoutMs: options.timeoutMs || 10_000 })
-  return { plan: readApiPlan(payload), source: ORCHESTRATION_SOURCE.LIVE, fallback: false }
+  return { plan: readApiPlan(payload), source: ORCHESTRATION_SOURCE.LIVE }
 }
 
 export function approveOrchestrationPlan(planId, options = {}) { return mutateOrchestrationPlan(planId, 'approve', options, { comment: clean(options.comment) || undefined }) }
@@ -321,7 +451,12 @@ async function mutateOrchestrationPlan(planId, action, options, body) {
   if (!clean(planId)) throw new OrchestrationApiError('Falta el identificador del plan persistente.', { code: 'PLAN_ID_REQUIRED', status: 400 })
   const idempotencyKey = options.idempotencyKey || createIdempotencyKey(action)
   const payload = await requestJson(options.fetcher || apiFetch, `${ORCHESTRATION_API_ROOT}/plans/${encodeURIComponent(planId)}/${action}`, { method: 'POST', idempotencyKey, body, timeoutMs: options.timeoutMs || 10_000 })
-  return { plan: readApiPlan(payload), source: ORCHESTRATION_SOURCE.LIVE, fallback: false, idempotencyKey }
+  return { plan: readApiPlan(payload), source: ORCHESTRATION_SOURCE.LIVE, idempotencyKey }
+}
+
+function describeFieldErrors(fields) {
+  if (!fields || typeof fields !== 'object') return ''
+  return Object.entries(fields).filter(([, messages]) => Array.isArray(messages) && messages.length).map(([field, messages]) => `${field}: ${messages[0]}`).join(' · ')
 }
 
 async function requestJson(fetcher, path, { method = 'GET', body, idempotencyKey, timeoutMs = 10_000 } = {}) {
@@ -336,7 +471,8 @@ async function requestJson(fetcher, path, { method = 'GET', body, idempotencyKey
     if (!response?.ok) {
       const status = Number(response?.status || 0)
       const defaultMessage = status === 403 ? 'No tienes permisos para esta operación del orquestador.' : status === 409 ? 'El plan cambió de estado. Recarga la versión persistente antes de continuar.' : status === 503 ? 'El servicio del orquestador está temporalmente degradado. Inténtalo de nuevo.' : 'No se pudo completar la operación del orquestador.'
-      throw new OrchestrationApiError(payload?.error || defaultMessage, { status, code: payload?.code || `ORCHESTRATION_HTTP_${status || 'UNAVAILABLE'}`, details: payload, retriable: [408, 429, 500, 502, 503, 504].includes(status) })
+      const fieldDetail = describeFieldErrors(payload?.fields)
+      throw new OrchestrationApiError([payload?.error || defaultMessage, fieldDetail].filter(Boolean).join(' — '), { status, code: payload?.code || `ORCHESTRATION_HTTP_${status || 'UNAVAILABLE'}`, details: payload, retriable: [408, 429, 500, 502, 503, 504].includes(status) })
     }
     return payload
   } catch (error) {

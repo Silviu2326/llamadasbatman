@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  RiAddLine,
   RiAlertLine,
   RiArrowDownSLine,
   RiArrowRightLine,
   RiCheckboxCircleLine,
   RiCheckLine,
+  RiDeleteBinLine,
   RiExternalLinkLine,
+  RiHistoryLine,
   RiFlowChart,
   RiInformationLine,
   RiLightbulbLine,
@@ -21,6 +24,7 @@ import {
   RiTimeLine,
 } from 'react-icons/ri'
 import {
+  ACTION_EFFECT_LABELS,
   EMPTY_ORCHESTRATION_FORM,
   PHASE_META,
   RISK_META,
@@ -35,6 +39,14 @@ import {
   isLivePlanPollingStatus,
   requestOrchestrationPlan,
   validateOrchestrationInput,
+  buildActionsPayload,
+  createActionSelection,
+  fetchOrchestrationActionCatalog,
+  getPlanStatusMeta,
+  listOrchestrationPlans,
+  selectionFromPlanActions,
+  suggestOrchestrationActions,
+  validateActionSelection,
 } from '../lib/orchestration'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import ProductPageHeader from '../components/ui/ProductPageHeader'
@@ -244,6 +256,135 @@ function NextModules() {
   )
 }
 
+const RECENT_PLANS_PAGE = 6
+
+function ActionFieldInput({ field, value, onChange, idPrefix }) {
+  const id = `${idPrefix}-${field.key}`
+  const required = field.required === true
+  const label = <span>{field.label}{field.type === 'cents' ? ' (€)' : ''} {required ? <em>Obligatorio</em> : field.required === 'unless_resolved' ? <small>Obligatorio si no se resuelve</small> : <small>Opcional</small>}</span>
+  if (field.type === 'platforms') {
+    const selected = Array.isArray(value) ? value : []
+    return (
+      <fieldset className="orch-field orch-field--wide orch-action-platforms">
+        <legend>{label}</legend>
+        <div>{(field.options || []).map(option => (
+          <label key={option} className={selected.includes(option) ? 'is-selected' : ''}>
+            <input type="checkbox" checked={selected.includes(option)} onChange={event => onChange(event.target.checked ? [...selected, option] : selected.filter(item => item !== option))} /> {option}
+          </label>
+        ))}</div>
+        {field.hint ? <small>{field.hint}</small> : null}
+      </fieldset>
+    )
+  }
+  return (
+    <label className={`orch-field${field.type === 'longText' ? ' orch-field--wide' : ''}`} htmlFor={id}>
+      {label}
+      {field.type === 'stage' ? (
+        <select id={id} value={value ?? ''} onChange={event => onChange(event.target.value)}>
+          <option value="">Selecciona…</option>
+          {(field.options || []).map(option => <option key={option} value={option}>{option}</option>)}
+        </select>
+      ) : field.type === 'longText' ? (
+        <textarea id={id} rows="2" value={value ?? ''} onChange={event => onChange(event.target.value)} />
+      ) : (
+        <input id={id} type={field.type === 'cents' || field.type === 'integer' ? 'number' : 'text'} min={field.type === 'integer' ? 1 : field.type === 'cents' ? 0 : undefined} step={field.type === 'cents' ? '0.01' : undefined} value={value ?? ''} onChange={event => onChange(event.target.value)} placeholder={field.type === 'reference' ? 'ID del registro en el CRM' : field.type === 'referenceList' ? 'id1, id2, id3' : undefined} />
+      )}
+      {field.hint ? <small>{field.hint}</small> : null}
+    </label>
+  )
+}
+
+// Selector de acciones ejecutables del modo live. Cada acción muestra solo los
+// campos que su adaptador exige (catálogo del backend) y se valida en local
+// con las mismas reglas antes de enviar el plan.
+function ActionSelector({ catalog, catalogState, catalogError, onRetryCatalog, selection, onChange, errors, generalError, onSuggest }) {
+  const [kindToAdd, setKindToAdd] = useState('')
+  if (catalogState === 'loading') return <div className="orch-actions-panel" role="status"><RiLoader4Line className="orch-spin" /> Cargando acciones disponibles…</div>
+  if (catalogState === 'error') return <div className="orch-actions-panel orch-actions-panel--error" role="alert"><RiAlertLine /><span>No se pudo cargar el catálogo de acciones: {catalogError}</span><button type="button" className="orch-button orch-button--ghost" onClick={onRetryCatalog}><RiRefreshLine /> Reintentar</button></div>
+  const updateValue = (key, field, value) => onChange(selection.map(item => item.key === key ? { ...item, values: { ...item.values, [field]: value } } : item))
+  const move = (index, delta) => {
+    const next = [...selection]
+    const target = index + delta
+    if (target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    onChange(next)
+  }
+  return (
+    <section className="orch-actions-panel" aria-labelledby="orch-actions-title">
+      <div className="orch-actions-heading">
+        <div><span className="orch-section-kicker">Acciones ejecutables</span><h3 id="orch-actions-title">Qué hará el plan al aprobarlo</h3><p>Todas quedan protegidas por aprobación. El orden importa: una landing previa permite resolver la campaña de Ads o social.</p></div>
+        <button type="button" className="orch-button orch-button--ghost" onClick={onSuggest}><RiLightbulbLine /> Sugerir según objetivo</button>
+      </div>
+      {selection.length === 0 ? <p className="orch-actions-empty">Aún no hay acciones. Usa la sugerencia o añade una del catálogo.</p> : null}
+      <ol className="orch-action-list">
+        {selection.map((item, index) => {
+          const entry = catalog.find(candidate => candidate.kind === item.kind)
+          return (
+            <li key={item.key} className={`orch-action-card${errors[item.key] ? ' has-error' : ''}`}>
+              <header>
+                <b>{index + 1}</b>
+                <div><strong>{entry?.title || item.kind}</strong><small>{ACTION_EFFECT_LABELS[entry?.effects] || ''}{entry?.compensation === 'manual_review' ? ' · rollback con revisión manual' : ''}</small></div>
+                <div className="orch-action-controls">
+                  <button type="button" aria-label="Subir acción" disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
+                  <button type="button" aria-label="Bajar acción" disabled={index === selection.length - 1} onClick={() => move(index, 1)}>↓</button>
+                  <button type="button" aria-label={`Quitar ${entry?.title || item.kind}`} onClick={() => onChange(selection.filter(other => other.key !== item.key))}><RiDeleteBinLine /></button>
+                </div>
+              </header>
+              {entry?.fields?.length ? <div className="orch-action-fields">{entry.fields.map(field => <ActionFieldInput key={field.key} field={field} value={item.values?.[field.key]} idPrefix={item.key} onChange={value => updateValue(item.key, field.key, value)} />)}</div> : null}
+              {errors[item.key] ? <FieldError error={errors[item.key]} /> : null}
+            </li>
+          )
+        })}
+      </ol>
+      <div className="orch-action-add">
+        <label className="orch-field"><span>Añadir acción</span>
+          <select value={kindToAdd} onChange={event => setKindToAdd(event.target.value)}>
+            <option value="">Selecciona una acción…</option>
+            {catalog.map(entry => <option key={entry.kind} value={entry.kind}>{entry.title}{entry.effects === 'external' ? ' (externa)' : ''}</option>)}
+          </select>
+        </label>
+        <button type="button" className="orch-button orch-button--ghost" disabled={!kindToAdd || selection.length >= 32} onClick={() => { onChange([...selection, createActionSelection(kindToAdd)]); setKindToAdd('') }}><RiAddLine /> Añadir</button>
+      </div>
+      {generalError ? <FieldError error={generalError} /> : null}
+    </section>
+  )
+}
+
+function RecentPlans({ state, items, total, hasMore, error, activeId, busyId, onOpen, onMore, onRetry }) {
+  return (
+    <section className="orch-rail-panel orch-recent-panel" aria-labelledby="orch-recent-title">
+      <div className="orch-rail-heading"><div><span className="orch-section-kicker">Historial persistente</span><h2 id="orch-recent-title">Planes recientes</h2></div><RiHistoryLine /></div>
+      {state === 'loading' && !items.length ? <p className="orch-rail-intro" role="status"><RiLoader4Line className="orch-spin" /> Cargando planes…</p> : null}
+      {state === 'error' ? <div className="orch-recent-error" role="alert"><span>{error}</span><button type="button" className="orch-button orch-button--ghost" onClick={onRetry}><RiRefreshLine /> Reintentar</button></div> : null}
+      {state === 'ready' && !items.length ? <p className="orch-rail-intro">Aún no hay planes live guardados en tu organización.</p> : null}
+      {items.length ? (
+        <ul className="orch-recent-list">
+          {items.map(item => {
+            const meta = getPlanStatusMeta(item.status)
+            return (
+              <li key={item.id} className={item.id === activeId ? 'is-active' : ''}>
+                <button type="button" onClick={() => onOpen(item.id)} disabled={Boolean(busyId)} aria-current={item.id === activeId ? 'true' : undefined}>
+                  <strong>{item.objective || 'Plan sin objetivo'}</strong>
+                  <small>{meta.label} · {item.actionCount} acciones · {formatPlanDate(item.createdAt)}</small>
+                  {busyId === item.id ? <RiLoader4Line className="orch-spin" /> : <RiArrowRightLine />}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+      {items.length ? <p className="orch-rail-intro">{items.length} de {total} planes</p> : null}
+      {hasMore ? <button type="button" className="orch-button orch-button--ghost" onClick={onMore} disabled={state === 'loading'}>{state === 'loading' ? 'Cargando…' : 'Ver más'}</button> : null}
+    </section>
+  )
+}
+
+function formatPlanDate(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat(localeCode(getLocale()), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date)
+}
+
 export default function OrchestrationPage({ sectionNavigation = null }) {
   const { locale } = useI18n()
   const [form, setForm] = useState(EMPTY_ORCHESTRATION_FORM)
@@ -257,6 +398,57 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
   const [busyStep, setBusyStep] = useState('')
   const [expandedPhases, setExpandedPhases] = useState(() => new Set(PHASE_KEYS))
   const objectiveRef = useRef(null)
+  const [catalog, setCatalog] = useState([])
+  const [catalogState, setCatalogState] = useState('loading')
+  const [catalogError, setCatalogError] = useState('')
+  const [catalogReload, setCatalogReload] = useState(0)
+  const [selection, setSelection] = useState([])
+  const [selectionTouched, setSelectionTouched] = useState(false)
+  const [actionErrors, setActionErrors] = useState({})
+  const [actionGeneralError, setActionGeneralError] = useState('')
+  const [recent, setRecent] = useState({ state: 'loading', items: [], total: 0, hasMore: false, error: '' })
+  const [openingPlanId, setOpeningPlanId] = useState('')
+
+  useEffect(() => {
+    let active = true
+    setCatalogState('loading')
+    fetchOrchestrationActionCatalog()
+      .then(result => { if (!active) return; setCatalog(result.actions); setCatalogState('ready') })
+      .catch(error => { if (!active) return; setCatalogError(error?.message || 'Error desconocido.'); setCatalogState('error') })
+    return () => { active = false }
+  }, [catalogReload])
+
+  const loadRecentPlans = useCallback(async ({ append = false, offset = 0 } = {}) => {
+    setRecent(current => ({ ...current, state: 'loading', error: '' }))
+    try {
+      const result = await listOrchestrationPlans({ limit: RECENT_PLANS_PAGE, offset })
+      setRecent(current => ({ state: 'ready', error: '', total: result.total, hasMore: result.hasMore, items: append ? [...current.items, ...result.items.filter(item => !current.items.some(existing => existing.id === item.id))] : result.items }))
+    } catch (error) {
+      setRecent(current => ({ ...current, state: 'error', error: error?.message || 'No se pudieron cargar los planes.' }))
+    }
+  }, [])
+
+  useEffect(() => { void loadRecentPlans() }, [loadRecentPlans])
+
+  // Mientras el usuario no toque la selección, se mantiene la propuesta por
+  // defecto alineada con el objetivo, el presupuesto y el catálogo cargado.
+  useEffect(() => {
+    if (catalogState !== 'ready' || selectionTouched) return
+    setSelection(suggestOrchestrationActions(form, catalog))
+  }, [catalogState, catalog, form, selectionTouched])
+
+  function changeSelection(next) {
+    setSelectionTouched(true)
+    setSelection(next)
+    setActionErrors({})
+    setActionGeneralError('')
+  }
+
+  function applySuggestion() {
+    setSelectionTouched(false)
+    setActionErrors({})
+    setActionGeneralError('')
+  }
 
   const stats = useMemo(() => getPlanStats(plan), [plan])
   const livePlan = isLivePlan(plan)
@@ -291,22 +483,41 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
       return
     }
 
+    let actions
+    if (executionMode === 'live') {
+      if (catalogState !== 'ready') {
+        setGenerationError('El catálogo de acciones no está disponible; reinténtalo antes de crear un plan live.')
+        return
+      }
+      const { errors: selectionErrors, general } = validateActionSelection(selection, catalog, { budget: form.budget })
+      setActionErrors(selectionErrors)
+      setActionGeneralError(general)
+      if (Object.keys(selectionErrors).length || general) {
+        setGenerationError('Revisa las acciones ejecutables marcadas antes de crear el plan live.')
+        return
+      }
+      actions = buildActionsPayload(selection, catalog)
+    }
+
     setFieldErrors({})
     setGenerationError('')
     setConnectionNotice('')
     setToast('')
     setIsLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 180))
-      const result = await requestOrchestrationPlan(form, { mode: executionMode })
+      const result = await requestOrchestrationPlan(form, { mode: executionMode, actions })
       if (!result?.plan) throw new Error('No se recibió un plan válido.')
       setPlan(result.plan)
       setExpandedPhases(new Set(PHASE_KEYS))
-      if (result.fallback) setConnectionNotice('No hay un servicio de orquestación conectado todavía. Hemos cargado un plan demo explicable para que puedas probar el flujo.')
-      if (result.source === 'live') setToast('Plan persistente creado desde la API.')
+      if (result.source === 'live') {
+        setToast('Plan persistente creado desde la API.')
+        void loadRecentPlans()
+      }
       if (result.source === 'demo') setConnectionNotice('Modo demo explícito: este plan no escribe en la API ni en ningún proveedor.')
     } catch (error) {
-      setGenerationError(error?.message || 'No pudimos generar el plan. Puedes reintentarlo sin perder el objetivo.')
+      // 422: el backend explica qué referencia o límite falta (EXECUTABLE_ACTIONS_REQUIRED, ACTION_REFERENCE_REQUIRED…).
+      const message = error?.message || 'No pudimos generar el plan. Puedes reintentarlo sin perder el objetivo.'
+      setGenerationError(error?.status === 422 ? `El backend rechazó las acciones (${error.code}): ${message}` : message)
     } finally {
       setIsLoading(false)
     }
@@ -323,7 +534,28 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
     setForm(example)
     setFieldErrors({})
     setGenerationError('')
+    setSelectionTouched(false)
     requestAnimationFrame(() => objectiveRef.current?.focus())
+  }
+
+  async function openRecentPlan(planId) {
+    if (!planId || openingPlanId) return
+    setOpeningPlanId(planId)
+    setGenerationError('')
+    try {
+      const result = await getOrchestrationPlan(planId)
+      setPlan(result.plan)
+      setExecutionMode('live')
+      setForm({ ...EMPTY_ORCHESTRATION_FORM, ...result.plan.input, budget: result.plan.input.budget == null ? '' : String(result.plan.input.budget) })
+      if (catalogState === 'ready') { setSelection(selectionFromPlanActions(result.plan.actions, catalog)); setSelectionTouched(true) }
+      setExpandedPhases(new Set(PHASE_KEYS))
+      setConnectionNotice('')
+      setToast('Plan persistente reabierto desde el historial.')
+    } catch (error) {
+      setGenerationError(error?.message || 'No se pudo abrir el plan seleccionado.')
+    } finally {
+      setOpeningPlanId('')
+    }
   }
 
   function useDemoExample() {
@@ -361,6 +593,7 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
             : await executeOrchestrationPlan(plan.id)
       if (!result?.plan) throw new Error('La API no devolvió el plan actualizado.')
       setPlan(result.plan)
+      void loadRecentPlans()
       setToast(operation === 'approve' ? 'Plan aprobado. El worker ya puede ejecutarlo.' : operation === 'reject' ? 'Plan rechazado y conservado en auditoría.' : operation === 'rollback' ? 'Rollback solicitado; el worker está compensando los efectos confirmados.' : 'Ejecución solicitada; el worker actualizará el ledger persistente.')
     } catch (error) {
       setGenerationError(error?.message || 'No se pudo actualizar el plan persistente.')
@@ -433,6 +666,9 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
   function clearPlan() {
     setPlan(null)
     setForm(EMPTY_ORCHESTRATION_FORM)
+    setSelectionTouched(false)
+    setActionErrors({})
+    setActionGeneralError('')
     setFieldErrors({})
     setGenerationError('')
     setConnectionNotice('')
@@ -458,6 +694,13 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
             <label className="orch-field"><span>Ubicación o mercado <em>Obligatorio</em></span><div className="orch-input-with-icon"><RiMapPin2Line aria-hidden="true" /><input value={form.location} onChange={event => updateField('location', event.target.value)} placeholder="Ej. Valencia" aria-invalid={Boolean(fieldErrors.location)} /> </div><FieldError error={fieldErrors.location} /></label>
             <label className="orch-field"><span>Presupuesto <small>Opcional</small></span><div className="orch-input-with-icon"><RiMoneyEuroCircleLine aria-hidden="true" /><input type="number" min="0" step="50" value={form.budget} onChange={event => updateField('budget', event.target.value)} placeholder="Ej. 1800" /></div></label>
             <label className="orch-field orch-field--wide"><span>Resultado deseado <em>Obligatorio</em></span><textarea value={form.desiredResult} onChange={event => updateField('desiredResult', event.target.value)} placeholder="Ej. 20 pacientes cualificados y 12 reuniones agendadas" rows="2" aria-invalid={Boolean(fieldErrors.desiredResult)} /><FieldError error={fieldErrors.desiredResult} /></label>
+            {executionMode === 'live' ? (
+              <div className="orch-field--wide">
+                <ActionSelector catalog={catalog} catalogState={catalogState} catalogError={catalogError} onRetryCatalog={() => setCatalogReload(value => value + 1)} selection={selection} onChange={changeSelection} errors={actionErrors} generalError={actionGeneralError} onSuggest={applySuggestion} />
+              </div>
+            ) : (
+              <p className="orch-field--wide orch-demo-note"><RiInformationLine aria-hidden="true" /> Modo demo: simulación local sin acciones ejecutables. Nada se guarda ni se envía a proveedores.</p>
+            )}
             <div className="orch-form-footer">
               <div className="orch-form-helper"><RiShieldCheckLine aria-hidden="true" /><span>{isDirty ? 'Has cambiado el objetivo. Genera de nuevo para aplicar los cambios.' : 'Los pasos sensibles quedarán bloqueados hasta que alguien los apruebe.'}</span></div>
               <div className="orch-form-actions">
@@ -467,6 +710,8 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
             </div>
           </form>
         </section>
+
+        <RecentPlans {...recent} activeId={livePlan ? plan?.id : null} busyId={openingPlanId} onOpen={openRecentPlan} onMore={() => loadRecentPlans({ append: true, offset: recent.items.length })} onRetry={() => loadRecentPlans()} />
 
         {generationError ? <div className="orch-alert orch-alert--error" role="alert"><RiAlertLine /><div><strong>No pudimos completar esta generación</strong><span>{generationError}</span></div><button type="button" onClick={() => generatePlan()} disabled={isLoading}><RiRefreshLine /> Reintentar</button></div> : null}
 
@@ -488,7 +733,7 @@ export default function OrchestrationPage({ sectionNavigation = null }) {
               </div>
             </div>
 
-            {connectionNotice ? <div className="orch-alert orch-alert--warning" role="status"><RiInformationLine /><div><strong>Orquestación asistida en modo demo</strong><span>{connectionNotice}</span></div><button type="button" onClick={() => generatePlan()} disabled={isLoading}><RiRefreshLine /> Reintentar conexión</button></div> : null}
+            {connectionNotice ? <div className="orch-alert orch-alert--warning" role="status"><RiInformationLine /><div><strong>Simulación: modo demo explícito</strong><span>{connectionNotice}</span></div></div> : null}
 
             <div className="orch-plan-toolbar"><div><span className="orch-toolbar-label">Resumen de control</span><span className="orch-toolbar-copy"><b>{stats.lowRisk}</b> pasos de bajo riesgo · <b>{stats.highRisk}</b> acciones sensibles protegidas</span></div><div className="orch-toolbar-actions">{livePlan && plan.status === 'proposal' ? <button type="button" className="orch-button orch-button--approve" onClick={() => mutateLivePlan('reject')} disabled={Boolean(busyStep)}><RiLockLine /> Rechazar</button> : null}{livePlan && ['executed', 'paused', 'failed'].includes(plan.status) ? <button type="button" className="orch-button orch-button--ghost" onClick={() => mutateLivePlan('rollback')} disabled={Boolean(busyStep)}><RiRefreshLine /> Rollback</button> : null}<button type="button" className={`orch-button ${livePlan ? 'orch-button--primary' : 'orch-button--demo'}`} onClick={executeLowRisk} disabled={Boolean(busyStep) || (!livePlan && stats.lowRisk === stats.executed)}><RiPlayLine /> {busyStep ? 'Procesando…' : livePlan ? 'Ejecutar plan' : 'Ejecutar pasos demo'}</button></div></div>
 
