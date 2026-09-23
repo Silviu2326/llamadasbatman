@@ -72,5 +72,5 @@ test('prisma.ts selecciona TEST_DATABASE_URL explícitamente en modo test', () =
   const source = fs.readFileSync(path.join(backendRoot, 'src', 'lib', 'prisma.ts'), 'utf8')
   assert.match(source, /process\.env\.TEST_DATABASE_URL/)
   assert.match(source, /NODE_ENV === 'test'/)
-  assert.match(source, /datasources:\s*\{\s*db:\s*\{\s*url: databaseUrl/s)
+  assert.match(source, /datasources:\s*\{\s*db:\s*\{\s*url: (?:withColdStartTolerance\()?databaseUrl/s)
 })
