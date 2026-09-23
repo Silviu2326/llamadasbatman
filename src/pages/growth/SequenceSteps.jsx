@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { RiAddLine, RiDeleteBinLine, RiPlayCircleLine, RiTimeLine, RiStopCircleLine } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
 
 /**
  * El motor de secuencias (backend/src/services/salesSequence.service.ts) ya
@@ -64,13 +65,23 @@ export function SequenceStepsEditor({ steps, onChange }) {
 }
 
 /** Matricula leads y gobierna la secuencia contra las rutas que ya existían. */
-export function SequenceEnrollPanel({ program }) {
+// Estado del programa que deja cada acción (ver salesSequence.service.ts).
+const ACTION_RESULT = {
+  pause: { status: 'paused', success: 'Secuencia pausada.' },
+  resume: { status: 'active', success: 'Secuencia reanudada.' },
+  stop: { status: 'paused', success: 'Secuencia detenida: las matrículas en curso se han cerrado.' },
+  enroll: { status: null, success: 'Leads matriculados.' },
+}
+
+export function SequenceEnrollPanel({ program, onStatusChange }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [selected, setSelected] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
+  const [success, setSuccess] = useState('')
+  const [confirmStop, setConfirmStop] = useState(false)
 
   const loadEnrollments = () => apiFetch(`/api/growth-programs/${program.id}/enrollments`)
     .then(response => (response.ok ? response.json() : []))
@@ -93,6 +104,7 @@ export function SequenceEnrollPanel({ program }) {
   async function action(path, body) {
     setBusy(true)
     setMessage(null)
+    setSuccess('')
     try {
       const response = await apiFetch(`/api/growth-programs/${program.id}/${path}`, {
         method: 'POST',
@@ -107,6 +119,14 @@ export function SequenceEnrollPanel({ program }) {
       setQuery('')
       await loadEnrollments()
       setMessage(null)
+      // Matricular sobre un borrador o pausada la activa en el backend; el
+      // resto de acciones fijan el estado. La fila padre debe reflejarlo.
+      const result = ACTION_RESULT[path]
+      const nextStatus = result?.status || (path === 'enroll' && ['draft', 'paused'].includes(program.status || 'draft') ? 'active' : null)
+      if (nextStatus && onStatusChange) onStatusChange(program.id, nextStatus)
+      if (path === 'enroll' && payload) {
+        setSuccess(`Matriculados: ${payload.created ?? 0}${payload.alreadyEnrolled ? ` · ya estaban: ${payload.alreadyEnrolled}` : ''}${payload.blocked ? ` · bloqueados por consentimiento o teléfono: ${payload.blocked}` : ''}.`)
+      } else if (result) setSuccess(result.success)
     } catch {
       setMessage('No se pudo conectar con el servidor.')
     } finally {
@@ -119,7 +139,7 @@ export function SequenceEnrollPanel({ program }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         <button type="button" className="growth-small-button" disabled={busy} onClick={() => action('pause')}><RiTimeLine /> <span>Pausar</span></button>
         <button type="button" className="growth-small-button" disabled={busy} onClick={() => action('resume')}><RiPlayCircleLine /> <span>Reanudar</span></button>
-        <button type="button" className="growth-small-button" disabled={busy} onClick={() => action('stop', { reason: 'manual' })}><RiStopCircleLine /> <span>Detener</span></button>
+        <button type="button" className="growth-small-button" disabled={busy} onClick={() => setConfirmStop(true)}><RiStopCircleLine /> <span>Detener</span></button>
         <span>{enrollments.length} matriculados</span>
       </div>
 
@@ -148,6 +168,14 @@ export function SequenceEnrollPanel({ program }) {
         </button>
       )}
       {message && <p className="growth-modal-error" role="alert" style={{ marginTop: 8 }}>{message}</p>}
+      {success && !message && <p role="status" style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--success-soft)' }}>{success}</p>}
+      {confirmStop && <ConfirmDialog
+        title="¿Detener la secuencia?"
+        message="Se cierran todas las matrículas activas, pausadas o bloqueadas y sus pasos pendientes no se ejecutarán. No se puede deshacer; podrás matricular leads de nuevo después."
+        confirmText="Detener secuencia"
+        onConfirm={() => action('stop', { reason: 'manual' })}
+        onClose={() => setConfirmStop(false)}
+      />}
     </div>
   )
 }

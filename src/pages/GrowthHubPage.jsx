@@ -6,14 +6,12 @@ import {
   RiArrowRightLine,
   RiCheckboxCircleLine,
   RiCloseLine,
+  RiArchiveLine,
   RiCustomerService2Line,
-  RiFileList3Line,
   RiFilter3Line,
   RiFlashlightLine,
   RiFlowChart,
-  RiGiftLine,
   RiHeartPulseLine,
-  RiInformationLine,
   RiMailSendLine,
   RiMegaphoneLine,
   RiMore2Fill,
@@ -21,11 +19,25 @@ import {
   RiRefreshLine,
   RiSearchLine,
   RiSendPlaneLine,
-  RiSurveyLine,
   RiTimeLine,
   RiUserAddLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
+import {
+  PROGRAM_NAME_MAX_LENGTH,
+  TYPE_OPTIONS,
+  areaFromType,
+  canToggleProgram,
+  countByArea,
+  errorMessageFrom,
+  filterPrograms,
+  filtersRevealing,
+  normalizePrograms,
+  readableType,
+  replaceProgram,
+  validateProgramName,
+} from '../lib/growthPrograms'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { formatLocaleDate, localeCode, useI18n } from '../i18n'
 import PageLoadingState from '../components/ui/PageLoadingState'
 import ProductPageHeader from '../components/ui/ProductPageHeader'
@@ -51,19 +63,6 @@ const STATUS_META = {
   completed: { label: 'Completado', tone: 'completed' },
 }
 
-const TYPE_OPTIONS = [
-  { value: 'lead_magnet', label: 'Lead magnet', area: 'acquisition' },
-  { value: 'popup', label: 'Popup de captación', area: 'acquisition' },
-  { value: 'webinar', label: 'Webinar', area: 'acquisition' },
-  { value: 'newsletter', label: 'Newsletter', area: 'newsletter' },
-  { value: 'automation_journey', label: 'Journey automatizado', area: 'automation' },
-  { value: 'sales_sequence', label: 'Secuencia comercial', area: 'sales' },
-  { value: 'proposal', label: 'Propuesta comercial', area: 'sales' },
-  { value: 'nps', label: 'Pulso NPS', area: 'retention' },
-  { value: 'referral', label: 'Programa de referidos', area: 'retention' },
-  { value: 'customer_health', label: 'Customer health', area: 'retention' },
-]
-
 const SUGGESTIONS = [
   { type: 'lead_magnet', name: 'Guía experta con formulario de descarga', description: 'Objetivo: convertir tráfico con una propuesta de valor tangible. Landing, formulario y seguimiento de descarga.' },
   { type: 'newsletter', name: 'Newsletter editorial mensual', description: 'Objetivo: mantener relación con los contactos que aún no están listos. Calendario, segmentos y frecuencia elegida por cada contacto.' },
@@ -78,19 +77,6 @@ const EMPTY_FORM = {
   description: '',
   status: 'draft',
   steps: [],
-}
-
-function normalizePrograms(payload) {
-  const list = Array.isArray(payload) ? payload : payload?.programs || payload?.data || []
-  return Array.isArray(list) ? list.map(program => ({ ...program, area: areaFromType(program.type) })) : []
-}
-
-function areaFromType(type) {
-  return TYPE_OPTIONS.find(option => option.value === type)?.area || 'automation'
-}
-
-function readableType(type) {
-  return TYPE_OPTIONS.find(option => option.value === type)?.label || String(type || 'Programa').replaceAll('_', ' ')
 }
 
 function displayDate(value, locale = 'es') {
@@ -114,11 +100,11 @@ function ProgramStatus({ program }) {
   return <span className={`growth-status ${status.tone}`}><i />{status.label}</span>
 }
 
-function ProgramRow({ program, onToggle, onEdit, busyId }) {
+function ProgramRow({ program, onToggle, onEdit, onArchive, onStatusChange, busyId }) {
   const { locale } = useI18n()
   const area = AREA_META[program.area] || AREA_META.automation
   const isBusy = busyId === program.id
-  const canToggle = ['draft', 'active', 'paused'].includes(program.status || 'draft')
+  const canToggle = canToggleProgram(program)
 
   return <article className="growth-program-row">
     <AreaIcon area={program.area} />
@@ -133,9 +119,10 @@ function ProgramRow({ program, onToggle, onEdit, busyId }) {
         {isBusy ? <RiRefreshLine className="growth-spin" /> : program.status === 'active' ? <RiTimeLine /> : <RiPlayCircleLine />}
         <span>{isBusy ? 'Guardando' : program.status === 'active' ? 'Pausar' : 'Activar'}</span>
       </button> : null}
-      <button type="button" className="growth-icon-button" onClick={() => onEdit(program)} aria-label={`Editar ${program.name}`}><RiMore2Fill /></button>
+      <button type="button" className="growth-icon-button" onClick={() => onArchive(program)} disabled={isBusy} aria-label={`Archivar ${program.name}`} title="Archivar"><RiArchiveLine /></button>
+      <button type="button" className="growth-icon-button" onClick={() => onEdit(program)} aria-label={`Editar ${program.name}`} title="Editar"><RiMore2Fill /></button>
     </div>
-    {program.type === 'sales_sequence' && <SequenceEnrollPanel program={program} />}
+    {program.type === 'sales_sequence' && <SequenceEnrollPanel program={program} onStatusChange={onStatusChange} />}
   </article>
 }
 
@@ -158,6 +145,7 @@ function ProgramModal({ program, initial, onClose, onSubmit, saving, requestErro
     steps: program?.config?.steps ?? initial?.steps ?? [],
   }))
   const isSequence = form.type === 'sales_sequence'
+  const [nameError, setNameError] = useState('')
 
   useEffect(() => {
     function closeOnEscape(event) {
@@ -169,6 +157,7 @@ function ProgramModal({ program, initial, onClose, onSubmit, saving, requestErro
 
   function update(field, value) {
     setForm(current => ({ ...current, [field]: value }))
+    if (field === 'name' && nameError) setNameError('')
   }
 
   function selectArea(area) {
@@ -178,7 +167,9 @@ function ProgramModal({ program, initial, onClose, onSubmit, saving, requestErro
 
   function submit(event) {
     event.preventDefault()
-    if (!String(form.name || '').trim()) return
+    // Misma regla que el backend (mínimo 2 caracteres): avisar aquí evita un 400 opaco.
+    const invalidName = validateProgramName(form.name)
+    if (invalidName) { setNameError(invalidName); return }
     const payload = {
       // `description` es opcional en el modelo: al editar un programa sin
       // objetivo llega como null y `.trim()` congelaba el modal sin guardar.
@@ -199,7 +190,7 @@ function ProgramModal({ program, initial, onClose, onSubmit, saving, requestErro
         <button type="button" className="growth-icon-button" onClick={onClose} disabled={saving} aria-label="Cerrar"><RiCloseLine /></button>
       </header>
       <div className="growth-modal-body">
-        <label className="growth-field wide"><span>Nombre</span><input autoFocus value={form.name} maxLength="160" onChange={event => update('name', event.target.value)} placeholder="Ej. Secuencia de propuesta abierta" required /></label>
+        <label className="growth-field wide"><span>Nombre</span><input autoFocus value={form.name} maxLength={PROGRAM_NAME_MAX_LENGTH} onChange={event => update('name', event.target.value)} placeholder="Ej. Secuencia de propuesta abierta" required aria-invalid={Boolean(nameError)} aria-describedby={nameError ? 'growth-program-name-error' : undefined} />{nameError ? <small id="growth-program-name-error" className="growth-field-error" role="alert">{nameError}</small> : null}</label>
         <label className="growth-field"><span>Área {isEditing ? '(no editable)' : ''}</span><select value={areaFromType(form.type)} onChange={event => selectArea(event.target.value)} disabled={isEditing}>{Object.entries(AREA_META).map(([value, meta]) => <option value={value} key={value}>{meta.label}</option>)}</select></label>
         <label className="growth-field"><span>Formato {isEditing ? '(no editable)' : ''}</span><select value={form.type} onChange={event => update('type', event.target.value)} disabled={isEditing}>{TYPE_OPTIONS.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
         <label className="growth-field wide"><span>Objetivo y notas de configuración</span><textarea value={form.description || ''} onChange={event => update('description', event.target.value)} rows="4" maxLength="1600" placeholder="Objetivo, audiencia, disparador, oferta o regla comercial…" /></label>
@@ -219,13 +210,16 @@ export default function GrowthHubPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saveError, setSaveError] = useState('')
-  const [activeArea, setActiveArea] = useState('acquisition')
+  // Arranca en «Todo»: empezar en un área ocultaba los programas de las demás.
+  const [activeArea, setActiveArea] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
   const [query, setQuery] = useState('')
   const [modal, setModal] = useState(null)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const [notice, setNotice] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [archiveTarget, setArchiveTarget] = useState(null)
   const deferredQuery = useDeferredValue(query)
 
   async function loadPrograms() {
@@ -234,7 +228,7 @@ export default function GrowthHubPage() {
     try {
       const response = await apiFetch('/api/growth-programs')
       const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(payload?.error || 'No pudimos cargar los programas de crecimiento.')
+      if (!response.ok) throw new Error(errorMessageFrom(payload, 'No pudimos cargar los programas de crecimiento.'))
       setPrograms(normalizePrograms(payload))
     } catch (error) {
       setPrograms([])
@@ -246,19 +240,13 @@ export default function GrowthHubPage() {
 
   useEffect(() => { loadPrograms() }, [])
 
-  const filteredPrograms = useMemo(() => {
-    const term = deferredQuery.trim().toLocaleLowerCase(localeCode(locale))
-    return programs.filter(program => {
-      const status = program.status || 'draft'
-      const matchingArea = activeArea === 'all' || program.area === activeArea
-      const matchingStatus = activeStatus === 'all' || status === activeStatus
-      const matchingSearch = !term || [program.name, program.description, program.type].some(value => String(value || '').toLocaleLowerCase(localeCode(locale)).includes(term))
-      return matchingArea && matchingStatus && matchingSearch
-    })
-  }, [activeArea, activeStatus, deferredQuery, programs, locale])
+  const filteredPrograms = useMemo(
+    () => filterPrograms(programs, { area: activeArea, status: activeStatus, query: deferredQuery, localeTag: localeCode(locale) }),
+    [activeArea, activeStatus, deferredQuery, programs, locale],
+  )
 
   const activeCount = useMemo(() => programs.filter(program => program.status === 'active').length, [programs])
-  const areaCounts = useMemo(() => programs.reduce((counts, program) => ({ ...counts, [program.area]: (counts[program.area] || 0) + 1 }), {}), [programs])
+  const areaCounts = useMemo(() => countByArea(programs), [programs])
 
   function openCreate(initial = null) {
     setSaveError('')
@@ -280,12 +268,22 @@ export default function GrowthHubPage() {
         body: JSON.stringify(input),
       })
       const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(payload?.error || 'No pudimos guardar el programa.')
+      if (!response.ok) throw new Error(errorMessageFrom(payload, 'No pudimos guardar el programa.'))
       const saved = payload?.program || payload?.data || payload
       const normalized = normalizePrograms([saved])[0]
-      setPrograms(current => editing ? current.map(item => item.id === modal.program.id ? { ...item, ...normalized } : item) : [normalized, ...current])
+      if (editing) {
+        setPrograms(current => replaceProgram(current, modal.program.id, normalized))
+      } else if (normalized) {
+        setPrograms(current => [normalized, ...current])
+        // Un programa recién creado siempre debe verse: si los filtros lo
+        // ocultarían (otra área, otro estado, búsqueda), se restablecen.
+        const next = filtersRevealing(normalized, { area: activeArea, status: activeStatus, query, localeTag: localeCode(locale) })
+        setActiveArea(next.area)
+        setActiveStatus(next.status)
+        setQuery(next.query)
+      }
       setModal(null)
-      setNotice(editing ? 'Programa actualizado.' : 'Programa creado como borrador.')
+      setNotice(editing ? 'Programa actualizado.' : normalized?.status === 'active' ? 'Programa creado y activo.' : 'Programa creado.')
     } catch (error) {
       setSaveError(error.message || 'No pudimos guardar el programa.')
     } finally {
@@ -298,16 +296,44 @@ export default function GrowthHubPage() {
     const nextStatus = isActive ? 'paused' : 'active'
     setBusyId(program.id)
     setNotice('')
+    setActionError('')
+    // Las secuencias comerciales usan /pause y /resume: además del programa,
+    // pausan o reanudan sus matrículas. Un PUT de estado las dejaba desalineadas.
+    const isSequence = program.type === 'sales_sequence'
+    const request = isSequence
+      ? apiFetch(`/api/growth-programs/${program.id}/${isActive ? 'pause' : 'resume'}`, { method: 'POST' })
+      : apiFetch(`/api/growth-programs/${program.id}`, { method: 'PUT', body: JSON.stringify({ status: nextStatus }) })
     try {
-      const response = await apiFetch(`/api/growth-programs/${program.id}`, { method: 'PUT', body: JSON.stringify({ status: nextStatus }) })
+      const response = await request
       const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(payload?.error || 'No pudimos actualizar el estado.')
-      const saved = payload?.program || payload?.data || payload
-      const normalized = normalizePrograms([saved])[0]
-      setPrograms(current => current.map(item => item.id === program.id ? { ...item, ...normalized, status: normalized?.status || nextStatus } : item))
+      if (!response.ok) throw new Error(errorMessageFrom(payload, 'No pudimos actualizar el estado.'))
+      const saved = isSequence ? { status: payload?.status || nextStatus } : payload?.program || payload?.data || payload
+      setPrograms(current => current.map(item => item.id === program.id ? { ...item, ...saved, area: item.area, status: saved?.status || nextStatus } : item))
       setNotice(nextStatus === 'active' ? 'Programa activado.' : 'Programa pausado.')
     } catch (error) {
-      setLoadError(error.message || 'No pudimos actualizar el estado del programa.')
+      // Un fallo puntual no debe sustituir la lista: se muestra como aviso.
+      setActionError(error.message || 'No pudimos actualizar el estado del programa.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function updateProgramStatus(programId, status) {
+    setPrograms(current => current.map(item => item.id === programId ? { ...item, status } : item))
+  }
+
+  async function archiveProgram(program) {
+    setBusyId(program.id)
+    setNotice('')
+    setActionError('')
+    try {
+      const response = await apiFetch(`/api/growth-programs/${program.id}/archive`, { method: 'POST' })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(errorMessageFrom(payload, 'No pudimos archivar el programa.'))
+      setPrograms(current => current.filter(item => item.id !== program.id))
+      setNotice(`«${program.name || 'Programa'}» archivado.`)
+    } catch (error) {
+      setActionError(error.message || 'No pudimos archivar el programa.')
     } finally {
       setBusyId(null)
     }
@@ -332,9 +358,10 @@ export default function GrowthHubPage() {
     <section className="growth-workspace">
       <div className="growth-list-panel">
         <div className="growth-list-head"><div><span>Programas</span><h2>Iniciativas guardadas</h2></div></div>
+        {actionError ? <p className="growth-modal-error growth-inline-error" role="alert"><RiAlertLine /> <span>{actionError}</span><button type="button" className="growth-icon-button" onClick={() => setActionError('')} aria-label="Cerrar aviso"><RiCloseLine /></button></p> : null}
         <div className="growth-toolbar"><label className="growth-search"><RiSearchLine /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar por nombre, objetivo o formato" aria-label="Buscar programas" /></label><label className="growth-status-filter"><RiFilter3Line /><span className="sr-only">Filtrar por estado</span><select value={activeStatus} onChange={event => setActiveStatus(event.target.value)}><option value="all">Todos los estados</option><option value="active">Activos</option><option value="draft">Borradores</option><option value="paused">Pausados</option><option value="completed">Completados</option></select></label></div>
 
-        {loading ? <div className="growth-state loading"><span /><p>Preparando tu mapa de crecimiento…</p></div> : loadError ? <div className="growth-state error" role="alert"><RiAlertLine /><h3>No pudimos cargar Growth Hub</h3><p>{loadError}</p><button type="button" className="growth-button subtle" onClick={loadPrograms}><RiRefreshLine /> Reintentar</button></div> : programs.length === 0 ? <div className="growth-empty"><span className="growth-empty-icon"><RiFlashlightLine /></span><div><h3>Elige un movimiento para empezar</h3><p>No hay programas guardados todavía. Estas sugerencias no son datos demo: son puntos de partida que puedes configurar para tu organización.</p></div><div className="growth-suggestions">{SUGGESTIONS.map(item => <SuggestedProgram key={item.type} item={item} onUse={openCreate} />)}</div></div> : filteredPrograms.length ? <div className="growth-program-list">{filteredPrograms.map(program => <ProgramRow key={program.id} program={program} onToggle={toggleProgram} onEdit={openEdit} busyId={busyId} />)}</div> : <div className="growth-state filtered"><RiSearchLine /><h3>No hay programas con estos filtros</h3><p>Prueba con otro término o restablece los filtros para volver a ver todas las iniciativas.</p><button type="button" className="growth-button subtle" onClick={() => { setQuery(''); setActiveStatus('all'); setActiveArea('all') }}>Limpiar filtros</button></div>}
+        {loading ? <div className="growth-state loading"><span /><p>Preparando tu mapa de crecimiento…</p></div> : loadError ? <div className="growth-state error" role="alert"><RiAlertLine /><h3>No pudimos cargar Growth Hub</h3><p>{loadError}</p><button type="button" className="growth-button subtle" onClick={loadPrograms}><RiRefreshLine /> Reintentar</button></div> : programs.length === 0 ? <div className="growth-empty"><span className="growth-empty-icon"><RiFlashlightLine /></span><div><h3>Elige un movimiento para empezar</h3><p>No hay programas guardados todavía. Estas sugerencias no son datos demo: son puntos de partida que puedes configurar para tu organización.</p></div><div className="growth-suggestions">{SUGGESTIONS.map(item => <SuggestedProgram key={item.type} item={item} onUse={openCreate} />)}</div></div> : filteredPrograms.length ? <div className="growth-program-list">{filteredPrograms.map(program => <ProgramRow key={program.id} program={program} onToggle={toggleProgram} onEdit={openEdit} onArchive={setArchiveTarget} onStatusChange={updateProgramStatus} busyId={busyId} />)}</div> : <div className="growth-state filtered"><RiSearchLine /><h3>No hay programas con estos filtros</h3><p>Prueba con otro término o restablece los filtros para volver a ver todas las iniciativas.</p><button type="button" className="growth-button subtle" onClick={() => { setQuery(''); setActiveStatus('all'); setActiveArea('all') }}>Limpiar filtros</button></div>}
       </div>
       <aside className="growth-side-panel">
         <div className="growth-side-intro"><span>Mapa de capacidades</span><h2>Una operación conectada</h2><p>Cada área puede activar herramientas concretas, sin imponer un proceso único.</p><img className="growth-customer-pulse" src={customerPulseImage} alt="Visual de una red de señales de cliente" /></div>
@@ -350,6 +377,15 @@ export default function GrowthHubPage() {
     </section>
 
     {notice ? <div className="growth-toast" role="status"><RiCheckboxCircleLine />{notice}<button type="button" onClick={() => setNotice('')} aria-label="Cerrar aviso"><RiCloseLine /></button></div> : null}
+    {archiveTarget ? <ConfirmDialog
+      title={`¿Archivar «${archiveTarget.name || 'Programa'}»?`}
+      message={archiveTarget.type === 'sales_sequence'
+        ? 'Dejará de aparecer en Growth y la secuencia no ejecutará más pasos. El registro y su historial se conservan para auditoría.'
+        : 'Dejará de aparecer en Growth y no se podrá editar ni activar. El registro se conserva para auditoría.'}
+      confirmText="Archivar programa"
+      onConfirm={() => archiveProgram(archiveTarget)}
+      onClose={() => setArchiveTarget(null)}
+    /> : null}
     {modal ? <ProgramModal program={modal.program} initial={modal.initial} onClose={() => !saving && setModal(null)} onSubmit={saveProgram} saving={saving} requestError={saveError} /> : null}
   </main>
 }

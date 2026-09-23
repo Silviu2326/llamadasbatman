@@ -70,6 +70,7 @@ test('un viewer no puede mutar ni iniciar operaciones que generan coste', async 
       { method: 'PUT' as const, url: '/ads/draft' },
       { method: 'POST' as const, url: '/ads/wizard' },
       { method: 'POST' as const, url: '/funnels' },
+      { method: 'PATCH' as const, url: '/funnels/funnel-id/status' },
       { method: 'POST' as const, url: '/conversations/conversation-id/messages' },
       { method: 'POST' as const, url: '/calls/bulk-actions' },
       { method: 'POST' as const, url: '/calls/tts-latency-demo' },
