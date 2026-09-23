@@ -573,14 +573,14 @@ Según exista empresa vinculada, también consulta `/api/accounts/:accountId`. P
 - Inteligencia: auditoría y señales disponibles.
 - Notas: crear notas internas.
 - Archivos: cargar archivos como base64 y revisar los ya asociados.
-- Email: visible sólo cuando el plan y Mautic están habilitados.
+- Email: visible cuando el plan lo permite y la organización tiene Resend conectado.
 - Llamar mediante `tel:` si existe teléfono.
 - Email mediante `mailto:` si existe correo.
 - Agendar reunión mediante `POST /api/meetings`.
 - Cambiar estado y propietario.
 - Vincular una empresa.
 - Ejecutar auditoría con web, ciudad y sector.
-- Actualizar preferencias y enviar una plantilla Mautic.
+- Actualizar preferencias y enviar un borrador local mediante Resend.
 
 #### Estados
 
@@ -600,7 +600,7 @@ El botón de breadcrumb vuelve a `/leads`. Los CTA de llamar/email salen al sist
 
 #### Dependencias
 
-Lead, `SalesActivity`, `ContactConsent`, notas, archivos, cuentas, reuniones, Mautic, auditoría y propietarios de organización.
+Lead, `SalesActivity`, `ContactConsent`, notas, archivos, cuentas, reuniones, Resend, auditoría y propietarios de organización.
 
 #### Checklist
 
@@ -1409,3 +1409,4 @@ Una ruta se puede considerar implementada sólo cuando se cumplen las cuatro cap
 4. **Operación:** sus credenciales, migraciones, workers y proveedores están disponibles en el entorno.
 
 Si sólo existe la primera o segunda capa, la ruta está construida visualmente, pero el flujo todavía no está cerrado de extremo a extremo.
+

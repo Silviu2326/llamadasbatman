@@ -20,6 +20,8 @@ import automationHeroImage from '../assets/automation-hero.png'
 import '../dashboard.css'
 import './automations.css'
 import '../pages/growth-visual-standard.css'
+import '../pages/growth-hub.css'
+import { SequenceEnrollPanel } from '../pages/growth/SequenceSteps'
 import { getLocale, localeCode, useI18n } from '../i18n'
 
 const FILTER_TABS = ['Todas', 'Activas', 'Pausadas']
@@ -50,7 +52,10 @@ export default function Automatizaciones({ sectionNavigation = null }) {
   const [toast, setToast] = useState('')
   const [page, setPage] = useState(1)
   const [showNewAutomation, setShowNewAutomation] = useState(false)
+  const [newAutomationMode, setNewAutomationMode] = useState('automation')
   const [automations, setAutomations] = useState([])
+  const [emailSequences, setEmailSequences] = useState([])
+  const [sequenceError, setSequenceError] = useState('')
   const [loading, setLoading] = useState(true)
   const [dataStatus, setDataStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
@@ -87,6 +92,26 @@ export default function Automatizaciones({ sectionNavigation = null }) {
     return () => { mounted = false }
   }, [refreshKey])
 
+  useEffect(() => {
+    let mounted = true
+    apiFetch('/api/growth-programs?type=sales_sequence')
+      .then(async response => {
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(payload?.error || 'No se pudieron cargar las cadenas de email.')
+        return payload
+      })
+      .then(payload => {
+        if (!mounted) return
+        setEmailSequences(Array.isArray(payload) ? payload : payload?.programs ?? payload?.data ?? [])
+        setSequenceError('')
+      })
+      .catch(error => {
+        if (!mounted) return
+        setEmailSequences([])
+        setSequenceError(error.message || 'No se pudieron cargar las cadenas de email.')
+      })
+    return () => { mounted = false }
+  }, [refreshKey])
   const activeCount = automations.filter(a => a.status === 'activa').length
   const pausedCount = automations.filter(a => a.status === 'pausada').length
   const totalRuns = automations.reduce((sum, a) => sum + (a.runsCount ?? 0), 0)
@@ -135,8 +160,18 @@ export default function Automatizaciones({ sectionNavigation = null }) {
 
     <section className="automation-starters" aria-labelledby="automation-starters-title"><div className="automation-starters-heading"><div><span className="automation-eyebrow">Empieza rápido</span><h2 id="automation-starters-title">Tres flujos para ponerlo en marcha</h2><p>Usa una base conocida y ajusta los detalles a tu proceso.</p></div><button className="automation-link-button" onClick={() => setShowNewAutomation(true)}>Crear desde cero <RiArrowRightSLine /></button></div><div className="automation-starter-grid">{STARTER_TEMPLATES.map(template => <button className="automation-starter-card" key={template.title} onClick={() => setShowNewAutomation(true)}><span className="automation-starter-icon" style={{ color: template.color, background: `color-mix(in srgb, ${template.color} 9%, transparent)`, borderColor: `color-mix(in srgb, ${template.color} 27%, transparent)` }}><template.Icon /></span><span className="automation-starter-copy"><strong>{template.title}</strong><small>{template.detail}</small><em><RiFlowChart /> {template.trigger}</em></span><RiArrowRightSLine className="automation-starter-arrow" /></button>)}</div></section>
 
-    {showNewAutomation && <NewAutomatizacionModal onClose={() => setShowNewAutomation(false)} onSuccess={() => { setShowNewAutomation(false); setRefreshKey(value => value + 1) }} />}
+    {showNewAutomation && <NewAutomatizacionModal initialMode={newAutomationMode} onClose={() => setShowNewAutomation(false)} onSuccess={(result) => { setShowNewAutomation(false); setRefreshKey(value => value + 1); if (result?.kind === 'email_sequence') setToast('Borrador de cadena guardado. Matricula contactos desde esta lista cuando quieras iniciarlo.') }} />}
 
+    <section className="automation-email-sequences" aria-labelledby="automation-email-sequences-title">
+      <div className="automation-library-heading"><div><span className="automation-eyebrow">Seguimientos con varios pasos</span><h2 id="automation-email-sequences-title">Cadenas de email</h2><p>Define esperas entre envíos y matricula contactos cuando la cadena esté lista.</p></div><button className="automation-button secondary" onClick={() => { setNewAutomationMode('email_sequence'); setShowNewAutomation(true) }}><RiAddLine /> Nueva cadena</button></div>
+      {sequenceError && <p className="automation-sequence-note" role="status">{sequenceError}</p>}
+      {!emailSequences.length && !sequenceError && <div className="automation-sequences-empty">Aún no hay cadenas guardadas. Puedes crear una con plantillas aprobadas o emails personalizados con IA.</div>}
+      <div className="automation-sequence-list">{emailSequences.map(program => <article className="automation-sequence-card" key={program.id}>
+        <div className="automation-sequence-card-heading"><div><strong>{program.name}</strong><span>{program.status === 'active' ? 'Activa' : program.status === 'paused' ? 'Pausada' : 'Borrador'} · {(program.config?.steps || []).length} pasos</span></div><span className="automation-sequence-card-date">{program.updatedAt ? new Date(program.updatedAt).toLocaleDateString(localeCode(getLocale())) : ''}</span></div>
+        {program.description && <p>{program.description}</p>}
+        <SequenceEnrollPanel program={program} />
+      </article>)}</div>
+    </section>
     <section className="automation-library" id="automation-library"><div className="automation-library-heading"><div><span className="automation-eyebrow">Centro de control</span><h2>Todos tus flujos</h2><p>Busca, filtra y revisa el estado de cada automatización.</p></div><div className="automation-library-count">{filtered.length} de {automations.length} flujos</div></div><div className="automation-toolbar"><div className="automation-search"><RiSearchLine /><input value={search} onChange={event => { setSearch(event.target.value); setPage(1) }} placeholder="Buscar por nombre o descripción…" aria-label="Buscar automatizaciones" /></div><div className="automation-tabs" role="tablist">{FILTER_TABS.map(item => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilterAndReset(item)}>{item}<small>{item === 'Todas' ? automations.length : item === 'Activas' ? activeCount : pausedCount}</small></button>)}</div><div className="automation-sort" ref={sortRef}><button onClick={() => setOpenSort(value => !value)}>Ordenar: <strong>{sortLabel}</strong><HiChevronDown className={openSort ? 'rotate' : ''} /></button>{openSort && <div className="automation-sort-menu">{SORT_OPTIONS.map(option => <button key={option.key} className={sortBy === option.key ? 'selected' : ''} onClick={() => { setSortBy(option.key); setOpenSort(false) }}>{option.label}</button>)}</div>}</div></div>
 
       <div className="automation-table-head"><span>Automatización</span><span>Estado</span><span>Disparador</span><span>Ejecuciones</span><span>Última ejecución</span><span /></div>

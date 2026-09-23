@@ -1,22 +1,29 @@
-.business-analysis { flex: 1; min-width: 0; overflow-y: auto; background: var(--bg); color: var(--text); }
-.analysis-content { max-width: 1280px; margin: auto; padding: 32px 36px 64px; }
-.business-analysis h1 { margin: 0; font-size: 28px; font-weight: 600; }
-.business-analysis h2 { margin: 0; font-size: 19px; font-weight: 550; }
+.business-analysis h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.35px; }
 .business-analysis p { color: var(--muted); line-height: 1.6; font-size: 14px; margin: 10px 0 18px; }
 .business-analysis a { color: var(--text); text-underline-offset: 3px; }
 .business-analysis button, .business-analysis select { background: var(--surface); color: var(--text); border: 1px solid var(--line-control); border-radius: 5px; padding: 9px 12px; min-height: 40px; font: inherit; font-size: 13px; cursor: pointer; }
 .business-analysis button:disabled { opacity: .5; cursor: default; }
 .business-analysis :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.analysis-header, .analysis-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.analysis-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .analysis-controls { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
 .analysis-controls label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
-.analysis-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; padding: 28px 0; border-block: 1px solid var(--line); margin-top: 24px; }
+.analysis-results-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 24px 0 16px; }
+.analysis-range { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.analysis-range button { min-height: 34px; padding: 6px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); font-size: 12px; }
+.analysis-range button:hover { background: var(--surface-hover); color: var(--text); }
+.analysis-range button[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 20%, var(--line)); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); color: var(--accent-soft); font-weight: 600; }
+.analysis-results-heading ~ .analysis-metrics { margin-top: 0; }
+.analysis-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 24px 0; }
+.analysis-metrics > article { min-width: 0; padding: 20px; border: 1px solid color-mix(in srgb, var(--home-tone) 18%, var(--line)); border-radius: 12px; background: linear-gradient(135deg, color-mix(in srgb, var(--home-tone) 6%, transparent), transparent), var(--surface); }
+.analysis-metrics > article > .home-accent-icon { margin-bottom: 14px; }
+.analysis-metrics > article h2 { line-height: 1.5; min-height: 42px; }
 .analysis-metrics h2 { font-size: 14px; }
-.analysis-metrics .analysis-value { display: block; font-size: 30px; font-weight: 550; border: 0; background: transparent; padding: 10px 0; text-align: left; }
+.analysis-metrics .analysis-value { display: block; font-size: 32px; font-weight: 600; border: 0; background: transparent; padding: 10px 0; text-align: left; }
 .analysis-value:hover { text-decoration: underline; }
 .analysis-metrics p, .analysis-metrics small { font-size: 12px; margin: 0; color: var(--muted); line-height: 1.5; }
 .analysis-metrics small { display: block; margin-top: 7px; }
-.analysis-section { border-bottom: 1px solid var(--line); padding: 30px 0; min-width: 0; }
+.analysis-section { border: 1px solid var(--line); padding: 24px; margin-bottom: 18px; border-radius: 16px; background: var(--surface); min-width: 0; }
+.analysis-section h2 { display: flex; align-items: center; gap: 12px; }
 .analysis-chart { height: 280px; margin-top: 25px; }
 .business-analysis .analysis-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
 .analysis-table-wrap { overflow-x: auto; margin-top: 18px; }
@@ -44,4 +51,11 @@
 .analysis-records time, .analysis-records li > span { color: var(--muted); font-size: 12px; }
 .analysis-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; margin-top: 20px; }
 @media(max-width: 1000px) { .analysis-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } .analysis-columns { grid-template-columns: 1fr; gap: 0; } .analysis-section-heading { flex-wrap: wrap; } }
-@media(max-width: 650px) { .analysis-content { padding: 24px 20px 80px; } .analysis-header { align-items: start; flex-direction: column; gap: 8px; } .business-analysis h1 { font-size: 25px; } .analysis-metrics { gap: 24px 15px; } .analysis-metrics .analysis-value { font-size: 25px; } .analysis-records { padding: 16px; } .analysis-records li { grid-template-columns: 1fr; gap: 6px; } .analysis-distribution li { grid-template-columns: minmax(110px, 1fr) 1fr 32px; gap: 8px; } }
+@media(max-width: 650px) { .analysis-metrics { gap: 24px 15px; } .analysis-metrics .analysis-value { font-size: 25px; } .analysis-records { padding: 16px; } .analysis-records li { grid-template-columns: 1fr; gap: 6px; } .analysis-distribution li { grid-template-columns: minmax(110px, 1fr) 1fr 32px; gap: 8px; } }
+@media(max-width: 650px) {
+  .analysis-range button { min-height: 40px; padding-inline: 10px; }
+  .analysis-section { padding: 20px 16px; }
+  .analysis-metrics { gap: 12px; }
+  .analysis-metrics > article { padding: 16px 12px; }
+  .analysis-metrics .analysis-value { font-size: 24px; overflow-wrap: anywhere; }
+}

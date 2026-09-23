@@ -30,7 +30,7 @@ test('normaliza planes y mantiene las capacidades cerradas por defecto', () => {
 
 function fakeDb(orgPlan: string, usage: Partial<Record<'users' | 'leads' | 'campaigns' | 'agents' | 'automations', number>> = {}) {
   return {
-    organization: { findUnique: async () => ({ id: 'org-a', plan: orgPlan, mauticEnabled: true, metricoolEnabled: true }) },
+    organization: { findUnique: async () => ({ id: 'org-a', plan: orgPlan, metricoolEnabled: true }) },
     user: { count: async () => usage.users ?? 0 },
     lead: { count: async () => usage.leads ?? 0 },
     campaign: { count: async () => usage.campaigns ?? 0 },

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '../../lib/api'
 
 async function readJson(response, fallbackError) {
@@ -33,7 +33,7 @@ function daysSince(iso) {
  * Las campañas con landing llegan de fuera (`landingCampaigns`): la página ya
  * las carga para el listado de landings y no tiene sentido pedirlas dos veces.
  */
-export function useSeo({ landingCampaigns }) {
+export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
   const [form, setForm] = useState({ url: '', business: '', sector: '', city: '' })
   const [competitorUrls, setCompetitorUrls] = useState(['', '', ''])
   const [loading, setLoading] = useState(false)
@@ -72,6 +72,7 @@ export function useSeo({ landingCampaigns }) {
   const [staleState, setStaleState] = useState({})
 
   const reportUrl = report?.url ?? ''
+  const appliedExternalReport = useRef('')
 
   const applyReport = useCallback((data, id) => {
     setReport(data)
@@ -88,13 +89,14 @@ export function useSeo({ landingCampaigns }) {
   // El último informe guardado es el estado inicial.
   useEffect(() => {
     const controller = new AbortController()
+    if (targetUrl !== undefined) { setReportLoading(false); return () => controller.abort() }
     apiFetch('/api/seo/reports/latest', { signal: controller.signal })
       .then(response => readJson(response, 'No se pudo cargar el último informe'))
       .then(body => { if (body?.data) applyReport(body.data, body.data.reportId) })
       .catch(() => {})
       .finally(() => setReportLoading(false))
     return () => controller.abort()
-  }, [applyReport])
+  }, [applyReport, targetUrl])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -102,11 +104,30 @@ export function useSeo({ landingCampaigns }) {
     return () => controller.abort()
   }, [loadProjects])
 
+  useEffect(() => {
+    if (targetUrl === undefined) return
+    const project = projects.find(item => item.url === targetUrl)
+    setForm({ url: targetUrl, business: project?.business || '', sector: project?.sector || '', city: project?.city || '' })
+    setCompetitorUrls([...(project?.competitors || []), '', '', ''].slice(0, 3))
+    appliedExternalReport.current = ''; setReport(null); setReportId(''); setCompetitors(null); setContentState({}); setSearchConsole(null)
+    setGap({ loading: false, items: null, error: '' }); setError('')
+    setGit(prev => ({ ...prev, connectionId: '', done: '', error: '' }))
+    setWordpress(prev => ({ ...prev, connectionId: '', pages: [], pageId: '', done: '', error: '' }))
+  }, [targetUrl])
+
+  useEffect(() => {
+    if (targetUrl === undefined || externalReport?.url !== targetUrl) return
+    const key = targetUrl + ':' + (externalReport.reportId || externalReport.generatedAt || '')
+    if (appliedExternalReport.current === key) return
+    appliedExternalReport.current = key
+    applyReport(externalReport)
+  }, [targetUrl, externalReport, applyReport])
+
   // El contexto del negocio vive en `SeoProject`, no en el informe: al
   // recargar se perdía y de él dependen snippets, schema y prompts.
   useEffect(() => {
     if (!projects.length) return
-    const project = projects.find(p => p.url === reportUrl) ?? (reportUrl ? null : projects[0])
+    const project = projects.find(p => p.url === (targetUrl ?? reportUrl)) ?? ((targetUrl ?? reportUrl) ? null : projects[0])
     if (!project) return
     setForm(prev => ({
       url: prev.url || project.url,
@@ -115,7 +136,7 @@ export function useSeo({ landingCampaigns }) {
       city: prev.city || project.city || '',
     }))
     setCompetitorUrls(prev => (prev.some(Boolean) ? prev : [...(project.competitors ?? []), '', '', ''].slice(0, 3)))
-  }, [projects, reportUrl])
+  }, [projects, reportUrl, targetUrl])
 
   useEffect(() => {
     if (!reportUrl) {
@@ -144,15 +165,15 @@ export function useSeo({ landingCampaigns }) {
   }, [])
 
   useEffect(() => {
-    if (!report?.keywords?.length) return undefined
+    if (!reportUrl) { setSearchConsole({ connected: false, totalQueries: 0 }); return undefined }
     const controller = new AbortController()
-    const keywords = report.keywords.map(k => k.keyword).join(',')
-    apiFetch(`/api/seo/search-console?keywords=${encodeURIComponent(keywords)}`, { signal: controller.signal })
+    const keywords = (report.keywords || []).map(k => k.keyword).join(',')
+    apiFetch(`/api/seo/search-console?keywords=${encodeURIComponent(keywords)}${targetUrl ? `&url=${encodeURIComponent(targetUrl)}` : ''}`, { signal: controller.signal })
       .then(response => readJson(response, 'No se pudo consultar Search Console'))
       .then(body => setSearchConsole(body.data))
       .catch(() => {})
     return () => controller.abort()
-  }, [report])
+  }, [report, targetUrl])
 
   useEffect(() => {
     if (!reportUrl) {
@@ -213,8 +234,9 @@ export function useSeo({ landingCampaigns }) {
   }
 
   /** Lanza la auditoría. Devuelve true si salió bien (la página cierra el diálogo). */
-  async function analyze() {
-    if (!form.url.trim()) {
+  async function analyze(overrides = {}) {
+    const auditForm = { ...form, ...overrides }
+    if (!auditForm.url.trim()) {
       setError('Indica la URL de la web a analizar.')
       return false
     }
@@ -224,7 +246,7 @@ export function useSeo({ landingCampaigns }) {
       // Los competidores viajan con el análisis: el worker diario los audita.
       const response = await apiFetch('/api/seo/analyze', {
         method: 'POST',
-        body: JSON.stringify({ ...form, competitors: competitorUrls.map(u => u.trim()).filter(Boolean) }),
+        body: JSON.stringify({ ...auditForm, competitors: competitorUrls.map(u => u.trim()).filter(Boolean) }),
       })
       const body = await readJson(response, 'No se pudo generar el informe SEO.')
       applyReport(body.data, body.data?.reportId)
@@ -334,14 +356,15 @@ export function useSeo({ landingCampaigns }) {
       .then(response => (response.ok ? response.json() : []))
       .then(list => {
         if (cancelled || !Array.isArray(list)) return
-        const usable = list.filter(item => item.connector?.kind === 'wordpress' && item.connector.canEdit && item.connector.plugin)
+        const scoped = targetUrl === undefined ? list : list.filter(item => item.websiteUrl === targetUrl)
+        const usable = scoped.filter(item => item.connector?.kind === 'wordpress' && item.connector.canEdit && item.connector.plugin)
         setWordpress(prev => ({ ...prev, connections: usable, connectionId: prev.connectionId || (usable.length === 1 ? usable[0].id : '') }))
-        const repos = list.filter(item => item.connector?.kind === 'git' && item.connector.canPush)
+        const repos = scoped.filter(item => item.connector?.kind === 'git' && item.connector.canPush)
         setGit(prev => ({ ...prev, connections: repos, connectionId: prev.connectionId || (repos.length === 1 ? repos[0].id : '') }))
       })
       .catch(() => undefined)
     return () => { cancelled = true }
-  }, [report])
+  }, [report, targetUrl])
 
   useEffect(() => {
     if (!wordpress.connectionId) return

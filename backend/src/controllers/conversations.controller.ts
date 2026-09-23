@@ -19,7 +19,7 @@ export async function get(request: FastifyRequest<{ Params: { id: string } }>, r
   return result ? reply.send(result) : reply.status(404).send({ error: 'Conversación no encontrada' })
 }
 
-export async function sendMessage(request: FastifyRequest<{ Params: { id: string }; Body: { channel: string; body?: string; templateId?: string } }>, reply: FastifyReply) {
+export async function sendMessage(request: FastifyRequest<{ Params: { id: string }; Body: { channel: string; body?: string; templateId?: string; audioAssetId?: string } }>, reply: FastifyReply) {
   const { orgId, userId } = request.user as JWTUser
   if (!request.body?.channel) return reply.status(400).send({ error: 'channel es requerido' })
   try {
@@ -30,10 +30,22 @@ export async function sendMessage(request: FastifyRequest<{ Params: { id: string
   }
 }
 
-export async function update(request: FastifyRequest<{ Params: { id: string }; Body: { status?: string; assignedUserId?: string | null; priority?: string } }>, reply: FastifyReply) {
+export async function update(request: FastifyRequest<{ Params: { id: string }; Body: { status?: string; assignedUserId?: string | null; priority?: string; aiReplyEnabled?: boolean } }>, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
-  const result = await conversations.updateConversation(orgId, request.params.id, request.body ?? {})
-  return result ? reply.send(result) : reply.status(404).send({ error: 'Conversación no encontrada' })
+  try {
+    const { status, assignedUserId, priority } = request.body ?? {}
+    const result = await conversations.updateConversation(orgId, request.params.id, { status, assignedUserId, priority })
+    return result ? reply.send(result) : reply.status(404).send({ error: 'Conversación no encontrada' })
+  } catch (error) { return reply.status(409).send({ error: (error as Error).message }) }
+}
+
+export async function assistant(request: FastifyRequest<{ Params: { id: string }; Body: { enabled: boolean } }>, reply: FastifyReply) {
+  const { orgId } = request.user as JWTUser
+  if (typeof request.body?.enabled !== 'boolean') return reply.status(400).send({ error: 'enabled debe ser booleano' })
+  try {
+    const result = await conversations.updateConversation(orgId, request.params.id, { aiReplyEnabled: request.body.enabled })
+    return result ? reply.send(result) : reply.status(404).send({ error: 'Conversación no encontrada' })
+  } catch (error) { return reply.status(409).send({ error: (error as Error).message }) }
 }
 
 export async function takeover(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {

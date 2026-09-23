@@ -29,8 +29,7 @@ import { adsRoutes } from './routes/ads'
 import { funnelsRoutes } from './routes/funnels'
 import { metaAccountsRoutes } from './routes/metaAccounts'
 import { metaWebhooksRoutes } from './routes/metaWebhooks'
-import { mauticWebhooksRoutes } from './routes/mauticWebhooks'
-import { mauticRoutes } from './routes/mautic'
+import { resendEmailWebhooksRoutes } from './routes/resendEmailWebhooks'
 import { metricoolRoutes } from './routes/metricool'
 import { contentRoutes } from './routes/content'
 import { contentApprovalPublicRoutes } from './routes/contentApprovalPublic'
@@ -39,6 +38,10 @@ import { publicEmailOptOutRoutes } from './routes/publicEmailOptOut'
 import { automationsRoutes } from './routes/automations'
 import { knowledgeRoutes } from './routes/knowledge'
 import { dashboardRoutes } from './routes/dashboard'
+import { platformAssistantRoutes } from './routes/platformAssistant'
+import { assistantWorkflowRoutes } from './routes/assistantWorkflows'
+import { assistantRoutinesRoutes } from './routes/assistantRoutines'
+import { startAssistantScheduler, stopAssistantScheduler } from './jobs/assistantScheduler'
 import { voiceRoutes } from './routes/voice'
 import { landingRoutes } from './routes/landing'
 import { landingsRoutes } from './routes/landings'
@@ -48,6 +51,7 @@ import { billingRoutes, billingWebhookRoutes } from './routes/billing'
 import { conversationsRoutes } from './routes/conversations'
 import { whatsappRoutes } from './routes/whatsapp'
 import { emailMetricsRoutes } from './routes/emailMetrics'
+import { emailNewsletterDraftsRoutes } from './routes/emailNewsletterDrafts'
 import { marketingCampaignsRoutes } from './routes/marketingCampaigns'
 import { growthProgramsRoutes } from './routes/growthPrograms'
 import { revenueIntelligenceRoutes } from './routes/revenueIntelligence'
@@ -229,8 +233,7 @@ async function build() {
   await app.register(landingsRoutes,   { prefix: '/api/landings' })
   await app.register(metaAccountsRoutes,{ prefix: '/api/meta/accounts' })
   await app.register(metaWebhooksRoutes,{ prefix: '/api/meta/webhooks' })
-  await app.register(mauticWebhooksRoutes,{ prefix: '/api/webhooks/mautic' })
-  await app.register(mauticRoutes,     { prefix: '/api/mautic' })
+  await app.register(resendEmailWebhooksRoutes, { prefix: '/api/webhooks/email/resend' })
   await app.register(metricoolRoutes,  { prefix: '/api/metricool' })
   await app.register(contentRoutes,    { prefix: '/api/content' })
   await app.register(publicMediaRoutes,{ prefix: '/api/public/media' })
@@ -250,6 +253,7 @@ async function build() {
   await app.register(conversationsRoutes, { prefix: '/api/conversations' })
   await app.register(whatsappRoutes,   { prefix: '/api/whatsapp' })
   await app.register(emailMetricsRoutes, { prefix: '/api/email' })
+  await app.register(emailNewsletterDraftsRoutes, { prefix: '/api/email/newsletter-drafts' })
   await app.register(marketingCampaignsRoutes, { prefix: '/api/marketing-campaigns' })
   await app.register(growthProgramsRoutes, { prefix: '/api/growth-programs' })
   await app.register(revenueIntelligenceRoutes, { prefix: '/api/revenue-intelligence' })
@@ -271,6 +275,13 @@ async function build() {
   await app.register(providerWebhooksRoutes, { prefix: '/api/webhooks/providers' })
   await app.register(microappsRoutes, { prefix: '/api/microapps' })
   await app.register(capabilitiesRoutes, { prefix: '/api/capabilities' })
+  await app.register(platformAssistantRoutes, { prefix: '/api/assistant' })
+  await app.register(assistantWorkflowRoutes, { prefix: '/api/assistant' })
+  await app.register(assistantRoutinesRoutes, { prefix: '/api/assistant' })
+  if (process.env.ASSISTANT_SCHEDULER_ENABLED !== 'false') {
+    app.addHook('onReady', async () => { startAssistantScheduler() })
+    app.addHook('onClose', async () => { stopAssistantScheduler() })
+  }
   await app.register(consentGrantsRoutes, { prefix: '/api/consent-grants' })
   await app.register(outcomesRoutes, { prefix: '/api/outcomes' })
   await app.register(studioRoutes, { prefix: '/api/studio' })
@@ -294,6 +305,15 @@ async function build() {
 async function main() {
   const app  = await build()
   const PORT = parseInt(process.env.PORT ?? '3000', 10)
+
+  // Optional, local-only gateway. Sharing the API process keeps the live-call
+  // registry and organisation Socket.IO events connected to the existing UI.
+  if (process.env.ZADARMA_GATEWAY_ENABLED === 'true' && process.env.ZADARMA_GATEWAY_EMBEDDED !== 'false') {
+    const { loadZadarmaGatewayConfig } = await import('./voice/telephony/zadarma/config')
+    const { startZadarmaGateway } = await import('./voice/telephony/zadarma/gateway')
+    const gateway = await startZadarmaGateway(loadZadarmaGatewayConfig())
+    app.addHook('onClose', async () => gateway.close())
+  }
 
   // '::' escucha en IPv6 e IPv4 (dual-stack). Con '0.0.0.0' el navegador no
   // conecta: en Windows `localhost` resuelve antes a ::1, y el WebSocket del
@@ -381,3 +401,4 @@ main().catch((err) => {
   console.error('[Vendrava] Fatal error:', err)
   process.exit(1)
 })
+

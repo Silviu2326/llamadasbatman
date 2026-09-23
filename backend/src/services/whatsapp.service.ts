@@ -7,7 +7,9 @@ import {
   type TwilioIntegrationConfig,
 } from './twilioIntegration.service'
 import { consumeWhiteLabelMessage, generateWhiteLabelReply } from './whiteLabel.service'
-import { detectVoiceConsentReply, grantVoiceConsent } from '../voice/compliance'
+import { detectVoiceConsentReply, detectTransferRequest, grantVoiceConsent, normalizeE164 } from '../voice/compliance'
+import { hasContactConsent } from './contactConsent.service'
+import { canAutomaticallyReply, whatsappOptOut, whatsappWindowOpen } from './whatsappPolicy'
 
 /**
  * Twilio WhatsApp integration. Persistence stays behind the existing dynamic
@@ -15,7 +17,12 @@ import { detectVoiceConsentReply, grantVoiceConsent } from '../voice/compliance'
  * outbound request or webhook signature check.
  */
 const db = prisma as unknown as Record<string, any>
-const WINDOW_MS = 24 * 60 * 60 * 1000
+export const whatsappRuntime = {
+  config: getTwilioIntegrationConfig,
+  client: createTwilioClient,
+  reply: generateWhiteLabelReply,
+  presign: async (key: string) => (await import('../lib/storage')).getPresignedAssetUrl(key, 3600),
+}
 
 export type TwilioParams = Record<string, string>
 
@@ -27,6 +34,8 @@ export interface SendWhatsAppInput {
   body?: string
   contentSid?: string
   contentVariables?: Record<string, string>
+  audioAssetId?: string
+  idempotencyKey?: string
   metadata?: Record<string, unknown>
 }
 export interface WhatsAppResult {
@@ -37,12 +46,16 @@ export interface WhatsAppResult {
 }
 
 function now() { return new Date() }
-function asAddress(value: string) { return value.startsWith('whatsapp:') ? value : `whatsapp:${value}` }
+function asAddress(value: string) {
+  const phone = normalizeE164(value.replace(/^whatsapp:/, ''))
+  if (!phone) throw new Error('WHATSAPP_INVALID_PHONE')
+  return `whatsapp:${phone}`
+}
 
 async function twilioClient(orgId: string): Promise<{ client: ReturnType<typeof createTwilioClient>; config: TwilioIntegrationConfig }> {
-  const config = await getTwilioIntegrationConfig(orgId)
+  const config = await whatsappRuntime.config(orgId)
   if (!config) throw new Error('TWILIO_ORG_CREDENTIAL_MISSING')
-  return { client: createTwilioClient(config), config }
+  return { client: whatsappRuntime.client(config), config }
 }
 
 function fromAddress(config: TwilioIntegrationConfig) {
@@ -99,7 +112,8 @@ async function ensureConversation(orgId: string, address: string, leadId?: strin
 async function resolveConversation(orgId: string, address: string, leadId?: string, conversationId?: string) {
   if (conversationId) {
     const existing = await db.conversation.findFirst({ where: { id: conversationId, orgId } })
-    if (existing) return existing
+    if (!existing || (leadId ? existing.leadId !== leadId : existing.address !== address)) throw new Error('WHATSAPP_CONVERSATION_MISMATCH')
+    return existing
   }
   if (leadId) {
     const existing = await db.conversation.findFirst({ where: { orgId, leadId }, orderBy: { updatedAt: 'desc' } })
@@ -134,17 +148,40 @@ export async function handleInbound(params: TwilioParams) {
   const conversation = await resolveConversation(identity.orgId, address, leadId)
   const receivedAt = now()
   const externalEventId = params.MessageSid || params.SmsMessageSid || ''
+  if (!externalEventId) throw new Error('WHATSAPP_MESSAGE_ID_REQUIRED')
+  const optedOut = whatsappOptOut(params.Body || '')
+  // Media is preserved for the seller. Until transcription/vision is wired,
+  // do not leave an audio-only reply silently waiting for an AI answer.
+  const handoff = detectTransferRequest(params.Body || '') || Number(params.NumMedia || 0) > 0
   try {
     await prisma.$transaction(async tx => {
       await tx.webhookEvent.create({ data: { externalEventId, orgId: identity.orgId, provider: 'twilio', channel: 'whatsapp', eventType: 'message.received', metadata: params } })
       await tx.message.create({ data: {
         orgId: identity.orgId, ...(leadId ? { leadId } : {}), conversationId: conversation.id,
         channel: 'whatsapp', provider: 'twilio', address, direction: 'inbound', status: 'received',
-        providerMessageId: params.MessageSid, body: params.Body || '', metadata: params,
+        providerMessageId: externalEventId, body: params.Body || '', metadata: params,
+        contentType: Number(params.NumMedia) > 0 ? (params.MediaContentType0?.startsWith('audio/') ? 'audio' : 'media') : 'text',
         createdAt: receivedAt, updatedAt: receivedAt,
       } })
-      await tx.conversation.update({ where: { id: conversation.id }, data: { updatedAt: receivedAt, lastInboundAt: receivedAt, lastMessageAt: receivedAt } })
+      await tx.conversation.update({ where: { id: conversation.id }, data: {
+        updatedAt: receivedAt, lastInboundAt: receivedAt, lastMessageAt: receivedAt,
+        ...((optedOut || handoff) ? { status: optedOut ? 'closed' : 'needs_human', metadata: { ...(conversation.metadata || {}), aiPaused: true } } : {}),
+      } })
+      if (!optedOut && !handoff && params.Body?.trim() && Number(params.NumMedia || 0) === 0) {
+        await tx.outboxEvent.create({ data: {
+          orgId: identity.orgId, topic: 'whatsapp.reply.requested', aggregateType: 'Conversation', aggregateId: conversation.id,
+          payload: { conversationId: conversation.id, messageId: externalEventId },
+        } })
+      }
       if (leadId) {
+        // Stop the scheduled prospecting sequence in the same transaction as
+        // the reply: it must not keep contacting a person already answering.
+        await tx.salesSequenceEnrollment.updateMany({ where: { orgId: identity.orgId, leadId, status: { in: ['active', 'paused'] } }, data: { status: 'stopped', stopReason: optedOut ? 'unsubscribe' : 'reply', nextRunAt: null, stoppedAt: receivedAt } })
+        await tx.salesSequenceStepRun.updateMany({ where: { orgId: identity.orgId, leadId, status: { in: ['pending', 'processing'] } }, data: { status: 'blocked', lastErrorCode: optedOut ? 'STOPPED_UNSUBSCRIBE' : 'STOPPED_REPLY', leaseExpiresAt: null, workerId: null } })
+        if (optedOut) {
+          await tx.contactConsent.updateMany({ where: { orgId: identity.orgId, leadId, channel: { in: ['whatsapp', 'voice'] } }, data: { status: 'revoked', occurredAt: receivedAt, source: 'whatsapp_reply', evidence: params.Body } })
+          await tx.optOut.upsert({ where: { orgId_phone: { orgId: identity.orgId, phone: rawPhone } }, create: { orgId: identity.orgId, phone: rawPhone, reason: 'whatsapp_reply' }, update: { reason: 'whatsapp_reply' } })
+        }
         await tx.outboxEvent.create({ data: {
           orgId: identity.orgId,
           topic: 'message.received',
@@ -160,28 +197,49 @@ export async function handleInbound(params: TwilioParams) {
     // identificador del mensaje: la prueba se captura ahora o no existe nunca.
     // Fuera de la transacción a propósito — un fallo aquí no debe tirar el
     // mensaje recibido, que es el dato que no se puede recuperar.
-    if (leadId && params.Body && detectVoiceConsentReply(params.Body)) {
+    const previousOffer = leadId && params.Body ? await db.message.findFirst({
+      where: { orgId: identity.orgId, conversationId: conversation.id, channel: 'whatsapp', direction: 'outbound', createdAt: { lt: receivedAt, gte: new Date(receivedAt.getTime() - 24 * 60 * 60 * 1000) }, status: { in: ['sent', 'delivered', 'read'] } },
+      orderBy: { createdAt: 'desc' }, select: { id: true, body: true, metadata: true },
+    }) : null
+    // A generic affirmative only belongs to a consent request explicitly
+    // marked by the sending workflow, never to an arbitrary AI sales message.
+    const offeredAiCall = previousOffer?.metadata?.voiceConsentRequest === true && /\b(ia|ai|artificial)\b/i.test(previousOffer?.body || '') && /llamad|llam[ae]|call/i.test(previousOffer?.body || '')
+    if (!optedOut && !handoff && leadId && params.Body && detectVoiceConsentReply(params.Body, offeredAiCall)) {
       await grantVoiceConsent(identity.orgId, leadId, {
         source: 'whatsapp_reply',
         evidence: params.Body,
-        metadata: { providerMessageId: externalEventId, from: address, receivedAt: receivedAt.toISOString() },
+        metadata: { providerMessageId: externalEventId, from: address, receivedAt: receivedAt.toISOString(), ...(offeredAiCall ? { requestMessageId: previousOffer.id, requestText: previousOffer.body } : {}) },
       }).catch(error => console.warn('[WhatsApp] no se pudo registrar el consentimiento de voz:', (error as Error).message))
     }
 
-    return { duplicate: false }
   } catch (error: any) {
     if (error?.code === 'P2002') return { duplicate: true }
     throw error
   }
 
-  const reply = params.Body?.trim() ? await generateWhiteLabelReply(identity.orgId, params.Body) : null
+  return { duplicate: false, replied: false }
+}
+
+/** Durable worker effect; the webhook only persists before acknowledging. */
+export async function processWhatsAppReply(orgId: string, conversationId: string, messageId: string) {
+  const latest = await db.conversation.findFirst({ where: { id: conversationId, orgId } })
+  if (!latest || !canAutomaticallyReply(latest) || !whatsappWindowOpen(latest.lastInboundAt)) return { replied: false }
+  const inbound = await db.message.findFirst({ where: { orgId, conversationId, providerMessageId: messageId, direction: 'inbound', channel: 'whatsapp' } })
+  if (!inbound?.body || inbound.contentType === 'audio') return { replied: false }
+  const newerMessage = await db.message.findFirst({ where: { orgId, conversationId, channel: 'whatsapp', createdAt: { gt: inbound.createdAt } } })
+  if (newerMessage) return { replied: false }
+  const ownAgent = latest.metadata?.aiReplyEnabled === true
+  const reply = ownAgent
+    ? await (await import('./conversationAi.service')).suggestConversationReply(orgId, conversationId, 'cercano y consultivo', true)
+    : await whatsappRuntime.reply(orgId, inbound.body)
   if (reply === null) return { duplicate: false, replied: false }
   if (Object.prototype.hasOwnProperty.call(reply, 'error')) return { duplicate: false, replied: false }
   const replyText = (reply as { text: string }).text
   try {
-    await sendWhatsAppInternal({ orgId: identity.orgId, leadId, conversationId: conversation.id, to: address, body: replyText, metadata: { source: 'white-label-auto-reply' } }, false)
+    await sendWhatsAppInternal({ orgId, leadId: latest.leadId, conversationId, to: inbound.address, body: replyText, idempotencyKey: `reply:${messageId}`, metadata: { source: 'white-label-auto-reply' } }, ownAgent)
   } catch (error) {
     console.warn('[WhatsApp] no se pudo enviar la respuesta automática white-label:', (error as Error).message)
+    throw error
   }
   return { duplicate: false, replied: true }
 }
@@ -221,11 +279,39 @@ export async function handleStatus(params: TwilioParams) {
 
 async function sendWhatsAppInternal(input: SendWhatsAppInput, countQuota = true): Promise<WhatsAppResult> {
   const to = asAddress(input.to)
+  const phone = to.replace(/^whatsapp:/, '')
+  const lead = input.leadId
+    ? await db.lead.findFirst({ where: { orgId: input.orgId, id: input.leadId } })
+    : await db.lead.findFirst({ where: { orgId: input.orgId, phone: { in: [phone, to] } } })
+  if (input.leadId && (!lead || normalizeE164(lead.phone || '') !== phone)) throw new Error('WHATSAPP_LEAD_MISMATCH')
+  input = { ...input, leadId: lead?.id }
+  if (await db.optOut.findUnique({ where: { orgId_phone: { orgId: input.orgId, phone } } })) throw new Error('WHATSAPP_OPTED_OUT')
   const conversation = await resolveConversation(input.orgId, to, input.leadId, input.conversationId)
-  const lastInboundAt = conversation.lastInboundAt ? new Date(conversation.lastInboundAt).getTime() : 0
-  const inWindow = lastInboundAt > 0 && Date.now() - lastInboundAt <= WINDOW_MS
-  if (!input.contentSid && (!input.body || !inWindow)) {
+  const inWindow = whatsappWindowOpen(conversation.lastInboundAt)
+  if (!input.contentSid && ((!input.body && !input.audioAssetId) || !inWindow)) {
     throw new Error('Fuera de la ventana de 24 horas se requiere contentSid/template; el texto libre requiere un inbound vigente')
+  }
+  if (input.contentSid && (!lead || !await hasContactConsent(input.orgId, lead.id, 'whatsapp'))) throw new Error('WHATSAPP_CONSENT_REQUIRED')
+  if (input.audioAssetId && (input.body || input.contentSid)) throw new Error('Envía el audio como un mensaje separado, dentro de una conversación abierta.')
+  let mediaUrl: string | null = null
+  if (input.audioAssetId) {
+    const asset = await db.asset.findFirst({ where: { id: input.audioAssetId, orgId: input.orgId, kind: 'audio', status: { not: 'archived' } } })
+    if (!asset || !['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/amr'].includes(asset.mimeType) || BigInt(asset.bytes) > 16n * 1024n * 1024n || (asset.expiresAt && asset.expiresAt <= new Date())) throw new Error('WHATSAPP_AUDIO_INVALID')
+    mediaUrl = await whatsappRuntime.presign(asset.storageKey)
+    if (!mediaUrl || new URL(mediaUrl).protocol !== 'https:') throw new Error('El audio necesita almacenamiento S3/R2 accesible por HTTPS.')
+  }
+  if (input.metadata?.source === 'white-label-auto-reply') {
+    const latest = await db.conversation.findFirst({ where: { id: conversation.id, orgId: input.orgId } })
+    if (!latest || !canAutomaticallyReply(latest)) throw new Error('WHATSAPP_HUMAN_TAKEOVER')
+  }
+  const externalEventId = input.idempotencyKey ? `whatsapp:${input.idempotencyKey}` : undefined
+  if (externalEventId) {
+    const existing = await db.message.findUnique({ where: { orgId_externalEventId: { orgId: input.orgId, externalEventId } } })
+    if (existing) {
+      if (existing.address !== to || existing.conversationId !== conversation.id) throw new Error('WHATSAPP_IDEMPOTENCY_CONFLICT')
+      if (!existing.providerMessageId || ['failed', 'undelivered'].includes(existing.status)) throw new Error('WHATSAPP_DELIVERY_REQUIRES_REVIEW')
+      return { id: existing.id, providerMessageId: existing.providerMessageId, status: existing.status, conversationId: existing.conversationId }
+    }
   }
   const { client, config } = await twilioClient(input.orgId)
   const sender = fromAddress(config)
@@ -235,16 +321,22 @@ async function sendWhatsAppInternal(input: SendWhatsAppInput, countQuota = true)
     create: { orgId: input.orgId, channel: 'whatsapp', provider: 'twilio', address: sender, isActive: true },
     update: { channel: 'whatsapp', isActive: true },
   })
-  const message = await client.messages.create({
-    from: sender, to, ...(input.contentSid ? { contentSid: input.contentSid, contentVariables: input.contentVariables ? JSON.stringify(input.contentVariables) : undefined } : { body: input.body }),
-    statusCallback: publicCallback(config, '/api/whatsapp/status', new URLSearchParams({ orgId: input.orgId }).toString()),
-  })
-  const createdAt = now()
   const saved = await db.message.create({ data: {
-    orgId: input.orgId, ...(input.leadId ? { leadId: input.leadId } : {}), conversationId: conversation.id,
-    channel: 'whatsapp', provider: 'twilio', address: to, direction: 'outbound', status: message.status,
-    providerMessageId: message.sid, body: input.body || '', metadata: { ...input.metadata, contentSid: input.contentSid }, createdAt, updatedAt: createdAt,
+    orgId: input.orgId, leadId: input.leadId, conversationId: conversation.id, externalEventId,
+    channel: 'whatsapp', provider: 'twilio', address: to, direction: 'outbound', status: 'queued',
+    contentType: input.audioAssetId ? 'audio' : input.contentSid ? 'template' : 'text', body: input.body || '',
+    metadata: { ...input.metadata, contentSid: input.contentSid, audioAssetId: input.audioAssetId },
   } })
+  let message
+  try { message = await client.messages.create({
+    from: sender, to, ...(input.contentSid ? { contentSid: input.contentSid, contentVariables: input.contentVariables ? JSON.stringify(input.contentVariables) : undefined } : mediaUrl ? { mediaUrl: [mediaUrl] } : { body: input.body }),
+    statusCallback: publicCallback(config, '/api/whatsapp/status', new URLSearchParams({ orgId: input.orgId }).toString()),
+  }) } catch (error) {
+    await db.message.update({ where: { id: saved.id }, data: { status: 'delivery_unknown', metadata: { ...saved.metadata, reviewRequired: true } } })
+    throw error
+  }
+  const createdAt = now()
+  await db.message.update({ where: { id: saved.id }, data: { status: message.status, providerMessageId: message.sid, updatedAt: createdAt } })
   await db.deliveryAttempt.create({ data: { messageId: saved.id, provider: 'twilio', status: message.status, providerMessageId: message.sid, metadata: {} } })
   await db.conversation.update({ where: { id: conversation.id }, data: { updatedAt: createdAt, lastMessageAt: createdAt } })
   return { id: saved.id, providerMessageId: message.sid, status: message.status, conversationId: conversation.id }

@@ -10,6 +10,7 @@ backend/.env
 .env.*
 !.env.example
 !backend/.env.example
+!backend/.env.zadarma.example
 
 # Claude Code session data and local skill files
 .claude/
@@ -28,6 +29,11 @@ node_modules
 dist
 dist-ssr
 *.local
+# CLAUDE.md dice que los `*.local.*` quedan fuera de Git: `*.local` por sí solo
+# no cubre `bundle.local.tar.gz` ni `install.local.py`, que son artefactos de
+# despliegue con rutas y a veces credenciales del VPS.
+*.local.*
+integrations/zadarma/deploy-access.local.pub
 
 # Python voice-engine runtime artifacts
 voice-engine/.venv/
@@ -60,3 +66,8 @@ __pycache__/
 
 # Banco de voz de referencia: audios y manifest con rutas locales, nunca en Git
 private-voice-assets/
+
+# Customer call recordings and voice demo audio are private media, not source.
+ESCUCHAR_LLAMADAS/
+artifacts/*.mp3
+artifacts/*.log

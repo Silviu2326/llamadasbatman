@@ -22,7 +22,6 @@ import {
   RiMailLine,
   RiMessage3Line,
   RiMicLine,
-  RiMore2Fill,
   RiPhoneLine,
   RiPieChartLine,
   RiPlugLine,
@@ -40,11 +39,9 @@ export const APP_SPACES = [
   { id: 'home', label: 'Inicio', labelEn: 'Home', Icon: RiHome5Line, fallbackPath: '/dashboard' },
   { id: 'sales', label: 'Ventas', labelEn: 'Sales', Icon: RiLineChartLine, fallbackPath: '/pipeline' },
   { id: 'growth', label: 'Growth', labelEn: 'Growth', Icon: RiRocket2Line, fallbackPath: '/growth' },
-  // Studio no tiene espacio propio: la ruta /studio sigue viva y la paleta lo
-  // encuentra, pero no ocupa un sitio en el rail. Sus vecinos (Microapps y
-  // Activos) se mudaron a «Más» para no quedarse huérfanos al retirarlo.
+  // Studio conserva su ruta y acceso desde la paleta, sin un espacio en el rail.
   { id: 'learn', label: 'Aprender', labelEn: 'Learn', Icon: RiBookReadLine, fallbackPath: '/aprender' },
-  { id: 'more', label: 'Más', labelEn: 'More', Icon: RiMore2Fill, fallbackPath: '/configuracion' },
+  { id: 'more', label: 'Configuración', labelEn: 'Settings', Icon: RiSettings4Line, fallbackPath: '/configuracion', directPath: '/configuracion' },
   // El back office no es un espacio del producto: cruza organizaciones y solo
   // existe para un operador de plataforma. Va al final del rail, separado de la
   // navegación del tenant, y desaparece para todos los demás porque sus módulos
@@ -59,8 +56,10 @@ export const APP_MODULES = [
 
   { id: 'growth-operations', moduleId: 'automations', space: 'growth', label: 'Operaciones', labelEn: 'Operations', to: '/operaciones-growth', aliases: ['/orquestador', '/trabajos', '/automatizaciones'], Icon: RiFlowChart, keywords: 'objetivos orquestador misiones acciones jobs trabajos ejecuciones cola aprobaciones automatizaciones flows workflows recetas disparadores' },
 
-  { id: 'crm', moduleId: 'leads', space: 'sales', label: 'CRM', labelEn: 'CRM', to: '/ventas', aliases: ['/leads', '/cuentas', '/pipeline', '/inteligencia-comercial'], Icon: RiGroupLine, keywords: 'leads cuentas pipeline contactos oportunidades crm inteligencia previsiones señales' },
+  { id: 'crm', moduleId: 'leads', space: 'sales', label: 'CRM', labelEn: 'CRM', to: '/ventas', aliases: ['/leads', '/cuentas', '/pipeline'], Icon: RiGroupLine, keywords: 'leads cuentas pipeline contactos oportunidades crm' },
+  { id: 'intelligence', moduleId: 'revenue-intelligence', space: 'sales', label: 'Inteligencia', labelEn: 'Intelligence', to: '/inteligencia', aliases: ['/inteligencia-comercial'], Icon: RiSparkling2Line, keywords: 'inteligencia comercial prioridades recomendaciones previsiones señales experimentos mejoras investigación' },
   { id: 'calendar', moduleId: 'meetings', space: 'sales', label: 'Calendario', labelEn: 'Calendar', to: '/calendario', aliases: ['/reuniones'], Icon: RiCalendarLine, keywords: 'calendario reuniones citas demos seguimientos' },
+  { id: 'inbox', moduleId: 'inbox', space: 'sales', label: 'Conversaciones', labelEn: 'Conversations', to: '/conversacion/inbox', Icon: RiMessage3Line, keywords: 'whatsapp mensajes bandeja asistente seguimiento' },
   { id: 'calls', moduleId: 'calls', space: 'sales', label: 'Llamadas', labelEn: 'Calls', to: '/llamadas', Icon: RiPhoneLine, keywords: 'voz conversaciones grabaciones' },
   { id: 'agents', moduleId: 'agents', space: 'sales', label: 'Agentes IA', labelEn: 'AI agents', to: '/agentes', Icon: RiRobot2Line, keywords: 'voz agentes comerciales' },
   { id: 'resources', moduleId: 'knowledge', space: 'sales', label: 'Documentos y guiones', labelEn: 'Documents and scripts', to: '/recursos-ia', aliases: ['/knowledge-base', '/playbooks'], Icon: RiBookReadLine, keywords: 'artículos fuentes conocimiento playbooks guiones plantillas ventas agentes seguimiento' },
@@ -76,7 +75,7 @@ export const APP_MODULES = [
   { id: 'capture-prospects', moduleId: 'prospect-finder', space: 'growth', label: 'Atraer · Prospectos', labelEn: 'Attract · Prospects', to: '/captacion/atraer/prospectos', Icon: RiCompass3Line, keywords: 'buscar prospección empresas', showInLocalNavigation: false },
   { id: 'capture-web', moduleId: 'landings', space: 'growth', label: 'Convertir · Web y SEO', labelEn: 'Convert · Web & SEO', to: '/captacion/convertir', Icon: RiGlobalLine, keywords: 'web landing conversión seo posicionamiento auditoría búsquedas keywords', showInLocalNavigation: false },
   { id: 'capture-funnels', moduleId: 'funnels', space: 'growth', label: 'Cerrar · Funnels', labelEn: 'Close · Funnels', to: '/captacion/cerrar', Icon: RiFlowChart, keywords: 'embudos conversión journey', showInLocalNavigation: false },
-  { id: 'email', moduleId: 'email', space: 'growth', label: 'Email marketing', labelEn: 'Email marketing', to: '/email-marketing', Icon: RiMailLine, keywords: 'newsletter mautic nutrición' },
+  { id: 'email', moduleId: 'email', space: 'growth', label: 'Email marketing', labelEn: 'Email marketing', to: '/email-marketing', Icon: RiMailLine, keywords: 'newsletter correo nutrición' },
 
   // `showInLocalNavigation: false` lo esconde de los menús sin romper la ruta:
   // /studio sigue resolviendo a un espacio y la paleta lo sigue encontrando.
@@ -84,7 +83,7 @@ export const APP_MODULES = [
   // Microapps salió de la sidebar (2026-09): se llega desde la paleta, los
   // atajos y los enlaces de leads, pero ya no ocupa un hueco en «Más».
   { id: 'microapps', moduleId: 'microapps', space: 'more', label: 'Microapps', labelEn: 'Microapps', to: '/microapps', Icon: RiApps2Line, keywords: 'crear investigar generar herramientas ia', showInLocalNavigation: false },
-  { id: 'assets', moduleId: 'assets', space: 'more', label: 'Biblioteca', labelEn: 'Library', to: '/activos', Icon: RiFolderImageLine, keywords: 'activos imágenes vídeos documentos biblioteca' },
+  { id: 'assets', moduleId: 'assets', space: 'more', label: 'Biblioteca', labelEn: 'Library', to: '/activos', Icon: RiFolderImageLine, keywords: 'activos imágenes vídeos documentos biblioteca', showInLocalNavigation: false, showInShortcuts: false },
   // Configuración es una sola sección (/configuracion) con secciones anidadas,
   // como /captacion. La portada («Mi perfil») es el módulo que se lista en la
   // sidebar; las secciones son módulos propios, ocultos del menú, para que la
@@ -116,9 +115,9 @@ export const MODULE_BY_NAV_ID = Object.fromEntries(APP_MODULES.map(module => [mo
 
 const LOCAL_GROUPS = {
   sales: [
-    { id: 'crm', label: 'CRM', labelEn: 'CRM', moduleIds: ['crm'] },
+    { id: 'crm', label: 'CRM', labelEn: 'CRM', moduleIds: ['crm', 'intelligence'] },
     { id: 'calendar', label: 'Planificación', labelEn: 'Planning', moduleIds: ['calendar'] },
-    { id: 'conversation', label: 'Conversación', labelEn: 'Conversation', moduleIds: ['calls', 'agents'] },
+    { id: 'conversation', label: 'Conversación', labelEn: 'Conversation', moduleIds: ['inbox', 'calls', 'agents'] },
     { id: 'resources', label: 'Recursos', labelEn: 'Resources', moduleIds: ['resources'] },
   ],
   growth: [
@@ -128,7 +127,6 @@ const LOCAL_GROUPS = {
     { id: 'operations', label: 'Operación', labelEn: 'Operations', moduleIds: ['growth-operations'] },
   ],
   more: [
-    { id: 'tools', label: 'Herramientas', labelEn: 'Tools', moduleIds: ['assets'] },
     { id: 'organization', label: 'Organización', labelEn: 'Organization', moduleIds: ['settings'] },
   ],
   learn: [

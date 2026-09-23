@@ -27,7 +27,7 @@ export interface EmotionReading {
   label: string;
 }
 
-/** El simulador entrega el audio del agente ya en Float32 a 24 kHz. */
+/** La cabina recibe el audio del agente como PCM16 little-endian a 24 kHz. */
 export const TTS_SAMPLE_RATE = 24_000;
 
 export const DEFAULT_GREETING =

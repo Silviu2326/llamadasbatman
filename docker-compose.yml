@@ -1,14 +1,5 @@
-# Mautic (email marketing) desplegado tal cual, sin fork, con su propia base
-# de datos, self-hosted junto al resto de Vendrava. El backend de VozIA
-# (backend/) sigue corriendo aparte (fuera de este compose) y se conecta por
-# API/webhook — nunca por DB compartida. Redes sociales: Metricool (SaaS, no
-# requiere infraestructura propia).
-
 services:
-  # El backend espera REDIS_URL=redis://localhost:6379 y sin el se desactivan las
-  # colas (llamadas, automatizaciones, revision de anuncios). No estaba declarado
-  # en ningun sitio, asi que en local siempre arrancaba degradado.
-  # Levantar solo esto:  docker compose up -d redis
+  # The backend uses Redis for queue-backed jobs. Run: docker compose up -d redis
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -17,33 +8,5 @@ services:
     volumes:
       - redis_data:/data
 
-  mautic-db:
-    image: mysql:8.0
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MAUTIC_DB_ROOT_PASSWORD:?MAUTIC_DB_ROOT_PASSWORD must be set}
-      MYSQL_DATABASE: mautic
-      MYSQL_USER: mautic
-      MYSQL_PASSWORD: ${MAUTIC_DB_PASSWORD:?MAUTIC_DB_PASSWORD must be set}
-    volumes:
-      - mautic_db_data:/var/lib/mysql
-
-  mautic:
-    image: mautic/mautic:v5-apache
-    restart: unless-stopped
-    depends_on:
-      - mautic-db
-    environment:
-      MAUTIC_DB_HOST: mautic-db
-      MAUTIC_DB_NAME: mautic
-      MAUTIC_DB_USER: mautic
-      MAUTIC_DB_PASSWORD: ${MAUTIC_DB_PASSWORD:?MAUTIC_DB_PASSWORD must be set}
-    ports:
-      - '8100:80'
-    volumes:
-      - mautic_data:/var/www/html
-
 volumes:
-  mautic_db_data:
-  mautic_data:
   redis_data:

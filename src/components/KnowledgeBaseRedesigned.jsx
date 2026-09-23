@@ -104,7 +104,7 @@ function KnowledgeArticle({ article, onOpen, onDelete }) {
   </article>
 }
 
-export default function KnowledgeBaseRedesigned({ sectionNavigation = null }) {
+export default function KnowledgeBaseRedesigned({ sectionNavigation = null, sectionHelp = null }) {
   const navigate = useNavigate()
   const [articles, setArticles] = useState([])
   const [dataStatus, setDataStatus] = useState('loading')
@@ -166,6 +166,7 @@ export default function KnowledgeBaseRedesigned({ sectionNavigation = null }) {
 
   return <main className="knowledge-base-page dark-scroll">
     <ProductPageHeader Icon={RiBookReadLine} title="Documentos" description="Añade y organiza información fiable para que tus agentes IA puedan ofrecer respuestas precisas en cada llamada." navigation={sectionNavigation} actions={<button className="kb-primary-action" onClick={() => setSourceMode('text')}><RiAddLine /> Añadir conocimiento</button>} />
+    {sectionHelp}
 
     {['error', 'disconnected', 'plan'].includes(dataStatus) ? <DataStatusBanner status={dataStatus} message={dataError} onRetry={() => refresh()} /> : null}
 

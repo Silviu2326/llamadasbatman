@@ -89,7 +89,7 @@ export async function leadsRoutes(app: FastifyInstance) {
       requirePermission('conversations.write', { scope: 'org' }),
       requirePermission('costs.request', { scope: 'org' }),
       requireEntitlement('crm'),
-      requireEntitlement('email_marketing', { integration: 'mautic' }),
+      requireEntitlement('email_marketing'),
     ],
   }, ctrl.sendEmail as any)
   app.put('/:id/preferences', {

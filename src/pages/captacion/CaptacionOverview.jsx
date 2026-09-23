@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   RiArrowRightLine, RiBarChartLine, RiFlowChart, RiGlobalLine, RiLeafLine,
-  RiRocket2Line, RiShareForwardLine,
+  RiCompass3Line, RiShareForwardLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
 import { fetchOrganicOverview } from '../../lib/organic/organicApi'
@@ -85,7 +85,7 @@ function buildStages(data) {
 
   return [
     {
-      id: 'plan', number: '01', label: 'Planificar', detail: 'Campañas y objetivos', Icon: RiShareForwardLine, color: 'var(--pink)', to: '/captacion/planificar',
+      id: 'plan', number: '01', label: 'Planificar', detail: 'Campañas y objetivos', Icon: RiShareForwardLine, color: 'var(--capt-plan)', to: '/captacion/planificar',
       figures: [
         { label: 'Campañas activas', value: number(activeCampaigns) },
         { label: 'Leads acumulados', value: number(campaignLeads) },
@@ -100,7 +100,7 @@ function buildStages(data) {
             : { label: 'Revisar campañas', to: '/captacion/planificar' },
     },
     {
-      id: 'attract', number: '02', label: 'Atraer', detail: 'Ads · Orgánico y social · Prospectos', Icon: RiBarChartLine, color: 'var(--accent-soft)', to: '/captacion/atraer/ads',
+      id: 'attract', number: '02', label: 'Atraer', detail: 'Ads · Orgánico y social · Prospectos', Icon: RiBarChartLine, color: 'var(--capt-attract)', to: '/captacion/atraer/ads',
       figures: [
         { label: 'Gasto en Ads (período)', value: adsMeasured ? money(adsSummary.fast.spendCents) : null },
         { label: 'Leads de Ads', value: adsMeasured ? number(adsSummary.fast.leads) : null },
@@ -120,7 +120,7 @@ function buildStages(data) {
       ],
     },
     {
-      id: 'convert', number: '03', label: 'Convertir', detail: 'Landings, webs y SEO', Icon: RiGlobalLine, color: 'var(--cyan)', to: '/captacion/convertir',
+      id: 'convert', number: '03', label: 'Convertir', detail: 'Landings, webs y SEO', Icon: RiGlobalLine, color: 'var(--capt-convert)', to: '/captacion/convertir',
       figures: [
         { label: 'Landings midiendo', value: measuredLandings != null && landingCount != null ? `${measuredLandings} de ${landingCount}` : number(landingCount) },
         { label: 'Score SEO', value: report ? `${report.score} / 100` : null },
@@ -135,7 +135,7 @@ function buildStages(data) {
             : { label: 'Ver landings y SEO', to: '/captacion/convertir' },
     },
     {
-      id: 'close', number: '04', label: 'Cerrar', detail: 'Funnels, llamadas y reuniones', Icon: RiFlowChart, color: 'var(--violet)', to: '/captacion/cerrar',
+      id: 'close', number: '04', label: 'Cerrar', detail: 'Funnels, llamadas y reuniones', Icon: RiFlowChart, color: 'var(--capt-close)', to: '/captacion/cerrar',
       figures: [
         { label: 'Funnels activos', value: number(funnelSummary?.active ?? null) },
         { label: 'Visita → lead', value: funnelSummary?.visitToLead != null ? `${funnelSummary.visitToLead}%` : null },
@@ -171,7 +171,7 @@ export default function CaptacionOverview() {
   return (
     <main className="gs-page captacion-home">
       <div className="gs-shell">
-        <ProductPageHeader Icon={RiRocket2Line} title={locale === 'en' ? 'Acquisition' : 'Captación'} description="Planifica campañas, atrae demanda, conviértela con Web y SEO y mide el cierre en funnels desde un mismo recorrido." />
+        <ProductPageHeader Icon={RiCompass3Line} title={locale === 'en' ? 'Acquisition' : 'Captación'} description="Un recorrido claro para convertir interés en oportunidades: planifica, atrae, convierte y cierra." />
 
         <section className="captacion-stage-cards" aria-label="Estado de las etapas">
           {(stages ?? buildStages({})).map(stage => {

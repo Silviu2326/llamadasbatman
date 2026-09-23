@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   RiArrowRightLine, RiCheckLine, RiClipboardLine, RiCodeLine, RiEditLine, RiErrorWarningLine,
   RiExternalLinkLine, RiGitBranchLine, RiGlobalLine, RiLoader4Line, RiLockPasswordLine, RiPlugLine,
@@ -9,6 +9,7 @@ import { apiFetch } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { hasNavigationPermission } from '../lib/navigationPermissions'
 import PageLoadingState from '../components/ui/PageLoadingState'
+import './connections-center.css'
 import './website-connections.css'
 
 const MODE_META = {
@@ -146,7 +147,7 @@ function InstallationGuide({ connection, canManage }) {
 
 /* ── WordPress ────────────────────────────────────────────────────────── */
 
-function WordPressConnectForm({ connection, canManage, onConnected, onError }) {
+function WordPressConnectForm({ connection, canManage, onConnected, onSaved, onError }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -160,6 +161,7 @@ function WordPressConnectForm({ connection, canManage, onConnected, onError }) {
       const body = await readBody(response, 'No se pudo conectar WordPress.')
       setPassword('')
       onConnected(body)
+      onSaved?.(body)
     } catch (err) { onError(err.message) } finally { setBusy(false) }
   }
 
@@ -250,7 +252,7 @@ function WordPressPages({ connection, canManage, onError }) {
   </div>
 }
 
-function WordPressPanel({ connection, canManage, onUpdate, onError }) {
+function WordPressPanel({ connection, canManage, onUpdate, onSaved, onError }) {
   const connector = connection.connector
   const [busy, setBusy] = useState('')
   const [showPages, setShowPages] = useState(false)
@@ -266,7 +268,7 @@ function WordPressPanel({ connection, canManage, onUpdate, onError }) {
 
   return <section className="web-wp-panel">
     <div className="web-section-label"><span><RiWordpressLine /> Conector WordPress</span><small>{connector?.canEdit ? `Conectado como ${connector.username || 'usuario'}` : 'No conectado'}</small></div>
-    {!connector ? <WordPressConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onError={onError} /> : <>
+    {!connector ? <WordPressConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onSaved={onSaved} onError={onError} /> : <>
       <div className="web-wp-status">
         <div className={connector.canEdit ? 'is-ok' : 'is-bad'}><RiCheckLine /><span><strong>API REST</strong><small>{connector.canEdit ? 'Credencial válida con permiso de edición' : 'La credencial dejó de funcionar: vuelve a conectar'}</small></span></div>
         <div className={connector.plugin ? 'is-ok' : ''}><RiPlugLine /><span><strong>Plugin Vendrava Connect</strong><small>{connector.plugin ? `v${connector.pluginVersion || '?'}${connector.seoPlugin && connector.seoPlugin !== 'none' ? ` · SEO por ${connector.seoPlugin}` : ' · SEO propio'}` : 'No instalado: hace falta para SEO y script automático'}</small></span></div>
@@ -278,7 +280,7 @@ function WordPressPanel({ connection, canManage, onUpdate, onError }) {
         <button type="button" className="conn-button ghost" onClick={() => run('verify', '/wordpress/verify')} disabled={!canManage || Boolean(busy)}>{busy === 'verify' ? <RiLoader4Line className="web-spin" /> : <RiRefreshLine />} Comprobar</button>
         <button type="button" className="conn-button ghost" onClick={() => run('disconnect', '/wordpress', 'DELETE')} disabled={!canManage || Boolean(busy)}>Desconectar</button>
       </div>
-      {!connector.canEdit ? <WordPressConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onError={onError} /> : null}
+      {!connector.canEdit ? <WordPressConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onSaved={onSaved} onError={onError} /> : null}
       {showPages && connector.canEdit ? <WordPressPages connection={connection} canManage={canManage} onError={onError} /> : null}
     </>}
   </section>
@@ -286,7 +288,7 @@ function WordPressPanel({ connection, canManage, onUpdate, onError }) {
 
 /* ── Git / GitHub ─────────────────────────────────────────────────────── */
 
-function GitConnectForm({ connection, canManage, onConnected, onError }) {
+function GitConnectForm({ connection, canManage, onConnected, onSaved, onError }) {
   const [repository, setRepository] = useState('')
   const [token, setToken] = useState('')
   const [busy, setBusy] = useState(false)
@@ -300,6 +302,7 @@ function GitConnectForm({ connection, canManage, onConnected, onError }) {
       const body = await readBody(response, 'No se pudo conectar el repositorio.')
       setToken('')
       onConnected(body)
+      onSaved?.(body)
     } catch (err) { onError(err.message) } finally { setBusy(false) }
   }
 
@@ -400,7 +403,7 @@ function GitProposals({ connection, canManage, onError }) {
   </div>
 }
 
-function GitPanel({ connection, canManage, onUpdate, onError }) {
+function GitPanel({ connection, canManage, onUpdate, onSaved, onError }) {
   const connector = connection.connector?.kind === 'git' ? connection.connector : null
   const [busy, setBusy] = useState('')
 
@@ -415,7 +418,7 @@ function GitPanel({ connection, canManage, onUpdate, onError }) {
 
   return <section className="web-wp-panel">
     <div className="web-section-label"><span><RiGitBranchLine /> Repositorio y pull requests</span><small>{connector ? `${connector.owner}/${connector.repo} · rama ${connector.defaultBranch}` : 'No conectado'}</small></div>
-    {!connector ? <GitConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onError={onError} /> : <>
+    {!connector ? <GitConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onSaved={onSaved} onError={onError} /> : <>
       <div className="web-wp-status">
         <div className={connector.canPush ? 'is-ok' : 'is-bad'}><RiCheckLine /><span><strong>Acceso al repositorio</strong><small>{connector.canPush ? `Puede crear ramas y pull requests${connector.username ? ` como ${connector.username}` : ''}` : 'El token ya no puede escribir: vuelve a conectar'}</small></span></div>
         <div className="is-ok"><RiShieldCheckLine /><span><strong>Rama principal intacta</strong><small>Cada cambio va en una rama vendrava/… y un PR</small></span></div>
@@ -425,12 +428,12 @@ function GitPanel({ connection, canManage, onUpdate, onError }) {
         <button type="button" className="conn-button ghost" onClick={() => run('verify', '/git/verify')} disabled={!canManage || Boolean(busy)}>{busy === 'verify' ? <RiLoader4Line className="web-spin" /> : <RiRefreshLine />} Comprobar</button>
         <button type="button" className="conn-button ghost" onClick={() => run('disconnect', '/git', 'DELETE')} disabled={!canManage || Boolean(busy)}>Desconectar</button>
       </div>
-      {!connector.canPush ? <GitConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onError={onError} /> : <GitProposals connection={connection} canManage={canManage} onError={onError} />}
+      {!connector.canPush ? <GitConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onSaved={onSaved} onError={onError} /> : <GitProposals connection={connection} canManage={canManage} onError={onError} />}
     </>}
   </section>
 }
 
-function WebsiteConnectionCard({ connection, canManage, onModeChange, onUpdate, onError }) {
+function WebsiteConnectionCard({ connection, canManage, onModeChange, onUpdate, onSaved, onError }) {
   const status = statusMeta(connection.status)
   const modes = Array.isArray(connection.availableModes) ? connection.availableModes : ['script']
   const connectorKind = connection.connector?.kind || null
@@ -445,17 +448,22 @@ function WebsiteConnectionCard({ connection, canManage, onModeChange, onUpdate, 
     <SignalsBlock connection={connection} />
     <div className="web-card-section"><div className="web-section-label"><span>Qué podemos hacer ahora</span><small>{connection.capabilities.filter(item => item.available).length}/{connection.capabilities.length} capacidades</small></div><CapabilityList capabilities={connection.capabilities} /></div>
     <div className="web-card-section"><div className="web-section-label"><span>Canal de acceso</span><small>Selecciona cómo quieres conectarla</small></div><div className="web-mode-list">{modes.map(mode => <ModePill key={mode} mode={mode} active={connection.connectionMode === mode} recommended={connection.recommendedMode === mode} onClick={onModeChange} disabled={!canManage} />)}</div></div>
-    {isWordPress ? <WordPressPanel connection={connection} canManage={canManage} onUpdate={onUpdate} onError={onError} /> : null}
-    {isGit ? <GitPanel connection={connection} canManage={canManage} onUpdate={onUpdate} onError={onError} /> : null}
-    <InstallationGuide connection={connection} canManage={canManage} />
+    {isWordPress ? <WordPressPanel connection={connection} canManage={canManage} onUpdate={onUpdate} onSaved={onSaved} onError={onError} /> : null}
+    {isGit ? <GitPanel connection={connection} canManage={canManage} onUpdate={onUpdate} onSaved={onSaved} onError={onError} /> : null}
+
   </article>
 }
 
 export default function WebsiteConnectionsPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const fromWebSeo = searchParams.get('from') === 'web-seo'
   const { user } = useAuth()
   const [connections, setConnections] = useState([])
   const [website, setWebsite] = useState('')
+  const [preview, setPreview] = useState(null)
+  const [selectedMode, setSelectedMode] = useState('script')
+  const previewHeading = useRef(null)
   const [state, setState] = useState('loading')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -476,24 +484,46 @@ export default function WebsiteConnectionsPage() {
   }, [])
 
   useEffect(() => { loadConnections() }, [loadConnections])
+  useEffect(() => { if (preview) previewHeading.current?.focus() }, [preview])
 
   const replaceConnection = useCallback(updated => {
     if (!updated?.id) return
     setConnections(current => current.map(item => item.id === updated.id ? updated : item))
   }, [])
   const showError = useCallback(message => setError(message || ''), [])
+  const handleConnectionSaved = useCallback(connection => {
+    replaceConnection(connection)
+    if (fromWebSeo) {
+      navigate('/captacion/convertir?tab=resumen', { state: { connectionSaved: true, connectionId: connection?.id || '', connectionDomain: connection?.domain || connection?.websiteUrl || '' } })
+    }
+  }, [fromWebSeo, navigate, replaceConnection])
 
   async function discover(event) {
     event.preventDefault()
     if (busy || !website.trim() || !canManage) return
     setBusy(true); setError('')
+    setPreview(null)
     try {
-      const response = await apiFetch('/api/web-connections/discover', { method: 'POST', body: JSON.stringify({ website: website.trim() }) })
-      await readBody(response, 'No se pudo analizar esa web.')
-      setWebsite('')
-      await loadConnections()
+      const response = await apiFetch('/api/web-connections/detect', { method: 'POST', body: JSON.stringify({ website: website.trim() }) })
+      const result = await readBody(response, 'No se pudo detectar la tecnología de esa web.')
+      setPreview(result)
+      setSelectedMode(result.recommendedMode)
     } catch (err) {
       setError(err.message || 'No se pudo analizar esa web.')
+    } finally { setBusy(false) }
+  }
+
+  async function confirmConnection() {
+    if (!preview || busy || !canManage) return
+    setBusy(true); setError('')
+    try {
+      const response = await apiFetch('/api/web-connections/discover', { method: 'POST', body: JSON.stringify({ website: preview.websiteUrl, mode: selectedMode }) })
+      const connection = await readBody(response, 'No se pudo preparar la conexión.')
+      setConnections(current => [connection, ...current.filter(item => item.id !== connection.id)])
+      setPreview(null)
+      setWebsite('')
+    } catch (err) {
+      setError(err.message || 'No se pudo preparar la conexión.')
     } finally { setBusy(false) }
   }
 
@@ -516,23 +546,34 @@ export default function WebsiteConnectionsPage() {
 
   return <main className="conn-page web-connections-page dark-scroll">
     <header className="web-connections-header">
-      <div className="web-title-block"><div className="web-title-icon"><RiGlobalLine /></div><div><span className="web-eyebrow">Web universal</span><h1>Conecta la web del cliente</h1><p>Una entrada para cualquier tecnología: empezamos con una capa universal y profundizamos cuando el sitio lo permite. Hoy la edición profunda está disponible para WordPress.</p></div></div>
-      <button type="button" className="conn-button ghost" onClick={() => navigate('/conexiones')}><RiPlugLine /> Proveedores <RiArrowRightLine /></button>
+      <div className="web-title-block"><div className="web-title-icon"><RiGlobalLine /></div><div><span className="web-eyebrow">Conexión web</span><h1>Conecta tu web</h1><p>Primero identificamos cómo está hecha. Después te guiamos para conectarla a Vendrava.</p></div></div>
+      <button type="button" className="conn-button ghost" onClick={() => navigate(fromWebSeo ? '/captacion/convertir?tab=resumen' : '/conexiones')}>{fromWebSeo ? 'Volver a Web y SEO' : <><RiPlugLine /> Proveedores</>} <RiArrowRightLine /></button>
     </header>
 
     <section className="web-hero-grid">
-      <div className="web-discovery-card"><div className="web-section-label"><span>1 · Añadir una web</span><small>Solo analizamos contenido público</small></div><form onSubmit={discover}><label htmlFor="website-url">Dominio del cliente</label><div className="web-url-input"><RiGlobalLine /><input id="website-url" type="url" value={website} onChange={event => setWebsite(event.target.value)} placeholder="https://cliente.com" disabled={!canManage || busy} /><button type="submit" className="conn-button primary" disabled={!canManage || busy || !website.trim()}>{busy ? <><RiLoader4Line className="web-spin" /> Analizando…</> : <><RiRefreshLine /> Analizar y conectar</>}</button></div><small className="web-helper">Detectaremos la plataforma, las capacidades disponibles y el canal más sencillo para instalar Vendrava.</small></form></div>
-      <div className="web-trust-card"><div className="web-trust-icon"><RiShieldCheckLine /></div><div><strong>Controlado y reversible</strong><p>La detección no modifica la web. Cada edición en WordPress registra el antes y el después en el historial de auditoría, y las credenciales se guardan cifradas.</p></div></div>
+      <div className="web-discovery-card"><div className="web-section-label"><span>1 · Detectar la tecnología</span><small>WordPress, constructores o código</small></div><form onSubmit={discover}><label htmlFor="website-url">Dirección de tu web</label><div className="web-url-input"><RiGlobalLine /><input id="website-url" type="text" inputMode="url" autoComplete="url" value={website} onChange={event => { setWebsite(event.target.value); setPreview(null); setError('') }} placeholder="tuweb.com" disabled={!canManage || busy} /><button type="submit" className="conn-button primary" disabled={!canManage || busy || !website.trim()}>{busy && !preview ? <><RiLoader4Line className="web-spin" /> Detectando…</> : <><RiRefreshLine /> Detectar tecnología</>}</button></div><small className="web-helper">Leemos las señales públicas de la página para identificar su plataforma. Todavía no se crea ninguna conexión.</small></form></div>
+      <div className="web-trust-card"><div className="web-trust-icon"><RiShieldCheckLine /></div><div><strong>Primero detectamos, tú decides</strong><p>Verás la tecnología encontrada y cómo conectarla. En este paso no necesitas contraseñas ni se modifica tu web.</p></div></div>
     </section>
 
     {!canManage ? <div className="web-banner is-info"><RiShieldCheckLine /> Tienes acceso de lectura. Un administrador debe añadir o cambiar conexiones web.</div> : null}
     {error ? <div className="web-banner is-error" role="alert"><RiErrorWarningLine /> {error}<button type="button" onClick={() => setError('')} aria-label="Cerrar">×</button></div> : null}
 
+    {preview ? <section className="web-detection-preview" aria-labelledby="web-detection-title" aria-busy={busy}>
+      <div className="web-preview-heading"><div><span className="web-eyebrow">2 · Elegir cómo conectarla</span><h2 id="web-detection-title" ref={previewHeading} tabIndex={-1}>{preview.technologyLabel}</h2><p>{preview.domain}</p></div><span className="web-preview-badge">{preview.technology === 'unknown' ? 'Sin señales concluyentes' : 'Tecnología detectada'}</span></div>
+      {preview.detection.evidence?.length ? <ul className="web-detection-evidence">{preview.detection.evidence.map(item => <li key={item}><RiCheckLine />{item}</li>)}</ul> : <p className="web-helper">La web responde, pero no expone señales suficientes para identificar su plataforma. Puedes instalar el script o conectar su repositorio si tienes acceso al código.</p>}
+      <fieldset className="web-preview-modes"><legend>¿Cómo quieres conectar tu web?</legend>{preview.availableModes.map(mode => {
+        const meta = MODE_META[mode]
+        const Icon = meta.Icon
+        return <label key={mode} className={`web-preview-option${selectedMode === mode ? ' is-selected' : ''}`}><input type="radio" name="website-method" value={mode} checked={selectedMode === mode} disabled={busy} onChange={() => setSelectedMode(mode)} /><Icon /><span><strong>{meta.label}{mode === preview.recommendedMode ? <em>Recomendado</em> : null}</strong><small>{meta.detail}</small></span></label>
+      })}</fieldset>
+      <div className="web-preview-footer"><p>El siguiente paso te mostrará las instrucciones y los datos necesarios. La conexión se verificará al completar la instalación.</p><button type="button" className="conn-button primary" disabled={busy || !canManage} onClick={confirmConnection}>{busy ? <><RiLoader4Line className="web-spin" /> Preparando…</> : <>Continuar con {MODE_META[selectedMode].label} <RiArrowRightLine /></>}</button></div>
+    </section> : null}
+
     {state === 'error' ? <div className="conn-state error"><RiErrorWarningLine /><strong>No se pudieron cargar las conexiones web.</strong><button type="button" className="conn-button secondary" onClick={loadConnections}>Reintentar</button></div> : null}
-    {state === 'ready' && connections.length === 0 ? <div className="web-empty-state"><RiGlobalLine /><strong>Aún no hay webs conectadas</strong><span>Añade el primer dominio y Vendrava te dirá si conviene usar script, plugin, API, Git, SFTP o edge.</span></div> : null}
+    {state === 'ready' && connections.length === 0 && !preview ? <div className="web-empty-state"><RiGlobalLine /><strong>Empecemos por tu web</strong><span>Introduce su dirección para detectar la plataforma y ver las opciones de conexión.</span></div> : null}
     {connections.length > 0 ? <>
-      <section className="web-stat-row" aria-label="Resumen de conexiones"><div><strong>{stats.sites}</strong><span>{stats.sites === 1 ? 'web conectada' : 'webs conectadas'}</span></div><div><strong>{stats.deep}</strong><span>con edición profunda</span></div><div><strong>{stats.verified}</strong><span>enviando señales</span></div></section>
-      <section className="web-connections-list" aria-label="Webs conectadas">{connections.map(connection => <WebsiteConnectionCard key={connection.id} connection={connection} canManage={canManage} onModeChange={mode => chooseMode(connection, mode)} onUpdate={replaceConnection} onError={showError} />)}</section>
+      <section className="web-stat-row" aria-label="Resumen de conexiones"><div><strong>{stats.sites}</strong><span>{stats.sites === 1 ? 'web añadida' : 'webs añadidas'}</span></div><div><strong>{stats.deep}</strong><span>con edición profunda</span></div><div><strong>{stats.verified}</strong><span>enviando señales</span></div></section>
+      <section className="web-connections-list" aria-label="Webs conectadas">{connections.map(connection => <WebsiteConnectionCard key={connection.id} connection={connection} canManage={canManage} onModeChange={mode => chooseMode(connection, mode)} onUpdate={replaceConnection} onSaved={handleConnectionSaved} onError={showError} />)}</section>
     </> : null}
   </main>
 }

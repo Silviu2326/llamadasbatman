@@ -1,0 +1,48 @@
+; ADDITIVE configuration for the existing PBX, pending server-side review.
+; Include alongside the CRM configuration; never replace its pjsip.conf.
+; Reuse Carlos's existing udp-transport (including its NAT settings).
+; Do NOT load alongside pjsip.conf.example: choose one deployment topology.
+; The gateway must use ZADARMA_PJSIP_ENDPOINT=zadarma-ai.
+
+[zadarma-ai-auth]
+type=auth
+auth_type=userpass
+username=922118
+password=SIP_PASSWORD
+
+[zadarma-ai-registration]
+type=registration
+transport=udp-transport
+outbound_auth=zadarma-ai-auth
+server_uri=sip:sip.zadarma.com
+client_uri=sip:922118@sip.zadarma.com
+contact_user=922118
+retry_interval=60
+expiration=120
+
+[zadarma-ai]
+type=aor
+contact=sip:sip.zadarma.com
+qualify_frequency=60
+
+[zadarma-ai]
+type=endpoint
+transport=udp-transport
+context=vendrava-reject-inbound
+disallow=all
+allow=alaw,ulaw
+outbound_auth=zadarma-ai-auth
+aors=zadarma-ai
+from_user=922118
+from_domain=sip.zadarma.com
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+
+; Outbound AI calls select this endpoint explicitly through AMI.
+; No new IP identify: the CRM already matches the same provider addresses.
+; Do not change the existing identify, endpoint identifier order or routing.
+; No inbound numbers may be assigned to 922118 in this outbound-only setup.
+; Its inbound context is a fallback, not isolation from the CRM's IP identify.
+; Future inbound support requires separate reviewed routing/identification.

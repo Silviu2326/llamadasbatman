@@ -156,7 +156,7 @@ test('cada formato nuevo se renderiza con su forma, no con la del Reel', () => {
   )
 })
 
-test('el email que viaja a Mautic escapa lo que escribió el modelo', () => {
+test('el HTML del borrador de email escapa lo que escribió el modelo', () => {
   // El cuerpo acaba dentro del HTML de una plantilla: sin escapar, un "<" del
   // texto se convertiría en marcado dentro del correo de un cliente.
   const html = emailHtml({ body: 'Precio < 100 & sin "letra pequeña"\n\nSegundo párrafo', cta: 'Responder' })

@@ -1,0 +1,8 @@
+.home-accent-icon, .home-metric-tone { --home-tone: var(--accent-soft, var(--accent)); }
+[data-tone="green"] { --home-tone: var(--success-soft, var(--success)); }
+[data-tone="blue"] { --home-tone: var(--cyan-soft, var(--cyan)); }
+[data-tone="amber"] { --home-tone: var(--warn-soft, var(--warn)); }
+.home-accent-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 11px; color: var(--home-tone); background: color-mix(in srgb, var(--home-tone) 11%, transparent); border: 1px solid color-mix(in srgb, var(--home-tone) 12%, transparent); }
+.home-accent-icon svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.home-kicker { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 10px; font-weight: 650; letter-spacing: 1.25px; text-transform: uppercase; color: var(--accent-soft); }
+.home-kicker > svg { width: 16px; height: 16px; }

@@ -168,7 +168,10 @@ export async function ingest(
   const { orgId, ...data } = request.body
   let call
   try {
-    call = await callsService.ingestCall(orgId, data)
+    // `isTest` no se acepta por HTTP: marca una llamada como prueba interna y
+    // la saca de los resultados del agente. Solo lo pone la pasarela cuando
+    // ella misma preparó la llamada de prueba (zadarma/runtime.ts).
+    call = await callsService.ingestCall(orgId, { ...data, isTest: undefined })
   } catch (error) {
     if (
       error instanceof callsService.InvalidVoiceContextError ||

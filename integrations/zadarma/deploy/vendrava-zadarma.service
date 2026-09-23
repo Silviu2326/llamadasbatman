@@ -1,0 +1,28 @@
+[Unit]
+Description=Vendrava Zadarma voice gateway (SIP 922118)
+After=network-online.target asterisk.service
+Wants=network-online.target
+Requires=asterisk.service
+
+[Service]
+Type=simple
+User=vendrava
+Group=vendrava
+WorkingDirectory=/opt/vendrava/gateway
+EnvironmentFile=/etc/vendrava/zadarma.env
+Environment=PATH=/opt/vendrava/node-v22.23.2-linux-x64/bin:/usr/bin:/bin
+ExecStart=/opt/vendrava/node-v22.23.2-linux-x64/bin/node dist/zadarmaGateway.js
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=40
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/spool/asterisk/monitor/vendrava
+MemoryMax=768M
+UMask=0007
+
+[Install]
+WantedBy=multi-user.target

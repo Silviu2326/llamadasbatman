@@ -10,6 +10,7 @@ export async function integrationCredentialsRoutes(app: FastifyInstance) {
   app.get('/', canRead, controller.list)
   // Catálogo del Centro de conexiones: registro + legacy con estado y consumo.
   app.get('/catalog', canRead, controller.catalog)
+  app.get('/resend/inbound-webhook', canRead, controller.resendInboundWebhook)
   app.put<{ Params: { provider: string } }>('/:provider', canManage, controller.put as any)
   // Prueba de conexión (03-PROVEEDORES §4.3): ejecuta testConnection del
   // descriptor con la credencial descifrada y actualiza status/lastError.

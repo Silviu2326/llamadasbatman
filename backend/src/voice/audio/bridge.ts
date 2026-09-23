@@ -33,7 +33,7 @@ const GEMINI_IN_RATE = 16000
 const GEMINI_OUT_RATE = 24000
 const TWILIO_FRAME_BYTES = 160
 
-function windowedLowPass(taps: number, cutoff: number, gain = 1): Float64Array {
+export function windowedLowPass(taps: number, cutoff: number, gain = 1): Float64Array {
   if (taps < 3 || taps % 2 === 0) throw new Error('FIR taps must be an odd number >= 3')
   if (!(cutoff > 0 && cutoff < 0.5)) throw new Error('FIR cutoff must be between 0 and Nyquist')
   const coefficients = new Float64Array(taps)
@@ -52,7 +52,7 @@ function windowedLowPass(taps: number, cutoff: number, gain = 1): Float64Array {
   return coefficients
 }
 
-class StreamingFir {
+export class StreamingFir {
   private readonly history: Float64Array
   private cursor = 0
 

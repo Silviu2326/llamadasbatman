@@ -648,7 +648,7 @@ export default function AgentDetailPage() {
         </button>
       </div>
 
-      {viewMode === 'simple' ? <AgentSimpleSetup agentId={agent.id} draft={draft} onChange={updateDraft} onSave={saveConfig} saving={saving} saved={savedConfig} onNavigate={navigate} onPublished={() => setIsActive(true)} /> : null}
+      {viewMode === 'simple' ? <AgentSimpleSetup agentId={agent.id} draft={draft} onChange={updateDraft} onSave={saveConfig} saving={saving} saved={savedConfig} onNavigate={navigate} onPublished={() => setIsActive(true)} onOpenGovernance={section => { changeViewMode('professional'); openGovernanceSection(section) }} /> : null}
 
       {/* Stat cards */}
       <div className="agent-detail-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12, marginBottom: 22 }}>

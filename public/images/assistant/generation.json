@@ -1,0 +1,19 @@
+{
+  "mode": "built-in image_gen",
+  "assets": [
+    {
+      "name": "welcome.webp",
+      "prompt": "Use case: stylized-concept. Asset type: transparent welcome illustration for a warm Spanish CRM assistant chat. Create one original small lilac scalloped flower-shaped companion, 8 rounded petal lobes forming its body/head, two tiny dark plum oval eyes, tiny curved smile, soft peach blush cheeks, little rounded arms and feet. Sophisticated soft tactile clay and paper texture, warm editorial 3D illustration, lavender #e3cff6, peach and mint accents. Character waving beside a tiny peach speech bubble with no writing, welcoming and calm. Full body centered, generous transparent margin, soft studio light, crisp silhouette readable at 150px. Genuinely transparent alpha background, no white rectangle, no text, no logo, no watermark, no UI. Square composition."
+    },
+    {
+      "name": "notebook.webp",
+      "prompt": "Create a new pose of exactly this same lilac scalloped flower companion, same face, 2 mint leaves, proportions, peach cheeks and tactile soft clay-paper finish. It is sitting with a tiny peach notebook open in its lap, holding a small mint pencil and looking thoughtfully but warmly at the page. No speech bubble. Full body isolated, centered, generous margins. Transparent alpha background, no text, no watermark. Warm soft studio lighting. Square asset for a chat assistant working on a response. Preserve the character identity. Use case: stylized-concept.",
+      "reference": "welcome illustration"
+    },
+    {
+      "name": "explore.webp",
+      "prompt": "Create a new pose of exactly this same lilac scalloped flower companion, same face, 2 mint leaves, proportions, peach cheeks and tactile soft clay-paper finish. It is standing proudly holding a small round peach compass with a simple mint needle, with a tiny folded mint map beside its feet. Curious friendly expression. No speech bubble. Full body isolated, centered, generous margins. Transparent alpha background, no text, no watermark. Warm soft studio lighting. Square asset for a chat assistant quick actions explorer. Preserve the character identity. Use case: stylized-concept.",
+      "reference": "welcome illustration"
+    }
+  ]
+}

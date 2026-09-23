@@ -341,23 +341,28 @@ export class VendravaVoiceSession implements VoiceSession {
    */
   private greeting(): string {
     const identity = this.ctx.agentConfig?.identity
+    const recordingNotice = this.ctx.metadata.recordingPolicy === 'always'
+      ? (this.language === 'es' ? 'Esta llamada se está grabando. ' : 'This call is being recorded. ')
+      : ''
     const consent = this.ctx.recordingConsentPending ? ` ${mustGetRecordingConsent(this.language)}` : ''
     if (identity?.agentName) {
       // El saludo lo decide el playbook: quien llama a un desconocido tiene que
       // justificarse en una frase; quien atiende una llamada, no.
       const playbook = agentPlaybook(this.ctx.agentConfig?.agentType)
       const disclosure = disclosureLine(identity.agentName, this.language)
-      const opening = this.language === 'es'
+      const configuredOpening = this.ctx.agentConfig?.behavior?.openingLine
+      const customOpening = typeof configuredOpening === 'string' ? configuredOpening.trim().slice(0, 300) : ''
+      const opening = customOpening || (this.language === 'es'
         ? this.spanishPlaybookGreeting(playbook.type, identity.agentName, this.ctx.agentConfig?.product?.companyName)
         : playbookGreeting(playbook, this.ctx.direction, {
             agentName: identity.agentName,
             companyName: this.ctx.agentConfig?.product?.companyName,
-          })
-      return `${disclosure ? `${disclosure} ` : ''}${opening}${consent}`
+          }))
+      return `${disclosure ? `${disclosure} ` : ''}${recordingNotice}${opening}${consent}`
     }
     const disclosure = disclosureLine('Carlos', this.language)
     const fallback = this.language === 'es' ? 'Hola, soy Carlos. Seré breve: ¿cómo va tu día?' : DEFAULT_GREETING
-    return `${disclosure ? `${disclosure} ` : ''}${fallback}${consent}`
+    return `${disclosure ? `${disclosure} ` : ''}${recordingNotice}${fallback}${consent}`
   }
 
   private spanishPlaybookGreeting(type: string, agentName: string, companyName?: string): string {

@@ -1,5 +1,7 @@
 # Estado del producto — Vendrava / VozIA
 
+> **Documento histórico (11 de agosto de 2026).** Su inventario de integraciones y su estado de email preceden a cambios posteriores. Mautic se retiró del runtime, configuración y despliegue; Vendrava usa borradores y campañas locales con Resend. Para el estado actual consulta [docs/EMAIL_MARKETING_ACTIVACION.md](docs/EMAIL_MARKETING_ACTIVACION.md).
+
 Fecha: 11 de agosto de 2026. Rama `agent/actualizar-plataforma`.
 
 Auditoría de código real, no de documentación: cinco investigaciones en paralelo
@@ -286,3 +288,5 @@ aplicación. No se verificaron: el estado real del `.env` de producción, si las
 migraciones de Prisma están aplicadas en el entorno objetivo, ni el
 comportamiento en vivo de ninguna integración externa. Todo lo demás sale de
 leer el código citado.
+
+

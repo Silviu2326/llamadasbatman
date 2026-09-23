@@ -10,7 +10,7 @@ declare module 'fastify' {
 }
 
 export type EntitlementOptions = Readonly<{
-  integration?: 'mautic' | 'metricool'
+  integration?: 'metricool'
   limit?: { resource: LimitResource; increment?: number }
 }>
 

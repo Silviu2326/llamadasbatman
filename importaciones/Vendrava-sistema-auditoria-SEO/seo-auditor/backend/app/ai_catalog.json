@@ -1,0 +1,89 @@
+{
+  "version": "1.0.0",
+  "rules": [
+    {
+      "id": "AI-01",
+      "name": "Propósito y contexto",
+      "task": "Clasificar propósito de página y negocio con fragmentos de la muestra",
+      "requires": "Textos de portada/servicio y hechos de negocio",
+      "guard": "Clasificación propuesta; no inventar servicios, sedes o acreditaciones"
+    },
+    {
+      "id": "AI-02",
+      "name": "Alineación del título",
+      "task": "Comparar title, H1 y contenido principal",
+      "requires": "Metadatos y texto de la misma página",
+      "guard": "Propuesta editorial, no predicción del título que mostrará Google"
+    },
+    {
+      "id": "AI-03",
+      "name": "Descripción útil",
+      "task": "Proponer descripción fiel y específica cuando aporte valor",
+      "requires": "Texto, servicio y ubicación comprobados",
+      "guard": "Sin promesas de CTR ni límites de caracteres presentados como norma Google"
+    },
+    {
+      "id": "AI-04",
+      "name": "Suficiencia del contenido",
+      "task": "Identificar preguntas relevantes no respondidas en el contenido suministrado",
+      "requires": "Texto con alcance y truncamiento",
+      "guard": "Si hay truncamiento relevante: abstenerse de afirmar ausencia en la página"
+    },
+    {
+      "id": "AI-05",
+      "name": "Diferenciación de páginas",
+      "task": "Revisar candidatos duplicados y propósito diferente",
+      "requires": "Pares de textos y grupos de duplicación",
+      "guard": "No declarar canibalización sin evidencia de búsquedas y rendimiento"
+    },
+    {
+      "id": "AI-06",
+      "name": "Enlazado contextual",
+      "task": "Proponer enlaces útiles entre páginas realmente descubiertas",
+      "requires": "Grafo, URLs y contenido de ambas páginas",
+      "guard": "Propuestas de páginas nuevas se marcan como propuestas, nunca existentes"
+    },
+    {
+      "id": "AI-07",
+      "name": "Contexto local",
+      "task": "Valorar claridad de servicios, sede y zona atendida",
+      "requires": "Hechos por sede y textos",
+      "guard": "No exigir dirección pública a negocio de área de servicio ni inventar zonas"
+    },
+    {
+      "id": "AI-08",
+      "name": "Claridad de conversión",
+      "task": "Valorar CTA y recorrido observado hasta contacto",
+      "requires": "Textos y enlaces; capturas solo con visión habilitada",
+      "guard": "Dimensión conversión; no afirmar que formulario envía ni estimar ventas"
+    },
+    {
+      "id": "AI-09",
+      "name": "Causas posibles",
+      "task": "Relacionar hallazgos sin confundir correlación con causalidad",
+      "requires": "Hallazgos y trazas específicas",
+      "guard": "Causa no probada se etiqueta hypothesis con prueba sugerida"
+    },
+    {
+      "id": "AI-10",
+      "name": "Priorización",
+      "task": "Ordenar acciones dentro de límites técnicos de fase 1",
+      "requires": "Gravedad, alcance conocido, papel de página y esfuerzo estimado",
+      "guard": "No inventar valor comercial ni usar falta de datos como oportunidad comercial"
+    },
+    {
+      "id": "AI-11",
+      "name": "Comparación externa",
+      "task": "Analizar diferencias observadas con fuentes externas habilitadas",
+      "requires": "Datos fechados y alcance comparable",
+      "guard": "Abstenerse si no hay competidores o consultas verificadas"
+    },
+    {
+      "id": "AI-12",
+      "name": "Informe y recomendaciones",
+      "task": "Producir síntesis y hasta 8 acciones con pruebas y criterios de aceptación",
+      "requires": "Expediente estructurado completo",
+      "guard": "No redactar mensajes para envío ni ejecutar cambios; evitar afirmaciones no respaldadas"
+    }
+  ]
+}

@@ -220,9 +220,12 @@ export async function ingestCall(
   orgId: string,
   data: {
     externalCallId?: string
+    telephonyProvider?: 'twilio' | 'zadarma'
     leadId: string
     agentId?: string
     campaignId?: string
+    /** Prueba de un agente en borrador (voiceTestCall.service.ts), no actividad comercial. */
+    isTest?: boolean
     duration?: number
     recordingUrl?: string
     transcript?: string
@@ -270,6 +273,7 @@ export async function ingestCall(
           leadId: data.leadId,
           agentId: data.agentId,
           campaignId: data.campaignId,
+          isTest: data.isTest ?? false,
           status: 'completed',
           durationSeconds: data.duration,
           recordingUrl: data.recordingUrl,
@@ -347,7 +351,7 @@ export async function ingestCall(
   if (closedDuration > 0 && (previousDuration ?? 0) <= 0) {
     await recordUsage({
       orgId,
-      provider: 'twilio+voz',
+      provider: `${data.telephonyProvider ?? 'twilio'}+voz`,
       capability: call.direction === 'inbound' ? 'call.inbound' : 'call.outbound',
       quantity: closedDuration,
       unit: 'seconds',
@@ -391,7 +395,7 @@ export async function ingestCall(
         conversationId: conversation.id,
         leadId: data.leadId,
         channel: 'voice',
-        provider: 'twilio',
+        provider: data.telephonyProvider ?? 'twilio',
         direction: 'outbound',
         contentType: 'call',
         body: messageBody,

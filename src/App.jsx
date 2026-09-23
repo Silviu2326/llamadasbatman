@@ -4,13 +4,16 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ExperienceProvider } from './contexts/ExperienceContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
+import { HomeRouteLoading } from './components/ui/HomeLoadingState'
+import { loadDashboard, loadPlan, loadInsights } from './lib/homePageModules'
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
-const Dashboard = lazy(() => import('./components/Dashboard'))
+const Dashboard = lazy(loadDashboard)
 const Campaigns = lazy(() => import('./components/Campaigns'))
 const Calls = lazy(() => import('./components/Calls'))
+const ConversationsInboxPage = lazy(() => import('./pages/ConversationsInboxPage'))
 const Agentes = lazy(() => import('./components/Agentes'))
-const Insights = lazy(() => import('./components/Insights'))
+const Insights = lazy(loadInsights)
 const BusinessProfilePage = lazy(() => import('./pages/BusinessProfilePage'))
 const WebsiteIntakePage = lazy(() => import('./pages/WebsiteIntakePage'))
 const Configuracion = lazy(() => import('./components/Configuracion'))
@@ -24,7 +27,7 @@ const AutomacionDetailPage = lazy(() => import('./pages/AutomacionDetailPage'))
 const ArticleDetailPage = lazy(() => import('./pages/ArticleDetailPage'))
 const PlaybookDetailPage = lazy(() => import('./pages/PlaybookDetailPage'))
 const OpportunityDetailPage = lazy(() => import('./pages/OpportunityDetailPage'))
-const GrowthPlanPage = lazy(() => import('./pages/GrowthPlanPage'))
+const GrowthPlanPage = lazy(loadPlan)
 const ProspectFinderPage = lazy(() => import('./pages/ProspectFinderPage'))
 // Growth se fundió en dos páginas (2026-08): «Orgánico y social» (centro de
 // mando orgánico + redes) y «Web y SEO» (landings + SEO). Las rutas viejas
@@ -66,9 +69,11 @@ const MicroappRunnerPage = lazy(() => import('./pages/MicroappRunnerPage'))
 const WebsiteConnectionsPage = lazy(() => import('./pages/WebsiteConnectionsPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
 const MarketplacePage = lazy(() => import('./pages/MarketplacePage'))
-import SongStudioPage from './pages/SongStudioPage'
+const SongStudioPage = lazy(() => import('./pages/SongStudioPage'))
 const AccountsPage = lazy(() => import('./pages/AccountsPage'))
 const SalesHubPage = lazy(() => import('./pages/SalesHubPage'))
+const RevenueIntelligencePage = lazy(() => import('./pages/RevenueIntelligencePage'))
+const OpportunityRadarPage = lazy(() => import('./pages/OpportunityRadarPage'))
 const SalesResourcesPage = lazy(() => import('./pages/SalesResourcesPage'))
 const SalesCalendarPage = lazy(() => import('./pages/SalesCalendarPage'))
 const SalesRecordDetailPage = lazy(() => import('./pages/SalesRecordDetailPage'))
@@ -121,7 +126,7 @@ export default function App() {
           <Route path="/privacidad" element={<PrivacyPage />} />
           <Route path="/terminos" element={<TermsPage />} />
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Suspense key="dashboard" fallback={<HomeRouteLoading page="dashboard" />}><Dashboard /></Suspense>} />
             <Route path="/orquestador" element={<LegacyRedirect to="/operaciones-growth" />} />
             <Route path="/captacion" element={<CaptacionPage />}>
               <Route index element={<CaptacionOverview />} />
@@ -145,6 +150,8 @@ export default function App() {
             <Route path="/funnels" element={<LegacyRedirect to="/captacion/cerrar" />} />
             <Route path="/llamadas" element={<Calls />} />
             <Route path="/ventas" element={<SalesHubPage />} />
+            <Route path="/inteligencia" element={<Suspense fallback={<PageLoadingState label="Cargando inteligencia" />}><OpportunityRadarPage /></Suspense>} />
+            <Route path="/inteligencia/prioridades" element={<Suspense fallback={<PageLoadingState label="Cargando prioridades" />}><RevenueIntelligencePage /></Suspense>} />
             <Route path="/ventas/:entity/:id" element={<SalesRecordDetailPage />} />
             <Route path="/leads" element={<Navigate to="/ventas?vista=leads" replace />} />
             <Route path="/cuentas" element={<Navigate to="/ventas?vista=accounts" replace />} />
@@ -154,7 +161,7 @@ export default function App() {
             <Route path="/calendario" element={<SalesCalendarPage />} />
             <Route path="/reuniones" element={<Navigate to="/calendario" replace />} />
             <Route path="/playbooks" element={<LegacyRedirect to="/recursos-ia" tab="playbooks" />} />
-            <Route path="/insights" element={<Insights />} />
+            <Route path="/insights" element={<Suspense key="insights" fallback={<HomeRouteLoading page="insights" />}><Insights /></Suspense>} />
             <Route path="/automatizaciones" element={<LegacyRedirect to="/operaciones-growth" tab="automatizaciones" />} />
             <Route path="/knowledge-base" element={<LegacyRedirect to="/recursos-ia" />} />
             <Route path="/recursos-ia" element={<SalesResourcesPage />} />
@@ -194,13 +201,13 @@ export default function App() {
             <Route path="/playbooks/:id" element={<PlaybookDetailPage />} />
             <Route path="/pipeline/:id" element={<OpportunityDetailPage />} />
             <Route path="/voz/cabina" element={<VoiceCabinPage />} />
-            <Route path="/plan" element={<GrowthPlanPage />} />
+            <Route path="/plan" element={<Suspense key="plan" fallback={<HomeRouteLoading page="plan" />}><GrowthPlanPage /></Suspense>} />
             <Route path="/captacion/conectar" element={<MetaAccountPage />} />
             <Route path="/email-marketing" element={<EmailMarketingPage />} />
             <Route path="/captacion/nueva" element={<AdsWizardPage />} />
-            <Route path="/conversacion/inbox" element={<Navigate to="/llamadas" replace />} />
+            <Route path="/conversacion/inbox" element={<ConversationsInboxPage />} />
             <Route path="/growth" element={<GrowthHubPage />} />
-            <Route path="/inteligencia-comercial" element={<LegacyRedirect to="/ventas" tab="inteligencia" paramKey="vista" />} />
+            <Route path="/inteligencia-comercial" element={<LegacyRedirect to="/inteligencia" />} />
             <Route path="/administracion" element={<LegacyRedirect to="/configuracion/administracion" />} />
             <Route path="/gobierno-empresarial" element={<LegacyRedirect to="/configuracion/administracion" tab="gobierno" />} />
             <Route path="/access-control" element={<LegacyRedirect to="/configuracion/administracion" tab="accesos" />} />

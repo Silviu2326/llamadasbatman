@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "check:styles": "node scripts/check-style-dependencies.mjs",
     "preview": "vite preview",
     "zombies:dev": "vite zombies-mode --port 4174 --strictPort",
     "zombies:build": "vite build zombies-mode --outDir ../dist-zombies --emptyOutDir",

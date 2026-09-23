@@ -89,3 +89,24 @@ test('sin fuentes no llama al modelo ni fabrica oportunidades', async () => {
   assert.deepEqual(data.suppliers, [])
   assert.ok(data.gaps.length > 0)
 })
+
+test('ejecuta todos los objetivos, conserva sus tipos y declara los que no tienen evidencia', async () => {
+  const app = getMicroapp('business-opportunity-radar')!
+  const queries: string[] = []
+  const radar = { businessType: 'software', kind: 'clients', target: 'Salones', location: 'Madrid', criteria: '', objectives: [{ kind: 'clients', target: 'Salones', criteria: '' }, { kind: 'suppliers', target: 'Hosting', criteria: 'Europa' }, { kind: 'partners', target: 'Integradores', criteria: '' }] }
+  const ctx: MicroappCtx = { orgId: 'org-multi', jobId: 'job-multi', log() {}, async capability(name, raw) {
+    const input = raw as any
+    if (name === 'web.search') {
+      queries.push(input.query)
+      return { results: input.query.includes('Salones') ? [{ title: 'Salón Lúa', url: 'https://salon.example', snippet: 'Salón Lúa Madrid' }] : input.query.includes('Hosting') ? [{ title: 'Hosting Azul', url: 'https://hosting.example', snippet: 'Hosting Azul servidores en Europa' }] : [] }
+    }
+    assert.match(input.prompt, /Objetivos independientes/)
+    assert.match(input.prompt, /Integradores/)
+    return { text: JSON.stringify({ executiveBrief: 'Dos candidatos con fuentes.', candidates: [{ name: 'Salón Lúa', kind: 'clients', source: 1, rationale: 'Posible comprador' }, { name: 'Hosting Azul', kind: 'suppliers', source: 2, rationale: 'Posible proveedor' }], facts: [], inferences: [], opportunities: [], suppliers: [], risks: [], gaps: [], nextQuestions: [] }) }
+  } }
+  const result = await app.run(ctx, { ...hotelInput, radar })
+  const data = app.outputSchema.parse(result.data) as any
+  assert.equal(queries.length, 12)
+  assert.deepEqual(data.candidates.map((item: any) => item.kind), ['clients', 'suppliers'])
+  assert.ok(data.gaps.some((gap: string) => gap.includes('Integradores')))
+})

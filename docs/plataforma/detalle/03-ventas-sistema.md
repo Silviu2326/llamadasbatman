@@ -131,7 +131,7 @@ La pantalla cruza además:
 | Consultar preferencias | `GET /api/leads/:id/preferences` | Consentimientos de email |
 | Actualizar preferencia | `PUT /api/leads/:id/preferences` | Upsert de `ContactConsent` |
 | Llamar ahora | `POST /api/leads/:id/call-now` | Encola/lanza una llamada con controles de coste |
-| Enviar email | `POST /api/leads/:id/send-email` | Solicita envío mediante Mautic y registra entrega |
+| Enviar email | `POST /api/leads/:id/send-email` | Solicita un envío por Resend con consentimiento y registra la entrega |
 
 La barra de acciones masivas actualiza estados de los leads seleccionados o exporta la selección. El cambio masivo de estado se implementa como varias llamadas individuales a `PUT /api/leads/:id`.
 
@@ -164,7 +164,7 @@ El rol `viewer` puede leer lo que su permiso permita, pero el backend deniega mu
 - **Pipeline**: una oportunidad usa `leadId`; el lead es el punto de entrada del proceso comercial.
 - **Reuniones**: una reunión usa `leadId` y puede originarse en una llamada.
 - **Llamadas/Inbox**: llamadas, mensajes y conversaciones alimentan la timeline.
-- **Email/Mautic**: el envío depende de plantillas/identidades autorizadas y consentimientos.
+- **Email/Resend**: el envío usa borradores locales y depende de remitente autorizado y consentimiento.
 - **Insights**: el dashboard agrega leads, llamadas, reuniones, funnel y valor.
 
 #### Riesgos y pendientes
@@ -509,7 +509,7 @@ Insights es la lectura ejecutiva del CRM. Resuelve la dificultad de interpretar 
 - `callsByCampaign`.
 - `pipelineByDay`.
 - `sentiment` positivo/neutral/negativo.
-- `userCount`, plan de org y flags de Mautic/Metricool.
+- `userCount`, plan de org y estados de Resend/Metricool.
 
 El servicio usa modelos `Call`, `Lead`, `Meeting`, `Campaign`, `Opportunity`, `Agent`, `AdInsightSnapshot` y `Organization`. No es una tabla propia de “insights”; es una proyección calculada.
 
@@ -660,7 +660,7 @@ En la implementación actual, la pantalla tiene una navegación visual extensa, 
 | Contraseña | `PUT /api/settings/password` | Verifica hash actual y almacena nuevo hash |
 | Empresa | `GET /api/settings/organization` | `Organization` |
 | Guardar empresa | `PUT /api/settings/organization` | Nombre, email, website, teléfono, industria, zona, dirección, moneda |
-| Integraciones | `GET /api/settings/integrations` | Plan, Mautic y estado de Metricool según configuración |
+| Integraciones | `GET /api/settings/integrations` | Plan y estado de conexiones Resend y Metricool |
 | Uso | `GET /api/dashboard/stats`, `GET /api/agents` | Llamadas, agentes, usuarios, plan y ratios visuales |
 
 El backend valida URLs, email, teléfonos, código ISO de moneda y campos no vacíos. Cambiar contraseña exige contraseña actual y una nueva de al menos ocho caracteres.
@@ -671,7 +671,7 @@ El backend valida URLs, email, teléfonos, código ISO de moneda y campos no vac
 - **Perfil de empresa**: nombre, email, web, teléfono, industria, timezone, dirección y moneda.
 - **Moneda y números**: selector de divisa y toggle de decimales; el toggle de decimales es local de la UI y no está persistido en el modelo mostrado.
 - **Plan y uso**: plan, llamadas, agentes y usuarios frente a límites visuales configurados en frontend.
-- **Integraciones**: Mautic y Metricool con estados activo/conectado; no es el panel OAuth de Organic Google.
+- **Integraciones**: Resend y Metricool con estados activo/conectado; no es el panel OAuth de Organic Google.
 - **Seguridad**: la pantalla contiene el acceso visual a seguridad/SSO/auditoría, pero las capacidades reales se distribuyen entre auth, Access Control y Governance.
 - **Cuenta**: botón de eliminación visible, pero no hay operación backend conectada en este componente; no debe interpretarse como borrado operativo disponible.
 
@@ -690,7 +690,7 @@ Estados: carga silenciosa por sección, datos no disponibles, guardado correcto,
 #### Relaciones, riesgos y checklist
 
 - Alimenta el nombre, zona y moneda usados por campañas, pipeline, reuniones e informes.
-- Las integraciones Mautic/Metricool conectan con Nutrición y Captación; Organic tiene además su propio modelo de proyecto e integraciones OAuth.
+- Las integraciones Resend/Metricool conectan con Nutrición y Captación; Organic tiene además su propio modelo de proyecto e integraciones OAuth.
 - El plan y límites visuales no son un sistema de billing completo.
 - Varias secciones de navegación no tienen aún backend dedicado.
 - El botón de eliminar cuenta no está implementado de extremo a extremo.
@@ -1060,3 +1060,5 @@ flowchart LR
 - `backend/src/routes/adPlaybooks.ts`
 - Controllers y services homónimos de cada dominio.
 - `backend/prisma/schema.prisma`
+
+

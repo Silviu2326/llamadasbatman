@@ -42,7 +42,7 @@ La frontera de datos es la organización del JWT (`orgId`). Los controladores ex
 | `funnelsRoutes` | `/api/funnels` | Funnels | [routes/funnels.ts](../../backend/src/routes/funnels.ts) |
 | `metaAccountsRoutes` | `/api/meta/accounts` | OAuth/cuentas Meta | [routes/metaAccounts.ts](../../backend/src/routes/metaAccounts.ts) |
 | `metaWebhooksRoutes` | `/api/meta/webhooks` | Lead Ads webhook | [routes/metaWebhooks.ts](../../backend/src/routes/metaWebhooks.ts) |
-| `mauticWebhooksRoutes` | `/api/webhooks/mautic` | Eventos Mautic | [routes/mauticWebhooks.ts](../../backend/src/routes/mauticWebhooks.ts) |
+| `resendEmailWebhooksRoutes` | `/api/webhooks/email/resend` | Tracking y recepción de email | [routes/resendEmailWebhooks.ts](../../backend/src/routes/resendEmailWebhooks.ts) |
 | `mauticRoutes` | `/api/mautic` | Email marketing Mautic | [routes/mautic.ts](../../backend/src/routes/mautic.ts) |
 | `metricoolRoutes` | `/api/metricool` | Redes sociales vía Metricool | [routes/metricool.ts](../../backend/src/routes/metricool.ts) |
 | `automationsRoutes` | `/api/automations` | Automatizaciones | [routes/automations.ts](../../backend/src/routes/automations.ts) |

@@ -18,11 +18,13 @@ export const STEP_TYPES = [
 ]
 
 export function emptyStep(index) {
-  return { key: `step-${index + 1}`, type: 'task', delayDays: index === 0 ? 0 : 2, title: '', templateExternalId: '', purpose: '' }
+  return { key: `step-${index + 1}`, type: 'task', delayDays: index === 0 ? 0 : 2, title: '', emailDraftId: '', templateExternalId: '', purpose: '' }
 }
 
 /** Editor de los pasos que se guardan en `program.config.steps`. */
 export function SequenceStepsEditor({ steps, onChange }) {
+  const [emailDrafts, setEmailDrafts] = useState([])
+  useEffect(() => { apiFetch('/api/email/newsletter-drafts').then(response => response.ok ? response.json() : []).then(rows => setEmailDrafts(Array.isArray(rows) ? rows : [])).catch(() => setEmailDrafts([])) }, [])
   const update = (index, field, value) => onChange(steps.map((step, i) => (i === index ? { ...step, [field]: value } : step)))
   const remove = index => onChange(steps.filter((_, i) => i !== index))
   const add = () => onChange([...steps, emptyStep(steps.length)])
@@ -42,9 +44,8 @@ export function SequenceStepsEditor({ steps, onChange }) {
               {meta?.needs === 'title' && (
                 <input value={step.title} maxLength={160} onChange={event => update(index, 'title', event.target.value)} placeholder="Título (obligatorio)" />
               )}
-              {meta?.needs === 'template' && (
-                <input value={step.templateExternalId} maxLength={160} onChange={event => update(index, 'templateExternalId', event.target.value)} placeholder={step.type === 'whatsapp' ? 'contentSid de la plantilla aprobada' : 'ID de plantilla en Mautic'} />
-              )}
+              {step.type === 'email' && <select value={step.emailDraftId ?? ''} onChange={event => update(index, 'emailDraftId', event.target.value)}><option value="">{emailDrafts.length ? 'Selecciona un borrador de email' : 'Crea un borrador en Email marketing'}</option>{emailDrafts.map(draft => <option key={draft.id} value={draft.id}>{draft.name}</option>)}</select>}
+              {step.type === 'whatsapp' && <input value={step.templateExternalId} maxLength={160} onChange={event => update(index, 'templateExternalId', event.target.value)} placeholder="contentSid de la plantilla aprobada" />}
               {meta?.needs === null && (
                 <input value={step.purpose} maxLength={160} onChange={event => update(index, 'purpose', event.target.value)} placeholder="Propósito del email (opcional)" />
               )}

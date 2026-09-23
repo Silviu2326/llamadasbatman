@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   RiAlertLine, RiArrowRightSLine, RiCheckLine, RiCloseLine, RiCursorLine, RiGroupLine,
   RiMailLine, RiMailOpenLine, RiPauseLine, RiRocketLine, RiSendPlaneLine,
-  RiSparkling2Line, RiTimeLine, RiUserAddLine,
+  RiSparkling2Line, RiTimeLine, RiUserAddLine, RiFlowChart,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 import { useI18n } from '../i18n'
@@ -14,6 +14,7 @@ import DataStatusBanner from '../components/ui/DataStatusBanner'
 import PageLoadingState from '../components/ui/PageLoadingState'
 import ProductPageHeader from '../components/ui/ProductPageHeader'
 import { DeliverabilityPanel, InboxPanel, PURPOSE_LABEL, SubscribersPanel, TrackingPanel } from './EmailAudienceSections'
+import EmailNewsletterStudio from './EmailNewsletterStudio'
 import emailHeroImage from '../assets/email-hero.png'
 import '../dashboard.css'
 import './email.css'
@@ -25,16 +26,15 @@ import './growth-visual-standard.css'
 const TABS = [
   { id: 'resumen', label: 'Resumen' },
   { id: 'campanas', label: 'Campañas' },
+  { id: 'newsletter', label: 'Newsletter' },
   { id: 'suscriptores', label: 'Suscriptores' },
   { id: 'bandeja', label: 'Bandeja de entrada' },
   { id: 'seguimiento', label: 'Seguimiento' },
 ]
 
-const SEGMENT_COLOR = { new: 'var(--muted)', contacted: 'var(--cyan)', qualified: 'var(--warn)', unqualified: 'var(--danger-soft)', converted: 'var(--success)' }
 const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted']
 
-// EM-105/EM-107: estado real de la campaña en el CRM — nunca optimista, se
-// reconcilia contra Mautic al abrir el detalle (ver reconcileCampaignStatus).
+// EM-105/EM-107: estado de campaña confirmado por el servicio de email nativo.
 const STATUS_META = {
   draft: { label: 'Borrador', color: 'var(--muted)' },
   validating: { label: 'Validando', color: 'var(--warn)' },
@@ -49,7 +49,7 @@ const STATUS_META = {
 const MISSING_FIELD_LABEL = {
   name: 'Nombre de la campaña',
   audienceDefinition: 'Audiencia (al menos un filtro)',
-  templateBindingId: 'Plantilla de email',
+  emailDraftId: 'Newsletter',
   sender: 'Remitente',
 }
 
@@ -61,14 +61,6 @@ const missingLabel = field => field.startsWith('variant:')
 
 const percent = value => value === null || value === undefined ? '—' : `${(value * 100).toFixed(1)}%`
 const money = (value, currency) => new Intl.NumberFormat('es-ES', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
-
-function timeAgo(iso) {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
-  if (mins < 60) return `hace ${mins} min`
-  const hours = Math.round(mins / 60)
-  if (hours < 24) return `hace ${hours} h`
-  return `hace ${Math.round(hours / 24)} d`
-}
 
 async function apiJson(path, options) {
   const res = await apiFetch(path, options)
@@ -200,7 +192,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   const [loading, setLoading] = useState(true)
   const [templates, setTemplates] = useState([])
   const [form, setForm] = useState({
-    objective: '', status: [], source: '', tags: '', subscribedPurpose: '', templateBindingId: '',
+    objective: '', status: [], source: '', tags: '', subscribedPurpose: '', emailDraftId: '',
     abEnabled: false, variantTemplateB: '',
     sender: '', replyTo: '', timezone: 'Europe/Madrid', scheduledStartAt: '', scheduledEndAt: '',
   })
@@ -227,9 +219,9 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
       source: Array.isArray(audience.source) ? audience.source.join(', ') : '',
       tags: Array.isArray(audience.tags) ? audience.tags.join(', ') : '',
       subscribedPurpose: audience.subscribedPurpose || '',
-      templateBindingId: variants[0]?.templateExternalId || data.templateBindingId || '',
+      emailDraftId: variants[0]?.emailDraftId || data.emailDraftId || '',
       abEnabled: variants.length >= 2,
-      variantTemplateB: variants[1]?.templateExternalId || '',
+      variantTemplateB: variants[1]?.emailDraftId || '',
       sender: data.sender || '',
       replyTo: data.replyTo || '',
       timezone: data.timezone || 'Europe/Madrid',
@@ -246,7 +238,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
       try {
         const [reconciled, templateList, audienceSummary] = await Promise.all([
           apiJson(`/api/marketing-campaigns/${campaignId}/reconcile`),
-          apiFetch('/api/mautic/templates').then(res => res.ok ? res.json() : []).catch(() => []),
+          apiFetch('/api/email/newsletter-drafts').then(res => res.ok ? res.json() : []).catch(() => []),
           apiFetch('/api/email/subscribers/summary').then(res => res.ok ? res.json() : null).catch(() => null),
         ])
         if (cancelled) return
@@ -295,6 +287,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   }
 
   async function handlePreview() {
+    if (!form.subscribedPurpose) { setError('Selecciona una categoría con consentimiento para previsualizar una newsletter.'); return }
     setPreviewLoading(true)
     setError('')
     try {
@@ -319,12 +312,12 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
         body: JSON.stringify({
           objective: form.objective.trim() || undefined,
           audienceDefinition: buildAudienceDefinition(),
-          templateBindingId: form.templateBindingId || undefined,
+          emailDraftId: form.emailDraftId || undefined,
           // Null desactiva la prueba: la campaña vuelve a una sola versión.
-          variantDefinition: form.abEnabled && form.templateBindingId && form.variantTemplateB
+          variantDefinition: form.abEnabled && form.emailDraftId && form.variantTemplateB
             ? [
-              { key: 'A', templateExternalId: form.templateBindingId },
-              { key: 'B', templateExternalId: form.variantTemplateB },
+              { key: 'A', emailDraftId: form.emailDraftId },
+              { key: 'B', emailDraftId: form.variantTemplateB },
             ]
             : null,
           sender: form.sender.trim() || undefined,
@@ -346,6 +339,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   }
 
   async function handleValidate() {
+    if (!form.subscribedPurpose) { setError('Selecciona una categoría con consentimiento antes de validar la newsletter.'); return }
     setBusyAction('validate')
     setError('')
     try {
@@ -372,7 +366,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
       const enrolled = updated.enrolledCount ?? 0
       const skipped = updated.skippedCount ?? 0
       setPublishInfo(
-        `Campaña confirmada por Mautic: ${enrolled} lead${enrolled === 1 ? '' : 's'} incorporado${enrolled === 1 ? '' : 's'} a la audiencia`
+        `Campaña publicada en Vendrava: ${enrolled} lead${enrolled === 1 ? '' : 's'} incorporado${enrolled === 1 ? '' : 's'} a la audiencia`
         + (skipped ? `, ${skipped} omitido${skipped === 1 ? '' : 's'} por falta de email, consentimiento o sincronización.` : '.')
       )
       onChanged?.()
@@ -426,9 +420,9 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
           <div><span className="email-eyebrow">2. Audiencia</span><p>Filtros básicos sobre tus leads con email.</p></div>
           <label className="email-field">
             <span>Categoría de suscripción</span>
-            <select value={form.subscribedPurpose} onChange={e => setForm(prev => ({ ...prev, subscribedPurpose: e.target.value }))}>
-              <option value="">Cualquiera (no filtrar por suscripción)</option>
-              {purposes.map(item => (
+            <select required value={form.subscribedPurpose} onChange={e => setForm(prev => ({ ...prev, subscribedPurpose: e.target.value }))}>
+              <option value="">Selecciona una categoría con consentimiento…</option>
+              {purposes.filter(item => item.granted > 0).map(item => (
                 <option key={item.purpose} value={item.purpose}>
                   {PURPOSE_LABEL[item.purpose] || item.purpose} — {item.granted} suscrito{item.granted === 1 ? '' : 's'}
                 </option>
@@ -437,7 +431,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
             <small className="email-field-hint">
               {form.subscribedPurpose
                 ? 'Solo se incluirán contactos que dieron permiso para esta categoría. Bajas, rebotes y quejas quedan fuera automáticamente.'
-                : 'Elige una categoría para convertir esta campaña en una newsletter dirigida solo a quien se suscribió.'}
+                : 'Es obligatorio elegir una categoría con suscripciones activas. Las bajas, los rebotes y las quejas quedan fuera automáticamente.'}
             </small>
           </label>
           <div className="email-field"><span>Estado del lead</span>
@@ -450,22 +444,22 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
           </div>
           <label className="email-field"><span>Fuente (separadas por coma)</span><input value={form.source} onChange={e => setForm(prev => ({ ...prev, source: e.target.value }))} placeholder="landing, referido, meta-ads" /></label>
           <label className="email-field"><span>Tags (separadas por coma)</span><input value={form.tags} onChange={e => setForm(prev => ({ ...prev, tags: e.target.value }))} placeholder="vip, newsletter" /></label>
-          <button type="button" className="email-button secondary" onClick={handlePreview} disabled={previewLoading}><RiGroupLine /> {previewLoading ? 'Calculando…' : 'Previsualizar audiencia'}</button>
+          <button type="button" className="email-button secondary" onClick={handlePreview} disabled={previewLoading || !form.subscribedPurpose}><RiGroupLine /> {previewLoading ? 'Calculando…' : 'Previsualizar audiencia'}</button>
           {preview && <div className="email-tools-status"><RiCheckLine /><span>{preview.count} lead{preview.count === 1 ? '' : 's'} con email coinciden con este filtro{preview.sample?.length ? ` — ej: ${preview.sample.slice(0, 3).map(l => l.name).join(', ')}` : ''}.</span></div>}
         </div>
 
         <div className="email-tools-section">
-          <div><span className="email-eyebrow">3. Plantilla</span><p>Solo se listan plantillas de Mautic ya autorizadas para tu organización.</p></div>
-          {!templates.length ? <EmptyState icon={RiMailOpenLine} title="No hay plantillas disponibles" copy="Creá una plantilla en Mautic para poder seleccionarla aquí." /> : <>
-            <label className="email-field"><span>{form.abEnabled ? 'Variante A' : 'Plantilla'}</span><select value={form.templateBindingId} onChange={e => setForm(prev => ({ ...prev, templateBindingId: e.target.value }))}><option value="">Selecciona una plantilla…</option>{templates.map(template => <option key={template.id} value={String(template.id)}>{templateLabel(template)}</option>)}</select></label>
+          <div><span className="email-eyebrow">3. Newsletter</span><p>Elige un borrador de tu organización; al publicar se guardará una instantánea del asunto y el contenido.</p></div>
+          {!templates.length ? <EmptyState icon={RiMailOpenLine} title="No hay newsletters disponibles" copy="Crea primero un newsletter en la pestaña Newsletter para seleccionarlo aquí." /> : <>
+            <label className="email-field"><span>{form.abEnabled ? 'Variante A' : 'Newsletter'}</span><select value={form.emailDraftId} onChange={e => setForm(prev => ({ ...prev, emailDraftId: e.target.value }))}><option value="">Selecciona un newsletter…</option>{templates.map(template => <option key={template.id} value={String(template.id)}>{templateLabel(template)}</option>)}</select></label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, margin: '4px 0 2px' }}>
               <input type="checkbox" checked={form.abEnabled} disabled={publishedCampaign} onChange={e => setForm(prev => ({ ...prev, abEnabled: e.target.checked }))} />
               Probar dos asuntos (A/B)
             </label>
             {form.abEnabled && <>
-              <label className="email-field"><span>Variante B</span><select value={form.variantTemplateB} disabled={publishedCampaign} onChange={e => setForm(prev => ({ ...prev, variantTemplateB: e.target.value }))}><option value="">Selecciona la plantilla de la variante B…</option>{templates.filter(template => String(template.id) !== form.templateBindingId).map(template => <option key={template.id} value={String(template.id)}>{templateLabel(template)}</option>)}</select></label>
+              <label className="email-field"><span>Variante B</span><select value={form.variantTemplateB} disabled={publishedCampaign} onChange={e => setForm(prev => ({ ...prev, variantTemplateB: e.target.value }))}><option value="">Selecciona el newsletter de la variante B…</option>{templates.filter(template => String(template.id) !== form.emailDraftId).map(template => <option key={template.id} value={String(template.id)}>{templateLabel(template)}</option>)}</select></label>
               <small className="email-field-hint">
-                El asunto vive en la plantilla de Mautic, así que probar asuntos es usar dos plantillas.
+                Cada variante usa un newsletter distinto, con su propio asunto y contenido.
                 La audiencia se reparte al publicar de forma fija por lead: nadie cambia de variante a mitad de la prueba.
                 {publishedCampaign ? ' Con la campaña publicada el reparto ya no se puede cambiar.' : ''}
               </small>
@@ -516,7 +510,6 @@ export default function EmailMarketingPage() {
   const [dataStatus, setDataStatus] = useState('loading')
   const [dataError, setDataError] = useState('')
   const [overview, setOverview] = useState(null)
-  const [activityFilter, setActivityFilter] = useState('all')
   const [notice, setNotice] = useState('')
   const [campaigns, setCampaigns] = useState([])
   const [campaignsLoading, setCampaignsLoading] = useState(true)
@@ -531,21 +524,18 @@ export default function EmailMarketingPage() {
     setDataStatus('loading')
     setDataError('')
     try {
-      const res = await apiFetch('/api/mautic')
+      const res = await apiFetch('/api/email/overview')
       if (res.status === 403) { setGated(true); setDataStatus('disconnected'); return }
-      if (!res.ok) throw new Error(`mautic_${res.status}`)
+      if (!res.ok) throw new Error(`email_metrics_${res.status}`)
       const payload = await res.json()
       setOverview(payload)
-      const hasData = Number(payload?.totalLeads) > 0
-        || Number(payload?.syncable) > 0
-        || (Array.isArray(payload?.bySegment) && payload.bySegment.length > 0)
-        || (Array.isArray(payload?.recentActivity) && payload.recentActivity.length > 0)
+      const hasData = Number(payload?.sent) > 0 || Number(payload?.delivered) > 0 || Number(payload?.accepted) > 0
       setDataStatus(DEMO_MODE ? 'demo' : hasData ? 'live' : 'empty')
     } catch (error) {
       setOverview(null)
       const status = classifyFetchError(error)
       setDataStatus(status)
-      setDataError(statusMessage(status, { error: 'Mautic no devolvió el resumen de email.' }))
+      setDataError(statusMessage(status, { error: 'No se pudieron cargar las métricas de email.' }))
     } finally { setLoading(false) }
   }
 
@@ -583,15 +573,11 @@ export default function EmailMarketingPage() {
   if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading email center' : 'Cargando centro de email'} />
   if (gated) return <div className="email-page email-gated"><div className="email-gated-card"><RiAlertLine /><h1>Email marketing</h1><p>{locale === 'en' ? 'Email marketing is a Complete Plan feature. Talk to your administrator to enable it.' : 'Email marketing es una función del Plan Completo. Habla con tu administrador para activarla.'}</p></div></div>
 
-  const bySegment = overview?.bySegment ?? []
-  const totalForSegments = bySegment.reduce((sum, item) => sum + item.count, 0)
-  const activity = overview?.recentActivity ?? []
-  const filteredActivity = activityFilter === 'all' ? activity : activity.filter(item => item.type === activityFilter)
-  const openRate = overview?.syncable ? `${Math.round(((overview.opens ?? 0) / overview.syncable) * 100)}%` : '—'
-  const clickRate = overview?.opens ? `${Math.round(((overview.clicks ?? 0) / overview.opens) * 100)}%` : '—'
+  const openRate = overview?.openRate == null ? '—' : `${Math.round(overview.openRate * 100)}%`
+  const clickRate = overview?.clickRate == null ? '—' : `${Math.round(overview.clickRate * 100)}%`
 
   return <div className="dark-scroll email-page">
-    <ProductPageHeader Icon={RiMailLine} title="Email marketing" description={locale === 'en' ? 'Turn every contact into a conversation that moves forward.' : 'Convierte cada contacto en una conversación que avanza.'} actions={<><button className="email-button secondary" onClick={() => document.querySelector('#email-activity')?.scrollIntoView({ behavior: 'smooth' })}><RiTimeLine /> {locale === 'en' ? 'View activity' : 'Ver actividad'}</button><button className="email-button primary" onClick={() => { setTab('campanas'); setShowNewCampaign(true) }}><RiRocketLine /> {locale === 'en' ? 'New campaign' : 'Nueva campaña'}</button></>} />
+    <ProductPageHeader Icon={RiMailLine} title="Email marketing" description={locale === 'en' ? 'Turn every contact into a conversation that moves forward.' : 'Convierte cada contacto en una conversación que avanza.'} actions={<><Link to="/automatizaciones" className="email-button secondary"><RiFlowChart /> {locale === 'en' ? 'Automations' : 'Cadenas y automatizaciones'}</Link><button className="email-button secondary" onClick={() => setTab('seguimiento')}><RiTimeLine /> {locale === 'en' ? 'View tracking' : 'Ver seguimiento'}</button><button className="email-button primary" onClick={() => { setTab('campanas'); setShowNewCampaign(true) }}><RiRocketLine /> {locale === 'en' ? 'New campaign' : 'Nueva campaña'}</button></>} />
 
     <nav className="email-tabs" role="tablist" aria-label="Secciones de email marketing">
       {TABS.map(item => (
@@ -608,26 +594,24 @@ export default function EmailMarketingPage() {
     {tab === 'resumen' && <>
     <DataStatusBanner
       status={dataStatus}
-      message={dataError || statusMessage(dataStatus, { live: 'Mautic conectado: datos reales sincronizados.', empty: 'Mautic está disponible, pero todavía no hay actividad de email para mostrar.', demo: 'Modo demo explícito: revisa la experiencia sin atribuir estos datos a actividad real.' })}
+      message={dataError || statusMessage(dataStatus, { live: 'Email activo: métricas reales de tus envíos.', empty: 'El servicio de email está disponible; todavía no hay envíos registrados.', demo: 'Modo demo explícito: revisa la experiencia sin atribuir estos datos a actividad real.' })}
       onRetry={dataStatus === 'error' || dataStatus === 'disconnected' ? loadOverview : undefined}
-      onAction={dataStatus === 'disconnected' ? () => window.location.assign('/configuracion') : undefined}
-      actionLabel="Configurar Mautic"
+      onAction={dataStatus === 'disconnected' ? () => window.location.assign('/conexiones') : undefined}
+      actionLabel="Configurar conexión"
     />
 
-    <section className="email-hero" aria-labelledby="email-hero-title"><div className="email-hero-copy"><div className="email-hero-status"><i /> {dataStatus === 'live' ? 'Mautic conectado · datos en tiempo real' : dataStatus === 'demo' ? 'Modo demo explícito' : dataStatus === 'empty' ? 'Mautic conectado · sin actividad todavía' : 'Mautic necesita atención'}</div><h2 id="email-hero-title">El mensaje correcto, en el momento que importa.</h2><p>Centraliza tus contactos, entiende qué despierta interés y prepara el siguiente paso con una vista clara de todo tu ciclo de nutrición.</p><div className="email-hero-actions"><button className="email-button primary" onClick={() => document.querySelector('#email-segments')?.scrollIntoView({ behavior: 'smooth' })}><RiGroupLine /> Explorar segmentos</button><button className="email-button secondary" onClick={() => document.querySelector('#email-activity')?.scrollIntoView({ behavior: 'smooth' })}>Revisar señales <RiArrowRightSLine /></button></div><div className="email-hero-meta"><span><RiCheckLine /> Seguimiento automático</span><span><RiSparkling2Line /> Señales listas para actuar</span></div></div><div className="email-hero-media"><img src={emailHeroImage} alt="Flujo visual de automatización de email marketing" /><div className="email-hero-caption"><span>Lifecycle intelligence</span><strong>Conectar · nutrir · convertir</strong></div></div></section>
+    <section className="email-hero" aria-labelledby="email-hero-title"><div className="email-hero-copy"><div className="email-hero-status"><i /> {dataStatus === 'live' ? 'Resend · actividad en tiempo real' : dataStatus === 'demo' ? 'Modo demo explícito' : dataStatus === 'empty' ? 'Resend · listo para tu primer envío' : 'Servicio de email no disponible'}</div><h2 id="email-hero-title">El mensaje correcto, en el momento que importa.</h2><p>Centraliza tus contactos, entiende qué despierta interés y prepara el siguiente paso con una vista clara de todo tu ciclo de nutrición.</p><div className="email-hero-actions"><button className="email-button primary" onClick={() => setTab('suscriptores')}><RiGroupLine /> Ver suscriptores</button><button className="email-button secondary" onClick={() => document.querySelector('#email-activity')?.scrollIntoView({ behavior: 'smooth' })}>Revisar señales <RiArrowRightSLine /></button></div><div className="email-hero-meta"><span><RiCheckLine /> Seguimiento automático</span><span><RiSparkling2Line /> Señales listas para actuar</span></div></div><div className="email-hero-media"><img src={emailHeroImage} alt="Flujo visual de automatización de email marketing" /><div className="email-hero-caption"><span>Lifecycle intelligence</span><strong>Conectar · nutrir · convertir</strong></div></div></section>
 
-    <section className="email-metrics" aria-label="Resumen de email marketing"><Metric Icon={RiGroupLine} color="#818cf8" label="Leads totales" value={overview ? (overview.totalLeads ?? '—') : '—'} detail="en tu CRM" /><Metric Icon={RiSendPlaneLine} color="#22d3ee" label="Con email" value={overview ? (overview.syncable ?? '—') : '—'} detail="listos para nutrir" /><Metric Icon={RiMailOpenLine} color="#34d399" label="Aperturas" value={overview ? (overview.opens ?? '—') : '—'} detail={`${openRate} sobre la base`} /><Metric Icon={RiCursorLine} color="#fb7185" label="Clics" value={overview ? (overview.clicks ?? '—') : '—'} detail={`${clickRate} sobre aperturas`} /></section>
+    <section className="email-metrics" aria-label="Resumen de email marketing"><Metric Icon={RiGroupLine} color="#818cf8" label="Enviados" value={overview ? (overview.sent ?? 0) : '—'} detail="correos" /><Metric Icon={RiSendPlaneLine} color="#22d3ee" label="Entregados" value={overview ? (overview.delivered ?? 0) : '—'} detail="confirmados por Resend" /><Metric Icon={RiMailOpenLine} color="#34d399" label="Aperturas únicas" value={overview ? (overview.uniqueOpens ?? 0) : '—'} detail={`${openRate} sobre la base`} /><Metric Icon={RiCursorLine} color="#fb7185" label="Clics únicos" value={overview ? (overview.uniqueClicks ?? 0) : '—'} detail={`${clickRate} sobre aperturas`} /></section>
 
     <DeliverabilityPanel />
 
     <section className="email-flow" aria-label="Flujo de nutrición"><div className="email-flow-intro"><span>El ciclo de cada lead</span><h2>De la primera señal al siguiente paso.</h2><p>Entiende dónde está tu audiencia y actúa con contexto, no con intuición.</p></div><div className="email-flow-steps"><div><span className="is-blue"><RiUserAddLine /></span><strong>Captar</strong><small>Nuevo contacto</small></div><i /><div><span className="is-cyan"><RiMailLine /></span><strong>Nutrir</strong><small>Contenido relevante</small></div><i /><div><span className="is-coral"><RiCursorLine /></span><strong>Activar</strong><small>Señal de interés</small></div><i /><div><span className="is-green"><RiRocketLine /></span><strong>Convertir</strong><small>Oportunidad lista</small></div></div></section>
 
-    <div className="email-main-grid"><section className="email-panel" id="email-segments"><div className="email-panel-heading"><div><span className="email-eyebrow">Audiencia</span><h2>Mapa de segmentos</h2><p>Una lectura rápida de cómo está avanzando tu base.</p></div><span className="email-panel-count">{totalForSegments || overview?.totalLeads || 0} leads</span></div>{!bySegment.length ? <EmptyState icon={RiGroupLine} title="Aún no hay segmentos con datos" copy="Cuando Mautic reciba actividad, aquí verás el recorrido de tus leads." /> : <div className="email-segment-list">{bySegment.map(group => { const pct = totalForSegments ? Math.round((group.count / totalForSegments) * 100) : 0; const color = SEGMENT_COLOR[group.status] ?? 'var(--accent-soft)'; return <div className="email-segment" key={group.status}><div className="email-segment-label"><span><i style={{ background: color }} />{BACKEND_STATUS[group.status] ?? group.status}</span><strong>{group.count}<small>{pct}%</small></strong></div><div className="email-progress"><span style={{ width: `${pct}%`, background: color }} /></div></div> })}</div>}</section>
-
-      <aside className="email-panel email-signal-panel"><div className="email-panel-heading"><div><span className="email-eyebrow">Lectura rápida</span><h2>Señales de engagement</h2></div><RiSparkling2Line /></div><div className="email-signal-list"><div><span>Ratio de apertura</span><strong>{openRate}</strong><small>Interés inicial</small></div><div><span>Ratio de clic</span><strong>{clickRate}</strong><small>Intención activa</small></div></div><div className="email-signal-note"><RiCheckLine /><p>Los datos de Mautic se actualizan automáticamente en cada contacto.</p></div></aside>
-    </div>
-
-    <section className="email-panel email-activity-panel" id="email-activity"><div className="email-panel-heading"><div><span className="email-eyebrow">Últimas señales</span><h2>Actividad reciente</h2><p>Detecta quién está prestando atención y vuelve a abrir la conversación.</p></div><div className="email-filter"><button className={activityFilter === 'all' ? 'active' : ''} onClick={() => setActivityFilter('all')}>Todo</button><button className={activityFilter === 'open' ? 'active' : ''} onClick={() => setActivityFilter('open')}><RiMailOpenLine /> Aperturas</button><button className={activityFilter === 'click' ? 'active' : ''} onClick={() => setActivityFilter('click')}><RiCursorLine /> Clics</button></div></div>{!filteredActivity.length ? <EmptyState icon={RiTimeLine} title="Todavía no hay actividad" copy="Las aperturas y los clics aparecerán aquí cuando tus leads interactúen con un email." /> : <div className="email-activity-list">{filteredActivity.map((item, index) => <Link className="email-activity-row" key={`${item.leadId}-${index}`} to={`/leads/${item.leadId}`}><div className={`email-activity-icon ${item.type === 'open' ? 'open' : 'click'}`}>{item.type === 'open' ? <RiMailOpenLine /> : <RiCursorLine />}</div><div className="email-activity-copy"><strong>{item.name}</strong><span>{item.type === 'open' ? 'abrió un email' : 'hizo clic'}{item.detail ? ` · ${item.detail}` : ''}</span></div><time>{timeAgo(item.at)}</time><RiArrowRightSLine /></Link>)}</div>}</section>
+    <section className="email-panel email-activity-panel" id="email-activity">
+      <div className="email-panel-heading"><div><span className="email-eyebrow">Seguimiento</span><h2>Resultados de tus envíos</h2><p>Consulta el detalle de entregas y la interacción de cada destinatario.</p></div><button type="button" className="email-button secondary" onClick={() => setTab('seguimiento')}><RiArrowRightSLine /> Abrir seguimiento</button></div>
+      <div className="email-signal-list"><div><span>Tasa de apertura</span><strong>{openRate}</strong><small>aperturas únicas / entregados</small></div><div><span>Ratio de clic</span><strong>{clickRate}</strong><small>clics únicos / aperturas únicas</small></div><div><span>Rebotes y fallos</span><strong>{overview?.failed ?? 0}</strong><small>envíos que no llegaron</small></div><div><span>Bajas</span><strong>{overview?.unsubscribes ?? 0}</strong><small>respetadas en futuros envíos</small></div></div>
+    </section>
     </>}
 
     {tab === 'campanas' && <>
@@ -637,6 +621,7 @@ export default function EmailMarketingPage() {
     </section>
     </>}
 
+    {tab === 'newsletter' && <EmailNewsletterStudio />}
     {tab === 'suscriptores' && <SubscribersPanel onNotice={showNotice} />}
     {tab === 'bandeja' && <InboxPanel />}
     {tab === 'seguimiento' && <TrackingPanel />}

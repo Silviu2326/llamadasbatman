@@ -12,7 +12,7 @@ Este documento separa lo que está implementado en el repositorio de lo que solo
 | Ads Meta | Implementado en backend | OAuth PKCE, token cifrado, Graph timeout, preflight, publish paused/activate | OAuth real, scopes aprobados, página/cuenta publicitaria y evento de conversión |
 | Google / Search Console | Implementado en backend | OAuth PKCE, refresh cifrado y estados `needs_reauth` | Callback público, proyecto Google y propiedad verificada |
 | Posts orgánicos | Implementado con Metricool | Configuración por organización, timeout, SSRF, UTM y borrador | Credenciales reales, perfiles publicables y prueba de borrador |
-| Mautic / email | Implementado con barrera de consentimiento | Tokens por organización, refresh, `EmailDelivery`, leases, webhooks y redacción | Instancia Mautic real, plantilla verificada, contacto de prueba y webhook HMAC |
+| Email (Resend) | Implementado con barrera de consentimiento | Borradores locales, campañas, colas con leases, credenciales por organización y webhooks firmados | Aplicar migraciones, verificar dominio y ejecutar una prueba aislada de envío y recepción |
 | Secuencias de ventas | Implementado en esta ronda | Enrolamiento idempotente, pasos email/task/meeting, worker, backoff, lease y parada por reply/baja | Aplicar migración, consentimiento real y prueba con dominio de envío controlado |
 | Twilio / voz | Parcial | Persistencia de llamadas y reconciliación de meeting; no se completó esta ronda el aislamiento de credenciales | Validar firma, webhook público, número, grabación y consentimiento |
 | Demo vs live | Parcialmente homogeneizado | Dashboard, Ads, Organic Leads y Prospect Finder distinguen estados explícitos | Homogeneizar Email, Agents, Knowledge Base, Pipeline y Reuniones |
@@ -66,3 +66,4 @@ El worker solo procesa matrículas activas. Una respuesta, baja o rebote detiene
 3. Ejecutar el smoke read-only y después cuatro suites mutantes con límites bajos.
 4. Probar duplicados, leases caducadas, respuestas, bajas, rollback y eventos de proveedor.
 5. Homogeneizar estados live/demo del resto de páginas y corregir el bundle antes del despliegue.
+

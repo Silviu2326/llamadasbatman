@@ -1,0 +1,91 @@
+{
+  "$defs": {
+    "AIAction": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 160,
+          "title": "Title",
+          "type": "string"
+        },
+        "explanation": {
+          "maxLength": 1500,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "priority": {
+          "enum": [
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "acceptance": {
+          "maxLength": 500,
+          "title": "Acceptance",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "explanation",
+        "evidence_ids",
+        "priority",
+        "acceptance"
+      ],
+      "title": "AIAction",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "maxLength": 3000,
+      "title": "Summary",
+      "type": "string"
+    },
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/AIAction"
+      },
+      "maxItems": 8,
+      "title": "Actions",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "calculation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Calculation Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "summary",
+    "actions",
+    "limitations",
+    "calculation_ids"
+  ],
+  "title": "AIOutput",
+  "type": "object"
+}

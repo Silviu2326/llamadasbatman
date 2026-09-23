@@ -67,7 +67,6 @@ const orgPatchBody = z.object({
   timezone: z.string().trim().max(60).optional(),
   address: z.string().trim().max(300).optional(),
   currency: z.string().trim().length(3).optional(),
-  mauticEnabled: z.boolean().optional(),
   metricoolEnabled: z.boolean().optional(),
   reason,
 }).strict()

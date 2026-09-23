@@ -1,13 +1,13 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { assertEmailSendAllowed } from '../lib/emailCompliance'
-import { createEmailDelivery, sendEmailToLead } from './mauticSync.service'
+import { createNativeEmailDelivery, resolveNativeEmailDraft, sendNativeMarketingDelivery } from './nativeMarketingEmail.service'
 import { createSystemTask } from './tasks.service'
 import { consentGranted } from './conversations.service'
 import { sendWhatsApp } from './whatsapp.service'
 import { OutboundEmailError, sendOutboundEmail } from './outboundEmail.service'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
-import { canCall } from '../voice/compliance'
+import { canCall, nextCallWindow, normalizeE164 } from '../voice/compliance'
 
 const DAY_MS = 86_400_000
 const DEFAULT_LEASE_MS = 60_000
@@ -33,7 +33,9 @@ export interface SalesSequenceStepConfig {
   key?: string
   type: SalesSequenceStepType
   delayDays?: number
-  /** Plantilla del proveedor: id de Mautic en `email`, contentSid en `whatsapp`. */
+  /** Borrador local de newsletter para email. */
+  emailDraftId?: string
+  /** contentSid aprobado para WhatsApp. */
   templateExternalId?: string
   purpose?: string
   title?: string
@@ -82,6 +84,7 @@ function readConfig(config: unknown): { leadIds: string[]; steps: SalesSequenceS
       key: String(step.key ?? `step-${index + 1}`).trim().slice(0, 80) || `step-${index + 1}`,
       type,
       delayDays,
+      emailDraftId: typeof step.emailDraftId === 'string' ? step.emailDraftId.trim() : undefined,
       templateExternalId: typeof step.templateExternalId === 'string' ? step.templateExternalId.trim() : undefined,
       purpose: typeof step.purpose === 'string' ? step.purpose.trim() : undefined,
       title: typeof step.title === 'string' ? step.title.trim() : undefined,
@@ -91,8 +94,8 @@ function readConfig(config: unknown): { leadIds: string[]; steps: SalesSequenceS
       meetingUrl: typeof step.meetingUrl === 'string' ? step.meetingUrl.trim() : undefined,
       body: typeof step.body === 'string' ? step.body.trim().slice(0, 1_000) : undefined,
     }
-    if (type === 'email' && !parsed.templateExternalId) {
-      throw new SalesSequenceError('SEQUENCE_TEMPLATE_REQUIRED', `El paso de email ${index + 1} necesita templateExternalId.`)
+    if (type === 'email' && !parsed.emailDraftId) {
+      throw new SalesSequenceError('SEQUENCE_TEMPLATE_REQUIRED', `El paso de email ${index + 1} necesita emailDraftId local.`)
     }
     if ((type === 'task' || type === 'meeting') && !parsed.title) {
       throw new SalesSequenceError('SEQUENCE_TITLE_REQUIRED', `El paso ${index + 1} necesita un título.`)
@@ -115,7 +118,12 @@ async function getOwnedSequence(orgId: string, programId: string) {
     where: { id: programId, orgId, type: 'sales_sequence', archivedAt: null },
   })
   if (!program) throw new SalesSequenceError('SEQUENCE_NOT_FOUND', 'La secuencia no existe o no pertenece a la organización.', 404)
-  return { program, ...readConfig(program.config) }
+  const config = readConfig(program.config)
+  for (const step of config.steps.filter(item => item.type === 'email')) {
+    const draft = await prisma.emailNewsletterDraft.findFirst({ where: { id: step.emailDraftId, orgId }, select: { id: true } })
+    if (!draft) throw new SalesSequenceError('SEQUENCE_TEMPLATE_NOT_FOUND', 'Un borrador de email no existe o no pertenece a esta organización.')
+  }
+  return { program, ...config }
 }
 
 function nextRunAtForStep(enrolledAt: Date, steps: SalesSequenceStepConfig[], stepIndex: number): Date {
@@ -253,7 +261,15 @@ export async function resumeSalesSequence(orgId: string, programId: string) {
   const now = new Date()
   await prisma.growthProgram.updateMany({ where: { id: programId, orgId, archivedAt: null }, data: { status: 'active' } })
   await prisma.salesSequenceEnrollment.updateMany({ where: { orgId, programId, status: 'paused' }, data: { status: 'active', nextRunAt: now } })
-  await prisma.salesSequenceStepRun.updateMany({ where: { orgId, programId, status: 'pending' }, data: { availableAt: now } })
+  // Reanudar no debe saltarse la espera configurada para cada paso. Conserva
+  // el vencimiento futuro y libera ahora solo los pasos que ya vencieron.
+  await prisma.$executeRawUnsafe(
+    'UPDATE "SalesSequenceStepRun" SET "availableAt" = GREATEST("dueAt", $3) WHERE "orgId" = $1 AND "programId" = $2 AND "status" = $4',
+    orgId,
+    programId,
+    now,
+    'pending',
+  )
   return { programId, status: 'active' }
 }
 
@@ -299,15 +315,23 @@ async function scheduleStepRetry(stepId: string, attempt: number, code: string, 
   if (attempt >= 5) await prisma.salesSequenceEnrollment.updateMany({ where: { id: (await prisma.salesSequenceStepRun.findUniqueOrThrow({ where: { id: stepId }, select: { enrollmentId: true } })).enrollmentId, status: 'active' }, data: { status: 'blocked', nextRunAt: null, lastErrorCode: code, lastError: message } })
 }
 
-async function executeClaimedStep(stepId: string, workerId: string): Promise<void> {
+async function executeClaimedStep(stepId: string, workerId: string, scope?: SalesSequenceWorkerScope): Promise<void> {
   const current = await prisma.salesSequenceStepRun.findUnique({
     where: { id: stepId },
     include: { enrollment: true, lead: true, program: true },
   })
-  if (!current || current.status !== 'processing' || current.enrollment.status !== 'active') return
+  if (!current || current.status !== 'processing' || current.workerId !== workerId || current.enrollment.status !== 'active') return
+  if (current.program.status !== 'active' || current.program.archivedAt || current.stepIndex !== current.enrollment.currentStep) {
+    await prisma.salesSequenceStepRun.updateMany({ where: { id: stepId, workerId, status: 'processing' }, data: { status: 'pending', workerId: null, leaseExpiresAt: null, lockedAt: null } })
+    return
+  }
   const { steps } = readConfig(current.program.config)
   const config = steps[current.stepIndex]
   if (!config) return markStepBlocked(stepId, 'STEP_CONFIG_MISSING', 'El paso ya no existe en la configuración publicada.')
+  if (scope && (current.orgId !== scope.orgId || config.type !== scope.type)) {
+    await prisma.salesSequenceStepRun.updateMany({ where: { id: stepId, workerId, status: 'processing' }, data: { status: 'pending', workerId: null, leaseExpiresAt: null, lockedAt: null, attempts: { decrement: 1 } } })
+    return
+  }
   const sourceId = `sequence:${current.programId}:${current.enrollmentId}:${current.stepKey}`
 
   try {
@@ -315,20 +339,21 @@ async function executeClaimedStep(stepId: string, workerId: string): Promise<voi
       if (!current.lead.email) return markStepBlocked(stepId, 'LEAD_EMAIL_MISSING', 'El lead no tiene email.')
       const consent = await assertEmailSendAllowed(current.orgId, current.leadId, config.purpose || 'marketing')
       if (!consent.allowed) return markStepBlocked(stepId, `EMAIL_${consent.reason.toUpperCase()}`, 'El consentimiento actual no permite este envío.')
-      const delivery = await createEmailDelivery(current.orgId, current.leadId, {
-        templateExternalId: config.templateExternalId,
-        toAddress: current.lead.email,
-        idempotencyScope: sourceId,
-      })
+      const emailDraftId = config.emailDraftId!
+      const content = await resolveNativeEmailDraft(current.orgId, emailDraftId)
+      if (!content) return markStepBlocked(stepId, 'EMAIL_DRAFT_NOT_FOUND', 'El borrador local ya no está disponible.')
+      const delivery = await createNativeEmailDelivery({ orgId: current.orgId, leadId: current.leadId, emailDraftId, toAddress: current.lead.email, purpose: config.purpose || 'marketing', idempotencyScope: sourceId, content })
       await prisma.salesSequenceStepRun.updateMany({ where: { id: stepId, status: 'processing' }, data: { emailDeliveryId: delivery.id } })
-      await sendEmailToLead(current.leadId, config.templateExternalId!, current.orgId, delivery.id, workerId)
+      if (delivery.status === 'accepted' || delivery.status === 'delivered') return markStepSuccess(stepId, { emailDeliveryId: delivery.id, providerMessageId: delivery.providerMessageId ?? null, deduplicated: true })
+      if (delivery.status === 'uncertain') return markStepBlocked(stepId, 'EMAIL_OUTCOME_UNKNOWN', 'El proveedor no confirmó el resultado; requiere revisión antes de reintentar.')
+      const claimed = await prisma.emailDelivery.updateMany({ where: { id: delivery.id, status: 'queued' }, data: { status: 'processing', workerId, lockedAt: new Date(), leaseExpiresAt: new Date(Date.now() + DEFAULT_LEASE_MS), providerAttemptedAt: new Date(), attempts: { increment: 1 } } })
+      if (!claimed.count) return scheduleStepRetry(stepId, current.attempts, 'EMAIL_DELIVERY_BUSY', 'La entrega está siendo procesada por otro worker.')
+      const outcome = await sendNativeMarketingDelivery(delivery.id, workerId)
       const latest = await prisma.emailDelivery.findUnique({ where: { id: delivery.id }, select: { status: true, providerMessageId: true } })
-      if (latest?.status === 'accepted' || latest?.status === 'delivered') return markStepSuccess(stepId, { emailDeliveryId: delivery.id, providerMessageId: latest.providerMessageId ?? null })
-      if (latest?.status === 'uncertain') return markStepBlocked(stepId, 'EMAIL_OUTCOME_UNKNOWN', 'El proveedor no confirmó el resultado; requiere revisión antes de reintentar.')
+      if (outcome === 'accepted' && latest?.status === 'accepted') return markStepSuccess(stepId, { emailDeliveryId: delivery.id, providerMessageId: latest.providerMessageId ?? null })
+      if (outcome === 'uncertain' || latest?.status === 'uncertain') return markStepBlocked(stepId, 'EMAIL_OUTCOME_UNKNOWN', 'El proveedor no confirmó el resultado; requiere revisión antes de reintentar.')
       return scheduleStepRetry(stepId, current.attempts, 'EMAIL_NOT_ACCEPTED', 'El proveedor no aceptó todavía el email.')
-    }
-
-    // Se redacta aquí y no al matricular: la auditoría del día en que toca
+    }    // Se redacta aquí y no al matricular: la auditoría del día en que toca
     // escribir es la buena. Entre configurar la secuencia y el tercer paso el
     // negocio puede haber arreglado justo lo que íbamos a echarle en cara.
     if (config.type === 'ai_email') {
@@ -360,7 +385,11 @@ async function executeClaimedStep(stepId: string, workerId: string): Promise<voi
       if (!allowed.allowed) {
         // Fuera de horario no es un fallo de la secuencia: se reintenta.
         if (allowed.reason === 'outside_hours') {
-          return scheduleStepRetry(stepId, current.attempts, 'CALL_OUTSIDE_HOURS', 'Fuera del horario legal de llamada; se reintentará.')
+          const fields = asObject(current.lead.customFields)
+          const availableAt = nextCallWindow(normalizeE164(current.lead.phone) || current.lead.phone, new Date(), typeof fields.callTimeZone === 'string' ? fields.callTimeZone : undefined)
+          if (!availableAt) return markStepBlocked(stepId, 'CALL_TIMEZONE_INVALID', 'Revisa la zona horaria del contacto.')
+          await prisma.salesSequenceStepRun.updateMany({ where: { id: stepId, workerId, status: 'processing' }, data: { status: 'pending', availableAt, attempts: { decrement: 1 }, workerId: null, leaseExpiresAt: null, lockedAt: null, lastErrorCode: 'CALL_OUTSIDE_HOURS' } })
+          return
         }
         return markStepBlocked(stepId, `CALL_${allowed.reason.toUpperCase()}`, 'El cumplimiento no permite llamar a este lead.')
       }
@@ -376,12 +405,10 @@ async function executeClaimedStep(stepId: string, workerId: string): Promise<voi
       if (!await consentGranted(current.orgId, current.leadId, 'whatsapp')) {
         return markStepBlocked(stepId, 'WHATSAPP_CONSENT_MISSING', 'El lead no tiene consentimiento de WhatsApp concedido.')
       }
-      // Twilio no deduplica: si el lease caduca mientras el mensaje sale, el
-      // reintento enviaría otro. Un saliente de WhatsApp a este lead posterior
-      // al vencimiento del paso significa que ya se dijo lo que había que
-      // decir — por el reintento o por una persona. En ambos casos, callar.
+      // Solo la entrega de este paso lo completa; un mensaje manual u otro
+      // paso de la secuencia no demuestra que este haya sido enviado.
       const alreadySent = await prisma.message.findFirst({
-        where: { orgId: current.orgId, leadId: current.leadId, channel: 'whatsapp', direction: 'outbound', createdAt: { gte: current.dueAt } },
+        where: { orgId: current.orgId, leadId: current.leadId, channel: 'whatsapp', direction: 'outbound', metadata: { path: ['sourceId'], equals: sourceId }, status: { in: ['sent', 'delivered', 'read', 'queued', 'accepted', 'sending'] }, providerMessageId: { not: null } },
         select: { id: true, providerMessageId: true },
       })
       if (alreadySent) return markStepSuccess(stepId, { messageId: alreadySent.id, providerMessageId: alreadySent.providerMessageId, deduplicated: true })
@@ -392,6 +419,7 @@ async function executeClaimedStep(stepId: string, workerId: string): Promise<voi
         contentSid: config.templateExternalId,
         body: config.body,
         metadata: { source: 'sequence', sourceId },
+        idempotencyKey: sourceId,
       })
       return markStepSuccess(stepId, { messageId: sent.id ?? null, providerMessageId: sent.providerMessageId })
     }
@@ -431,25 +459,37 @@ async function executeClaimedStep(stepId: string, workerId: string): Promise<voi
   }
 }
 
-export async function processSalesSequenceTick(limit = 25, workerId = WORKER_ID) {
+export interface SalesSequenceWorkerScope { orgId: string; type: SalesSequenceStepType }
+
+export async function findRunnableSalesSequenceSteps(limit = 25, now = new Date(), scope?: SalesSequenceWorkerScope) {
+  // Compare the two tables before LIMIT. Filtering future steps in JavaScript
+  // can fill every batch with ineligible rows and starve all other contacts.
+  const batchSize = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 100) : 25
+  return prisma.$queryRaw<Array<{ id: string; stepIndex: number }>>(Prisma.sql`
+    SELECT s."id", s."stepIndex"
+    FROM "SalesSequenceStepRun" s
+    JOIN "SalesSequenceEnrollment" e ON e."id" = s."enrollmentId" AND e."orgId" = s."orgId"
+    JOIN "GrowthProgram" p ON p."id" = s."programId" AND p."orgId" = s."orgId"
+    WHERE e."status" = 'active' AND p."status" = 'active' AND p."archivedAt" IS NULL
+      ${scope ? Prisma.sql`AND s."orgId" = ${scope.orgId} AND s."type" = ${scope.type}` : Prisma.empty}
+      AND s."stepIndex" = e."currentStep"
+      AND ((s."status" = 'pending' AND s."availableAt" <= ${now})
+        OR (s."status" = 'processing' AND s."leaseExpiresAt" <= ${now}))
+    ORDER BY s."availableAt", s."id" LIMIT ${batchSize}
+  `)
+}
+
+export async function processSalesSequenceTick(limit = 25, workerId = WORKER_ID, scope?: SalesSequenceWorkerScope) {
   const now = new Date()
-  const candidates = await prisma.salesSequenceStepRun.findMany({
-    where: {
-      OR: [
-        { status: 'pending', availableAt: { lte: now } },
-        { status: 'processing', leaseExpiresAt: { lte: now } },
-      ],
-      enrollment: { status: 'active' },
-    },
-    orderBy: { availableAt: 'asc' },
-    take: Math.min(Math.max(limit, 1), 100),
-    select: { id: true },
-  })
+  const candidates = await findRunnableSalesSequenceSteps(limit, now, scope)
   let claimed = 0
   for (const candidate of candidates) {
     const result = await prisma.salesSequenceStepRun.updateMany({
       where: {
         id: candidate.id,
+        ...(scope ? { orgId: scope.orgId, type: scope.type } : {}),
+        enrollment: { status: 'active', currentStep: candidate.stepIndex },
+        program: { status: 'active', archivedAt: null },
         OR: [
           { status: 'pending', availableAt: { lte: now } },
           { status: 'processing', leaseExpiresAt: { lte: now } },
@@ -459,7 +499,11 @@ export async function processSalesSequenceTick(limit = 25, workerId = WORKER_ID)
     })
     if (!result.count) continue
     claimed++
-    await executeClaimedStep(candidate.id, workerId)
+    await executeClaimedStep(candidate.id, workerId, scope)
   }
   return { candidates: candidates.length, claimed }
 }
+
+
+
+

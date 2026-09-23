@@ -13,10 +13,10 @@ const STATUS_MAP = {
 const ESTADOS = ['Nuevo', 'Contactado', 'Interesado', 'Reunión agendada', 'Negociación', 'Ganado', 'Perdido']
 const FUENTES = ['Web form', 'LinkedIn', 'Referido', 'Evento', 'Cold email', 'Importación CRM']
 
-export default function NewLeadModal({ onClose, onSuccess }) {
+export default function NewLeadModal({ onClose, onSuccess, initialValues = null }) {
   const { t, locale } = useI18n()
   const [form, setForm] = useState({
-    name: '', role: '', company: '', email: '', phone: '',
+    name: initialValues?.name || '', role: '', company: initialValues?.company || '', email: initialValues?.email || '', phone: initialValues?.phone || '',
     status: 'Nuevo', value: '', source: 'Web form', tags: '',
   })
   const [callNow, setCallNow] = useState(false)

@@ -31,6 +31,11 @@
   border-bottom: 1px solid var(--line-2);
 }
 
+@media (max-width: 650px) {
+  .settings-shell .product-section-tabs { display: flex; max-width: 100%; overflow-x: auto; }
+  .settings-shell .product-section-tabs button { flex: 0 0 auto; min-height: 44px; white-space: nowrap; }
+}
+
 /* La sección hace el scroll; la cabecera no se mueve. */
 .settings-shell-view { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .settings-shell-view > * { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; }

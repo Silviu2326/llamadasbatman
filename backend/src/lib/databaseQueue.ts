@@ -38,11 +38,12 @@ export async function enqueueDatabaseJob(input: {
   }
 }
 
-async function claimDatabaseJob(queue: string, workerId: string) {
+async function claimDatabaseJob(queue: string, workerId: string, orgId?: string) {
   const now = new Date()
   const candidates = await prisma.workerQueueJob.findMany({
     where: {
       queue,
+      ...(orgId ? { payload: { path: ['orgId'], equals: orgId } } : {}),
       OR: [
         { status: 'pending', availableAt: { lte: now } },
         { status: 'processing', leaseExpiresAt: { lte: now } },
@@ -56,6 +57,7 @@ async function claimDatabaseJob(queue: string, workerId: string) {
     const claimed = await prisma.workerQueueJob.updateMany({
       where: {
         id: candidate.id,
+        ...(orgId ? { payload: { path: ['orgId'], equals: orgId } } : {}),
         OR: [
           { status: 'pending', availableAt: { lte: now } },
           { status: 'processing', leaseExpiresAt: { lte: now } },
@@ -106,10 +108,11 @@ export function startDatabaseQueueWorker(input: {
   handler: DatabaseQueueHandler
   pollMs?: number
   workerId?: string
+  orgId?: string
 }): () => void {
   const workerId = input.workerId ?? `postgres-${input.queue}-${process.pid}`
   const tick = async () => {
-    const job = await claimDatabaseJob(input.queue, workerId)
+    const job = await claimDatabaseJob(input.queue, workerId, input.orgId)
     if (!job) return
     try {
       await input.handler(job.payload as DatabaseQueuePayload)

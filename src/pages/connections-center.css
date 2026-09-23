@@ -74,3 +74,12 @@
   .conn-page{padding:16px 12px 24px}
   .conn-grid{grid-template-columns:1fr}
 }
+.conn-provider-search { display:grid; gap:8px; font-size:12px; margin-bottom:18px; }.conn-provider-search input { width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--line-control); border-radius:8px; font:inherit; color:var(--text); background:var(--surface); }
+
+.conn-inbound-setup { display: grid; gap: 8px; margin: 14px 0; padding: 14px; border: 1px solid var(--line, #dbe3f0); border-radius: 12px; background: color-mix(in srgb, var(--accent-soft, #4f46e5) 5%, transparent); }
+.conn-inbound-setup > strong { color: var(--text, #182338); font-size: 14px; }
+.conn-inbound-setup p, .conn-inbound-setup small { margin: 0; color: var(--muted, #64748b); font-size: 12px; line-height: 1.55; }
+.conn-inbound-setup code { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; }
+.conn-inbound-endpoint { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 9px 10px; border-radius: 8px; background: var(--surface, #fff); }
+.conn-inbound-pending { color: var(--warn, #9a6700) !important; }
+@media (max-width: 640px) { .conn-inbound-endpoint { align-items: stretch; flex-direction: column; } .conn-inbound-endpoint .conn-button { align-self: flex-start; } }

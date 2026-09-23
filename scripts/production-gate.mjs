@@ -22,7 +22,6 @@ const ALL_PROVIDERS = [
   'meta_ads',
   'google_search_console',
   'metricool',
-  'mautic_email',
   'twilio',
 ]
 
@@ -49,13 +48,6 @@ const PROVIDERS = {
     secrets: [['METRICOOL_USER_TOKEN', 16]],
     urls: [{ name: 'METRICOOL_BASE_URL', public: true }],
   },
-  mautic_email: {
-    label: 'Mautic / email',
-    required: ['MAUTIC_BASE_URL', 'MAUTIC_CLIENT_ID', 'MAUTIC_CLIENT_SECRET', 'MAUTIC_WEBHOOK_SECRET'],
-    activation: ['MAUTIC_CLIENT_ID', 'MAUTIC_CLIENT_SECRET', 'MAUTIC_WEBHOOK_SECRET'],
-    secrets: [['MAUTIC_CLIENT_SECRET', 16], ['MAUTIC_WEBHOOK_SECRET', 16]],
-    urls: [{ name: 'MAUTIC_BASE_URL', public: false }],
-  },
   twilio: {
     label: 'Twilio',
     required: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_WEBHOOK_BASE_URL'],
@@ -75,7 +67,6 @@ const URL_ALIASES = [
   ['GOOGLE_OAUTH_REDIRECT_BASE_URL', true, true],
   ['TWILIO_WEBHOOK_BASE_URL', true, true],
   ['METRICOOL_BASE_URL', false, false],
-  ['MAUTIC_BASE_URL', false, false],
 ]
 
 const SECURITY_SECRETS = [

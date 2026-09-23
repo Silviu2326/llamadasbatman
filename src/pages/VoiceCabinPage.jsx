@@ -10,6 +10,7 @@ import { useVoiceSession } from './voice-cabin/useVoiceSession'
 import { formatClock, formatLatency } from './voice-cabin/lib/voiceMetrics'
 import { apiFetch } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
+import { useI18n } from '../i18n'
 import './voice-cabin.css'
 
 // Cabina del stack Deepgram Flux → Cerebras → Fish Audio. Puerto de
@@ -25,16 +26,17 @@ function CallTimer({ startedAt }) {
   return <time className="session-clock">{String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</time>
 }
 
-function ProviderBadge({ name, provider, status, simulated }) {
+function ProviderBadge({ name, provider, status, simulated, locale = 'es' }) {
+  const es = locale !== 'en'
   const label = simulated
-    ? 'SIM'
-    : status === 'active' ? 'LIVE'
-      : status === 'connecting' ? 'LINK'
-        : status === 'error' ? 'ERR'
-          : 'READY'
+    ? (es ? 'SIM' : 'SIM')
+    : status === 'active' ? (es ? 'EN VIVO' : 'LIVE')
+      : status === 'connecting' ? (es ? 'ENLACE' : 'LINK')
+        : status === 'error' ? (es ? 'ERR' : 'ERR')
+          : (es ? 'LISTO' : 'READY')
   const tone = simulated ? 'sim' : status
   return (
-    <div className="provider-status" title={`${provider}: ${simulated ? 'simulated' : status}`}>
+    <div className="provider-status" title={`${provider}: ${simulated ? (es ? 'simulado' : 'simulated') : status}`}>
       <span>{name}</span><i className={`provider-dot dot-${tone}`} /><small>{label}</small>
     </div>
   )
@@ -45,12 +47,14 @@ function providerLabel(provider) {
 }
 
 function EventStream({ view }) {
+  const { locale } = useI18n()
+  const es = locale !== 'en'
   const traces = view.traces.slice(0, 3)
   return (
     <section className="event-stream surface" aria-labelledby="event-stream-title">
       <header>
-        <div><span className="eyebrow">Observability</span><h2 id="event-stream-title">Event stream</h2></div>
-        <div className="event-legend"><span><i className="legend-info" /> INFO</span><span><i className="legend-active" /> LIVE</span><span><i className="legend-warn" /> WARN</span></div>
+        <div><span className="eyebrow">{es ? 'Observabilidad' : 'Observability'}</span><h2 id="event-stream-title">{es ? 'Eventos' : 'Event stream'}</h2></div>
+        <div className="event-legend"><span><i className="legend-info" /> INFO</span><span><i className="legend-active" /> {es ? 'EN VIVO' : 'LIVE'}</span><span><i className="legend-warn" /> {es ? 'AVISO' : 'WARN'}</span></div>
       </header>
       <div className="event-rows">
         {traces.length ? traces.map(trace => (
@@ -63,7 +67,7 @@ function EventStream({ view }) {
             <i className={`event-state state-${trace.stage}`} />
           </article>
         )) : (
-          <div className="events-empty"><Clock3 size={15} /> Live stage events will appear here in timestamp order.</div>
+          <div className="events-empty"><Clock3 size={15} /> {es ? 'Los eventos aparecerán aquí en orden.' : 'Live stage events will appear here in timestamp order.'}</div>
         )}
       </div>
     </section>
@@ -73,13 +77,15 @@ function EventStream({ view }) {
 export default function VoiceCabinPage() {
   const navigate = useNavigate()
   const { token } = useAuth()
+  const { locale } = useI18n()
+  const es = locale !== 'en'
   const [agentId, setAgentId] = useState(() => new URLSearchParams(window.location.search).get('agentId') || '')
   const [agentOptions, setAgentOptions] = useState([])
   const [runtimeProviders, setRuntimeProviders] = useState({ stt: 'deepgram', llm: 'cerebras', tts: 'fish', models: { stt: 'flux-general-multi', llm: 'gpt-oss-120b', tts: 's2.1-pro' } })
   const {
     view, settings, setSettings, phoneAudio, setPhoneAudio,
     startLive, stop, runDemo, sendText, toggleMicrophone, toggleSpeaker, interrupt, clearError,
-  } = useVoiceSession({ token, agentId })
+  } = useVoiceSession({ token, agentId, locale })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isActive = view.mode === 'live' || view.mode === 'connecting' || view.mode === 'demo'
 
@@ -136,7 +142,7 @@ export default function VoiceCabinPage() {
 
   return (
     <div className="cabin-root">
-      <div className="app-shell" data-testid="vendrava-voice-cabin">
+      <div className="cabin-shell" data-testid="vendrava-voice-cabin">
         <header className="topbar">
           <div className="brand-lockup">
             <button className="settings-button" type="button" onClick={() => navigate('/voz/lab')} aria-label="Volver al laboratorio de voz">
@@ -144,19 +150,19 @@ export default function VoiceCabinPage() {
             </button>
             <span className="brand">VENDRAVA</span>
             <i />
-            <span className="product-title">Voice Cabin <b>/ English · Español</b></span>
+            <span className="product-title">{es ? 'Cabina de voz' : 'Voice Cabin'} <b>/ {es ? 'Español' : 'English'}</b></span>
           </div>
 
           <div className={`session-status ${isActive ? 'is-live' : ''} ${view.mode === 'demo' ? 'is-demo' : ''}`}>
-            <i /> <b>{view.mode === 'demo' ? 'DEMO' : isActive ? 'LIVE' : 'READY'}</b>
+            <i /> <b>{view.mode === 'demo' ? 'DEMO' : isActive ? (es ? 'EN VIVO' : 'LIVE') : (es ? 'LISTO' : 'READY')}</b>
             <CallTimer startedAt={view.startedAt} />
           </div>
 
           <div className="topbar-tools">
-            <div className="provider-cluster" aria-label="Provider health">
-              <ProviderBadge name={providerLabel(runtimeProviders.stt)} provider={runtimeProviders.stt} status={view.providers[runtimeProviders.stt]} simulated={view.mode === 'demo'} />
-              <ProviderBadge name={providerLabel(runtimeProviders.llm)} provider={runtimeProviders.llm} status={view.providers[runtimeProviders.llm]} simulated={view.mode === 'demo'} />
-              <ProviderBadge name={providerLabel(runtimeProviders.tts)} provider={runtimeProviders.tts} status={view.providers[runtimeProviders.tts]} simulated={view.mode === 'demo'} />
+            <div className="provider-cluster" aria-label={es ? 'Estado de los proveedores' : 'Provider health'}>
+              <ProviderBadge locale={locale} name={providerLabel(runtimeProviders.stt)} provider={runtimeProviders.stt} status={view.providers[runtimeProviders.stt]} simulated={view.mode === 'demo'} />
+              <ProviderBadge locale={locale} name={providerLabel(runtimeProviders.llm)} provider={runtimeProviders.llm} status={view.providers[runtimeProviders.llm]} simulated={view.mode === 'demo'} />
+              <ProviderBadge locale={locale} name={providerLabel(runtimeProviders.tts)} provider={runtimeProviders.tts} status={view.providers[runtimeProviders.tts]} simulated={view.mode === 'demo'} />
             </div>
             <select
               className="settings-button"
@@ -168,8 +174,8 @@ export default function VoiceCabinPage() {
               <option value="">Agente por defecto</option>
               {agentOptions.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
             </select>
-            <button className="settings-button" type="button" onClick={() => setSettingsOpen(true)} aria-label="Open voice settings">
-              <Settings2 size={18} /><span>Settings</span>
+              <button className="settings-button" type="button" onClick={() => setSettingsOpen(true)} aria-label={es ? 'Abrir ajustes de voz' : 'Open voice settings'}>
+              <Settings2 size={18} /><span>{es ? 'Ajustes' : 'Settings'}</span>
             </button>
           </div>
         </header>
@@ -178,6 +184,7 @@ export default function VoiceCabinPage() {
           <MetricRail view={view} />
           <div className="voice-workspace">
             <CallStage
+              locale={locale}
               view={view}
               onStart={startLive}
               onStop={stop}
@@ -187,7 +194,7 @@ export default function VoiceCabinPage() {
               onToggleSpeaker={toggleSpeaker}
               onInterrupt={interrupt}
             />
-            <TelemetryPanel view={view} runtime={runtimeProviders} />
+            <TelemetryPanel view={view} runtime={runtimeProviders} locale={locale} />
           </div>
           <EventStream view={view} />
         </main>
@@ -197,13 +204,13 @@ export default function VoiceCabinPage() {
           <span>{providerLabel(runtimeProviders.stt)} {runtimeProviders.models.stt} → {providerLabel(runtimeProviders.llm)} {runtimeProviders.models.llm} → {providerLabel(runtimeProviders.tts)} {runtimeProviders.models.tts}</span>
         </footer>
 
-        <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} setSettings={setSettings} phoneAudio={phoneAudio} setPhoneAudio={setPhoneAudio} health={view.health} runtime={runtimeProviders} />
+        <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} setSettings={setSettings} phoneAudio={phoneAudio} setPhoneAudio={setPhoneAudio} health={view.health} runtime={runtimeProviders} locale={locale} />
 
         {view.error && (
           <div className="error-toast" role="alert">
             <AlertTriangle size={18} />
             <span>{view.error}</span>
-            <button type="button" onClick={clearError} aria-label="Dismiss error"><X size={16} /></button>
+            <button type="button" onClick={clearError} aria-label={es ? 'Cerrar error' : 'Dismiss error'}><X size={16} /></button>
           </div>
         )}
       </div>

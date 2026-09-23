@@ -160,7 +160,7 @@ function CopyBlock({ label, value }) {
 /* ── Diálogo de auditoría ───────────────────────────────────────────────── */
 
 /** Cierra con Escape o clic fuera, atrapa el foco y lo devuelve al cerrarse. */
-export function AuditModal({ seo, onClose, onSubmit }) {
+export function AuditModal({ seo, onClose, onSubmit, lockedUrl = false }) {
   const dialogRef = useRef(null)
   const onCloseRef = useRef(onClose)
   const titleId = `wb-audit-title-${useId().replace(/:/g, '')}`
@@ -201,14 +201,14 @@ export function AuditModal({ seo, onClose, onSubmit }) {
         </header>
         <form id="wb-audit-form" className="gs-modal-body" onSubmit={event => { event.preventDefault(); onSubmit() }}>
           <div className="gs-form-grid">
-            <label className="full"><span>URL de la web <i>*</i></span><input className="gs-input" type="text" value={seo.form.url} onChange={seo.setField('url')} placeholder="https://tunegocio.com" data-autofocus required /></label>
+            <label className="full"><span>URL de la web <i>*</i></span><input className="gs-input" type="text" value={seo.form.url} readOnly={lockedUrl} onChange={seo.setField('url')} placeholder="https://tunegocio.com" data-autofocus required /></label>
             <label><span>Sector</span><input className="gs-input" type="text" value={seo.form.sector} onChange={seo.setField('sector')} placeholder="clínica dental, restaurante…" /></label>
             <label><span>Ciudad</span><input className="gs-input" type="text" value={seo.form.city} onChange={seo.setField('city')} placeholder="Madrid" /></label>
             <label className="full"><span>Describe tu negocio <small>— cuanto más contexto, mejores keywords</small></span><textarea className="gs-textarea" value={seo.form.business} onChange={seo.setField('business')} placeholder="Qué vendes, a quién y qué te diferencia." /></label>
           </div>
           <div className="gs-modal-section">
-            <h3><RiSwordLine /> Competidores a vigilar</h3>
-            <p>Se guardan en el proyecto: la vigilancia diaria los audita junto a tu web y podrás comparar scores.</p>
+            <h3><RiSwordLine /> Competidores de referencia</h3>
+            <p>Se guardan en el proyecto para que puedas comparar sus diagnósticos desde Resultados.</p>
             <div className="wb-competitor-fields">
               {seo.competitorUrls.map((value, index) => <input key={index} className="gs-input" type="text" value={value} placeholder={`https://competidor-${index + 1}.com`} onChange={event => seo.setCompetitorUrls(prev => prev.map((v, i) => (i === index ? event.target.value : v)))} />)}
             </div>
@@ -489,12 +489,12 @@ export function SearchConsolePanel({ seo, onConnect }) {
   const { searchConsole, matchedRows } = seo
   return (
     <section className="gs-panel">
-      <header className="gs-panel-head"><div><h2><span className="gs-panel-icon"><RiGlobalLine /></span>Posicionamiento real (Search Console)</h2><p>Cruce de las keywords recomendadas con las búsquedas por las que Google ya te muestra.</p></div></header>
+      <header className="gs-panel-head"><div><h2><span className="gs-panel-icon"><RiGlobalLine /></span>Posicionamiento real (Search Console)</h2><p>Búsquedas, clics e impresiones sincronizados desde tu propiedad de Google.</p></div></header>
       <div className="gs-panel-body">
         {!searchConsole ? <div className="gs-skeleton"><i /><i /><i /></div>
-          : !searchConsole.connected ? <p className="gs-empty-inline">Google Search Console no está conectado. Conéctalo y sincroniza en <button type="button" className="gs-link" onClick={onConnect}>Orgánico y social → Fuentes</button> para ver posiciones, clics e impresiones reales aquí.</p>
+          : !searchConsole.connected ? <p className="gs-empty-inline">{searchConsole.siteMismatch ? 'La propiedad conectada pertenece a otra web. Configura la propiedad de esta web en' : 'Google Search Console no está conectado. Conéctalo y sincroniza en'} <button type="button" className="gs-link" onClick={onConnect}>Orgánico y social → Fuentes</button> para ver posiciones, clics e impresiones reales aquí.</p>
             : !searchConsole.totalQueries ? <p className="gs-empty-inline">Search Console está conectado pero aún no hay búsquedas sincronizadas. Lanza una sincronización desde <button type="button" className="gs-link" onClick={onConnect}>Orgánico y social → Fuentes</button>.</p>
-              : !matchedRows.length ? <p className="gs-empty-inline">Todavía no apareces en Google por ninguna keyword del plan: son territorio por conquistar con el plan de contenidos.</p>
+              : !matchedRows.length ? <p className="gs-empty-inline">No hay coincidencias con el plan de contenido. Puedes consultar las búsquedas registradas más abajo.</p>
                 : (
                   <div className="gs-table-scroll">
                     <table className="gs-table">

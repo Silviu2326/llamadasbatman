@@ -145,7 +145,6 @@ function OrganizationDetail({ id, catalog, onBack, onOpenUser, onImpersonate, no
         email: result.organization.email || '',
         website: result.organization.website || '',
         industry: result.organization.industry || '',
-        mauticEnabled: result.organization.mauticEnabled,
         metricoolEnabled: result.organization.metricoolEnabled,
       })
     } catch (caught) {
@@ -193,7 +192,6 @@ function OrganizationDetail({ id, catalog, onBack, onOpenUser, onImpersonate, no
       </div>
       <div className="bo-detail-badges">
         <Badge tone={org.plan === 'free' ? 'neutral' : 'accent'}>{org.plan}</Badge>
-        {org.mauticEnabled ? <Badge tone="ok">Mautic</Badge> : null}
         {org.metricoolEnabled ? <Badge tone="ok">Metricool</Badge> : null}
         {org.stripeCustomerId ? <Badge tone="neutral">Stripe</Badge> : null}
         {org.agencyClientWorkspace ? <Badge tone="warn">Cliente de agencia</Badge> : null}
@@ -221,7 +219,6 @@ function OrganizationDetail({ id, catalog, onBack, onOpenUser, onImpersonate, no
           <Field label="Email"><input type="email" value={profile.email} onChange={event => setProfile(current => ({ ...current, email: event.target.value }))} /></Field>
           <Field label="Web"><input type="url" value={profile.website} onChange={event => setProfile(current => ({ ...current, website: event.target.value }))} /></Field>
           <Field label="Sector"><input value={profile.industry} onChange={event => setProfile(current => ({ ...current, industry: event.target.value }))} /></Field>
-          <label className="bo-check"><input type="checkbox" checked={profile.mauticEnabled} onChange={event => setProfile(current => ({ ...current, mauticEnabled: event.target.checked }))} /><span>Mautic activo</span></label>
           <label className="bo-check"><input type="checkbox" checked={profile.metricoolEnabled} onChange={event => setProfile(current => ({ ...current, metricoolEnabled: event.target.checked }))} /><span>Metricool activo</span></label>
         </div>
         <button

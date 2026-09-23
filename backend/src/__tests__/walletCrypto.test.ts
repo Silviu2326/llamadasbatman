@@ -80,7 +80,7 @@ test('rotación: un payload v1 antiguo se sigue descifrando con el keyring activ
   // Simula el despliegue real: primero solo existe la clave única (v1)...
   const legacyPayload = withEnv(
     { INTEGRATION_CREDENTIALS_ENCRYPTION_KEY: LEGACY_KEY },
-    () => encryptOrganizationCredential({ provider: 'mautic' }),
+    () => encryptOrganizationCredential({ provider: 'legacy_provider' }),
   )
   // ...y después se activa el keyring manteniendo la clave vieja presente.
   withEnv(
@@ -89,7 +89,7 @@ test('rotación: un payload v1 antiguo se sigue descifrando con el keyring activ
       INTEGRATION_CREDENTIALS_ENCRYPTION_KEYS: `k1:${KEY_A}`,
     },
     () => {
-      assert.deepEqual(decryptOrganizationCredential(legacyPayload), { provider: 'mautic' })
+      assert.deepEqual(decryptOrganizationCredential(legacyPayload), { provider: 'legacy_provider' })
     },
   )
 })
@@ -216,3 +216,4 @@ test('un payload manipulado no descifra (GCM autentica)', () => {
     assert.throws(() => decryptSecretWithKeyring(parts.join('.')))
   })
 })
+

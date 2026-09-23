@@ -1,0 +1,210 @@
+{
+  "$defs": {
+    "Rates": {
+      "additionalProperties": false,
+      "properties": {
+        "segment": {
+          "default": "principal",
+          "title": "Segment",
+          "type": "string"
+        },
+        "current_ctr": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Ctr"
+        },
+        "target_ctr": {
+          "default": 0.12,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Target Ctr",
+          "type": "number"
+        },
+        "click_to_session": {
+          "default": 1,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Click To Session",
+          "type": "number"
+        },
+        "contact_rate": {
+          "default": 0.02,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Contact Rate",
+          "type": "number"
+        },
+        "quote_rate": {
+          "default": 0.5,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Quote Rate",
+          "type": "number"
+        },
+        "close_rate": {
+          "default": 0.2,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Close Rate",
+          "type": "number"
+        },
+        "annual_ticket": {
+          "default": 35000,
+          "maximum": 100000000,
+          "minimum": 0,
+          "title": "Annual Ticket",
+          "type": "number"
+        },
+        "margin": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Margin"
+        },
+        "annual_retention": {
+          "default": 0.85,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Annual Retention",
+          "type": "number"
+        },
+        "monthly_capacity": {
+          "anyOf": [
+            {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Capacity"
+        },
+        "source": {
+          "default": "Supuestos pendientes de validar con el negocio",
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "title": "Rates",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "default": "Base",
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "currency": {
+      "default": "EUR",
+      "enum": [
+        "EUR",
+        "USD",
+        "GBP"
+      ],
+      "title": "Currency",
+      "type": "string"
+    },
+    "rates": {
+      "items": {
+        "$ref": "#/$defs/Rates"
+      },
+      "maxItems": 30,
+      "minItems": 1,
+      "title": "Rates",
+      "type": "array"
+    },
+    "start_delay_months": {
+      "default": 0,
+      "maximum": 24,
+      "minimum": 0,
+      "title": "Start Delay Months",
+      "type": "integer"
+    },
+    "ramp_months": {
+      "default": 0,
+      "maximum": 24,
+      "minimum": 0,
+      "title": "Ramp Months",
+      "type": "integer"
+    },
+    "sales_delay_months": {
+      "default": 0,
+      "maximum": 24,
+      "minimum": 0,
+      "title": "Sales Delay Months",
+      "type": "integer"
+    },
+    "horizon_months": {
+      "default": 60,
+      "maximum": 120,
+      "minimum": 12,
+      "title": "Horizon Months",
+      "type": "integer"
+    },
+    "monthly_cost": {
+      "default": 0,
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Monthly Cost",
+      "type": "number"
+    },
+    "setup_cost": {
+      "default": 0,
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Setup Cost",
+      "type": "number"
+    },
+    "onboarding_cost": {
+      "default": 0,
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Onboarding Cost",
+      "type": "number"
+    },
+    "annual_discount": {
+      "default": 0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Annual Discount",
+      "type": "number"
+    },
+    "seasonality": {
+      "items": {
+        "type": "number"
+      },
+      "maxItems": 12,
+      "minItems": 12,
+      "title": "Seasonality",
+      "type": "array"
+    }
+  },
+  "title": "Scenario",
+  "type": "object"
+}

@@ -134,7 +134,6 @@ export function setQueueGauge(queue: string, metric: string, value: number | nul
 
 export function webhookIdentity(path: string): { provider: string; channel: string } | null {
   if (path.startsWith('/api/meta/webhooks')) return { provider: 'meta', channel: 'leadgen' }
-  if (path.startsWith('/api/webhooks/mautic')) return { provider: 'mautic', channel: 'email' }
   if (path.startsWith('/api/voice/webhook')) return { provider: 'twilio', channel: 'voice' }
   if (path.startsWith('/api/whatsapp')) return { provider: 'twilio', channel: 'whatsapp' }
   return null

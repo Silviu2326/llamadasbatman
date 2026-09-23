@@ -178,6 +178,12 @@ async function dispatchPendingOutbox() {
         const outcome = await withOutboxLease(event.id, WORKER_ID, async () => {
           const payload = event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
             ? event.payload as Record<string, unknown> : {}
+          if (event.topic === 'whatsapp.reply.requested') {
+            if (typeof payload.conversationId !== 'string' || typeof payload.messageId !== 'string') throw new Error('Invalid WhatsApp reply event')
+            const { processWhatsAppReply } = await import('../services/whatsapp.service')
+            await processWhatsAppReply(event.orgId, payload.conversationId, payload.messageId)
+            return
+          }
           await runAutomationsForEvent(event.orgId, event.topic, {
             ...payload,
             eventId: payload.eventId ?? event.id,

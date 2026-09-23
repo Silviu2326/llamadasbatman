@@ -29,8 +29,8 @@ function failures(result) {
 }
 
 test('rechaza una integración opcional parcialmente configurada', () => {
-  const result = collectReport(safeConfig({ MAUTIC_BASE_URL: 'https://mautic.staging.example.com' }), { allowPrivate: false })
-  assert.ok(failures(result).some(check => check === 'mautic_email.MAUTIC_CLIENT_ID'))
+  const result = collectReport(safeConfig({ METRICOOL_USER_TOKEN: 'metricool-staging-token' }), { allowPrivate: false })
+  assert.ok(failures(result).some(check => check === 'metricool.METRICOOL_USER_ID'))
 })
 
 test('considera callback o requisito alternativo aislado como configuración parcial', () => {
@@ -52,6 +52,6 @@ test('rechaza una integración parcial aunque esté marcada como obligatoria', (
 
 test('no marca como conectado un proveedor sin variables', () => {
   const result = collectReport(safeConfig(), { allowPrivate: false })
-  assert.equal(result.report.fail.some(item => item.check === 'mautic_email'), false)
-  assert.ok(result.report.warn.some(item => item.check === 'mautic_email'))
+  assert.equal(result.report.fail.some(item => item.check === 'metricool'), false)
+  assert.ok(result.report.warn.some(item => item.check === 'metricool'))
 })

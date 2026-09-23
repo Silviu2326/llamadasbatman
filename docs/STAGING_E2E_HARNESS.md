@@ -48,7 +48,7 @@ $env:STAGING_E2E_WORKSPACE_ID = '<organization-id-de-staging>'
 $env:STAGING_E2E_CONFIRM = 'I_UNDERSTAND_STAGING_MUTATIONS'
 $env:STAGING_E2E_DATABASE_TARGET_HASH = '<hash-de-host-puerto-base-staging>'
 $env:STAGING_E2E_OBSERVABILITY_TOKEN = '<token-lectura-observabilidad-staging>'
-$env:STAGING_E2E_REQUIRED_PROVIDERS = 'meta_ads,google_search_console,metricool,mautic_email,twilio'
+$env:STAGING_E2E_REQUIRED_PROVIDERS = 'meta_ads,google_search_console,metricool,resend,twilio'
 ```
 
 No se debe copiar la URL de producción, su token ni su `DATABASE_URL` a estas variables.
@@ -90,7 +90,7 @@ El flujo Ads no publica ni activa un anuncio remoto por defecto. Crea una campa�
 
 ## Proveedores externos
 
-Por seguridad, Metricool/Meta/Mautic/Twilio no se tocan durante la ejecución normal. Si existe una cuenta de prueba separada y se quiere probar una ruta del proveedor, hay que habilitar una segunda barrera:
+Por seguridad, Metricool/Meta/Resend/Twilio no se tocan durante la ejecución normal. Si existe una cuenta de prueba separada y se quiere probar una ruta del proveedor, hay que habilitar una segunda barrera:
 
 ```powershell
 $env:STAGING_E2E_PROVIDER_CONFIRM = 'I_UNDERSTAND_STAGING_PROVIDER_MUTATIONS'
@@ -181,3 +181,4 @@ node scripts/ops-checks.mjs
 Estos checks no ejecutan el arnés mutante, migraciones Prisma, builds,
 workers ni probes de proveedores. El arnés mutante solo se ejecuta desde un
 staging aislado y después de un preflight PASS.
+

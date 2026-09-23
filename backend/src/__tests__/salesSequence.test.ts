@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import { prisma } from '../lib/prisma'
 import {
   enrollSalesSequence,
+  pauseSalesSequence,
   processSalesSequenceTick,
+  resumeSalesSequence,
 } from '../services/salesSequence.service'
 import { cleanupOrgs, createTestLead, createTestOrg } from './testHelpers'
 
@@ -113,4 +115,36 @@ test('a WhatsApp step without an approved template is rejected at configuration 
     () => enrollSalesSequence(org.id, program.id, [lead.id], 'test-user'),
     (error: Error & { code?: string }) => error.code === 'SEQUENCE_TEMPLATE_REQUIRED',
   )
+})
+
+test('resuming a sequence preserves each pending step wait', async () => {
+  const org = await createTestOrg('test-sequence-resume-delay')
+  orgIds.push(org.id)
+  const lead = await createTestLead(org.id, { name: 'Lead con espera' })
+  const program = await prisma.growthProgram.create({
+    data: {
+      orgId: org.id,
+      type: 'sales_sequence',
+      name: 'Secuencia con espera',
+      status: 'draft',
+      config: {
+        leadIds: [lead.id],
+        steps: [
+          { key: 'first', type: 'task', delayDays: 0, title: 'Primer paso' },
+          { key: 'second', type: 'task', delayDays: 5, title: 'Segundo paso' },
+        ],
+      },
+    },
+  })
+
+  await enrollSalesSequence(org.id, program.id, [lead.id], 'test-user')
+  await pauseSalesSequence(org.id, program.id)
+  await resumeSalesSequence(org.id, program.id)
+
+  const second = await prisma.salesSequenceStepRun.findFirstOrThrow({
+    where: { programId: program.id, leadId: lead.id, stepKey: 'second' },
+  })
+  assert.equal(second.status, 'pending')
+  assert.ok(second.availableAt.getTime() >= second.dueAt.getTime())
+  assert.ok(second.availableAt.getTime() > Date.now())
 })

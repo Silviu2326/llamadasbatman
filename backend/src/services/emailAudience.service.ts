@@ -12,7 +12,7 @@ import type { Prisma } from '@prisma/client'
  * (`GET /api/leads/:id/preferences`) y no había forma de responder a
  * "quién está suscrito a la newsletter".
  *
- * Consecuencia deliberada: una baja registrada por el webhook de Mautic o por
+ * Consecuencia deliberada: una baja registrada por el webhook de Resend o por
  * un rebote duro aparece aquí sin trabajo extra, porque es la misma fila.
  */
 

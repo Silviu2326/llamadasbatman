@@ -1,0 +1,42 @@
+{
+  "name": "Base",
+  "currency": "EUR",
+  "rates": [
+    {
+      "segment": "principal",
+      "current_ctr": null,
+      "target_ctr": 0.12,
+      "click_to_session": 1,
+      "contact_rate": 0.02,
+      "quote_rate": 0.5,
+      "close_rate": 0.2,
+      "annual_ticket": 35000,
+      "margin": null,
+      "annual_retention": 0.85,
+      "monthly_capacity": null,
+      "source": "Supuestos pendientes de validar con el negocio"
+    }
+  ],
+  "start_delay_months": 0,
+  "ramp_months": 0,
+  "sales_delay_months": 0,
+  "horizon_months": 60,
+  "monthly_cost": 0,
+  "setup_cost": 0,
+  "onboarding_cost": 0,
+  "annual_discount": 0,
+  "seasonality": [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ]
+}

@@ -12,7 +12,7 @@ La referencia de navegación es `src/components/Sidebar.jsx` y las rutas efectiv
 |---|---|
 | **Código real** | La pantalla consulta o muta datos de la organización mediante API y el backend los persiste o calcula. |
 | **Fallback demo** | Texto, imagen, icono, catálogo de sugerencias o valor visual definido en frontend. No debe interpretarse como dato de negocio. |
-| **Proveedor externo** | La operación depende de Mautic, Twilio, WhatsApp, Deepgram, Cerebras, ElevenLabs u otro servicio fuera del CRM. |
+| **Proveedor externo** | La operación depende de Resend, Twilio, WhatsApp, Deepgram, Cerebras, ElevenLabs u otro servicio fuera del CRM. |
 | **Parcial / pendiente** | La interfaz existe, pero hay controles, métricas o integraciones que todavía no tienen contrato completo o no se ejecutan desde esa vista. |
 
 ### Mapa rápido
@@ -132,7 +132,7 @@ Si no existen conversaciones, la pantalla se puede abrir igualmente y muestra un
 | Pasar a humano | Asigna al usuario y cambia a `assigned`; añade evento interno | `POST /api/conversations/:id/takeover` |
 | Elegir plantilla | Recupera plantillas activas del canal | `GET /api/conversations/templates?channel=...` |
 | Enviar WhatsApp | Valida teléfono y consentimiento y envía | `POST /api/conversations/:id/messages`, proveedor WhatsApp/Twilio |
-| Enviar email | Exige plantilla aprobada, email y consentimiento | `POST /api/conversations/:id/messages`, Mautic |
+| Enviar email | Exige plantilla aprobada, email y consentimiento | `POST /api/conversations/:id/messages`, Resend |
 | Solicitar llamada | Exige teléfono y consentimiento de voz; encola llamada | `POST /api/conversations/:id/messages`, Twilio/job de llamadas |
 | Añadir nota interna | Registra un evento interno | El servicio soporta `channel: internal`, aunque el compositor visible prioriza canales externos |
 | Sugerir con IA | Rellena el compositor, no envía automáticamente | `POST /api/conversations/:id/suggest`, `conversationAi.service` |
@@ -201,7 +201,7 @@ Backend:
 **Proveedores/dependencias externas**
 
 - WhatsApp/Twilio para mensajería y voz.
-- Mautic para envío de email.
+- Resend para envío de email; borradores y consentimiento se gestionan en Vendrava.
 - Proveedor LLM configurado por `conversationAi.service` para sugerencias.
 - Jobs/outbox para eventos y llamadas.
 
@@ -784,162 +784,30 @@ No es una llamada comercial contra un lead. Es una sesión privada de simulació
 
 ---
 
-## 6. Email marketing — centro de nutrición con Mautic
+## 6. Email marketing — campañas nativas con Resend
 
-### Propósito y problema que resuelve
+### Propósito y alcance
 
-Email marketing organiza la nutrición de leads: saber cuántos contactos tienen email, qué segmentos avanzan, qué campañas existen y qué aperturas/clics requieren una nueva acción.
+Vendrava mantiene en su propia base de datos la audiencia, consentimientos, borradores, campañas y actividad de email. Resend se usa como servicio de entrega y recepción; no es el lugar donde se editan ni administran las campañas.
 
-La pantalla separa la proyección operativa en CRM de la ejecución remota. El CRM gobierna audiencia, objetivo, plantilla, remitente y calendario; Mautic continúa siendo el motor de envío y actividad externa.
+El módulo permite preparar newsletters, programar campañas, crear secuencias de seguimiento y enviar desde fichas de leads y conversaciones. Al programar se congela el asunto y el contenido para que la entrega coincida con lo aprobado. El worker procesa la cola con leases e idempotencia. Cada envío requiere consentimiento válido; las bajas y respuestas detienen la secuencia del contacto. Resend devuelve eventos firmados que se normalizan en el historial local.
 
-### Usuarios
+### Configuración por organización
 
-- Marketing y lifecycle.
-- SDR que necesita detectar señales de engagement.
-- Operaciones que preparan y validan campañas.
-- Managers que revisan la base de leads y el estado de las campañas.
+La organización conecta Resend desde Conexiones con una API key, un remitente de dominio verificado y, para recepción, el secreto firmado del webhook. Los secretos se cifran por organización. Vendrava muestra el endpoint de recepción. Las respuestas entrantes se añaden a la conversación del contacto; si no hay un contacto asociado, se crea una conversación de email sin vínculo.
 
-### Ruta y navegación
+### Datos y límites
 
-- Ruta: `/email-marketing`.
-- Entrada: **Nutrición → Email marketing**.
-- Enlaces a leads: `/leads/:id` desde actividad reciente.
-- Se relaciona con `/automatizaciones` para seguimientos por evento y con Inbox para retomar conversaciones.
+Los borradores, consentimientos, campañas y entregas viven en Vendrava. Los IDs y eventos que llegan de Resend se guardan para conciliar los resultados. No se importa ni sincroniza una base externa de contactos. Las bandejas arbitrarias de Gmail/Outlook/IMAP y la descarga binaria de adjuntos entrantes no están incluidas.
 
-### Precondiciones y gating
+### Puesta en marcha
 
-- Sesión y `campaigns.read` para lectura.
-- `campaigns.write` para crear/editar campañas.
-- `campaigns.publish` para programar, publicar y pausar.
-- `integrations.read/manage` para plantillas y reclamación de assets Mautic.
-- `costs.request` además de publicación para envío de test.
-- El backend puede devolver 403 si la organización no tiene el plan completo o `mauticEnabled`.
-- Mautic debe estar accesible para datos y envío.
-
-### Layout
-
-1. **Cabecera**: actualizar, ver actividad y nueva campaña.
-2. **Hero**: estado de Mautic, explicación del ciclo y acciones hacia segmentos/actividad.
-3. **Métricas**:
-   - leads totales;
-   - leads con email;
-   - aperturas;
-   - clics.
-4. **Flujo de nutrición**: Captar → Nutrir → Activar → Convertir. Es explicación de producto, no embudo calculado por ese bloque.
-5. **Campañas CRM**: lista de campañas y estado.
-6. **Mapa de segmentos**: distribución por estado de lifecycle.
-7. **Señales de engagement**: ratio de apertura y clic.
-8. **Actividad reciente**: aperturas y clics, enlazadas al lead.
-
-### Crear y gestionar campaña
-
-#### Crear borrador
-
-El modal pide nombre y objetivo. Envía `POST /api/marketing-campaigns` y abre el editor de la campaña creada.
-
-#### Editor
-
-El editor recupera la campaña, reconcilia su estado y lista plantillas Mautic. Permite configurar:
-
-- objetivo;
-- definición de audiencia por estado, source y tags;
-- vista previa de audiencia;
-- plantilla vinculada;
-- remitente y reply-to;
-- zona horaria;
-- inicio y fin programados;
-- validación;
-- publicación;
-- pausa.
-
-El flujo esperado es `draft → validating/ready → scheduled/running → paused/completed/error`.
-
-### APIs
-
-**Resumen e integración**
-
-- `GET /api/mautic` — overview de contactos, segmentos y actividad.
-- `GET /api/mautic/templates` — plantillas disponibles.
-- `GET /api/email/overview?from=&to=` — métricas agregadas normalizadas.
-- `GET /api/email/campaigns/:campaignId/metrics` — métricas por campaña.
-
-**Campañas CRM**
-
-- `GET /api/marketing-campaigns`.
-- `POST /api/marketing-campaigns`.
-- `GET /api/marketing-campaigns/:id`.
-- `PUT /api/marketing-campaigns/:id`.
-- `POST /api/marketing-campaigns/:id/audience-preview`.
-- `POST /api/marketing-campaigns/:id/validate`.
-- `POST /api/marketing-campaigns/:id/publish`.
-- `POST /api/marketing-campaigns/:id/pause`.
-- `GET /api/marketing-campaigns/:id/reconcile`.
-
-**Mautic y compliance**
-
-- `GET /api/mautic/campaigns` y `POST /api/mautic/campaigns` para recursos remotos.
-- `POST /api/mautic/campaigns/:id/send-test`.
-- `POST /api/mautic/campaigns/:id/schedule` y `/pause`.
-- `GET /api/mautic/campaigns/:id/stats`.
-- Claim de plantillas: `POST /api/mautic/templates/:id/claim`.
-- Webhook: `/api/webhooks/mautic`, protegido por secreto del proveedor.
-
-### Modelos y dependencias
-
-- `MarketingCampaign`: ownership CRM, audiencia, plantilla, sender, calendario, estado y aprobación.
-- `EmailDelivery`: un registro por destinatario/envío, idempotencia y estado.
-- `EmailEvent`: open/click/bounce/unsubscribe/complaint/reply.
-- `Lead`, `ContactConsent`, `MauticContactBinding` y `MauticAssetBinding`.
-- `emailMetrics.service.ts` y controllers de Mautic/campañas.
-- Mautic es proveedor externo; el token se obtiene mediante client credentials en backend.
-
-### Estados y diferencias de datos
-
-- Loading del overview y de campañas por separado.
-- Gated 403: se muestra mensaje de Plan Completo.
-- Error: overview puede quedar vacío; campañas se vacían y deben reintentarse.
-- Sin campañas: CTA para crear borrador.
-- Sin segmentos: no se dibujan barras ficticias.
-- Sin actividad: estado vacío.
-- Sin plantilla: el editor bloquea la configuración útil hasta seleccionar una plantilla.
-- Ratios sin denominador: “—”, no 0% inventado.
-
-### Seguridad y compliance
-
-- El envío exige consentimiento válido, no unsubscribe/bounce/complaint y una plantilla válida.
-- La campaña, plantilla y lead se resuelven dentro de `orgId`.
-- `EmailDelivery` usa `idempotencyKey` para evitar envíos duplicados.
-- El webhook Mautic debe validarse con secreto y procesarse idempotentemente.
-- Los tests de email de Mautic requieren permisos de publicación y solicitud de coste.
-
-### Riesgos y pendientes
-
-- El hero comunica “Mautic conectado” cuando la pantalla ha pasado el gate, pero el grado de salud real de cada dependencia debe exponerse mejor.
-- La reconciliación corrige estado local; no debe ejecutarse como si fuera una lectura completamente pasiva.
-- La pantalla ofrece una vista de segmentos, no un constructor de segmentación avanzado.
-- Las métricas dependen de eventos sincronizados; no atribuir aperturas si el webhook/ingesta está retrasado.
-- El secreto Mautic por query heredado aparece como riesgo en documentación de seguridad y debe retirarse.
-- El editor no incluye variantes A/B ni un calendario editorial avanzado.
-
-### Checklist operativo
-
-- [ ] Mautic habilitado y accesible.
-- [ ] Audiencia definida y preview revisado.
-- [ ] Plantilla reclamada por la organización.
-- [ ] Consentimientos y exclusiones comprobados.
-- [ ] Campaña validada antes de publicar.
-- [ ] Sender, reply-to, timezone y fechas revisados.
-- [ ] Publicación requiere permiso correcto.
-- [ ] Webhooks de entrega/open/click/bounce funcionan e idempotencia activa.
-- [ ] El dashboard distingue sincronización atrasada de ausencia real de actividad.
-
----
-
+Aplicar las migraciones del email nativo, verificar DNS y remitente, conectar Resend para una organización de staging y probar envío, respuesta, baja y eventos firmados antes de usar una lista real. El runbook vigente está en [EMAIL_MARKETING_ACTIVACION.md](../../EMAIL_MARKETING_ACTIVACION.md).
 ## 7. Automatizaciones — motor de flujos y ejecuciones
 
 ### Propósito y problema que resuelve
 
-Automatizaciones permite que el seguimiento no dependa de que una persona recuerde cada paso. Resuelve acciones repetitivas después de un evento: una llamada completada puede generar email y tarea; un lead nuevo puede entrar en Mautic; un mensaje puede provocar una respuesta o una llamada.
+Automatizaciones permite que el seguimiento no dependa de que una persona recuerde cada paso. Resuelve acciones repetitivas después de un evento: una llamada completada puede generar email y tarea; un lead nuevo puede entrar en una secuencia local de email; un mensaje puede provocar una respuesta o una llamada.
 
 La página es el centro de control. El detalle permite inspeccionar configuración, versiones, historial de runs y pasos ejecutados.
 
@@ -955,7 +823,7 @@ La página es el centro de control. El detalle permite inspeccionar configuraci�
 - Lista: `/automatizaciones`.
 - Detalle: `/automatizaciones/:id`.
 - Entrada: **Nutrición → Automatizaciones**.
-- Se relaciona con Inbox, llamadas, email, Mautic, WhatsApp, tareas, oportunidades y Growth.
+- Se relaciona con Inbox, llamadas, email/Resend, WhatsApp, tareas, oportunidades y Growth.
 
 ### Precondiciones
 
@@ -998,7 +866,7 @@ También permite seleccionar una acción de canal:
 - enviar plantilla WhatsApp;
 - encolar llamada;
 - enviar plantilla de email;
-- enviar lead a segmento Mautic.
+- incorporar lead a una audiencia local que respeta el consentimiento.
 
 El backend soporta además `log`, `update_lead_status`, `create_task`, `set_owner`, `add_tag`, `update_field`, `create_opportunity` y `notify`, aunque no todos están disponibles en el modal.
 
@@ -1226,7 +1094,7 @@ La búsqueda filtra por nombre, descripción y tipo. El estado y el área se fil
 
 Growth Hub registra y ordena programas, pero no ejecuta por sí solo un newsletter, un webinar, una secuencia o un NPS. La ejecución debe vivir en la herramienta especializada:
 
-- Email marketing/Mautic para newsletter y campañas.
+- Email marketing con borradores y campañas locales entregadas por Resend.
 - Automatizaciones para journeys y acciones.
 - Campañas/landings para captación.
 - Pipeline/CRM para propuestas y secuencias.
@@ -1268,7 +1136,7 @@ Una operación típica de estas áreas queda así:
 6. **Test de Voz** valida la experiencia antes de producción.
 7. La llamada entra en **Llamadas**, con transcripción, resultado y tareas.
 8. Las **Automatizaciones** crean el seguimiento o actualizan el CRM.
-9. Email/Mautic registra aperturas, clics y bajas; Inbox vuelve a ser el punto operativo.
+9. Email/Resend registra aperturas, clics y bajas; Inbox vuelve a ser el punto operativo.
 10. Growth Hub conserva el programa como iniciativa coordinada, no como sustituto de cada sistema ejecutor.
 
 ### Principios que deben mantenerse
@@ -1304,7 +1172,7 @@ Una operación típica de estas áreas queda así:
 ### Backend
 
 - `backend/src/index.ts` para registro de prefijos.
-- Rutas/controllers/services de conversations, calls, agents, playbooks, voice, Mautic, email metrics, marketing campaigns, automations y growth programs.
+- Rutas/controllers/services de conversations, calls, agents, playbooks, voice, Resend webhooks, email newsletter drafts, marketing campaigns, automations y growth programs.
 - `backend/src/jobs/automationRunner.ts` y `backend/src/jobs/leadCallDispatch.ts`.
 - `backend/src/voice/*` para sesión, audio, STT, TTS, telephony, autenticación y logging.
 - `backend/src/access-control/catalog.ts` y guards de permisos.
@@ -1317,4 +1185,6 @@ Una operación típica de estas áreas queda así:
 - `docs/plataforma/02-secciones-frontend.md`.
 - `docs/plataforma/03-backend-api.md`.
 - `docs/plataforma/04-permisos-seguridad-integraciones.md`.
+
+
 

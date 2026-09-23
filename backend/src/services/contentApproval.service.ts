@@ -4,7 +4,7 @@ import { writeAuditLog } from '../lib/audit'
 import { StudioError } from './contentStudio.service'
 import { extractBrandFacts, reviewPieceBody } from './contentSpecificity.service'
 import { createDraftPost } from './metricoolSync.service'
-import { createEmailDraft } from './mauticSync.service'
+import { createNewsletterDraft } from './emailNewsletterDrafts.service'
 import { isOrganicEvent } from './organicChannels.service'
 
 /**
@@ -327,10 +327,7 @@ export function renderPiece(piece: { format: string; body: Prisma.JsonValue }) {
 }
 
 /**
- * El email de la fase 2 se publica en texto plano en el cuerpo de la plantilla
- * de Mautic. No se compone HTML de marca aquí a propósito: la plantilla se crea
- * despublicada y quien la envíe le da el formato en Mautic, que es donde vive
- * el email marketing de este producto.
+ * Los emails aprobados se convierten en borradores nativos de Vendrava.
  */
 export function emailHtml(body: Record<string, any>) {
   const paragraphs = String(body.body ?? '')
@@ -427,24 +424,22 @@ export async function approveAndDraft(
         continue
       }
 
-      // El email no va a redes: se crea como plantilla despublicada en Mautic,
-      // que es donde vive el email marketing de este producto.
+      // El email no va a redes: queda como borrador editable en Vendrava.
       if (target === 'email') {
         const body = (piece.body ?? {}) as Record<string, any>
-        const created = await createEmailDraft(orgId, {
-          name: String(body.subject ?? 'Email de contenido').slice(0, 120),
-          subject: String(body.subject ?? '').trim() || 'Sin asunto',
-          html: emailHtml(body),
+        const subject = String(body.subject ?? '').trim() || 'Sin asunto'
+        const created = await createNewsletterDraft(orgId, {
+          name: subject.slice(0, 120),
+          content: {
+            brand: '', logoUrl: '', accent: '#4f46e5', subject, preheader: String(body.preheader ?? ''),
+            heading: subject, intro: '', body: String(body.body ?? ''), cta: String(body.cta ?? ''), ctaUrl: '', footer: '',
+          },
         })
-        if (!created) {
-          results.push({ id: pieceId, approved: true, drafted: false, reason: 'Mautic no está conectado o rechazó la plantilla.' })
-          continue
-        }
         await prisma.contentPiece.update({
           where: { id: pieceId },
-          data: { status: 'published', publishedAt: new Date(), externalDraftId: `mautic:${created.id}` },
+          data: { status: 'published', publishedAt: new Date(), externalDraftId: `email-draft:${created.id}` },
         })
-        await recordPieceEvent(orgId, pieceId, { kind: 'published', actor, meta: { destination: 'mautic', externalId: created.id } })
+        await recordPieceEvent(orgId, pieceId, { kind: 'published', actor, meta: { destination: 'vendrava_email', draftId: created.id } })
         results.push({ id: approved.id, approved: true, drafted: true })
         continue
       }

@@ -1,0 +1,13 @@
+; Dedicated local Asterisk only. No remote AMI exposure.
+[general]
+enabled=yes
+webenabled=no
+bindaddr=127.0.0.1
+port=5038
+
+[vendrava-ai]
+secret=REPLACE_WITH_LOCAL_AMI_SECRET
+deny=0.0.0.0/0.0.0.0
+permit=127.0.0.1/255.255.255.255
+read=none
+write=originate

@@ -26,16 +26,16 @@ const dateSchema = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/, 'Fecha
 
 // EM-113: el reparto A/B. `null` desactiva la prueba y devuelve la campaña a
 // una sola versión. La propiedad de cada plantilla se re-verifica en el
-// servicio, igual que con templateBindingId.
+// servicio, igual que con emailDraftId.
 const variantDefinitionSchema = z.array(z.object({
   key: z.string().trim().min(1).max(16),
-  templateExternalId: z.string().trim().min(1).max(64),
+  emailDraftId: z.string().trim().min(1).max(64),
 }).strict()).min(2).max(service.MAX_CAMPAIGN_VARIANTS)
 
 const updateCampaignSchema = z.object({
   objective: z.string().trim().max(2_000).optional(),
   audienceDefinition: audienceDefinitionSchema.optional(),
-  templateBindingId: z.string().trim().min(1).max(64).optional(),
+  emailDraftId: z.string().trim().min(1).max(64).optional(),
   variantDefinition: variantDefinitionSchema.nullable().optional(),
   sender: z.string().trim().min(3).max(200).optional(),
   replyTo: z.string().trim().min(3).max(200).optional(),
@@ -129,7 +129,7 @@ export async function audiencePreview(request: FastifyRequest<{ Params: { id: st
 }
 
 /**
- * POST /:id/publish — exige 'ready', configura el grafo de email en Mautic,
+ * POST /:id/publish — exige 'ready', congela borradores locales de email en la cola de Resend,
  * añade la audiencia y solo refleja un estado activo tras leer de vuelta la
  * confirmación remota. La respuesta comunica contactos incorporados y
  * destinatarios omitidos por cumplimiento o falta de sincronización.
@@ -146,7 +146,7 @@ export async function publish(request: FastifyRequest<{ Params: { id: string } }
   }
 }
 
-/** POST /:id/pause — pausa remota en Mautic. */
+/** POST /:id/pause — detiene el envío local de una campaña. */
 export async function pause(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
   const { orgId, userId } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
@@ -158,7 +158,7 @@ export async function pause(request: FastifyRequest<{ Params: { id: string } }>,
   }
 }
 
-/** GET /:id/reconcile — EM-107: lee el estado remoto real y corrige el local si difiere. */
+/** GET /:id/reconcile — EM-107: reconcilia el estado desde el registro local de entregas. */
 export async function reconcile(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
@@ -169,3 +169,4 @@ export async function reconcile(request: FastifyRequest<{ Params: { id: string }
     return handleServiceError(err, reply)
   }
 }
+

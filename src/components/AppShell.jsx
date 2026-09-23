@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   RiArrowDownSLine,
@@ -14,6 +14,7 @@ import {
   RiNotification3Line,
   RiPushpinFill,
   RiPushpinLine,
+  RiRobot2Line,
   RiSearchLine,
   RiSidebarFoldLine,
   RiSidebarUnfoldLine,
@@ -21,6 +22,7 @@ import {
   RiTimeLine,
   RiUserLine,
   RiUserSharedLine,
+  RiSparkling2Line,
 } from 'react-icons/ri'
 import { useAuth } from '../contexts/AuthContext'
 import { useExperience } from '../contexts/ExperienceContext'
@@ -29,7 +31,7 @@ import { apiFetch } from '../lib/api'
 import { useI18n } from '../i18n'
 import { useTheme } from '../hooks/useTheme'
 import { canNavigateTo } from '../lib/navigationPermissions'
-import { COMMAND_SHORTCUTS, formatShortcut, readCommandPreferences, shortcutFromEvent } from '../lib/commandCenter'
+import { COMMAND_SHORTCUTS, readCommandPreferences, shortcutFromEvent } from '../lib/commandCenter'
 import {
   APP_MODULES,
   APP_SPACES,
@@ -47,8 +49,10 @@ import {
   togglePinnedModule,
   writeNavigationState,
 } from '../lib/navigationState'
-import CommandPalette from './CommandPalette'
 import AppErrorBoundary from './AppErrorBoundary'
+import PlatformAssistant from './PlatformAssistant'
+import { setAssistantRoute } from '../lib/assistantScreen'
+import { preloadHomeLink } from '../lib/homePageModules'
 import '../app-shell.css'
 
 function initialsFor(user) {
@@ -111,10 +115,26 @@ function SpaceButton({ space, active, locale, onClick, compact = false }) {
   const Icon = space.Icon
   const label = localizedLabel(space, locale)
   return (
-    <button type="button" className={`shell-space${active ? ' active' : ''}${compact ? ' compact' : ''}`} onClick={onClick} aria-current={active ? 'page' : undefined} title={label}>
+    <button type="button" className={`shell-space${active ? ' active' : ''}${compact ? ' compact' : ''}${space.directPath ? ' shell-space-direct' : ''}`} onClick={onClick} aria-current={active ? 'page' : undefined} title={label}>
       <span><Icon aria-hidden="true" /></span>
       <small>{label}</small>
     </button>
+  )
+}
+
+function AgentShortcut({ item, locale, pathname, onNavigate }) {
+  const active = pathMatchesModule(pathname, item)
+  return (
+    <NavLink
+      to={item.to}
+      className={`shell-space shell-quick-agent${active ? ' active' : ''}`}
+      onClick={() => onNavigate(item)}
+      aria-current={active ? 'page' : undefined}
+      title={locale === 'en' ? 'AI agents' : 'Agentes IA'}
+    >
+      <span><RiRobot2Line aria-hidden="true" /></span>
+      <small>{locale === 'en' ? 'Agents' : 'Agentes'}</small>
+    </NavLink>
   )
 }
 
@@ -294,14 +314,15 @@ function MobileSheet({ open, onClose, locale, visibleBySpace, activeSpaceId, pat
       <section className="shell-mobile-sheet" role="dialog" aria-modal="true" aria-label={locale === 'en' ? 'All spaces' : 'Todos los espacios'}>
         <header><div><strong>{locale === 'en' ? 'All spaces' : 'Todos los espacios'}</strong><span>{locale === 'en' ? 'Navigate without losing context' : 'Navega sin perder el contexto'}</span></div><button type="button" onClick={onClose} aria-label="Cerrar"><RiCloseLine /></button></header>
         <div className="shell-mobile-sheet-spaces">
-          {APP_SPACES.map(space => {
+          {APP_SPACES.filter(space => (visibleBySpace.get(space.id) || []).length > 0).map(space => {
             const modules = (visibleBySpace.get(space.id) || []).filter(module => module.showInLocalNavigation !== false)
-            const expanded = expandedSpaceId === space.id && modules.length > 0
+            const directModule = space.directPath ? modules.find(module => module.to === space.directPath) : null
+            const expanded = !space.directPath && expandedSpaceId === space.id && modules.length > 0
             const isActive = activeSpaceId === space.id
             return (
               <div key={space.id} className={`shell-mobile-space${isActive ? ' active' : ''}${expanded ? ' expanded' : ''}`}>
-                <button type="button" onClick={() => setExpandedSpaceId(expanded ? null : space.id)} disabled={!modules.length} aria-expanded={expanded}>
-                  <space.Icon /><span><strong>{localizedLabel(space, locale)}</strong><small>{modules.length} {locale === 'en' ? 'areas' : 'áreas'}</small></span><RiArrowDownSLine />
+                <button type="button" onClick={() => space.directPath ? directModule && navigateToModule(directModule) : setExpandedSpaceId(expanded ? null : space.id)} disabled={space.directPath ? !directModule : !modules.length} aria-expanded={space.directPath ? undefined : expanded}>
+                  <space.Icon /><span><strong>{localizedLabel(space, locale)}</strong>{!space.directPath ? <small>{modules.length} {locale === 'en' ? 'areas' : 'áreas'}</small> : null}</span>{space.directPath ? <RiArrowRightSLine /> : <RiArrowDownSLine />}
                 </button>
                 {expanded ? (
                   <div className="shell-mobile-space-modules">
@@ -384,7 +405,9 @@ export default function AppShell({ children }) {
   const brand = useBrand()
   const { locale, setLocale } = useI18n()
   const [theme, setTheme, isAutoTheme] = useTheme()
-  const [commandOpen, setCommandOpen] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const closeAssistant = useCallback(() => setAssistantOpen(false), [])
+  useLayoutEffect(() => setAssistantRoute(location.pathname, `${user?.orgId}:${user?.id}`), [location.pathname, user?.orgId, user?.id])
   const [commandPreferences, setCommandPreferences] = useState(() => readCommandPreferences(user))
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [localSheetOpen, setLocalSheetOpen] = useState(false)
@@ -392,13 +415,13 @@ export default function AppShell({ children }) {
   const [organizationState, setOrganizationState] = useState('idle')
   const [localNavQuery, setLocalNavQuery] = useState('')
   const [navigationState, setNavigationState] = useState(() => readNavigationState(user))
-  const closeCommand = useCallback(() => setCommandOpen(false), [])
   const closeMobileSheet = useCallback(() => setMobileSheetOpen(false), [])
   const closeLocalSheet = useCallback(() => setLocalSheetOpen(false), [])
   const openLocalSheet = useCallback(() => setLocalSheetOpen(true), [])
 
   const activeModule = moduleForPath(location.pathname)
   const activeSpace = spaceForPath(location.pathname)
+  const hasLocalNavigation = !activeSpace.directPath
   const visibleModules = useMemo(() => APP_MODULES.filter(item => (
     canNavigateTo(user, item.to)
     // El back office no es producto de la organización: ni el plan ni el modo
@@ -413,8 +436,8 @@ export default function AppShell({ children }) {
   }, [visibleModules])
   const localModules = (visibleBySpace.get(activeSpace.id) || []).filter(item => item.showInLocalNavigation !== false)
   const visibleModuleIds = useMemo(() => new Set(visibleModules.map(module => module.id)), [visibleModules])
-  const pinnedModules = useMemo(() => navigationState.pinnedModuleIds.map(id => MODULE_BY_NAV_ID[id]).filter(item => item && visibleModuleIds.has(item.id)), [navigationState.pinnedModuleIds, visibleModuleIds])
-  const recentModules = useMemo(() => navigationState.recentModuleIds.map(id => MODULE_BY_NAV_ID[id]).filter(item => item && visibleModuleIds.has(item.id)), [navigationState.recentModuleIds, visibleModuleIds])
+  const pinnedModules = useMemo(() => navigationState.pinnedModuleIds.map(id => MODULE_BY_NAV_ID[id]).filter(item => item && item.showInShortcuts !== false && visibleModuleIds.has(item.id)), [navigationState.pinnedModuleIds, visibleModuleIds])
+  const recentModules = useMemo(() => navigationState.recentModuleIds.map(id => MODULE_BY_NAV_ID[id]).filter(item => item && item.showInShortcuts !== false && visibleModuleIds.has(item.id)), [navigationState.recentModuleIds, visibleModuleIds])
 
   useEffect(() => {
     setNavigationState(readNavigationState(user))
@@ -440,15 +463,9 @@ export default function AppShell({ children }) {
       if (!shortcut) return
       const target = event.target
       const isEditable = target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
-      if (isEditable && shortcut.action !== 'command') return
-      if (shortcut.action === 'command') {
-        event.preventDefault()
-        setCommandOpen(true)
-        return
-      }
+      if (isEditable) return
       if (!canNavigateTo(user, shortcut.permissionPath)) return
       event.preventDefault()
-      setCommandOpen(false)
       navigate(shortcut.path)
     }
     document.addEventListener('keydown', onKey)
@@ -474,6 +491,12 @@ export default function AppShell({ children }) {
 
   function goToSpace(spaceId) {
     const modules = visibleBySpace.get(spaceId) || []
+    const directPath = SPACE_BY_ID[spaceId]?.directPath
+    if (directPath) {
+      const destination = modules.find(module => module.to === directPath)
+      if (destination) navigateToModule(destination)
+      return
+    }
     if (spaceId === activeSpace.id && navigationState.localPanelCollapsed) {
       updateNavigationState({ ...navigationState, localPanelCollapsed: false })
       setMobileSheetOpen(false)
@@ -548,7 +571,7 @@ export default function AppShell({ children }) {
   }
 
   return (
-    <div className={`app-shell${navigationState.localPanelCollapsed ? ' shell-local-collapsed' : ''}${impersonation ? ' shell-impersonating' : ''}`}>
+    <div className={`app-shell${navigationState.localPanelCollapsed || !hasLocalNavigation ? ' shell-local-collapsed' : ''}${impersonation ? ' shell-impersonating' : ''}`} onPointerOverCapture={preloadHomeLink} onFocusCapture={preloadHomeLink}>
       <ImpersonationBanner impersonation={impersonation} onStop={stopImpersonation} navigate={navigate} />
       <aside className="shell-desktop-nav" aria-label="Navegación principal">
         <div className="shell-rail">
@@ -559,22 +582,28 @@ export default function AppShell({ children }) {
             {APP_SPACES.map(space => visibleBySpace.get(space.id)?.length ? (
               <SpaceButton key={space.id} space={space} active={activeSpace.id === space.id} locale={locale} onClick={() => goToSpace(space.id)} />
             ) : null)}
+            {visibleBySpace.get('sales')?.some(item => item.id === 'agents') ? (
+              <AgentShortcut item={MODULE_BY_NAV_ID.agents} locale={locale} pathname={location.pathname} onNavigate={rememberModuleVisit} />
+            ) : null}
           </nav>
-          <AccountMenu user={user} locale={locale} setLocale={setLocale} theme={theme} setTheme={setTheme} isAutoTheme={isAutoTheme} navigate={navigate} onLogout={handleLogout} />
+          <div className="shell-rail-bottom">
+            <button type="button" className="shell-assistant-button" onClick={() => setAssistantOpen(true)} aria-label={locale === 'en' ? 'Open platform assistant' : 'Abrir asistente de la plataforma'} aria-haspopup="dialog" aria-expanded={assistantOpen} aria-controls="platform-assistant-dialog"><RiSparkling2Line aria-hidden="true" /><span>{locale === 'en' ? 'Assistant' : 'Asistente'}</span></button>
+            <AccountMenu user={user} locale={locale} setLocale={setLocale} theme={theme} setTheme={setTheme} isAutoTheme={isAutoTheme} navigate={navigate} onLogout={handleLogout} />
+          </div>
         </div>
 
-        <div className="shell-local-panel" aria-hidden={navigationState.localPanelCollapsed}>
+        {hasLocalNavigation ? <div className="shell-local-panel" aria-hidden={navigationState.localPanelCollapsed}>
           <header className="shell-local-header">
             <div className="shell-local-title"><span>{localizedLabel(activeSpace, locale)}</span></div>
             {organizations.length > 1 ? (
               <label className="shell-org-select"><span className="sr-only">Organización</span><select value={user?.orgId || ''} onChange={changeOrganization} disabled={organizationState === 'switching'}>{organizations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}</select><RiArrowDownSLine /></label>
             ) : <small>{brand.brandName}</small>}
-          <label className="shell-local-search"><RiSearchLine aria-hidden="true" /><span className="sr-only">Buscar en esta área</span><input value={localNavQuery} onChange={event => setLocalNavQuery(event.target.value)} placeholder={locale === 'en' ? 'Search this area…' : 'Buscar en esta área…'} /><kbd>{formatShortcut(commandPreferences.shortcuts?.['open-command'], locale)}</kbd></label>
+          <label className="shell-local-search"><RiSearchLine aria-hidden="true" /><span className="sr-only">Buscar en esta área</span><input value={localNavQuery} onChange={event => setLocalNavQuery(event.target.value)} placeholder={locale === 'en' ? 'Search this area…' : 'Buscar en esta área…'} /></label>
           </header>
           <LocalNavigation space={activeSpace} modules={localModules} locale={locale} pathname={location.pathname} pinnedModules={pinnedModules} onNavigate={rememberModuleVisit} onTogglePin={togglePin} query={localNavQuery} />
           {organizationState === 'error' ? <p className="shell-local-error" role="alert">No se pudo cargar la organización.</p> : null}
-        </div>
-        <button
+        </div> : null}
+        {hasLocalNavigation ? <button
           type="button"
           className="shell-nav-toggle"
           onClick={toggleLocalPanel}
@@ -582,14 +611,13 @@ export default function AppShell({ children }) {
           title={navigationState.localPanelCollapsed ? 'Mostrar navegación' : 'Contraer navegación'}
         >
           {navigationState.localPanelCollapsed ? <RiSidebarUnfoldLine /> : <RiSidebarFoldLine />}
-        </button>
+        </button> : null}
       </aside>
 
       <div className="shell-workspace">
         <header className="shell-topbar shell-topbar-desktop">
           <div className="shell-topbar-leading">
-            <div className="shell-context-trail" aria-label="Contexto actual"><span>{localizedLabel(activeSpace, locale)}</span><RiArrowRightSLine /><strong>{activeModule ? localizedLabel(activeModule, locale) : localizedLabel(activeSpace, locale)}</strong></div>
-            <button type="button" className="shell-command-trigger" onClick={() => setCommandOpen(true)}><RiSearchLine /><span>{locale === 'en' ? 'Search or run…' : 'Buscar o ejecutar…'}</span></button>
+            <div className="shell-context-trail" aria-label="Contexto actual">{activeModule?.to !== activeSpace.directPath ? <><span>{localizedLabel(activeSpace, locale)}</span><RiArrowRightSLine /></> : null}<strong>{activeModule ? localizedLabel(activeModule, locale) : localizedLabel(activeSpace, locale)}</strong></div>
           </div>
           <div className="shell-topbar-actions">
             {canNavigateTo(user, '/trabajos') ? <button type="button" className="shell-approval-link" onClick={() => navigate('/trabajos?status=awaiting_approval')}><RiCheckLine /> Aprobaciones</button> : null}
@@ -601,9 +629,8 @@ export default function AppShell({ children }) {
         </header>
 
         <div className="shell-mobile-chrome">
-          <header className="shell-mobile-header"><button className="shell-mobile-brand" type="button" onClick={() => navigate('/dashboard')}><img src={brand.logoUrl || '/logo.png'} alt="" /><strong>{brand.brandName}</strong></button><span><small>{localizedLabel(activeSpace, locale)}</small>{activeModule ? localizedLabel(activeModule, locale) : localizedLabel(activeSpace, locale)}</span><button type="button" onClick={() => setCommandOpen(true)} aria-label="Buscar"><RiSearchLine /></button><NotificationButton compact /><button type="button" onClick={() => setMobileSheetOpen(true)} aria-label="Abrir navegación"><RiMenuLine /></button></header>
-          <button type="button" className="shell-mobile-search" onClick={() => setCommandOpen(true)}><RiSearchLine /><span>{locale === 'en' ? 'Search, create or run…' : 'Buscar, crear o ejecutar…'}</span><RiArrowRightSLine /></button>
-          <MobileLocalNav modules={localModules} locale={locale} pathname={location.pathname} onOpenAll={openLocalSheet} />
+          <header className="shell-mobile-header"><button className="shell-mobile-brand" type="button" onClick={() => navigate('/dashboard')}><img src={brand.logoUrl || '/logo.png'} alt="" /><strong>{brand.brandName}</strong></button><span>{activeModule?.to !== activeSpace.directPath ? <small>{localizedLabel(activeSpace, locale)}</small> : null}{activeModule ? localizedLabel(activeModule, locale) : localizedLabel(activeSpace, locale)}</span><NotificationButton compact /><button type="button" onClick={() => setAssistantOpen(true)} aria-label={locale === 'en' ? 'Open platform assistant' : 'Abrir asistente de la plataforma'} aria-haspopup="dialog" aria-expanded={assistantOpen} aria-controls="platform-assistant-dialog"><RiSparkling2Line aria-hidden="true" /></button><button type="button" onClick={() => setMobileSheetOpen(true)} aria-label="Abrir navegación"><RiMenuLine /></button></header>
+          {hasLocalNavigation ? <MobileLocalNav modules={localModules} locale={locale} pathname={location.pathname} onOpenAll={openLocalSheet} /> : null}
         </div>
 
         <main id="main-content" className="shell-main-content">
@@ -620,7 +647,7 @@ export default function AppShell({ children }) {
 
       <LocalModulesSheet open={localSheetOpen} onClose={closeLocalSheet} locale={locale} space={activeSpace} modules={localModules} pathname={location.pathname} navigateToModule={navigateToModule} />
       <MobileSheet open={mobileSheetOpen} onClose={closeMobileSheet} locale={locale} visibleBySpace={visibleBySpace} activeSpaceId={activeSpace.id} pathname={location.pathname} navigateToModule={navigateToModule} pinnedModules={pinnedModules} recentModules={recentModules.filter(item => !pinnedModules.some(pinned => pinned.id === item.id))} user={user} onLogout={handleLogout} />
-      <CommandPalette open={commandOpen} onClose={closeCommand} pinnedModuleIds={navigationState.pinnedModuleIds} recentModuleIds={navigationState.recentModuleIds} />
+      <PlatformAssistant key={`${user?.id}:${user?.orgId}`} open={assistantOpen} onClose={closeAssistant} onOpen={() => setAssistantOpen(true)} brandName={brand.brandName} page={activeModule ? localizedLabel(activeModule, locale) : localizedLabel(activeSpace, locale)} pageId={activeModule?.id} availableModules={visibleModules} locale={locale} />
     </div>
   )
 }

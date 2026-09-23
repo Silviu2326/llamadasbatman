@@ -1,7 +1,8 @@
+import { enqueueWebsiteAudit } from './websiteSeo.service'
 import { randomBytes } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
-import { assertAuditablePublicUrl, fetchHtml, normalizeUrl } from './digitalAudit.service'
+import { fetchHtml, normalizeUrl } from './digitalAudit.service'
 
 export const WEBSITE_CONNECTION_MODES = ['script', 'plugin', 'api', 'git', 'sftp', 'edge'] as const
 export type WebsiteConnectionMode = typeof WEBSITE_CONNECTION_MODES[number]
@@ -33,17 +34,19 @@ const AVAILABLE_MODES: Record<string, WebsiteConnectionMode[]> = {
   wix: ['api', 'script', 'edge'],
   squarespace: ['api', 'script', 'edge'],
   framer: ['script', 'edge'],
-  nextjs: ['git', 'script', 'sftp', 'edge'],
-  static: ['git', 'script', 'sftp', 'edge'],
+  // Las webs de código propio se conectan desde su repositorio. No ofrecemos
+  // un script que pueda quedarse fuera del control del despliegue.
+  nextjs: ['git'],
+  static: ['git'],
   unknown: ['script', 'git', 'sftp', 'edge'],
 }
 
 const RECOMMENDED_MODES: Record<string, WebsiteConnectionMode> = {
   wordpress: 'plugin',
-  shopify: 'api',
-  webflow: 'api',
-  wix: 'api',
-  squarespace: 'api',
+  shopify: 'script',
+  webflow: 'script',
+  wix: 'script',
+  squarespace: 'script',
   framer: 'script',
   nextjs: 'git',
   static: 'script',
@@ -54,17 +57,66 @@ function domainOf(url: string): string {
   return new URL(url).hostname.toLowerCase().replace(/^www\./, '')
 }
 
-function detectTechnology(html: string, headers: Headers): string {
-  const haystack = `${html.slice(0, 2_000_000)} ${headers.get('server') ?? ''} ${headers.get('x-powered-by') ?? ''}`.toLowerCase()
-  if (/wp-content|wp-includes|wordpress/.test(haystack)) return 'wordpress'
-  if (/cdn\.shopify\.com|shopify\.theme|shopify-section|shopify/.test(haystack)) return 'shopify'
-  if (/webflow\.com|w-webflow|data-wf-page/.test(haystack)) return 'webflow'
-  if (/static\.wixstatic\.com|wixstatic|_wix_/.test(haystack)) return 'wix'
-  if (/squarespace\.com|static1\.squarespace\.com/.test(haystack)) return 'squarespace'
-  if (/framer\.com|framerusercontent\.com|data-framer/.test(haystack)) return 'framer'
-  if (/_next\/static|__next_data__/.test(haystack)) return 'nextjs'
-  if (/<html|<!doctype html/.test(haystack)) return 'static'
-  return 'unknown'
+export function detectWebsiteTechnology(html: string, headers = new Headers()) {
+  // Solo señales técnicas: mencionar WordPress en un artículo no implica usarlo.
+  const rules: Array<[string, RegExp, string]> = [
+    ['wordpress', /(?:src|href)\s*=\s*["'][^"']*\/wp-(?:content|includes)\//i, 'Recursos de WordPress (wp-content / wp-includes)'],
+    ['shopify', /(?:src|href)\s*=\s*["'][^"']*cdn\.shopify\.com\//i, 'Recursos servidos por Shopify'],
+    ['webflow', /\bdata-wf-(?:page|site)\s*=/i, 'Identificadores de página de Webflow'],
+    ['wix', /(?:src|href)\s*=\s*["'][^"']*wixstatic\.com\//i, 'Recursos de Wix'],
+    ['squarespace', /(?:src|href)\s*=\s*["'][^"']*squarespace\.com\//i, 'Recursos de Squarespace'],
+    ['framer', /\bdata-framer-[\w-]+\s*=|(?:src|href)\s*=\s*["'][^"']*framerusercontent\.com\//i, 'Recursos o componentes de Framer'],
+    ['nextjs', /(?:src|href)\s*=\s*["'][^"']*\/_next\/static\/|\bid\s*=\s*["']__NEXT_DATA__["']/i, 'Recursos de Next.js (_next/static)'],
+  ]
+  for (const [technology, pattern, evidence] of rules) {
+    if (pattern.test(html)) return { technology, evidence: [evidence] }
+  }
+  const generatorTags = html.match(/<meta\b[^>]*>/gi) ?? []
+  for (const tag of generatorTags) {
+    if (!/\bname\s*=\s*["']generator["']/i.test(tag)) continue
+    const generator = tag.match(/\bcontent\s*=\s*["']([^"']+)/i)?.[1] ?? ''
+    for (const technology of ['wordpress', 'shopify', 'webflow', 'wix', 'squarespace', 'framer']) {
+      if (new RegExp(`^${technology}(?:\\s|$)`, 'i').test(generator)) return { technology, evidence: [`Etiqueta generator de ${TECHNOLOGY_LABELS[technology]}`] }
+    }
+  }
+  if (/next\.js/i.test(headers.get('x-powered-by') ?? '')) return { technology: 'nextjs', evidence: ['Cabecera X-Powered-By de Next.js'] }
+  // Recibir HTML no permite concluir que sea una web estática.
+  return { technology: 'unknown', evidence: [] as string[] }
+}
+
+export class WebsiteDetectionError extends Error {
+  constructor(public code: string, message: string) { super(message) }
+}
+
+export async function detectWebsiteConnection(website: string) {
+  const normalized = normalizeUrl(website)
+  if (!normalized) throw new WebsiteDetectionError('WEB_CONNECTION_URL_REQUIRED', 'Introduce el dominio de tu web.')
+  const result = await fetchHtml(normalized, 15_000)
+  if (!result.html || result.status < 200 || result.status >= 400) {
+    const code = result.errorCode ?? ''
+    let message = 'No pudimos leer la web. Comprueba el dominio y vuelve a intentar la detección.'
+    if (/EACCES|EPERM/.test(code)) message = 'El servidor de Vendrava no tiene permiso para acceder a Internet. Revisa su conexión de salida y vuelve a intentarlo.'
+    else if (/AUDIT_URL_BLOCKED|AUDIT_REDIRECT_BLOCKED/.test(code)) message = 'Usa una dirección web pública. No se permiten direcciones internas ni redirecciones a redes privadas.'
+    else if (/ENOTFOUND|EAI_AGAIN/.test(code)) message = 'No pudimos resolver este dominio. Revisa que esté bien escrito o inténtalo de nuevo.'
+    else if (/TIMEOUT|ETIMEDOUT/.test(code)) message = 'La web ha tardado demasiado en responder. Vuelve a intentar la detección.'
+    else if (/CERT|TLS|SSL/.test(code)) message = 'No pudimos verificar el certificado HTTPS de la web. Revisa su certificado antes de conectarla.'
+    else if (result.info.httpStatus === 403 || result.info.httpStatus === 429) message = 'La web ha bloqueado la detección automática. Revisa su protección contra bots o inténtalo más tarde.'
+    else if (result.info.httpStatus >= 400) message = `La web devuelve un error HTTP ${result.info.httpStatus}. Comprueba que la dirección abre correctamente.`
+    else if (code === 'AUDIT_CONTENT_TYPE_BLOCKED') message = 'Esta dirección no devuelve una página HTML. Introduce la página principal de tu web.'
+    else if (code === 'RESPONSE_BODY_TOO_LARGE') message = 'La página supera el tamaño máximo de análisis. Prueba otra página pública de la misma web.'
+    throw new WebsiteDetectionError('WEB_CONNECTION_DETECTION_FAILED', message)
+  }
+  const { technology, evidence } = detectWebsiteTechnology(result.html, result.headers)
+  const finalUrl = result.info.finalUrl || normalized
+  return {
+    websiteUrl: finalUrl,
+    domain: domainOf(finalUrl),
+    technology,
+    technologyLabel: TECHNOLOGY_LABELS[technology],
+    recommendedMode: RECOMMENDED_MODES[technology] ?? 'script',
+    availableModes: (AVAILABLE_MODES[technology] ?? AVAILABLE_MODES.unknown).filter(mode => ['plugin', 'git', 'script'].includes(mode)),
+    detection: { httpStatus: result.status, isHttps: result.info.isHttps, loadMs: result.info.loadMs, finalUrl, evidence },
+  }
 }
 
 /** Estado real del conector de escritura (hoy solo WordPress). Se guarda en
@@ -277,19 +329,14 @@ export async function getWebsiteConnection(orgId: string, id: string) {
   return view(row, signals.get(row.id))
 }
 
-export async function discoverWebsiteConnection(params: { orgId: string; website: string }) {
-  const normalized = normalizeUrl(params.website)
-  if (!normalized) throw new Error('WEB_CONNECTION_URL_REQUIRED')
-  await assertAuditablePublicUrl(normalized)
-
-  const result = await fetchHtml(normalized, 15_000)
-  if (!result.html || result.status < 200 || result.status >= 400) throw new Error('WEB_CONNECTION_SITE_UNREACHABLE')
-
-  const finalUrl = result.info.finalUrl || normalized
-  const domain = domainOf(finalUrl)
-  const technology = detectTechnology(result.html, new Headers())
-  const recommendedMode = RECOMMENDED_MODES[technology] ?? 'script'
+export async function discoverWebsiteConnection(params: { orgId: string; website: string; mode?: WebsiteConnectionMode }) {
+  const preview = await detectWebsiteConnection(params.website)
+  const { websiteUrl: finalUrl, domain, technology, recommendedMode, detection } = preview
+  if (params.mode && !preview.availableModes.includes(params.mode)) throw new WebsiteDetectionError('WEB_CONNECTION_MODE_INVALID', 'Este método no está disponible para la tecnología detectada. Analiza la web de nuevo.')
+  const mode = params.mode ?? recommendedMode
   const existing = await prisma.websiteConnection.findUnique({ where: { orgId_domain: { orgId: params.orgId, domain } } })
+  const existingConnector = connectorOf(existing)
+  const updatedMode = (existingConnector ? existing?.connectionMode : params.mode ?? existing?.connectionMode) as WebsiteConnectionMode || recommendedMode
   const connection = await prisma.websiteConnection.upsert({
     where: { orgId_domain: { orgId: params.orgId, domain } },
     create: {
@@ -300,24 +347,26 @@ export async function discoverWebsiteConnection(params: { orgId: string; website
       technology,
       technologyLabel: TECHNOLOGY_LABELS[technology] ?? TECHNOLOGY_LABELS.unknown,
       status: 'setup_required',
-      connectionMode: recommendedMode,
+      connectionMode: mode,
       recommendedMode,
       siteKey: `wk_${randomBytes(18).toString('base64url')}`,
-      capabilities: capabilitiesFor(technology, recommendedMode) as unknown as Prisma.InputJsonValue,
-      detection: { httpStatus: result.status, isHttps: result.info.isHttps, loadMs: result.info.loadMs, finalUrl },
+      capabilities: capabilitiesFor(technology, mode) as unknown as Prisma.InputJsonValue,
+      detection,
       lastCheckedAt: new Date(),
     },
     update: {
       websiteUrl: finalUrl,
       technology,
       technologyLabel: TECHNOLOGY_LABELS[technology] ?? TECHNOLOGY_LABELS.unknown,
+      connectionMode: updatedMode,
       recommendedMode,
-      capabilities: capabilitiesFor(technology, existing?.connectionMode as WebsiteConnectionMode || recommendedMode, connectorOf(existing)) as unknown as Prisma.InputJsonValue,
+      capabilities: capabilitiesFor(technology, updatedMode, existingConnector) as unknown as Prisma.InputJsonValue,
       // Re-analizar no desconecta: el conector sobrevive a la nueva detección.
-      detection: { httpStatus: result.status, isHttps: result.info.isHttps, loadMs: result.info.loadMs, finalUrl, ...(connectorOf(existing) ? { connector: connectorOf(existing) } : {}) },
+      detection: { ...detection, ...(connectorOf(existing) ? { connector: connectorOf(existing) } : {}) },
       lastCheckedAt: new Date(),
     },
   })
+  await enqueueWebsiteAudit(params.orgId, connection.id, 'initial')
   const signals = await signalsFor([connection.id])
   return view(connection, signals.get(connection.id))
 }

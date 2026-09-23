@@ -10,7 +10,6 @@ import { byokProviderIds } from '../providers/registry'
 // supportedOrganizationCredentialProviders().
 export const ORGANIZATION_CREDENTIAL_PROVIDERS = [
   'metricool',
-  'mautic',
   'twilio',
   'telegram',
   // Google OAuth application credentials are optional per organization. The

@@ -21,9 +21,9 @@ CRM React
    ├─ POST /api/leads/:id/send-email
    │          └─ envío puntual a contacto Mautic
    │
-   └─ actividad del lead
+   └─ eventos y respuestas Resend
               ▲
-              └─ POST /api/webhooks/mautic
+              └─ POST /api/webhooks/email/resend/:orgId
 ```
 
 El aislamiento previsto usa:

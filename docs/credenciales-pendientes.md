@@ -1,6 +1,8 @@
 # Credenciales que faltan para que la plataforma funcione
 
-Estado a 9 de agosto de 2026.
+> Documento histórico (9 de agosto de 2026). La configuración de email descrita aquí quedó sustituida: Resend se guarda por organización en Vendrava y Mautic se retiró. Sigue [EMAIL_MARKETING_ACTIVACION.md](EMAIL_MARKETING_ACTIVACION.md) para los requisitos vigentes.
+
+Documento histórico: estado a 9 de agosto de 2026. Las secciones que describen proveedores o credenciales pueden haber quedado obsoletas. El email marketing actual usa Resend por organización; Mautic ya no se configura ni es requisito.
 
 El código de la plataforma está construido y probado. Lo que no está es
 **conectado**: `backend/.env` tiene hoy las credenciales del motor de voz
@@ -40,7 +42,7 @@ Ordenado por retorno sobre esfuerzo, no por importancia teórica.
 | 6 | `GOOGLE_OAUTH_CLIENT_ID` + `_SECRET` | GA4, Search Console y Perfil de Empresa | **Alta** — revisión de Google | Gratis |
 | 7 | `META_APP_ID` + `META_APP_SECRET` | Todo el módulo de Ads | **Alta** — App Review | Gratis (el gasto es el anuncio) |
 | 8 | `METRICOOL_USER_TOKEN` + ids | Publicar en redes sociales | Media | Plan de pago |
-| 9 | `MAUTIC_BASE_URL` + OAuth | Envío de emails | **Alta** — hay que montar el servidor | Hosting |
+| 9 | Resend configurado por organización | Email marketing, campañas y recepción | Media | Coste por uso |
 | 10 | `STRIPE_SECRET_KEY` | Cobrar suscripciones | Baja | Comisión por cobro |
 
 ---
@@ -113,7 +115,7 @@ TWILIO_WEBHOOK_BASE_URL= # apunta al PUBLIC_HOST, ya configurado
 > **Para una agencia con varios clientes:** existe `TWILIO_ORG_CONFIG_JSON`, un
 > mapa JSON de credenciales por organización, para que cada cliente llame desde
 > su propio número y su propia cuenta. Lo mismo para Metricool
-> (`METRICOOL_ORG_CONFIG_JSON`) y Mautic (`MAUTIC_ORG_CONFIG_JSON`). Es una
+> (`METRICOOL_ORG_CONFIG_JSON`) y email (credencial BYOK de Resend guardada en Vendrava). Es una
 > solución provisional hasta que haya una tabla de credenciales con bóveda; los
 > valores nunca se devuelven por las APIs de salud.
 
@@ -312,28 +314,9 @@ hay que probar al conectar.
 
 ---
 
-## 9. `MAUTIC_BASE_URL`, `MAUTIC_CLIENT_ID`, `MAUTIC_CLIENT_SECRET`, `MAUTIC_WEBHOOK_SECRET`
+## 9. Resend por organización
 
-**Qué es.** Mautic es una herramienta de email marketing de código abierto. A
-diferencia de las demás, **no es un servicio al que te suscribes: es software
-que hay que instalar en un servidor.** Por eso `MAUTIC_BASE_URL` es una URL y no
-una clave — apunta a tu propia instalación.
-
-**Qué desbloquea.** El envío de emails y las plantillas que el motor de
-contenido crea al aprobar una pieza.
-
-**Qué hay que hacer.** Montar Mautic en un servidor con dominio y HTTPS, crear
-dentro una credencial OAuth2 y copiar el ID y el secreto. La plataforma valida
-que la URL sea pública y comprueba la salud pidiendo un token contra
-`/oauth/v2/token`.
-
-**Coste.** El software es gratuito; pagas el hosting.
-
-**Tiempo.** Medio día si sabes montar un servidor. Es la credencial que más
-trabajo cuesta y la que menos desbloquea de las que faltan — **déjala para el
-final.**
-
----
+La API key, el remitente verificado y el secreto de webhook opcional se guardan cifrados en Vendrava para cada organización. No se necesitan variables MAUTIC_* ni una instalación externa. Consulta [EMAIL_MARKETING_ACTIVACION.md](EMAIL_MARKETING_ACTIVACION.md) para DNS, recepción y pruebas.
 
 ## 10. `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`
 
@@ -383,7 +366,7 @@ producto demostrable de verdad, no una interfaz sobre datos sembrados.
 7. `META_APP_ID` + `META_APP_SECRET` — empieza el App Review pronto, tarda
 8. `METRICOOL_*`
 9. `STRIPE_*`
-10. `MAUTIC_*`
+10. Resend en Conexiones, por organización
 
 ---
 
@@ -399,3 +382,5 @@ Metricool— nunca se han ejecutado contra la plataforma real. Están escritas
 contra la documentación y probadas contra una base de datos sembrada. El día que
 pongas las claves empieza el trabajo de comprobar que la otra parte contesta lo
 que esperamos, y ese trabajo no está hecho ni se puede estimar hasta empezarlo.
+
+

@@ -1,31 +1,34 @@
 import { Activity, Layers3, SignalHigh, TimerReset, Workflow } from "./icons";
 import type { VoiceSessionView } from "./useVoiceSession";
 import { percentile } from "./lib/voiceMetrics";
+import { useI18n } from "../../i18n";
 
 interface MetricRailProps {
   view: VoiceSessionView;
 }
 
 export function MetricRail({ view }: MetricRailProps) {
+  const { locale } = useI18n();
+  const es = locale !== "en";
   const totals = view.latencyHistory.map((item) => item.total);
   const p95 = percentile(totals, 0.95);
   const latest = view.latencyHistory.at(-1);
   const total = view.latency.total ?? latest?.total;
   const underTarget = totals.filter((value) => value < 650).length;
   const signal = view.micMuted
-    ? "MUTED"
+    ? (es ? "SILENCIADO" : "MUTED")
     : view.clipping
-      ? "CLIPPING"
+      ? (es ? "SATURADA" : "CLIPPING")
       : view.mode === "live" || view.mode === "demo"
-        ? "CLEAN"
-        : "STANDBY";
+        ? (es ? "LIMPIA" : "CLEAN")
+        : (es ? "EN ESPERA" : "STANDBY");
 
   const metrics = [
     {
-      label: "Response",
+      label: es ? "Respuesta" : "Response",
       value: total === undefined ? "—" : Math.round(total),
       unit: total === undefined ? "" : "ms",
-      detail: total === undefined ? "Waiting for first PCM" : `target <650 · ${Math.max(0, 650 - Math.round(total))} ms headroom`,
+      detail: total === undefined ? (es ? "Esperando el primer audio" : "Waiting for first PCM") : `${es ? "objetivo <650 · margen" : "target <650 ·"} ${Math.max(0, 650 - Math.round(total))} ms`,
       icon: TimerReset,
       tone: total !== undefined && total >= 650 ? "warn" : "primary",
     },
@@ -33,38 +36,38 @@ export function MetricRail({ view }: MetricRailProps) {
       label: "P95",
       value: p95 === undefined ? "—" : Math.round(p95),
       unit: p95 === undefined ? "" : "ms",
-      detail: totals.length ? `${underTarget}/${totals.length} turns under target` : "Builds across this session",
+      detail: totals.length ? `${underTarget}/${totals.length} ${es ? "turnos en objetivo" : "turns under target"}` : (es ? "Se calcula en esta sesión" : "Builds across this session"),
       icon: Activity,
       tone: p95 !== undefined && p95 >= 650 ? "warn" : "neutral",
     },
     {
-      label: "Turns",
+      label: es ? "Turnos" : "Turns",
       value: String(totals.length).padStart(2, "0"),
       unit: "",
-      detail: `${view.interruptions} interruption${view.interruptions === 1 ? "" : "s"}`,
+      detail: `${view.interruptions} ${es ? (view.interruptions === 1 ? "interrupción" : "interrupciones") : `interruption${view.interruptions === 1 ? "" : "s"}`}`,
       icon: Layers3,
       tone: "neutral",
     },
     {
-      label: "Parallel saved",
+      label: es ? "Ahorro paralelo" : "Parallel saved",
       value: latest ? latest.overlapSaved : "—",
       unit: latest ? "ms" : "",
-      detail: latest ? "vs. serial stage estimate" : "Speculative overlap enabled",
+      detail: latest ? (es ? "frente a ejecución secuencial" : "vs. serial stage estimate") : (es ? "Solapamiento especulativo activo" : "Speculative overlap enabled"),
       icon: Workflow,
       tone: "primary",
     },
     {
-      label: "Signal",
+      label: es ? "Señal" : "Signal",
       value: signal,
       unit: "",
-      detail: view.mode === "demo" ? "simulated input path" : view.clipping ? "lower input gain" : "AEC + noise suppression",
+      detail: view.mode === "demo" ? (es ? "entrada simulada" : "simulated input path") : view.clipping ? (es ? "baja la ganancia de entrada" : "lower input gain") : (es ? "AEC + supresión de ruido" : "AEC + noise suppression"),
       icon: SignalHigh,
-      tone: view.clipping ? "warn" : signal === "CLEAN" ? "signal" : "neutral",
+      tone: view.clipping ? "warn" : (view.mode === "live" || view.mode === "demo") && !view.micMuted ? "signal" : "neutral",
     },
   ] as const;
 
   return (
-    <section className="metric-rail" aria-label="Session performance overview">
+    <section className="metric-rail" aria-label={es ? "Resumen de rendimiento de la sesión" : "Session performance overview"}>
       {metrics.map((metric) => {
         const Icon = metric.icon;
         return (

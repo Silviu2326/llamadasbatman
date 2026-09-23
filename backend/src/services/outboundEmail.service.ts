@@ -5,8 +5,8 @@ import { assertConsumptionLimit } from '../access-control/consumption'
 import { reviewPiece, type CriticReport } from './contentCritic.service'
 import { extractBrandFacts } from './contentSpecificity.service'
 import { getOwnerVoice, voiceInstructions } from './ownerVoice.service'
-import { sendTransactionalEmail, isEmailConfigured } from './transactionalEmail.service'
-import { createEmailDelivery } from './mauticSync.service'
+import { sendTransactionalEmailDetailed, isTransactionalEmailConfigured } from './transactionalEmail.service'
+import { createNativeEmailDeliverySnapshot } from './nativeMarketingEmail.service'
 import { ensureConversationForLead } from './conversations.service'
 import { researchProspect, type ProspectResearch } from './prospectResearch.service'
 import { writeColdEmail, type CopyResult } from './emailCopy.service'
@@ -16,7 +16,7 @@ import type { DigitalAuditResult, Opportunity } from './digitalAudit.service'
 /**
  * Email frío escrito por lead a partir de su auditoría digital.
  *
- * La diferencia con una campaña de Mautic es el destinatario de una sola
+ * La diferencia con una campaña de marketing es el destinatario de una sola
  * persona: aquí el cuerpo es distinto en cada envío, así que no puede ser una
  * plantilla remota. Va por el proveedor transaccional y se registra igual —
  * `EmailDelivery` y `Message`— para que las métricas y la bandeja de entrada
@@ -268,8 +268,8 @@ export async function draftOutboundEmail(
       ? `El consentimiento no permite escribirle (${consent.reason}).`
       : report.pii.blocking
         ? 'El borrador contenía datos personales y se han enmascarado: revísalo antes de enviarlo.'
-        : !isEmailConfigured()
-          ? 'Falta configurar el proveedor de email (RESEND_API_KEY y EMAIL_FROM).'
+        : !await isTransactionalEmailConfigured(orgId)
+          ? 'Conecta el proveedor de email y una dirección remitente verificada para tu organización.'
           : !unsubscribeUrl(leadId)
             ? 'Falta PUBLIC_HOST o APP_URL: sin enlace de baja no se manda un email frío.'
             : null
@@ -375,10 +375,9 @@ export async function sendOutboundEmail(
   }
 
   const scope = opts.idempotencyScope ?? `outbound:${leadId}`
-  const delivery = await createEmailDelivery(orgId, leadId, {
-    toAddress: lead.email,
-    idempotencyScope: scope,
-  })
+  const optOutUrl = unsubscribeUrl(leadId)
+  if (!optOutUrl) throw new OutboundEmailError('UNSUBSCRIBE_URL_MISSING', 'Falta PUBLIC_HOST o APP_URL: sin enlace de baja no se manda un email frío.')
+  const delivery = await createNativeEmailDeliverySnapshot({ orgId, leadId, toAddress: lead.email, idempotencyScope: scope, subject: draft.subject, html: textToHtml(draft.body, optOutUrl), purpose: 'marketing' })
   if (delivery.status === 'accepted' || delivery.status === 'delivered') {
     return { deliveryId: delivery.id, status: 'accepted', subject: draft.subject, messageId: null }
   }
@@ -389,27 +388,25 @@ export async function sendOutboundEmail(
     data: { status: 'processing', providerAttemptedAt: now, attempts: { increment: 1 } },
   })
 
-  const optOutUrl = unsubscribeUrl(leadId)
-  if (!optOutUrl) throw new OutboundEmailError('UNSUBSCRIBE_URL_MISSING', 'Falta PUBLIC_HOST o APP_URL: sin enlace de baja no se manda un email frío.')
-
-  const sent = await sendTransactionalEmail({
+  const sent = await sendTransactionalEmailDetailed({
     to: lead.email,
     subject: draft.subject,
     html: textToHtml(draft.body, optOutUrl),
     // Ledger de consumo: email frío, no aviso de sistema.
+    idempotencyKey: delivery.idempotencyKey,
     usage: { orgId, capability: 'email.outbound' },
   })
-  if (!sent) {
+  if (sent.status !== 'accepted') {
     await prisma.emailDelivery.updateMany({
       where: { id: delivery.id },
-      data: { status: 'failed', failedAt: new Date(), failureCode: 'PROVIDER_REJECTED', failureDetail: 'El proveedor transaccional no aceptó el email.' },
+      data: { status: sent.status === 'uncertain' ? 'uncertain' : 'failed', failedAt: new Date(), failureCode: sent.status === 'uncertain' ? 'PROVIDER_OUTCOME_UNKNOWN' : 'PROVIDER_REJECTED', failureDetail: sent.status === 'uncertain' ? 'No se pudo confirmar si Resend aceptó el email.' : 'El proveedor transaccional no aceptó el email.' },
     })
     return { deliveryId: delivery.id, status: 'failed', subject: draft.subject, messageId: null }
   }
 
   await prisma.emailDelivery.updateMany({
     where: { id: delivery.id },
-    data: { status: 'accepted', acceptedAt: new Date() },
+    data: { status: 'accepted', acceptedAt: new Date(), providerMessageId: sent.id },
   })
 
   // La bandeja de entrada tiene que ver el email que salió: si no, el equipo
@@ -443,3 +440,8 @@ export async function sendOutboundEmail(
 
   return { deliveryId: delivery.id, status: 'accepted', subject: draft.subject, messageId: message.id }
 }
+
+
+
+
+

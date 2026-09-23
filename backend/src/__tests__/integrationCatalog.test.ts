@@ -20,7 +20,7 @@ import type { ProviderDescriptor } from '../providers/types'
 // La lista legacy real vive en organizationCredentials.service (que importa
 // Prisma); aquí se replica el literal porque lo que se prueba es la mecánica
 // de unión, no el contenido de la lista.
-const LEGACY = ['metricool', 'mautic', 'twilio', 'telegram', 'google'] as const
+const LEGACY = ['metricool', 'twilio', 'telegram', 'google'] as const
 
 function fakeDescriptor(overrides: Partial<ProviderDescriptor> & { id: string }): ProviderDescriptor {
   return {
@@ -130,7 +130,7 @@ test('el catálogo combina registro y legacy con estado de conexión y consumo',
   // Registro primero (ordenado por id) y luego los legacy sin descriptor.
   assert.deepEqual(
     entries.map(entry => entry.id),
-    ['test-fake-byok', 'test-fake-managed', 'google', 'mautic', 'metricool', 'telegram', 'twilio'],
+    ['test-fake-byok', 'test-fake-managed', 'google', 'metricool', 'telegram', 'twilio'],
   )
 
   const fake = entries.find(entry => entry.id === 'test-fake-byok')!
@@ -190,7 +190,7 @@ test('el impacto de desconexión identifica automatizaciones por acciones reales
     { id: 'a2', name: 'Voz', actions: [{ type: 'queue_voice_call' }, { type: 'send_whatsapp_template' }] },
     { id: 'a3', name: 'Local', actions: [{ type: 'update_lead_status' }] },
   ]
-  assert.deepEqual(automationsAffectedByProvider('mautic', automations), [
+  assert.deepEqual(automationsAffectedByProvider('resend', automations), [
     { automationId: 'a1', name: 'Email', actions: ['send_email_template'] },
   ])
   assert.deepEqual(automationsAffectedByProvider('twilio', automations), [

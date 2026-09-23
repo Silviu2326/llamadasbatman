@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middlewares/authenticate'
 import { requireEntitlement, requirePermission } from '../access-control'
 import * as ctrl from '../controllers/revenueIntelligence.controller'
+import { radarKnowledgeRoutes } from './radarKnowledge'
 
 /**
  * Producto transversal de ventas: todas las lecturas y mutaciones se filtran
@@ -10,6 +11,7 @@ import * as ctrl from '../controllers/revenueIntelligence.controller'
  */
 export async function revenueIntelligenceRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
+  await app.register(radarKnowledgeRoutes)
   const canReadNextActions = { preHandler: [requirePermission('leads.read', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
   const canWriteNextActions = { preHandler: [requirePermission('tasks.write', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
   const canReadExperiments = { preHandler: [requirePermission('experiments.read', { scope: 'org' }), requireEntitlement('revenue_intelligence')] }
@@ -27,6 +29,9 @@ export async function revenueIntelligenceRoutes(app: FastifyInstance) {
   app.get('/business-context', canReadBusinessIntelligence, ctrl.getBusinessContext)
   app.get('/investigations', canReadInvestigations, ctrl.listInvestigations)
   app.post('/investigations', canResearch, ctrl.startInvestigation)
+  app.get('/radar-schedules', canReadInvestigations, ctrl.getRadarSchedules)
+  app.post('/radar-schedules', canResearch, ctrl.saveRadarSchedule)
+  app.patch<{ Params: { id: string } }>('/radar-schedules/:id', { preHandler: [requirePermission('organization.read', { scope: 'org' }), requirePermission('costs.request', { scope: 'org' })] }, ctrl.toggleRadarSchedule)
 
   app.get('/next-actions', canReadNextActions, ctrl.listNextActions)
   app.post('/next-actions/refresh', canWriteNextActions, ctrl.refreshNextActions)

@@ -318,7 +318,7 @@ Funciones principales:
 - Programar envíos y consultar su estado.
 - Asociar envíos a campañas y secuencias.
 - Consultar entregas, aperturas, clics, respuestas, rebotes y bajas.
-- Sincronizar contactos y eventos con Mautic.
+- Guardar borradores, consentimiento, campañas y eventos de email en Vendrava; usar Resend para entrega y webhooks.
 - Respetar consentimiento, supresión y preferencias de contacto.
 
 ### 5.2 Automatizaciones
@@ -484,7 +484,7 @@ Funciones principales:
 - Gestionar preferencias de idioma y formato.
 - Cambiar contraseña.
 - Consultar integraciones y su estado.
-- Acceder a la configuración de Meta Ads, Google, Metricool, Mautic y Twilio.
+- Acceder a la configuración de Meta Ads, Google, Metricool, Resend y Twilio.
 - Administrar opciones de seguridad y sesiones.
 - Consultar datos de uso y módulos habilitados.
 
@@ -592,7 +592,7 @@ Las páginas operativas se conectan con estos servicios y fuentes:
 - **Google Search Console:** propiedades, consultas, páginas, impresiones, clics, CTR y posición.
 - **Google Places:** descubrimiento y datos públicos de Prospect Finder.
 - **Metricool:** integraciones de redes, perfiles, borradores, publicaciones programadas y analítica social.
-- **Mautic:** contactos, segmentos, campañas, envíos, respuestas, rebotes y bajas.
+- **Email (Resend):** borradores, campañas, secuencias, entregas, respuestas, rebotes y bajas, con consentimiento guardado en Vendrava.
 - **Twilio:** llamadas, WhatsApp, callbacks, Media Streams y estados de comunicación.
 - **Base de conocimiento:** documentos y artículos consultables por agentes y procesos.
 - **CRM interno:** leads, cuentas, oportunidades, tareas, reuniones, llamadas y atribución.
@@ -626,4 +626,5 @@ Vendrava dispone de una experiencia unificada para:
 - Coordinar objetivos mediante el Orquestador y Growth Hub.
 - Medir actividad, conversiones, atribución e ingresos.
 - Administrar cuentas, conexiones, permisos, workspaces y aprobaciones.
+
 

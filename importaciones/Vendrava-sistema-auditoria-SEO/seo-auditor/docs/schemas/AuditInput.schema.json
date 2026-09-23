@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "profile": {
+      "default": "lite",
+      "enum": [
+        "lite",
+        "standard",
+        "extended"
+      ],
+      "title": "Profile",
+      "type": "string"
+    },
+    "render": {
+      "default": false,
+      "title": "Render",
+      "type": "boolean"
+    },
+    "performance": {
+      "default": false,
+      "title": "Performance",
+      "type": "boolean"
+    },
+    "external_links": {
+      "default": false,
+      "title": "External Links",
+      "type": "boolean"
+    }
+  },
+  "title": "AuditInput",
+  "type": "object"
+}

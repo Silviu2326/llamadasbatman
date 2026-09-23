@@ -22,7 +22,7 @@ iniciativa como un programa de la organización.
 - **Landings & webs** sigue publicando las páginas y recogiendo atribución.
 - **Funnels** conserva las métricas de visitas, leads, contactos y reuniones.
 - **Email marketing** conserva la audiencia, plantilla, remitente, calendario,
-  validación y publicación real de campañas Mautic.
+  validación y publicación de campañas locales mediante Resend.
 - **Automatizaciones** ejecuta acciones versionadas e idempotentes.
 - **Leads, Pipeline, Reuniones e Inbox** siguen siendo la fuente de verdad del
   trabajo comercial.
@@ -73,9 +73,10 @@ La superficie autenticada es `/api/growth-programs`:
 ## Siguiente incremento recomendado
 
 1. Conectar el selector de cada programa con objetos reales de landings,
-   campañas de Mautic y automatizaciones.
+   campañas de email locales y automatizaciones.
 2. Añadir webhooks de proveedor para asistencia a webinar, reserva y firma.
 3. Convertir los resultados NPS, referidos y health score en eventos canónicos
    para Automatizaciones y en actividades de CRM.
 4. Construir atribución multitáctil a partir de `AcquisitionEvent`, campañas de
    email y oportunidades cerradas.
+

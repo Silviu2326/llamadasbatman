@@ -71,7 +71,7 @@ const SOURCE_HINTS: [SalesChannel, string[]][] = [
   ['social', ['instagram', 'linkedin', 'facebook', 'tiktok', 'youtube', 'social', 'metricool']],
   ['search', ['organic', 'seo', 'google', 'bing', 'search', 'blog', 'landing']],
   ['gbp', ['gbp', 'business_profile', 'maps', 'ficha']],
-  ['email', ['email', 'mautic', 'newsletter', 'mail']],
+  ['email', ['email', 'newsletter', 'mail']],
   ['outbound', ['import', 'csv', 'prospect', 'outbound', 'cold', 'lista', 'scraper', 'apollo']],
   ['referral', ['referral', 'referido', 'recomend', 'partner', 'word_of_mouth', 'boca']],
 ]
@@ -985,7 +985,6 @@ export interface RiskInput {
   metaConnected: boolean
   adDataQuality: string | null
   adDataQualityAgeDays: number | null
-  mauticEnabled: boolean
   metricoolEnabled: boolean
   organicProject: boolean
   seoProjects: number
@@ -1070,15 +1069,6 @@ export function buildRisks(input: RiskInput): Risk[] {
     })
   }
 
-  if (!input.mauticEnabled) {
-    risks.push({
-      id: 'no-email',
-      title: 'No hay email marketing activo',
-      detail: 'El lead que dice «ahora no» se pierde. El email es el canal que lo recupera meses después sin pagar otra vez por él.',
-      severity: 'baja',
-      href: '/email-marketing',
-    })
-  }
 
   if (input.overdueTasks > 0) {
     risks.push({
@@ -1912,7 +1902,7 @@ export async function consultantBoard(orgId: string, options: ConsultantBoardOpt
   ] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: orgId },
-      select: { plan: true, currency: true, timezone: true, mauticEnabled: true, metricoolEnabled: true },
+      select: { plan: true, currency: true, timezone: true, metricoolEnabled: true },
     }),
     prisma.lead.findMany({
       where: { orgId, createdAt: { gte: since } },
@@ -2116,7 +2106,6 @@ export async function consultantBoard(orgId: string, options: ConsultantBoardOpt
     metaConnected: metaAccounts > 0,
     adDataQuality: adQuality?.status ?? null,
     adDataQualityAgeDays: adQualityAgeDays,
-    mauticEnabled: organization?.mauticEnabled ?? false,
     metricoolEnabled: organization?.metricoolEnabled ?? false,
     organicProject: !!organicProject,
     seoProjects,

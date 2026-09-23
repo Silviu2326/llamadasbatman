@@ -47,8 +47,8 @@ export async function ingestLead(
   }
 
   // Fuentes automáticas (webhook Meta, landing) no tienen un usuario detrás.
-  // createLead() ya sincroniza Mautic y orquesta conversación/consentimiento/
-  // evento lead.created (FND-05) — aquí solo queda lo específico de esta
+  // createLead() orquesta conversación, consentimiento y evento lead.created
+  // (FND-05) — aquí solo queda lo específico de esta
   // fuente: el evento de conversión a Meta.
   const lead = await createLead(orgId, null, input)
   await sendLeadEvent(orgId, lead).catch(() => {})

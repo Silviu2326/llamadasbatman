@@ -23,7 +23,7 @@ El gate **exige `NODE_ENV=production`** y falla si algo no cuadra. Dos trampas
 conocidas:
 
 - Si `REQUIRED_INTEGRATIONS` está vacío, el gate exige las **cinco**
-  integraciones completas (Meta, Google, Metricool, Mautic, Twilio). Declara
+  integraciones completas (Meta, Google, Metricool y Twilio). El correo se configura por organización con Resend en Vendrava. Declara
   solo las que vayas a tener mañana, por ejemplo `REQUIRED_INTEGRATIONS=twilio`.
 - Los ocho secretos deben ser distintos entre sí y de 32 caracteres o más.
   Genera cada uno con `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
@@ -128,9 +128,7 @@ desde "He olvidado mi contraseña", que ya funciona si `RESEND_API_KEY` y
 `EMAIL_FROM` están configuradas.
 
 Después, por cada organización: cargar sus credenciales de Twilio y Meta en
-`/api/integration-credentials/*` y activar los flags `mauticEnabled` y
-`metricoolEnabled` si va a usar esos módulos. Tener la clave no basta: el flag
-va aparte y es lo que más se olvida.
+`/api/integration-credentials/*` y conectar Resend y Metricool desde Vendrava para las organizaciones que vayan a usar esos módulos.
 
 ---
 
@@ -160,10 +158,12 @@ va aparte y es lo que más se olvida.
 
 ## 8. Lo que sigue sin resolverse
 
-- **Mautic no está desplegado**: el email marketing queda inoperativo hasta que
-  lo levantes con el `docker-compose.yml` del repo y crees el campo `crmleadid`.
+- **Email marketing**: aplicar las migraciones nativas y conectar Resend por organización; sigue [EMAIL_MARKETING_ACTIVACION.md](EMAIL_MARKETING_ACTIVACION.md).
 - **Sin registro self-service**: cada alta la haces tú por comando.
 - **Sin calendario externo**: las reuniones son internas, con enlace pegado a mano.
 - Nunca se ha ejecutado una llamada real contra los tres proveedores de voz a la
   vez. La primera llamada de mañana es la primera de verdad: hazla desde la
   cabina, no contra un cliente.
+
+
+

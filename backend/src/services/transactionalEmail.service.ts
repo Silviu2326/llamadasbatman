@@ -1,46 +1,66 @@
 /**
- * Email transaccional mínimo vía Resend (HTTP puro, sin dependencias).
- * Configuración: RESEND_API_KEY + EMAIL_FROM (p. ej. "Vendrava <avisos@tudominio.com>").
- * Sin configurar → no-op que devuelve false; quien llama decide si le importa.
- * ponytail: un solo proveedor — si algún día hace falta SMTP genérico, aquí
- * es donde se cambia.
+ * Email delivery through Resend. Marketing deliveries are sent one recipient at a time
+ * with a stable provider idempotency key; system notifications keep the boolean API.
  */
 import { recordUsage } from '../lib/usage'
+import { getOrganizationCredential, markOrganizationCredentialUsed } from './organizationCredentials.service'
 
 export function isEmailConfigured(): boolean {
   return !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM)
 }
 
-/** Versión de tarifa de los costes de este archivo (ledger, FUNDAMENTOS §3). */
-const RATE_VERSION = '2026-08'
+export async function isTransactionalEmailConfigured(orgId?: string): Promise<boolean> {
+  if (orgId) {
+    const saved = await getOrganizationCredential(orgId, 'resend').catch(() => null)
+    if (saved) return saved.record.status === 'connected' && Boolean(saved.secrets.apiKey && saved.secrets.fromEmail)
+  }
+  return isEmailConfigured()
+}
 
-/** Coste por email aceptado, en céntimos. Configurable por env. */
+const RATE_VERSION = '2026-08'
 function costCentsPerEmail(): number {
   const raw = Number(process.env.RESEND_COST_CENTS_PER_EMAIL)
   return Number.isFinite(raw) && raw >= 0 ? raw : 0.09
 }
 
-export async function sendTransactionalEmail(input: {
+export type DetailedEmailSendResult = { status: 'accepted'; id: string } | { status: 'rejected' } | { status: 'uncertain' }
+
+export async function sendTransactionalEmailDetailed(input: {
   to: string
   subject: string
   html: string
-  /**
-   * Contexto para el ledger de consumo. Opcional por compatibilidad: los
-   * llamadores sin organización a mano (crons de sistema) no registran.
-   * Solo se apunta el envío que Resend aceptó.
-   */
+  idempotencyKey?: string
+  replyTo?: string
+  from?: string
   usage?: { orgId: string; capability?: string }
-}): Promise<boolean> {
-  if (!isEmailConfigured()) return false
+}): Promise<DetailedEmailSendResult> {
+  let config: { apiKey: string; from: string; replyTo?: string } | null = null
+  if (input.usage?.orgId) {
+    const saved = await getOrganizationCredential(input.usage.orgId, 'resend').catch(() => null)
+    if (saved) {
+      const apiKey = typeof saved.secrets.apiKey === 'string' ? saved.secrets.apiKey.trim() : ''
+      const fromEmail = typeof saved.secrets.fromEmail === 'string' ? saved.secrets.fromEmail.trim() : ''
+      const fromName = typeof saved.secrets.fromName === 'string' ? saved.secrets.fromName.trim().replace(/[\r\n<>]/g, '') : ''
+      const replyTo = typeof saved.secrets.replyTo === 'string' ? saved.secrets.replyTo.trim() : ''
+      if (saved.record.status !== 'connected' || !apiKey || !fromEmail) return { status: 'rejected' }
+      config = { apiKey, from: fromName ? `${fromName} <${fromEmail}>` : fromEmail, ...(replyTo ? { replyTo } : {}) }
+      await markOrganizationCredentialUsed(input.usage.orgId, 'resend').catch(() => {})
+    }
+  }
+  if (!config && isEmailConfigured()) config = { apiKey: process.env.RESEND_API_KEY!, from: process.env.EMAIL_FROM! }
+  if (!config) return { status: 'rejected' }
+
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
+        ...(input.idempotencyKey ? { 'Idempotency-Key': input.idempotencyKey } : {}),
       },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM,
+        from: input.from?.trim() || config.from,
+        ...(input.replyTo || config.replyTo ? { reply_to: input.replyTo || config.replyTo } : {}),
         to: [input.to],
         subject: input.subject,
         html: input.html,
@@ -49,15 +69,12 @@ export async function sendTransactionalEmail(input: {
     })
     if (!res.ok) {
       console.warn(`[TransactionalEmail] Resend respondió ${res.status}`)
-      return false
+      return { status: 'rejected' }
     }
     const responseBody = await res.json().catch(() => null) as { id?: unknown } | null
-    const providerRequestId = typeof responseBody?.id === 'string'
-      ? responseBody.id
-      : res.headers.get('x-request-id')
-    // Registrar siempre, cobrar después: solo el envío aceptado cuenta.
-    // `recordUsage` nunca lanza, así que no puede convertir un envío bueno en fallo.
-    if (input.usage?.orgId && providerRequestId) {
+    const providerRequestId = typeof responseBody?.id === 'string' ? responseBody.id : res.headers.get('x-request-id')
+    if (!providerRequestId) return { status: 'uncertain' }
+    if (input.usage?.orgId) {
       void recordUsage({
         orgId: input.usage.orgId,
         provider: 'resend',
@@ -69,12 +86,25 @@ export async function sendTransactionalEmail(input: {
         rateVersion: RATE_VERSION,
         idempotencyKey: `resend:${providerRequestId}`,
       })
-    } else if (input.usage?.orgId) {
-      console.error('[TransactionalEmail] Resend aceptó el envío sin id de petición; no puede registrarse de forma idempotente')
     }
-    return true
+    return { status: 'accepted', id: providerRequestId }
   } catch (error) {
     console.warn('[TransactionalEmail] fallo de envío:', (error as Error).message)
-    return false
+    // Network errors can happen after Resend accepted the request. The caller
+    // must park this delivery for reconciliation instead of risking a duplicate.
+    return { status: 'uncertain' }
   }
 }
+
+export async function sendTransactionalEmail(input: {
+  to: string
+  subject: string
+  html: string
+  usage?: { orgId: string; capability?: string }
+}): Promise<boolean> {
+  return (await sendTransactionalEmailDetailed(input)).status === 'accepted'
+}
+
+
+
+

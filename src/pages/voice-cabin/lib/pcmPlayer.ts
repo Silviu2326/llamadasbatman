@@ -1,8 +1,10 @@
 export class PcmQueuePlayer {
   private context?: AudioContext;
   private gain?: GainNode;
-  // El simulador del CRM ya entrega Float32 a 24 kHz (simStream.onAudio).
+  // La ruta real de Fish Audio entrega PCM16 little-endian a 24 kHz.
+  // El simulador antiguo podía entregar Float32, por eso aceptamos ambos.
   private sampleRate = 24_000;
+  private encoding: "pcm_s16le" | "f32le" = "pcm_s16le";
   private nextStart = 0;
   private active = new Set<AudioBufferSourceNode>();
   private generation = 0;
@@ -65,14 +67,29 @@ export class PcmQueuePlayer {
     await this.ensureContext().resume();
   }
 
-  configure(sampleRate: number): void {
+  configure(sampleRate: number, encoding: "pcm_s16le" | "f32le" = "pcm_s16le"): void {
     this.sampleRate = sampleRate;
+    this.encoding = encoding;
+  }
+
+  private decode(data: ArrayBuffer): Float32Array {
+    if (this.encoding === "f32le") {
+      const aligned = data.byteLength - (data.byteLength % 4);
+      return new Float32Array(data.slice(0, aligned));
+    }
+    const samples = Math.floor(data.byteLength / 2);
+    const view = new DataView(data, 0, samples * 2);
+    const floats = new Float32Array(samples);
+    for (let index = 0; index < samples; index += 1) {
+      floats[index] = view.getInt16(index * 2, true) / 32768;
+    }
+    return floats;
   }
 
   enqueue(data: ArrayBuffer): void {
     if (!data.byteLength) return;
     const context = this.ensureContext();
-    const floats = new Float32Array(data);
+    const floats = this.decode(data);
     const audioBuffer = context.createBuffer(1, floats.length, this.sampleRate);
     audioBuffer.getChannelData(0).set(floats);
 

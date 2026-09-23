@@ -1,8 +1,9 @@
 import { Prisma } from '@prisma/client'
+import { hasContactConsent } from './contactConsent.service'
 import { prisma } from '../lib/prisma'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
 import { enqueueAutomationEvent } from '../jobs/automationRunner'
-import { sendEmailToLead } from './mauticSync.service'
+import { createNativeEmailDeliverySnapshot, resolveNativeEmailDraft, sendNativeMarketingDelivery } from './nativeMarketingEmail.service'
 import { sendWhatsApp } from './whatsapp.service'
 import { getTwilioIntegrationConfig } from './twilioIntegration.service'
 import * as tasksService from './tasks.service'
@@ -16,6 +17,25 @@ function clean(value: unknown, max = 500) {
   return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : undefined
 }
 
+function escapeEmailHtml(value: string) {
+  return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char)
+}
+
+async function deliverConversationEmail(input: { orgId: string; leadId: string; email: string; subject: string; body: string; html?: string; conversationId: string; purpose?: string; emailDraftId?: string }) {
+  const html = input.html ?? `<div style="font-family:Arial,sans-serif;line-height:1.6">${escapeEmailHtml(input.body).replace(/\n/g, '<br>')}<p style="margin-top:24px;font-size:12px"><a href="{{UNSUBSCRIBE_URL}}">Darse de baja</a></p></div>`
+  const delivery = await createNativeEmailDeliverySnapshot({
+    orgId: input.orgId, leadId: input.leadId, toAddress: input.email,
+    idempotencyScope: `conversation:${input.conversationId}:${Date.now()}`, purpose: input.purpose ?? 'contact',
+    emailDraftId: input.emailDraftId, subject: input.subject, html,
+  })
+  if (delivery.status !== 'queued') throw new Error('El email ya se está procesando o su estado requiere revisión.')
+  const workerId = `conversation-${process.pid}-${delivery.id}`
+  const claimed = await prisma.emailDelivery.updateMany({ where: { id: delivery.id, status: 'queued' }, data: { status: 'processing', workerId, lockedAt: new Date(), leaseExpiresAt: new Date(Date.now() + 60_000), providerAttemptedAt: new Date(), attempts: { increment: 1 } } })
+  if (!claimed.count) throw new Error('El email ya está siendo procesado.')
+  const outcome = await sendNativeMarketingDelivery(delivery.id, workerId, input.purpose ?? 'contact')
+  if (outcome !== 'accepted') throw new Error(outcome === 'uncertain' ? 'Resend no confirmó el envío; revisa el historial antes de reintentar.' : 'Resend no aceptó el email.')
+  return prisma.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id }, select: { providerMessageId: true, subjectSnapshot: true, htmlSnapshot: true } })
+}
 function crmAddress(channel: string, value: string) {
   if (channel === 'whatsapp' || channel === 'voice') return value.replace(/^whatsapp:/, '').replace(/[\s()-]/g, '')
   return value.trim().toLowerCase()
@@ -133,7 +153,7 @@ export async function ensureConversationForLead(orgId: string, leadId: string, c
     const identityInputs = [
       lead.phone ? { channel: 'whatsapp', provider: 'crm', address: crmAddress('whatsapp', lead.phone) } : null,
       lead.phone ? { channel: 'voice', provider: 'crm', address: crmAddress('voice', lead.phone) } : null,
-      lead.email ? { channel: 'email', provider: 'mautic', address: crmAddress('email', lead.email) } : null,
+      lead.email ? { channel: 'email', provider: 'resend', address: crmAddress('email', lead.email) } : null,
     ].filter((item): item is { channel: string; provider: string; address: string } => item !== null)
 
     for (const input of identityInputs) {
@@ -171,11 +191,7 @@ export async function ensureConversationForLead(orgId: string, leadId: string, c
 }
 
 export async function consentGranted(orgId: string, leadId: string, channel: string) {
-  const consent = await prisma.contactConsent.findFirst({
-    where: { orgId, leadId, channel, purpose: 'contact' },
-    orderBy: { occurredAt: 'desc' },
-  })
-  return consent?.status === 'granted'
+  return hasContactConsent(orgId, leadId, channel)
 }
 
 export async function orchestrateNewLead(orgId: string, leadId: string, consent?: ChannelConsentInput) {
@@ -194,11 +210,15 @@ export async function orchestrateNewLead(orgId: string, leadId: string, consent?
   if (lead.phone && await consentGranted(orgId, lead.id, 'voice')) {
     if (await enqueueLeadCall(orgId, lead.id)) queued.push('voice')
   }
-  const welcomeEmailId = process.env.MAUTIC_WELCOME_EMAIL_ID
-  if (lead.email && welcomeEmailId && await consentGranted(orgId, lead.id, 'email')) {
-    if (await sendEmailToLead(lead.id, welcomeEmailId, orgId).catch(() => false)) {
-      await prisma.message.create({ data: { orgId, conversationId: conversation.id, leadId: lead.id, channel: 'email', provider: 'mautic', address: lead.email, direction: 'outbound', contentType: 'template', body: 'Email automático de bienvenida', status: 'sent', sentAt: new Date(), metadata: { mauticEmailId: welcomeEmailId } } })
-      queued.push('email')
+  const welcomeEmailDraftId = process.env.RESEND_WELCOME_EMAIL_DRAFT_ID?.trim()
+  if (lead.email && welcomeEmailDraftId && await consentGranted(orgId, lead.id, 'email')) {
+    const content = await resolveNativeEmailDraft(orgId, welcomeEmailDraftId).catch(() => null)
+    if (content) {
+      try {
+        const sent = await deliverConversationEmail({ orgId, leadId: lead.id, email: lead.email, subject: content.subject, body: String(content.content.intro ?? content.content.body ?? 'Gracias por ponerte en contacto.'), html: content.html, conversationId: conversation.id, purpose: 'marketing', emailDraftId: content.emailDraftId })
+        await prisma.message.create({ data: { orgId, conversationId: conversation.id, leadId: lead.id, channel: 'email', provider: 'resend', address: lead.email, direction: 'outbound', contentType: 'html', body: `${sent.subjectSnapshot}\n\n${sent.htmlSnapshot}`, status: 'sent', sentAt: new Date(), providerMessageId: sent.providerMessageId ?? undefined, metadata: { emailDraftId: content.emailDraftId } } })
+        queued.push('email')
+      } catch { /* A missing consent, config or provider does not block lead creation. */ }
     }
   }
   return { conversation, queued }
@@ -208,6 +228,7 @@ export async function sendConversationMessage(orgId: string, userId: string, con
   channel: string
   body?: string
   templateId?: string
+  audioAssetId?: string
 }) {
   const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, orgId }, include: { lead: true } })
   if (!conversation) return null
@@ -219,19 +240,18 @@ export async function sendConversationMessage(orgId: string, userId: string, con
   if (channel === 'whatsapp') {
     const to = conversation.lead?.phone
     if (!to) throw new Error('El lead no tiene teléfono')
-    if (!await consentGranted(orgId, conversation.lead!.id, 'whatsapp')) throw new Error('WhatsApp no tiene consentimiento válido')
-    return sendWhatsApp({ orgId, leadId: conversation.lead!.id, conversationId, to, body, contentSid: template?.externalTemplateId ?? undefined, metadata: { authorUserId: userId, templateId: template?.id } })
+    if (template && template.approvalStatus !== 'approved') throw new Error('La plantilla de WhatsApp aún no está aprobada')
+    return sendWhatsApp({ orgId, leadId: conversation.lead!.id, conversationId, to, body, audioAssetId: input.audioAssetId, contentSid: template?.externalTemplateId ?? undefined, metadata: { authorUserId: userId, templateId: template?.id } })
   }
 
   if (channel === 'email') {
     if (!conversation.lead?.email) throw new Error('El lead no tiene email')
-    if (!template?.externalTemplateId) throw new Error('Selecciona una plantilla de email aprobada')
     if (!await consentGranted(orgId, conversation.lead.id, 'email')) throw new Error('Email no tiene consentimiento válido')
-    const sent = await sendEmailToLead(conversation.lead.id, template.externalTemplateId, orgId)
-    if (!sent) throw new Error('Mautic no confirmó el envío')
-    return prisma.message.create({ data: { orgId, conversationId, leadId: conversation.lead.id, authorUserId: userId, templateId: template.id, channel, provider: 'mautic', address: conversation.lead.email, direction: 'outbound', contentType: 'template', body: body ?? template.body, status: 'sent', sentAt: new Date(), metadata: { mauticEmailId: template.externalTemplateId } } })
+    const emailBody = body ?? template?.body
+    if (!emailBody?.trim()) throw new Error('Escribe el contenido del email')
+    const sent = await deliverConversationEmail({ orgId, leadId: conversation.lead.id, email: conversation.lead.email, subject: template?.name ?? 'Mensaje de Vendrava', body: emailBody, conversationId, purpose: 'contact' })
+    return prisma.message.create({ data: { orgId, conversationId, leadId: conversation.lead.id, authorUserId: userId, templateId: template?.id, channel, provider: 'resend', address: conversation.lead.email, direction: 'outbound', contentType: 'html', body: `${sent.subjectSnapshot}\n\n${sent.htmlSnapshot}`, status: 'sent', sentAt: new Date(), providerMessageId: sent.providerMessageId ?? undefined, metadata: { templateId: template?.id } } })
   }
-
   if (channel === 'voice') {
     if (!conversation.lead?.phone) throw new Error('El lead no tiene teléfono')
     if (!await consentGranted(orgId, conversation.lead.id, 'voice')) throw new Error('Voz no tiene consentimiento válido')
@@ -246,8 +266,14 @@ export async function sendConversationMessage(orgId: string, userId: string, con
   throw new Error('Canal no soportado')
 }
 
-export async function updateConversation(orgId: string, id: string, data: { status?: string; assignedUserId?: string | null; priority?: string }) {
+export async function updateConversation(orgId: string, id: string, data: { status?: string; assignedUserId?: string | null; priority?: string; aiReplyEnabled?: boolean }) {
   const update: Prisma.ConversationUncheckedUpdateManyInput = {}
+  if (typeof data.aiReplyEnabled === 'boolean') {
+    const existing = await prisma.conversation.findFirst({ where: { id, orgId } })
+    if (!existing) return null
+    if (data.aiReplyEnabled && (existing.assignedUserId || existing.status !== 'open')) throw new Error('Abre la conversación y libera la asignación humana antes de activar el asistente.')
+    update.metadata = { ...(existing.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata) ? existing.metadata : {}), aiReplyEnabled: data.aiReplyEnabled, aiPaused: !data.aiReplyEnabled }
+  }
   if (data.status) {
     update.status = data.status
     update.closedAt = data.status === 'closed' ? new Date() : null
@@ -326,3 +352,6 @@ export async function dismissNextBestAction(orgId: string, id: string, conversat
 
   return prisma.nextBestAction.update({ where: { id: action.id }, data: { status: 'dismissed' } })
 }
+
+
+

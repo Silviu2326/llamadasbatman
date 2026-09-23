@@ -1,0 +1,58 @@
+{
+  "checkedAt": "2026-09-16T21:52:10.645373+00:00",
+  "executionHost": "VPS 178.105.157.60, service user vendrava",
+  "externalPhoneCalls": 0,
+  "syntheticContentOnly": true,
+  "cerebras": {
+    "ok": true,
+    "model": "gpt-oss-120b",
+    "response": "OK",
+    "firstMs": 1001
+  },
+  "deepgram": {
+    "connected": true
+  },
+  "fishAudio": {
+    "pcmBytes": 280726,
+    "firstAudioMs": 1631,
+    "sampleRateHz": 24000,
+    "channels": 1,
+    "sampleBytes": 2,
+    "errors": []
+  },
+  "timingScope": "synthetic provider startup; not telephone conversation latency",
+  "vpsProviderTest": "passed",
+  "vpsCredentialUpdate": "completed",
+  "services": {
+    "vendrava-zadarma": "active",
+    "asterisk": "active",
+    "sprintmarkt-crm": "active",
+    "nginx": "active",
+    "gatewayUnexpectedRestarts": 0
+  },
+  "sipRegistrations": {
+    "232304": "Registered",
+    "922118": "Registered"
+  },
+  "gatewayHttps": {
+    "unauthenticatedStatus": 401,
+    "authenticatedStatus": 200,
+    "activeCalls": 0
+  },
+  "privateListeners": [
+    "127.0.0.1:9092",
+    "127.0.0.1:9093",
+    "127.0.0.1:5038"
+  ],
+  "temporarySshAccess": "removed; subsequent authentication rejected; local key files deleted",
+  "commercialReadiness": "providers operational; agent remains draft with no assigned number; end-to-end external phone test pending",
+  "priorLocalCerebrasCheck": {
+    "ok": true,
+    "model": "gpt-oss-120b",
+    "response": "OK",
+    "firstMs": 333,
+    "totalMs": 339,
+    "executionHost": "local backend",
+    "checkedAt": "2026-09-16T21:12:31.417769+00:00"
+  }
+}

@@ -62,10 +62,10 @@ export async function claimJob(jobId: string, workerId = WORKER_ID) {
   return prisma.job.findUnique({ where: { id: jobId } })
 }
 
-async function claimDueJobs(workerId = WORKER_ID) {
+async function claimDueJobs(workerId = WORKER_ID, kinds?: string[]) {
   const now = new Date()
   const candidates = await prisma.job.findMany({
-    where: dueJobWhere(now),
+    where: { ...dueJobWhere(now), ...(kinds ? { kind: { in: kinds } } : {}) },
     orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
     take: BATCH_SIZE * 2,
     select: { id: true, kind: true },
@@ -74,7 +74,7 @@ async function claimDueJobs(workerId = WORKER_ID) {
   // queda `pending` sin consumir intentos hasta que un worker que lo conozca
   // la recoja. Por eso el filtro va ANTES del claim.
   const known = candidates.filter(candidate => hasJobExecutor(candidate.kind))
-  const claimed = await Promise.all(known.map(candidate => claimJob(candidate.id, workerId)))
+  const claimed = await Promise.all(known.slice(0, BATCH_SIZE).map(candidate => claimJob(candidate.id, workerId)))
   return claimed.filter((job): job is NonNullable<typeof job> => Boolean(job)).slice(0, BATCH_SIZE)
 }
 
@@ -281,12 +281,12 @@ async function rescueTimedOutProviderJobs() {
   }
 }
 
-async function dispatchPendingJobs() {
+async function dispatchPendingJobs(kinds?: string[]) {
   if (running) return
   running = true
   try {
-    await rescueTimedOutProviderJobs()
-    const jobs = await claimDueJobs(WORKER_ID)
+    if (!kinds) await rescueTimedOutProviderJobs()
+    const jobs = await claimDueJobs(WORKER_ID, kinds)
     for (const job of jobs) {
       emitJobUpdate(job)
       try {

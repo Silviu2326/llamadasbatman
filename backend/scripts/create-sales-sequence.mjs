@@ -116,10 +116,13 @@ function validate(name, steps) {
     if (!Number.isInteger(step.delayDays) || step.delayDays < 0 || step.delayDays > 365) {
       throw new Error(`${name}: el retraso del paso ${position} debe ser un entero entre 0 y 365 días.`)
     }
-    // `email` y `whatsapp` exigen plantilla del proveedor. Aquí no se usan a
-    // propósito: `ai_email` escribe el correo y no depende de Mautic.
-    if ((step.type === 'email' || step.type === 'whatsapp') && !step.templateExternalId) {
-      throw new Error(`${name}: el paso ${position} (${step.type}) necesita templateExternalId.`)
+    // `email` usa un borrador local; WhatsApp conserva su ContentSid.
+    // propósito: `ai_email` escribe el correo y compone el correo sin plantilla externa.
+    if (step.type === 'email' && !step.emailDraftId) {
+      throw new Error(`${name}: el paso ${position} (email) necesita emailDraftId local.`)
+    }
+    if (step.type === 'whatsapp' && !step.templateExternalId) {
+      throw new Error(`${name}: el paso ${position} (whatsapp) necesita templateExternalId (ContentSid).`)
     }
     if (keys.has(step.key)) throw new Error(`${name}: la clave "${step.key}" está repetida.`)
     keys.add(step.key)
@@ -208,3 +211,5 @@ try {
 } finally {
   await prisma.$disconnect()
 }
+
+

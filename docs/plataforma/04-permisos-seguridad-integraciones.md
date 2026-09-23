@@ -127,7 +127,6 @@ Los principales prefijos están registrados en `backend/src/index.ts`:
 | `/api/meta/accounts` | Meta Ads | `integrations.read/manage`; presupuesto con `costs.request` |
 | `/api/metricool` | Redes sociales | `integrations.read/manage`, `social.read/write`, generación IA con `costs.request` |
 | `/api/mautic` | Email marketing | Campañas y plantillas con `campaigns.*` e `integrations.*` |
-| `/api/webhooks/mautic` | Webhook Mautic | Secreto de webhook, sin JWT |
 | `/api/meta/webhooks` | Webhook Meta | Verify token y firma `X-Hub-Signature-256`, sin JWT |
 | `/api/organic` | Organic Leads | `organic.read/manage` e integraciones separadas |
 | `/api/access-control` | RBAC | `access_control.*` y permisos de aprobación |
@@ -259,7 +258,7 @@ Nunca deben registrarse tokens, client secrets, cookies, cabeceras de autorizaci
 
 ### Mautic: email marketing
 
-**Rutas:** `/api/mautic` y `/api/webhooks/mautic`.
+**Ruta:** `/api/mautic`. Los eventos de entrega y las respuestas entrantes se reciben mediante el webhook firmado de Resend `/api/webhooks/email/resend/:orgId`.
 
 - Requiere plan completo y `mauticEnabled`.
 - Usa OAuth client credentials contra `/oauth/v2/token`, con timeout de 10 segundos y un retry solo para lecturas.

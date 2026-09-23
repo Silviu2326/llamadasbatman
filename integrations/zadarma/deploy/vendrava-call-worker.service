@@ -1,0 +1,32 @@
+[Unit]
+Description=Vendrava scheduled phone calls
+After=network-online.target vendrava-zadarma.service
+Wants=network-online.target
+Requires=vendrava-zadarma.service
+
+[Service]
+Type=simple
+User=vendrava
+Group=vendrava
+WorkingDirectory=/opt/vendrava/gateway
+EnvironmentFile=/etc/vendrava/zadarma.env
+Environment=WORKER_QUEUE_BACKEND=postgres
+Environment=REDIS_ENABLED=false
+Environment=BACKGROUND_WORKERS_ENABLED=false
+Environment=ZADARMA_GATEWAY_ENABLED=true
+Environment=ZADARMA_GATEWAY_EMBEDDED=false
+Environment=ZADARMA_GATEWAY_URL=http://127.0.0.1:9093
+Environment=PATH=/opt/vendrava/node-v22.23.2-linux-x64/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env WORKER_QUEUE_BACKEND=postgres REDIS_ENABLED=false ZADARMA_GATEWAY_ENABLED=true ZADARMA_GATEWAY_URL=http://127.0.0.1:9093 /opt/vendrava/node-v22.23.2-linux-x64/bin/node dist/callWorker.js
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=40
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+MemoryMax=384M
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

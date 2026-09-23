@@ -1,0 +1,88 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "maxLength": 180,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "url": {
+      "maxLength": 2048,
+      "title": "Url",
+      "type": "string"
+    },
+    "sector": {
+      "default": "",
+      "maxLength": 180,
+      "title": "Sector",
+      "type": "string"
+    },
+    "country": {
+      "default": "ES",
+      "maxLength": 2,
+      "minLength": 2,
+      "title": "Country",
+      "type": "string"
+    },
+    "language": {
+      "default": "es",
+      "maxLength": 5,
+      "minLength": 2,
+      "title": "Language",
+      "type": "string"
+    },
+    "business_model": {
+      "default": "b2b",
+      "enum": [
+        "b2b",
+        "b2c",
+        "mixed"
+      ],
+      "title": "Business Model",
+      "type": "string"
+    },
+    "services": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 30,
+      "title": "Services",
+      "type": "array"
+    },
+    "exclusions": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 40,
+      "title": "Exclusions",
+      "type": "array"
+    },
+    "minimum_order": {
+      "default": "",
+      "maxLength": 300,
+      "title": "Minimum Order",
+      "type": "string"
+    },
+    "notes": {
+      "default": "",
+      "maxLength": 4000,
+      "title": "Notes",
+      "type": "string"
+    },
+    "expected_indexable": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Expected Indexable",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "url"
+  ],
+  "title": "LeadInput",
+  "type": "object"
+}

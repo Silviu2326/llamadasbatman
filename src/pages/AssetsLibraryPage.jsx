@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { getEffectiveNavigationPermissions } from '../lib/navigationPermissions'
 import { getLocale, localeCode } from '../i18n'
 import { ASSETS_LIBRARY_HERO } from '../lib/microappArt'
-import PageLoadingState from '../components/ui/PageLoadingState'
+import PersonalStudio from '../components/personal-studio/PersonalStudio'
 import './assets-library.css'
 
 const KIND_META = {
@@ -302,7 +302,7 @@ function DetailDrawer({ assetId, onClose, onOpenAsset, canPublish, onPublished }
   )
 }
 
-export default function AssetsLibraryPage() {
+function AssetsLibrary() {
   const { user } = useAuth()
   const permissions = useMemo(() => getEffectiveNavigationPermissions(user), [user])
   const [searchParams, setSearchParams] = useSearchParams()
@@ -351,10 +351,9 @@ export default function AssetsLibraryPage() {
     setSearchParams(params => { const next = new URLSearchParams(params); next.delete('asset'); return next }, { replace: true })
   }
 
-  if (listState === 'loading') return <PageLoadingState label="Cargando activos" />
-
   return (
     <main className="assets-page dark-scroll">
+      <PersonalStudio assets={items} canUseAI={permissions.has('costs.request')}>
       <header className="assets-header" style={{ backgroundImage: `url(${ASSETS_LIBRARY_HERO})` }}>
         <div className="assets-title">
           <div className="assets-title-icon"><RiFolderImageLine /></div>
@@ -439,6 +438,7 @@ export default function AssetsLibraryPage() {
         </>
       )}
 
+      </PersonalStudio>
       {selectedId && (
         <DetailDrawer
           assetId={selectedId}
@@ -450,4 +450,9 @@ export default function AssetsLibraryPage() {
       )}
     </main>
   )
+}
+
+export default function AssetsLibraryPage() {
+  const { user } = useAuth()
+  return <AssetsLibrary key={`${user?.orgId || ''}:${user?.id || user?.userId || ''}`} />
 }

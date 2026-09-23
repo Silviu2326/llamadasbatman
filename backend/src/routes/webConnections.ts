@@ -1,9 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
+import { websiteSeoRoutes } from './websiteSeo'
 import { authenticate } from '../middlewares/authenticate'
 import { requirePermission } from '../access-control'
 import { parseRequest } from '../lib/validation'
-import { discoverWebsiteConnection, isWebsiteConnectionMode, listWebsiteConnections, updateWebsiteConnection } from '../services/websiteConnections.service'
+import { detectWebsiteConnection, discoverWebsiteConnection, isWebsiteConnectionMode, listWebsiteConnections, updateWebsiteConnection, WebsiteDetectionError, WEBSITE_CONNECTION_MODES } from '../services/websiteConnections.service'
 import {
   WORDPRESS_ERROR_MESSAGES,
   WordPressConnectorError,
@@ -52,6 +53,7 @@ function sendGitError(reply: FastifyReply, error: unknown) {
 }
 
 const discoverSchema = z.object({ website: z.string().trim().min(4).max(2_048) }).strict()
+const connectSchema = discoverSchema.extend({ mode: z.enum(WEBSITE_CONNECTION_MODES).optional() })
 const updateSchema = z.object({ mode: z.string().optional(), status: z.enum(['setup_required', 'verification_pending', 'connected', 'degraded', 'disconnected']).optional() }).strict().refine(value => Boolean(value.mode || value.status), 'Falta un cambio')
 
 const wordpressConnectSchema = z.object({
@@ -93,18 +95,32 @@ function pageId(value: string): number {
 }
 
 export async function webConnectionsRoutes(app: FastifyInstance) {
+  app.register(websiteSeoRoutes)
   app.addHook('preHandler', authenticate)
   const read = { preHandler: requirePermission('integrations.read', { scope: 'org' }) }
   const manage = { preHandler: requirePermission('integrations.manage', { scope: 'org' }) }
 
   app.get('/', read, async request => listWebsiteConnections(request.user.orgId))
 
-  app.post('/discover', manage, async (request: FastifyRequest<{ Body: unknown }>, reply) => {
+  // La detección no crea registros ni instala nada en la web.
+  app.post('/detect', manage, async (request: FastifyRequest<{ Body: unknown }>, reply) => {
     const body = parseRequest(reply, discoverSchema, request.body ?? {})
     if (!body) return
     try {
-      return reply.status(201).send(await discoverWebsiteConnection({ orgId: request.user.orgId, website: body.website }))
+      return await detectWebsiteConnection(body.website)
     } catch (error) {
+      if (error instanceof WebsiteDetectionError) return reply.status(422).send({ error: error.message, code: error.code })
+      throw error
+    }
+  })
+
+  app.post('/discover', manage, async (request: FastifyRequest<{ Body: unknown }>, reply) => {
+    const body = parseRequest(reply, connectSchema, request.body ?? {})
+    if (!body) return
+    try {
+      return reply.status(201).send(await discoverWebsiteConnection({ orgId: request.user.orgId, website: body.website, mode: body.mode }))
+    } catch (error) {
+      if (error instanceof WebsiteDetectionError) return reply.status(422).send({ error: error.message, code: error.code })
       const code = error instanceof Error ? error.message : 'WEB_CONNECTION_DISCOVERY_FAILED'
       const status = code === 'WEB_CONNECTION_URL_REQUIRED' ? 400 : code === 'WEB_CONNECTION_SITE_UNREACHABLE' ? 422 : 400
       return reply.status(status).send({ error: status === 422 ? 'La web no responde o no devuelve HTML público.' : 'No se pudo analizar esa web.', code })

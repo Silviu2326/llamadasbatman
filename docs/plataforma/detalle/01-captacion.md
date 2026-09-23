@@ -91,7 +91,7 @@ Su utilidad no es gestionar una campaña concreta, sino detectar rápidamente si
 
 **Datos recibidos del backend:**
 
-`GET /api/dashboard/stats` devuelve totales, series de siete días, embudo de leads, llamadas por campaña, pipeline por día, ranking de agentes, sentimiento, plan de la organización y flags de Mautic/Metricool.
+`GET /api/dashboard/stats` devuelve totales, series de siete días, embudo de leads, llamadas por campaña, pipeline por día, ranking de agentes, sentimiento, plan de la organización y estados de conexión de Resend/Metricool.
 
 El servicio calcula los datos a partir de `Call`, `Lead`, `Meeting`, `Campaign`, `Opportunity`, `AdInsightSnapshot`, `Agent` y `Organization`.
 
@@ -1364,3 +1364,4 @@ Captación ya tiene una arquitectura coherente de **planificar → atraer → co
 - Dashboard combina datos reales, pero conserva fallback demo y no aplica todavía al backend los filtros de fecha/comparación visibles.
 
 La distinción importante para producto y soporte es ésta: **una página puede estar implementada visualmente y tener endpoints preparados sin que la capacidad esté operativa hasta configurar credenciales, permisos, jobs, webhooks y datos reales del proveedor**.
+

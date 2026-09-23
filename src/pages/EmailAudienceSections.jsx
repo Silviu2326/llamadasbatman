@@ -405,15 +405,13 @@ export function InboxPanel() {
       })
       const payload = await res.json().catch(() => null)
       if (!res.ok) {
-        // El backend devuelve el motivo exacto ("Selecciona una plantilla de
-        // email aprobada", "Mautic no confirmó el envío"…). Se muestra tal cual
-        // y se añade la causa de fondo cuando la sabemos, para no dejar al
-        // usuario adivinando por qué no hay plantillas que elegir.
+        // El backend devuelve el motivo concreto del envío. Se muestra tal cual y se
+        // añade una pista cuando no hay plantillas disponibles para responder.
         const reason = res.status === 403
           ? 'Tu rol no puede enviar mensajes de pago: hace falta el permiso costs.request.'
           : payload?.error || `El envío no se completó (HTTP ${res.status}).`
         const rootCause = !templates.length
-          ? ' No hay ninguna plantilla porque Mautic no está conectado: las plantillas se crean y se aprueban allí. Hasta que Mautic esté levantado y configurado en el .env del backend, no se puede enviar email desde aquí.'
+          ? ' No hay plantillas de respuesta disponibles en Vendrava. Configura el proveedor de email y añade una plantilla de respuesta para este canal.'
           : ''
         setSendError(reason + rootCause)
         return
@@ -528,7 +526,7 @@ export function InboxPanel() {
                       />
                       <div className="email-composer-actions">
                         <small>
-                          El envío sale por Mautic, que registra la entrega y las aperturas.
+                          El envío sale por Resend; la entrega y la interacción aparecerán en Seguimiento.
                           El texto libre acompaña a la plantilla; no la sustituye.
                         </small>
                         <button

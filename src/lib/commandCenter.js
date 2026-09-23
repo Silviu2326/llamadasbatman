@@ -23,7 +23,6 @@ export const COMMAND_PREFERENCE_OPTIONS = [
 ]
 
 export const COMMAND_SHORTCUTS = [
-  { id: 'open-command', label: 'Abrir centro de comandos', labelEn: 'Open command center', defaultKey: 'MOD+K', action: 'command' },
   { id: 'create-campaign', label: 'Crear campaña', labelEn: 'Create campaign', defaultKey: 'MOD+SHIFT+C', action: 'navigate', path: '/captacion/nueva', permissionPath: '/captacion/atraer/ads' },
   { id: 'run-microapp', label: 'Ejecutar una microapp', labelEn: 'Run a microapp', defaultKey: 'MOD+SHIFT+M', action: 'navigate', path: '/microapps', permissionPath: '/microapps' },
   { id: 'new-production', label: 'Nueva producción', labelEn: 'New production', defaultKey: 'MOD+SHIFT+P', action: 'navigate', path: '/studio', permissionPath: '/studio' },
@@ -51,7 +50,7 @@ export const COMMAND_SHORTCUTS = [
   { id: 'open-web', label: 'Abrir Web y SEO', labelEn: 'Open Web & SEO', defaultKey: 'MOD+ALT+W', action: 'navigate', path: '/captacion/convertir', permissionPath: '/captacion/convertir' },
   { id: 'open-organic', label: 'Abrir Orgánico y social', labelEn: 'Open Organic & social', defaultKey: 'MOD+ALT+E', action: 'navigate', path: '/captacion/atraer/organico', permissionPath: '/captacion/atraer/organico' },
   { id: 'open-email', label: 'Abrir email marketing', labelEn: 'Open email marketing', defaultKey: 'MOD+ALT+N', action: 'navigate', path: '/email-marketing', permissionPath: '/email-marketing' },
-  { id: 'open-revenue', label: 'Abrir inteligencia comercial', labelEn: 'Open revenue intelligence', defaultKey: 'MOD+ALT+J', action: 'navigate', path: '/inteligencia-comercial', permissionPath: '/inteligencia-comercial' },
+  { id: 'open-revenue', label: 'Abrir Inteligencia', labelEn: 'Open Intelligence', defaultKey: 'MOD+ALT+J', action: 'navigate', path: '/inteligencia', permissionPath: '/inteligencia' },
   { id: 'open-voice', label: 'Abrir agentes IA', labelEn: 'Open AI agents', defaultKey: 'MOD+ALT+V', action: 'navigate', path: '/agentes', permissionPath: '/agentes' },
 ]
 

@@ -1,0 +1,19 @@
+; Outbound calls enter this private context through AMI only after answer.
+; There is no public dial-through or inbound agent route in this first version.
+[vendrava-recorded]
+exten => _.,1,Set(VENDRAVA_RECORDING_ID=${FILTER(0-9a-f\-,${EXTEN})})
+ same => n,GotoIf($[${LEN(${VENDRAVA_RECORDING_ID})} != 36]?reject)
+ same => n,GotoIf($["${VENDRAVA_RECORDING_ID}" != "${EXTEN}"]?reject)
+ same => n,Set(VENDRAVA_AUDIO_PORT=${FILTER(0-9,${VENDRAVA_AUDIO_PORT})})
+ same => n,GotoIf($[${LEN(${VENDRAVA_AUDIO_PORT})} = 0]?reject)
+ ; Never use option b: AudioSocket is not a bridged Dial() channel.
+ ; The command runs after closing the WAV; only then is it safe to download.
+ same => n,MixMonitor(/var/spool/asterisk/monitor/vendrava/${VENDRAVA_RECORDING_ID}.wav,,/usr/bin/touch /var/spool/asterisk/monitor/vendrava/${VENDRAVA_RECORDING_ID}.ready)
+ same => n,AudioSocket(${VENDRAVA_RECORDING_ID},127.0.0.1:${VENDRAVA_AUDIO_PORT})
+ same => n,StopMixMonitor()
+ same => n(reject),Hangup()
+exten => h,1,StopMixMonitor()
+
+[vendrava-reject-inbound]
+exten => _.,1,Hangup()
+exten => s,1,Hangup()

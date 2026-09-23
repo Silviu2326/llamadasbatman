@@ -19,9 +19,10 @@ export interface RuntimeProviderView {
   models: { stt: string; llm: string; tts: string };
 }
 
-function stageMeta(runtime: RuntimeProviderView) {
+function stageMeta(runtime: RuntimeProviderView, locale = "es") {
+  const es = locale !== "en";
   return [
-    ...baseStageMeta,
+    { ...baseStageMeta[0], label: es ? "Captura del navegador" : baseStageMeta[0].label, compact: es ? "Navegador" : baseStageMeta[0].compact },
     { id: runtime.stt as PipelineStage, label: `${runtime.models.stt} STT`, compact: runtime.stt, icon: AudioWaveform },
     { id: runtime.llm as PipelineStage, label: `${runtime.models.llm} LLM`, compact: runtime.llm, icon: BrainCircuit },
     { id: runtime.tts as PipelineStage, label: `${runtime.models.tts} TTS`, compact: runtime.tts, icon: Volume2 },
@@ -41,8 +42,9 @@ function fallbackSegment(view: VoiceSessionView, stage: PipelineStage, runtime: 
   return { stage, startMs: start, endMs: start + latency };
 }
 
-function CurrentTurn({ view, runtime }: { view: VoiceSessionView; runtime: RuntimeProviderView }) {
-  const stages = stageMeta(runtime);
+function CurrentTurn({ view, runtime, locale = "es" }: { view: VoiceSessionView; runtime: RuntimeProviderView; locale?: string }) {
+  const es = locale !== "en";
+  const stages = stageMeta(runtime, locale);
   const target = view.timeline?.targetMs ?? 650;
   const scale = Math.max(target, view.timeline?.spanMs ?? 0, view.latency.total ?? 0);
   const targetPosition = Math.min(100, (target / scale) * 100);
@@ -52,10 +54,10 @@ function CurrentTurn({ view, runtime }: { view: VoiceSessionView; runtime: Runti
     <section className="turn-module" aria-labelledby="current-turn-title">
       <div className="telemetry-heading">
         <div>
-          <span className="eyebrow">Current turn</span>
-          <div className="turn-total"><strong id="current-turn-title">{view.latency.total === undefined ? "—" : Math.round(view.latency.total)}</strong><span>{view.latency.total === undefined ? "Waiting" : "ms"}</span></div>
+          <span className="eyebrow">{es ? "Turno actual" : "Current turn"}</span>
+          <div className="turn-total"><strong id="current-turn-title">{view.latency.total === undefined ? "—" : Math.round(view.latency.total)}</strong><span>{view.latency.total === undefined ? (es ? "Esperando" : "Waiting") : "ms"}</span></div>
         </div>
-        <div className="target-readout"><span>Target</span><b>&lt;650 ms</b></div>
+        <div className="target-readout"><span>{es ? "Objetivo" : "Target"}</span><b>&lt;650 ms</b></div>
       </div>
 
       <div className="turn-ruler" aria-hidden="true">
@@ -85,7 +87,7 @@ function CurrentTurn({ view, runtime }: { view: VoiceSessionView; runtime: Runti
       </div>
 
       <div className="pipeline-strip">
-        <span><Workflow size={14} /> {view.timeline?.speculative === false ? "Final-only turn" : "Speculative overlap"}</span>
+        <span><Workflow size={14} /> {view.timeline?.speculative === false ? (es ? "Turno final" : "Final-only turn") : (es ? "Solapamiento especulativo" : "Speculative overlap")}</span>
         {stages.map((stage) => (
           <i className={`pipeline-chip chip-${view.pipeline[stage.id]?.status ?? "idle"}`} key={stage.id}>{stage.compact}</i>
         ))}
@@ -94,7 +96,8 @@ function CurrentTurn({ view, runtime }: { view: VoiceSessionView; runtime: Runti
   );
 }
 
-function RecentTurns({ history }: { history: LatencySnapshot[] }) {
+function RecentTurns({ history, locale = "es" }: { history: LatencySnapshot[]; locale?: string }) {
+  const es = locale !== "en";
   const data = history.slice(-8);
   const values = data.map((item) => item.total);
   const p50 = percentile(values, 0.5);
@@ -114,7 +117,7 @@ function RecentTurns({ history }: { history: LatencySnapshot[] }) {
   return (
     <section className="analytics-module recent-turns" aria-labelledby="recent-turns-title">
       <div className="analytics-heading">
-        <div><span className="eyebrow">Recent turns</span><h2 id="recent-turns-title">Response trend</h2></div>
+        <div><span className="eyebrow">{es ? "Turnos recientes" : "Recent turns"}</span><h2 id="recent-turns-title">{es ? "Tendencia de respuesta" : "Response trend"}</h2></div>
         <div className="percentiles"><span>P50 <b>{p50 === undefined ? "—" : Math.round(p50)}</b></span><span>P95 <b>{p95 === undefined ? "—" : Math.round(p95)}</b></span></div>
       </div>
       {data.length ? (
@@ -135,9 +138,9 @@ function RecentTurns({ history }: { history: LatencySnapshot[] }) {
           ))}
         </svg>
       ) : (
-        <div className="chart-empty"><CircleGauge size={20} /> Complete a turn to build the latency trend.</div>
+        <div className="chart-empty"><CircleGauge size={20} /> {es ? "Completa un turno para ver la tendencia." : "Complete a turn to build the latency trend."}</div>
       )}
-      <div className="chart-caption"><i /> Turn total <span /> Target 650 ms {data.some((item) => item.simulated) && <em>SIMULATED</em>}</div>
+      <div className="chart-caption"><i /> {es ? "Total del turno" : "Turn total"} <span /> {es ? "Objetivo 650 ms" : "Target 650 ms"} {data.some((item) => item.simulated) && <em>{es ? "SIMULADO" : "SIMULATED"}</em>}</div>
     </section>
   );
 }
@@ -151,34 +154,36 @@ function LevelMeter({ value, label }: { value: number; label: string }) {
   );
 }
 
-function SignalHealth({ view }: { view: VoiceSessionView }) {
+function SignalHealth({ view, locale = "es" }: { view: VoiceSessionView; locale?: string }) {
+  const es = locale !== "en";
   return (
     <section className="analytics-module signal-health" aria-labelledby="signal-health-title">
       <div className="analytics-heading">
-        <div><span className="eyebrow">Signal health</span><h2 id="signal-health-title">Audio path</h2></div>
+        <div><span className="eyebrow">{es ? "Salud de la señal" : "Signal health"}</span><h2 id="signal-health-title">{es ? "Ruta de audio" : "Audio path"}</h2></div>
         <RadioTower size={18} />
       </div>
       <div className="signal-readouts">
-        <div><span>PCM input</span><b>16 kHz</b></div>
-        <div><span>TTS output</span><b>24 kHz</b></div>
-        <div><span>Playout buffer</span><b>{Math.round(view.outputBufferMs)} ms</b></div>
-        <div><span>Clipping</span><b className={view.clipping ? "bad-signal" : "good-signal"}>{view.clipping ? "Detected" : "None"}</b></div>
+        <div><span>{es ? "Entrada PCM" : "PCM input"}</span><b>16 kHz</b></div>
+        <div><span>{es ? "Salida TTS" : "TTS output"}</span><b>24 kHz</b></div>
+        <div><span>{es ? "Buffer de salida" : "Playout buffer"}</span><b>{Math.round(view.outputBufferMs)} ms</b></div>
+        <div><span>{es ? "Saturación" : "Clipping"}</span><b className={view.clipping ? "bad-signal" : "good-signal"}>{view.clipping ? (es ? "Detectada" : "Detected") : (es ? "Ninguna" : "None")}</b></div>
       </div>
-      <div className="meter-block"><span>Input peak <b>{Math.round(toDb(Math.max(view.inputPeak, 0.001)))} dBFS</b></span><LevelMeter value={view.inputPeak} label="Input peak" /></div>
-      <div className="meter-block"><span>Output energy <b>{Math.round(toDb(Math.max(view.outputLevel, 0.001)))} dBFS</b></span><LevelMeter value={view.outputLevel} label="Output energy" /></div>
-      <div className="transport-row"><span>AEC + NS</span><b>ON</b><span>Transport</span><b>ORDERED WS</b></div>
+      <div className="meter-block"><span>{es ? "Pico de entrada" : "Input peak"} <b>{Math.round(toDb(Math.max(view.inputPeak, 0.001)))} dBFS</b></span><LevelMeter value={view.inputPeak} label={es ? "Pico de entrada" : "Input peak"} /></div>
+      <div className="meter-block"><span>{es ? "Energía de salida" : "Output energy"} <b>{Math.round(toDb(Math.max(view.outputLevel, 0.001)))} dBFS</b></span><LevelMeter value={view.outputLevel} label={es ? "Energía de salida" : "Output energy"} /></div>
+      <div className="transport-row"><span>AEC + NS</span><b>{es ? "ACTIVO" : "ON"}</b><span>{es ? "Transporte" : "Transport"}</span><b>{es ? "WS ORDENADO" : "ORDERED WS"}</b></div>
     </section>
   );
 }
 
-function ConversationRead({ view }: { view: VoiceSessionView }) {
+function ConversationRead({ view, locale = "es" }: { view: VoiceSessionView; locale?: string }) {
+  const es = locale !== "en";
   const { emotion, guru } = view;
   if (!emotion && !guru) return null;
 
   return (
     <section className="analytics-module conversation-read" aria-labelledby="conversation-read-title">
-      <div className="analytics-heading">
-        <div><span className="eyebrow">Off the hot path</span><h2 id="conversation-read-title">Conversation read</h2></div>
+        <div className="analytics-heading">
+        <div><span className="eyebrow">{es ? "Lectura de conversación" : "Off the hot path"}</span><h2 id="conversation-read-title">{es ? "Contexto de conversación" : "Conversation read"}</h2></div>
         <Compass size={18} />
       </div>
 
@@ -186,35 +191,35 @@ function ConversationRead({ view }: { view: VoiceSessionView }) {
         <>
           <p className="read-label">{emotion.label}</p>
           <div className="signal-readouts">
-            <div><span>Tempo</span><b>{emotion.wordsPerMinute || "—"} wpm</b></div>
-            <div><span>Arousal</span><b>{Math.round(emotion.arousal * 100)}%</b></div>
-            <div><span>Reply delay</span><b>{emotion.replyDelayMs === undefined ? "—" : `${emotion.replyDelayMs} ms`}</b></div>
-            <div><span>Cut-ins</span><b>{emotion.interruptions}</b></div>
+            <div><span>{es ? "Ritmo" : "Tempo"}</span><b>{emotion.wordsPerMinute || "—"} {es ? "ppm" : "wpm"}</b></div>
+            <div><span>{es ? "Activación" : "Arousal"}</span><b>{Math.round(emotion.arousal * 100)}%</b></div>
+            <div><span>{es ? "Espera" : "Reply delay"}</span><b>{emotion.replyDelayMs === undefined ? "—" : `${emotion.replyDelayMs} ms`}</b></div>
+            <div><span>{es ? "Interrupciones" : "Cut-ins"}</span><b>{emotion.interruptions}</b></div>
           </div>
         </>
       )}
 
       {guru ? (
         <div className="guru-advice">
-          <p><span>Read</span>{guru.read}</p>
-          <p><span>Next turn</span><b>{guru.directive}</b></p>
+          <p><span>{es ? "Lectura" : "Read"}</span>{guru.read}</p>
+          <p><span>{es ? "Siguiente turno" : "Next turn"}</span><b>{guru.directive}</b></p>
         </div>
       ) : (
-        <div className="guru-advice pending">The strategist plans during the next reply.</div>
+        <div className="guru-advice pending">{es ? "El estratega prepara la siguiente respuesta." : "The strategist plans during the next reply."}</div>
       )}
     </section>
   );
 }
 
-export function TelemetryPanel({ view, runtime }: { view: VoiceSessionView; runtime: RuntimeProviderView }) {
+export function TelemetryPanel({ view, runtime, locale = "es" }: { view: VoiceSessionView; runtime: RuntimeProviderView; locale?: string }) {
   return (
-    <aside className="telemetry-panel surface" aria-label="Voice telemetry">
-      <CurrentTurn view={view} runtime={runtime} />
+    <aside className="telemetry-panel surface" aria-label={locale !== "en" ? "Telemetría de voz" : "Voice telemetry"}>
+      <CurrentTurn view={view} runtime={runtime} locale={locale} />
       <div className="analytics-grid">
-        <RecentTurns history={view.latencyHistory} />
-        <SignalHealth view={view} />
+        <RecentTurns history={view.latencyHistory} locale={locale} />
+        <SignalHealth view={view} locale={locale} />
       </div>
-      <ConversationRead view={view} />
+      <ConversationRead view={view} locale={locale} />
     </aside>
   );
 }

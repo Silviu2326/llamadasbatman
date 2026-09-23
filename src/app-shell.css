@@ -106,11 +106,18 @@
 .shell-space > span { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid transparent; border-radius: 9px; background: color-mix(in srgb, var(--surface-hover) 48%, transparent); transition: border-color .16s ease, color .16s ease, background .16s ease, box-shadow .16s ease; }
 .shell-space svg { width: 20px; height: 20px; }
 .shell-space small { max-width: 72px; overflow: hidden; color: inherit; font-size: 10.5px; font-weight: 650; line-height: 1.15; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+.shell-space-direct small { max-width: 100%; font-size: 9px; letter-spacing: -.03em; }
 .shell-space:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .shell-space.active { color: var(--accent-faint); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 17%, transparent), color-mix(in srgb, var(--accent) 7%, transparent)); }
 .shell-space.active::before { background: var(--info); box-shadow: 0 0 14px color-mix(in srgb, var(--info) 70%, transparent); }
 .shell-space:hover > span { border-color: color-mix(in srgb, var(--accent) 22%, var(--line)); background: color-mix(in srgb, var(--accent) 9%, var(--surface-hover)); }
 .shell-space.active > span { border-color: color-mix(in srgb, var(--info) 38%, var(--line)); color: var(--info); background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), color-mix(in srgb, var(--cyan) 10%, var(--surface))); box-shadow: 0 7px 18px color-mix(in srgb, var(--accent) 18%, transparent), inset 0 1px color-mix(in srgb, white 8%, transparent); }
+
+.shell-quick-agent { margin-top: 8px; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; color: var(--accent-faint); text-decoration: none; }
+.shell-quick-agent::before { top: 20px; bottom: 12px; }
+.shell-quick-agent > span { color: var(--violet-soft, var(--accent-faint)); background: color-mix(in srgb, var(--violet, var(--accent)) 10%, var(--surface-hover)); }
+.shell-quick-agent:hover, .shell-quick-agent:focus-visible { color: var(--text); outline: none; }
+.shell-quick-agent.active { color: var(--violet-faint, var(--accent-faint)); }
 
 .shell-nav-toggle {
   position: absolute;

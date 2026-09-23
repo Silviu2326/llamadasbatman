@@ -57,6 +57,9 @@ async function startWorkers(): Promise<void> {
   }, Math.max(10_000, Number(process.env.RUNWAY_POLL_INTERVAL_MS ?? 30_000)))
   runwayPollTimer.unref()
 
+  const { startWebsiteSeoMonitor } = await import('./jobs/websiteSeoMonitor')
+  await startWebsiteSeoMonitor()
+
   await Promise.all([
     import('./jobs/automationRunner'),
     import('./jobs/leadCallDispatch'),
@@ -64,6 +67,8 @@ async function startWorkers(): Promise<void> {
     import('./jobs/adInsightsSync'),
     import('./jobs/outboxDispatcher'),
     import('./jobs/temporalEventScheduler'),
+    import('./jobs/radarScheduler'),
+    import('./jobs/assistantScheduler'),
     import('./jobs/importJobRunner'),
     import('./jobs/leadEnrichment'),
     import('./jobs/campaignSendRunner'),

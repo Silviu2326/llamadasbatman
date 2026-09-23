@@ -20,7 +20,7 @@ if (process.env.NODE_ENV !== 'test' || process.env.DATABASE_URL?.trim() !== test
  */
 
 export async function createTestOrg(name = `test-org-${randomUUID()}`) {
-  return prisma.organization.create({ data: { name, plan: 'completo', mauticEnabled: true } })
+  return prisma.organization.create({ data: { name, plan: 'completo' } })
 }
 
 export async function createTestUser(orgId: string, role: 'admin' | 'agent' | 'viewer' = 'agent') {

@@ -151,10 +151,10 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
 
   function onAudio(pcm24k: Buffer): Promise<void> {
     logger?.addChunk(pcm24k)
-    const n = pcm24k.length >> 1
-    const f32 = new Float32Array(n)
-    for (let i = 0; i < n; i++) f32[i] = pcm24k.readInt16LE(i * 2) / 32768
-    send(f32.buffer)
+    // Mantén el formato anunciado por `audio.start`: PCM16 little-endian.
+    // Convertirlo a Float32 aquí hacía que el navegador tuviera que adivinar
+    // el formato y producía una voz metálica o acelerada.
+    send(pcm24k)
     return Promise.resolve()
   }
 

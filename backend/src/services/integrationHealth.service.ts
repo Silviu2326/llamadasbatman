@@ -23,7 +23,7 @@ type IntegrationHealth = {
   errorCode?: string
 }
 
-const ALL_PROVIDERS = ['meta_ads', 'google_search_console', 'metricool', 'mautic_email', 'twilio'] as const
+const ALL_PROVIDERS = ['meta_ads', 'google_search_console', 'metricool', 'twilio'] as const
 
 function requiredProviders(): string[] {
   const configured = env('REQUIRED_INTEGRATIONS')
@@ -41,7 +41,7 @@ function activationConfigured(name: string): boolean {
   // Development defaults are intentionally not treated as an enabled provider.
   // The production gate rejects private endpoints; this keeps the bundled
   // local defaults from creating a misleading "partial integration" locally.
-  if (['METRICOOL_BASE_URL', 'MAUTIC_BASE_URL'].includes(name)) {
+  if (['METRICOOL_BASE_URL'].includes(name)) {
     try {
       const url = new URL(raw)
       if (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1') return false
@@ -116,14 +116,6 @@ function googleHealth(): IntegrationHealth {
   return health
 }
 
-function mauticHealth(): IntegrationHealth {
-  const health = providerHealth('mautic_email', ['MAUTIC_BASE_URL', 'MAUTIC_CLIENT_ID', 'MAUTIC_CLIENT_SECRET', 'MAUTIC_WEBHOOK_SECRET'], [], ['MAUTIC_BASE_URL', 'MAUTIC_CLIENT_ID', 'MAUTIC_CLIENT_SECRET', 'MAUTIC_WEBHOOK_SECRET'])
-  const invalid = validatePublicBaseUrl('MAUTIC_BASE_URL', env('MAUTIC_BASE_URL'))
-  const secretNames = secretInvalid(['MAUTIC_CLIENT_SECRET', env('MAUTIC_CLIENT_SECRET'), 16], ['MAUTIC_WEBHOOK_SECRET', env('MAUTIC_WEBHOOK_SECRET')])
-  if (health.status !== 'not_configured' && (invalid || secretNames.length)) return { ...health, status: 'degraded', configured: false, invalid: [...new Set([...health.invalid, ...(invalid ? ['MAUTIC_BASE_URL'] : []), ...secretNames])], errorCode: invalid ? 'invalid_base_url' : 'invalid_secret' }
-  return health
-}
-
 function metricoolHealth(): IntegrationHealth {
   const health = providerHealth('metricool', ['METRICOOL_BASE_URL', 'METRICOOL_USER_TOKEN', 'METRICOOL_USER_ID', 'METRICOOL_BLOG_ID'], [], ['METRICOOL_BASE_URL', 'METRICOOL_USER_TOKEN', 'METRICOOL_USER_ID', 'METRICOOL_BLOG_ID'])
   const invalid = validatePublicBaseUrl('METRICOOL_BASE_URL', env('METRICOOL_BASE_URL'))
@@ -145,7 +137,7 @@ function twilioHealth(): IntegrationHealth {
 }
 
 function issuesToHealth(): IntegrationHealth[] {
-  return [metaHealth(), googleHealth(), metricoolHealth(), mauticHealth(), twilioHealth()]
+  return [metaHealth(), googleHealth(), metricoolHealth(), twilioHealth()]
 }
 
 async function probe(health: IntegrationHealth): Promise<IntegrationHealth> {
@@ -157,13 +149,6 @@ async function probe(health: IntegrationHealth): Promise<IntegrationHealth> {
       url.searchParams.set('blogId', env('METRICOOL_BLOG_ID')!)
       const response = await fetchWithTimeout(url, { headers: { 'X-Mc-Auth': env('METRICOOL_USER_TOKEN')! } })
       if (!response.ok) throw new Error(`METRICOOL_${response.status}`)
-    } else if (health.provider === 'mautic_email') {
-      const response = await fetchWithTimeout(`${env('MAUTIC_BASE_URL')!.replace(/\/$/, '')}/oauth/v2/token`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ grant_type: 'client_credentials', client_id: env('MAUTIC_CLIENT_ID')!, client_secret: env('MAUTIC_CLIENT_SECRET')! }),
-      })
-      if (!response.ok) throw new Error(`MAUTIC_${response.status}`)
     } else if (health.provider === 'meta_ads') {
       const graphVersion = env('META_GRAPH_API_VERSION') || 'v23.0'
       if (!/^v\d+\.\d+$/.test(graphVersion)) throw new Error('META_GRAPH_VERSION_INVALID')
@@ -226,7 +211,6 @@ export function collectRuntimeConfigIssues(): RuntimeConfigIssue[] {
     configIssue('meta_ads', ['META_APP_ID', 'META_APP_SECRET', 'META_TOKEN_ENCRYPTION_KEY', 'META_WEBHOOK_VERIFY_TOKEN']),
     configIssue('google_search_console', ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_BASE_URL', 'ORGANIC_TOKEN_ENCRYPTION_KEY']),
     configIssue('metricool', ['METRICOOL_BASE_URL', 'METRICOOL_USER_TOKEN', 'METRICOOL_USER_ID', 'METRICOOL_BLOG_ID']),
-    configIssue('mautic_email', ['MAUTIC_BASE_URL', 'MAUTIC_CLIENT_ID', 'MAUTIC_CLIENT_SECRET', 'MAUTIC_WEBHOOK_SECRET']),
   ]
   return checks.filter((item): item is RuntimeConfigIssue => Boolean(item))
 }

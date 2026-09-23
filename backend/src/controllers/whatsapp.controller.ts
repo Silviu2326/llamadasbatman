@@ -34,23 +34,25 @@ async function valid(request: FastifyRequest, path: string, body: TwilioParams, 
 export async function inbound(request: FastifyRequest, reply: FastifyReply) {
   const body = params(request)
   if (!(await valid(request, '/api/whatsapp/inbound', body, 'inbound'))) return reply.code(403).send({ error: 'Invalid Twilio signature' })
-  // Twilio retries on slow responses. Persist asynchronously and acknowledge
-  // immediately; idempotency in the service makes retries safe.
-  void handleInbound(body).catch(error => request.log.error(error, 'WhatsApp inbound persistence failed'))
+  // Acknowledge only after durable persistence; the outbox worker generates replies.
+  await handleInbound(body)
   return reply.type('text/xml').send('<Response></Response>')
 }
 
 export async function status(request: FastifyRequest, reply: FastifyReply) {
   const body = params(request)
   if (!(await valid(request, '/api/whatsapp/status', body, 'status'))) return reply.code(403).send({ error: 'Invalid Twilio signature' })
-  void handleStatus(body).catch(error => request.log.error(error, 'WhatsApp status persistence failed'))
+  await handleStatus(body)
   return reply.type('text/xml').send('<Response></Response>')
 }
 
 export async function send(request: FastifyRequest, reply: FastifyReply) {
   const user = request.user as { orgId: string }
   const body = request.body as any
-  if (!body?.to || (!body.body && !body.contentSid)) return reply.code(400).send({ error: 'to y body o contentSid son obligatorios' })
-  try { return reply.code(201).send(await sendWhatsApp({ ...body, orgId: user.orgId })) }
+  if (!body?.to || (!body.body && !body.contentSid && !body.audioAssetId)) return reply.code(400).send({ error: 'to y body, contentSid o audioAssetId son obligatorios' })
+  try { return reply.code(201).send(await sendWhatsApp({
+    orgId: user.orgId, to: body.to, leadId: body.leadId, conversationId: body.conversationId,
+    body: body.body, contentSid: body.contentSid, contentVariables: body.contentVariables, audioAssetId: body.audioAssetId,
+  })) }
   catch (error: any) { return reply.code(400).send({ error: error?.message || 'No se pudo enviar WhatsApp' }) }
 }

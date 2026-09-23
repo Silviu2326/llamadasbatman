@@ -1,18 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { RiArrowLeftLine, RiArrowRightLine, RiCheckLine, RiFileTextLine, RiMicLine, RiPhoneLine, RiPlayLine, RiRobot2Line, RiRocket2Line, RiShieldCheckLine } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
+import AgentVoicePicker from './AgentVoicePicker'
 import './agent-simple-setup.css'
 
 const AGENT_TYPES = [['sales', 'Ventas'], ['receptionist', 'Recepción'], ['qualification', 'Cualificación'], ['appointment', 'Citas'], ['support', 'Soporte'], ['collections', 'Cobros'], ['handoff', 'Transferencias']]
 
-export default function AgentSimpleSetup({ agentId, draft, onChange, onSave, saving, saved, onNavigate, onPublished }) {
+export default function AgentSimpleSetup({ agentId, draft, onChange, onSave, saving, saved, onNavigate, onPublished, onOpenGovernance }) {
   const [workspace, setWorkspace] = useState(null)
   const [step, setStep] = useState(0)
   const [publishing, setPublishing] = useState(false)
   const [evaluating, setEvaluating] = useState(false)
+  const [testCalling, setTestCalling] = useState(false)
   const [consentBusy, setConsentBusy] = useState(false)
   const [consent, setConsent] = useState({ subjectName: '', subjectContact: '', evidenceAssetId: '', expiresAt: '', confirmed: false })
   const [message, setMessage] = useState('')
+  const [uploadedVoiceId, setUploadedVoiceId] = useState(null)
 
   const load = async () => {
     const response = await apiFetch(`/api/agents/${agentId}/workspace`)
@@ -73,9 +76,25 @@ export default function AgentSimpleSetup({ agentId, draft, onChange, onSave, sav
     } catch (error) { setMessage(error.message) } finally { setConsentBusy(false) }
   }
 
+  // La cabina del navegador no crea una llamada en el CRM, así que no sirve
+  // como prueba real. La prueba de verdad marca un número propio autorizado
+  // (voiceTestCall.service.ts) y se evalúa sola al colgar.
+  const startTestCall = async () => {
+    const number = workspace?.testCall?.numbers?.find(item => item.active)
+    if (!number) return
+    setTestCalling(true); setMessage('')
+    try {
+      const response = await apiFetch(`/api/agents/${agentId}/test-calls`, { method: 'POST', body: JSON.stringify({ testNumberId: number.id }) })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || 'No se pudo lanzar la llamada de prueba.')
+      setMessage(`Llamando a ${body.to}. Cuando cuelgues, vuelve a este paso para ver la nota.`)
+      await load()
+    } catch (error) { setMessage(error.message) } finally { setTestCalling(false) }
+  }
+
   const evaluateLatestCall = async () => {
     const call = workspace?.calls?.find(item => item.status === 'completed')
-    if (!call) return onNavigate(`/voz/cabina?agentId=${encodeURIComponent(agentId)}`)
+    if (!call) return
     setEvaluating(true); setMessage('')
     try {
       const response = await apiFetch(`/api/agents/${agentId}/evaluations/${call.id}`, { method: 'POST' })
@@ -88,6 +107,7 @@ export default function AgentSimpleSetup({ agentId, draft, onChange, onSave, sav
 
   const readyCount = completion.filter(Boolean).length
   const current = steps[step]
+  const testNumber = workspace?.testCall?.numbers?.find(item => item.active) || null
 
   return <section className="agent-simple" aria-labelledby="agent-simple-title">
     <header className="agent-simple-header">
@@ -112,9 +132,9 @@ export default function AgentSimpleSetup({ agentId, draft, onChange, onSave, sav
         </div> : null}
 
         {step === 1 ? <div className="agent-simple-form">
-          <label><span>Voz del agente</span><input value={draft.voiceId || ''} onChange={event => onChange({ voiceId: event.target.value })} placeholder="Introduce o pega la voz seleccionada" autoFocus /></label>
+          <AgentVoicePicker agentId={agentId} onVoiceCreated={setUploadedVoiceId} value={draft.voiceId || ''} selection={draft.settings?.voiceSelection} language={draft.language} onChange={(voiceId, name) => onChange({ voiceId, settings: { ...draft.settings, voiceSelection: { id: voiceId, name } } })} />
           <div className="agent-simple-help"><RiMicLine /><div><strong>¿Quieres escucharla?</strong><p>Guarda la voz y abre la cabina para comprobar cómo suena en una conversación.</p></div><button type="button" onClick={() => onNavigate(`/voz/cabina?agentId=${encodeURIComponent(agentId)}`)}>Abrir cabina</button></div>
-          {workspace?.activeConsent ? <p className="agent-simple-consent-ok"><RiCheckLine /> Voz autorizada por {workspace.activeConsent.subjectName}{workspace.activeConsent.expiresAt ? ` hasta el ${new Date(workspace.activeConsent.expiresAt).toLocaleDateString()}` : ''}.</p> : <div className="agent-simple-consent-form"><div><RiShieldCheckLine /><span><strong>Autorización de la voz</strong><small>Necesaria si esta voz pertenece o imita a una persona.</small></span></div><label><span>Persona que autoriza</span><input value={consent.subjectName} onChange={event => setConsent(current => ({ ...current, subjectName: event.target.value }))} placeholder="Nombre completo" /></label><div className="agent-simple-consent-grid"><label><span>Contacto (opcional)</span><input value={consent.subjectContact} onChange={event => setConsent(current => ({ ...current, subjectContact: event.target.value }))} placeholder="Email o teléfono" /></label><label><span>Caducidad (opcional)</span><input type="date" value={consent.expiresAt} onChange={event => setConsent(current => ({ ...current, expiresAt: event.target.value }))} /></label></div><label><span>Documento guardado (opcional)</span><input value={consent.evidenceAssetId} onChange={event => setConsent(current => ({ ...current, evidenceAssetId: event.target.value }))} placeholder="Referencia del documento de autorización" /></label><label className="agent-simple-confirm"><input type="checkbox" checked={consent.confirmed} onChange={event => setConsent(current => ({ ...current, confirmed: event.target.checked }))} /><span>Confirmo que esta persona ha autorizado el uso de su voz para llamadas realizadas por este agente.</span></label><button type="button" disabled={!draft.voiceId?.trim() || !consent.subjectName.trim() || !consent.confirmed || consentBusy} onClick={createConsent}>{consentBusy ? 'Registrando…' : 'Registrar autorización'}</button></div>}
+          {uploadedVoiceId && uploadedVoiceId === draft.voiceId ? <p className="agent-simple-consent-ok"><RiCheckLine /> Autorización registrada para tu voz. Guarda los cambios para usarla.</p> : workspace?.activeConsent ? <p className="agent-simple-consent-ok"><RiCheckLine /> Voz autorizada por {workspace.activeConsent.subjectName}{workspace.activeConsent.expiresAt ? ` hasta el ${new Date(workspace.activeConsent.expiresAt).toLocaleDateString()}` : ''}.</p> : <div className="agent-simple-consent-form"><div><RiShieldCheckLine /><span><strong>Autorización de la voz</strong><small>Necesaria si esta voz pertenece o imita a una persona.</small></span></div><label><span>Persona que autoriza</span><input value={consent.subjectName} onChange={event => setConsent(current => ({ ...current, subjectName: event.target.value }))} placeholder="Nombre completo" /></label><div className="agent-simple-consent-grid"><label><span>Contacto (opcional)</span><input value={consent.subjectContact} onChange={event => setConsent(current => ({ ...current, subjectContact: event.target.value }))} placeholder="Email o teléfono" /></label><label><span>Caducidad (opcional)</span><input type="date" value={consent.expiresAt} onChange={event => setConsent(current => ({ ...current, expiresAt: event.target.value }))} /></label></div><label><span>Documento guardado (opcional)</span><input value={consent.evidenceAssetId} onChange={event => setConsent(current => ({ ...current, evidenceAssetId: event.target.value }))} placeholder="Referencia del documento de autorización" /></label><label className="agent-simple-confirm"><input type="checkbox" checked={consent.confirmed} onChange={event => setConsent(current => ({ ...current, confirmed: event.target.checked }))} /><span>Confirmo que esta persona ha autorizado el uso de su voz para llamadas realizadas por este agente.</span></label><button type="button" disabled={!draft.voiceId?.trim() || !consent.subjectName.trim() || !consent.confirmed || consentBusy} onClick={createConsent}>{consentBusy ? 'Registrando…' : 'Registrar autorización'}</button></div>}
         </div> : null}
 
         {step === 2 ? <div className="agent-simple-form">
@@ -128,8 +148,13 @@ export default function AgentSimpleSetup({ agentId, draft, onChange, onSave, sav
         </div> : null}
 
         {step === 4 ? <div className="agent-simple-test">
-          {workspace?.latestEvaluation ? <><div className="agent-simple-score"><strong>{workspace.latestEvaluation.overall}</strong><span>puntos sobre 100</span></div><div><h4>{workspace.latestEvaluation.overall >= 75 ? 'Prueba superada' : 'Conviene repetir la prueba'}</h4><p>La publicación requiere al menos 75 puntos y ningún incumplimiento grave.</p></div></> : <><div className="agent-simple-test-icon"><RiPlayLine /></div><div><h4>{workspace?.calls?.some(item => item.status === 'completed') ? 'Hay una llamada lista para evaluar' : 'Aún no hay una prueba válida'}</h4><p>{workspace?.calls?.some(item => item.status === 'completed') ? 'Pulsa evaluar y recibirás la nota sin salir de este modo.' : 'Realiza una llamada auténtica desde la cabina y vuelve a este paso.'}</p></div></>}
-          <div className="agent-simple-test-actions"><button type="button" onClick={() => onNavigate(`/voz/cabina?agentId=${encodeURIComponent(agentId)}`)}>{workspace?.latestEvaluation ? 'Hacer otra prueba' : 'Abrir cabina'}</button>{workspace?.calls?.some(item => item.status === 'completed') ? <button type="button" className="is-primary" disabled={evaluating} onClick={evaluateLatestCall}>{evaluating ? 'Evaluando…' : 'Evaluar última llamada'}</button> : null}</div>
+          {workspace?.latestEvaluation ? <><div className="agent-simple-score"><strong>{workspace.latestEvaluation.overall}</strong><span>puntos sobre 100</span></div><div><h4>{workspace.latestEvaluation.overall >= 75 ? 'Prueba superada' : 'Conviene repetir la prueba'}</h4><p>La publicación requiere al menos 75 puntos y ningún incumplimiento grave.</p></div></> : <><div className="agent-simple-test-icon"><RiPlayLine /></div><div><h4>{workspace?.calls?.some(item => item.status === 'completed') ? 'Hay una llamada lista para evaluar' : 'Aún no hay una prueba válida'}</h4><p>{workspace?.calls?.some(item => item.status === 'completed') ? 'Pulsa evaluar y recibirás la nota sin salir de este modo.' : testNumber ? 'El agente te llamará a tu número de prueba. La llamada se graba entera y se evalúa sola al colgar.' : 'Autoriza primero un número propio: la prueba es una llamada telefónica de verdad, no la cabina del navegador.'}</p>{workspace?.testCall && !workspace.testCall.ready && workspace.testCall.blockers?.length ? <small>Falta: {workspace.testCall.blockers.join(', ')}.</small> : null}</div></>}
+          <div className="agent-simple-test-actions">
+            {testNumber
+              ? <button type="button" className="is-primary" disabled={testCalling || !workspace?.testCall?.ready} onClick={startTestCall}>{testCalling ? 'Llamando…' : `Llamar a ${testNumber.phone}`}</button>
+              : <button type="button" onClick={() => onOpenGovernance?.('quality')}>Autorizar un número de prueba</button>}
+            {workspace?.calls?.some(item => item.status === 'completed') ? <button type="button" disabled={evaluating} onClick={evaluateLatestCall}>{evaluating ? 'Evaluando…' : 'Evaluar última llamada'}</button> : null}
+          </div>
         </div> : null}
 
         {step === 5 ? <div className="agent-simple-publish">

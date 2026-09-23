@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
-import { RiArrowLeftLine, RiCheckLine, RiCloseLine, RiDownload2Line, RiEdit2Line, RiFileCopyLine, RiMailSendLine, RiPauseLine, RiPhoneLine, RiPlayLine, RiSearchLine, RiSendPlaneLine, RiStarFill, RiStarLine, RiTimeLine, RiAddLine } from 'react-icons/ri'
+import { RiArrowLeftLine, RiCheckLine, RiCloseLine, RiEdit2Line, RiFileCopyLine, RiMailSendLine, RiPhoneLine, RiSearchLine, RiSendPlaneLine, RiStarFill, RiStarLine, RiTimeLine, RiAddLine } from 'react-icons/ri'
 import '../dashboard.css'
 import './call-detail.css'
 import './sales-detail-standard.css'
@@ -11,6 +11,7 @@ import { readSalesCollection } from '../lib/salesWorkspace'
 import SalesContactAction from '../components/SalesContactAction'
 import SalesTaskModal from '../modals/SalesTaskModal'
 import PageLoadingState from '../components/ui/PageLoadingState'
+import CallRecordingPlayer from '../components/CallRecordingPlayer'
 
 const TABS = ['Resumen', 'Transcripción', 'Notas']
 
@@ -34,31 +35,6 @@ function Transcript({ call, query, onlyAgent }) {
   const messages = call.transcript.filter(item => (!onlyAgent || item.agent) && (!query || item.text.toLowerCase().includes(query.toLowerCase())))
   if (!messages.length) return <div className="detail-empty-state"><RiSearchLine /><strong>{call.transcript.length ? t('common.noResults') : 'No hay transcripción disponible'}</strong><span>{call.transcript.length ? 'Prueba con otro término.' : 'La transcripción estará disponible cuando termine de procesarse la llamada.'}</span></div>
   return <div className="detail-transcript" data-i18n-skip>{messages.map((message, index) => <article className={`detail-message ${message.agent ? 'agent' : 'contact'}`} key={`${message.time}-${index}`}>{message.agent && <div className="detail-message-avatar">IA</div>}<div className="detail-message-body"><div className="detail-message-bubble"><p>{message.text}</p></div><span>{message.time} · {message.agent ? call.agent : call.name}</span></div>{!message.agent && <Avatar call={call} size={28} />}</article>)}</div>
-}
-
-function Player({ recordingUrl }) {
-  const { t } = useI18n()
-  const audioRef = useRef(null)
-  const [playing, setPlaying] = useState(false)
-  const [current, setCurrent] = useState(0)
-  const [duration, setDuration] = useState(0)
-  if (!recordingUrl) return <div className="detail-empty-state"><RiPhoneLine /><strong>{t('details.noRecording')}</strong><span>{t('details.noRecordingText')}</span></div>
-  const togglePlayback = async () => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (playing) {
-      audio.pause()
-      setPlaying(false)
-      return
-    }
-    try {
-      await audio.play()
-      setPlaying(true)
-    } catch {
-      setPlaying(false)
-    }
-  }
-  return <div className="detail-player"><audio ref={audioRef} src={recordingUrl} preload="metadata" onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onTimeUpdate={event => setCurrent(event.currentTarget.currentTime)} onEnded={() => setPlaying(false)} /><button className="detail-play" onClick={togglePlayback} aria-label={playing ? 'Pausar llamada' : 'Reproducir llamada'}>{playing ? <RiPauseLine /> : <RiPlayLine />}</button><span className="detail-player-time">{formatDuration(Math.floor(current))}</span><input className="detail-player-range" type="range" min="0" max={duration || 0} value={current} onChange={event => { const value = Number(event.target.value); setCurrent(value); if (audioRef.current) audioRef.current.currentTime = value }} aria-label="Posición de la grabación" /><span className="detail-player-time">{formatDuration(Math.floor(duration))}</span><a className="detail-download" href={recordingUrl} target="_blank" rel="noreferrer" aria-label="Descargar audio"><RiDownload2Line /></a></div>
 }
 
 export default function CallDetailPage() {
@@ -110,7 +86,7 @@ export default function CallDetailPage() {
   return <main className="call-detail-page dark-scroll">{contactAction && <SalesContactAction record={{ id: call.leadId, entity: 'lead', title: call.name }} action={contactAction} onClose={() => setContactAction(null)} />}{showFollowUp && <SalesTaskModal opportunities={opportunities || []} leadId={call.leadId} onClose={() => setShowFollowUp(false)} onSuccess={() => setFollowUpMessage('Seguimiento guardado. Puedes consultarlo y completarlo en el calendario.')} />}{followUpMessage && <p role="status">{followUpMessage} <button onClick={() => navigate('/calendario')}>Abrir calendario</button></p>}<div className="detail-topbar"><button className="detail-back" onClick={() => navigate(`/llamadas${window.location.search}`)}><RiArrowLeftLine /> Volver a llamadas</button><div className="detail-top-actions">{call.leadId && <><button className="detail-utility-action" onClick={() => navigate(`/ventas/lead/${call.leadId}`)}>Ver contacto</button><button className="detail-utility-action" onClick={() => setContactAction('meeting')}>Programar reunión</button><button className="detail-utility-action" onClick={() => setContactAction('call')}>Volver a llamar</button><button className="detail-note-action" onClick={() => setShowFollowUp(true)}>Programar seguimiento</button></>}{call.agentId && <button className="detail-utility-action" onClick={() => navigate(`/agentes/${call.agentId}`)}>Ver agente</button>}<MicroappSurfaceActions surface="call" entityId={id} /><button className={`detail-utility-action ${starred ? 'is-starred' : ''}`} onClick={toggleFavorite} aria-label={starred ? 'Quitar de destacadas' : 'Destacar llamada'} title={starred ? 'Quitar de destacadas' : 'Destacar llamada'}>{starred ? <RiStarFill /> : <RiStarLine />}</button><button className="detail-utility-action" onClick={copySummary} aria-label="Copiar resumen" title="Copiar resumen"><RiFileCopyLine /></button><button className="detail-note-action" onClick={() => setTab('Notas')}><RiEdit2Line /> Añadir nota</button></div></div><MicroappProjectionPanel surface="call" entityId={id} />
     {error && <div className="detail-empty-state" role="alert"><RiCloseLine /><span>{error}</span></div>}
     <section className="detail-hero"><div className="detail-hero-main"><Avatar call={call} /><div className="detail-hero-copy"><div className="detail-name-line"><h1>{call.name}</h1><span className="detail-status">{call.status}</span></div><p>{call.company} · {call.role}</p><div className="detail-facts"><span><RiPhoneLine /><b>{call.agent}</b><small>Agente</small></span><span><RiTimeLine /><b>{call.dur}</b><small>Duración</small></span><span><RiTimeLine /><b>{call.time}</b><small>Hora</small></span></div></div></div>{call.score != null && <div className="detail-score"><span>Sentimiento</span><strong>{call.score}</strong></div>}</section>
-    <section className="detail-player-section"><div className="detail-section-heading"><div><h2>Grabación de la llamada</h2><p>Reproduce el audio original cuando está disponible.</p></div></div><Player recordingUrl={call.recordingUrl} /></section>
+    <section className="detail-player-section"><div className="detail-section-heading"><div><h2>Grabación de la llamada</h2><p>Reproduce el audio original cuando está disponible.</p></div></div><CallRecordingPlayer recordingUrl={call.recordingUrl} /></section>
     <section className="detail-layout"><div className="detail-main-panel"><nav className="detail-tabs" aria-label="Secciones del detalle">{TABS.map(value => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}>{value}</button>)}</nav>{tab === 'Resumen' && <div className="detail-summary-grid"><article className="detail-summary-card detail-summary-wide"><div className="detail-card-heading"><h2>Resumen de la llamada</h2></div><p>{call.summary || 'No hay resumen disponible para esta llamada.'}</p></article>{metricEntries.length > 0 && <article className="detail-summary-card"><div className="detail-card-heading"><h2>Métricas disponibles</h2></div>{metricEntries.map(([label, value]) => <div className="detail-stat-row" key={label}><span>{label}</span><strong>{String(value)}</strong></div>)}</article>}</div>}{tab === 'Transcripción' && <div className="detail-transcript-wrap"><div className="detail-transcript-toolbar"><div><RiSearchLine /><input value={transcriptQuery} onChange={event => setTranscriptQuery(event.target.value)} placeholder="Buscar en la transcripción…" aria-label="Buscar en la transcripción" /></div><button className={onlyAgent ? 'active' : ''} onClick={() => setOnlyAgent(value => !value)}>Solo IA</button></div><Transcript call={call} query={transcriptQuery} onlyAgent={onlyAgent} /></div>}{tab === 'Notas' && <div className="detail-notes"><div className="detail-notes-heading"><h2>Notas de esta llamada</h2><span>{notes.length} notas</span></div><textarea value={newNote} onChange={event => setNewNote(event.target.value)} placeholder="Añade contexto…" /><button className="calls-button primary" onClick={addNote}><RiCheckLine /> Guardar nota</button><div>{notes.map(item => <article key={item.id}><p>{item.text}</p><small>{item.authorName || 'Equipo'} · {item.createdAt ? new Date(item.createdAt).toLocaleString(localeCode(getLocale())) : ''}</small><button onClick={() => deleteNote(item.id)} aria-label="Eliminar nota"><RiCloseLine /></button></article>)}</div></div>}</div><aside className="detail-sidebar">{call.leadId && <section className="detail-side-card"><h2>Oportunidades del contacto</h2>{opportunityError ? <p role="status">{opportunityError}</p> : !opportunities ? <p>Cargando oportunidades…</p> : opportunities.length ? opportunities.map(item => <button key={item.id} className="detail-add-action" onClick={() => navigate(`/ventas/opportunity/${item.id}`)}>{item.name}</button>) : <p>No hay oportunidades vinculadas a este contacto.</p>}</section>}<section className="detail-side-card"><div className="detail-card-heading"><h2>Próximas acciones</h2><RiCheckLine /></div>{tasks.length ? <div className="detail-tasks">{tasks.map(item => <button key={item.id} className={item.done ? 'done' : ''} onClick={() => toggleTask(item)}><i>{item.done && <RiCheckLine />}</i><span>{item.title}</span></button>)}</div> : <div className="detail-empty-state"><span>No hay acciones registradas.</span></div>}</section><section className="detail-side-card"><button className="detail-add-action" onClick={() => setTab('Notas')}><RiSendPlaneLine /> Añadir contexto en notas</button></section></aside></section>
   </main>
 }

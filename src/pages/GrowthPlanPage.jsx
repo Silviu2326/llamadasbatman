@@ -14,7 +14,8 @@ import { classifyFetchError } from '../lib/dataStatus'
 import { planGateMessage, readPlanGate } from '../lib/planGate'
 import { getLocale, localeCode } from '../i18n'
 import DataStatusBanner from '../components/ui/DataStatusBanner'
-import PageLoadingState from '../components/ui/PageLoadingState'
+import HomeLoadingState, { HomeLoadingIndicator } from '../components/ui/HomeLoadingState'
+import HomePageFrame from '../components/ui/HomePageFrame'
 import './growth/growth-surface.css'
 import './growth-plan.css'
 import './plan-focused.css'
@@ -27,9 +28,9 @@ const WINDOWS = [
 ]
 
 const TABS = [
-  { key: 'objetivos', label: 'Objetivos', hint: 'Marca el destino', icon: RiFocus3Line },
-  { key: 'hacer', label: 'Plan de acción', hint: 'Da el siguiente paso', icon: RiTaskLine },
-  { key: 'simular', label: 'Simulador', hint: 'Explora lo posible', icon: RiLineChartLine },
+  { key: 'objetivos', label: 'Objetivos', icon: RiFocus3Line },
+  { key: 'hacer', label: 'Plan de acción', icon: RiTaskLine },
+  { key: 'simular', label: 'Simulador', icon: RiLineChartLine },
 ]
 
 const HORIZON_CARD = { hoy: 'tone-danger', 'esta-semana': 'tone-warn', 'este-mes': 'tone-info' }
@@ -399,56 +400,40 @@ function GrowthPlan() {
   const origin = (key, formatted) => `${board?.snapshot.rates[key]?.source === 'own' ? 'tuyo' : 'referencia'}: ${formatted}`
 
   return (
-    <main className="gs-page pl-page plan-focused">
-      <div className="gs-shell">
-        <header className="gs-header pl-header">
-          <div className="gs-heading">
-            <div>
-              <span className="plan-eyebrow"><RiFocus3Line aria-hidden="true" /> Plan y objetivos</span>
-              <h1>Tus metas merecen <span>un plan.</span></h1>
-              <p>Ponle una cifra a tu ambición. Decide qué hacer hoy y descubre qué necesitarías para llegar más lejos.</p>
-            </div>
-          </div>
-          {needsBoard ? <div className="gs-header-actions">
-            <select className="gs-select pl-window" aria-label="Periodo de referencia del plan" value={windowDays} onChange={event => { setWindowDays(Number(event.target.value)); setBoard(null); setSim(null) }}>
-              {WINDOWS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <button type="button" className="gs-button" onClick={load} disabled={status === 'loading'}>
-              {status === 'loading' ? <RiLoader4Line className="gs-spin" /> : <RiRefreshLine />} Recalcular
-            </button>
-          </div> : null}
-        </header>
+    <HomePageFrame page="plan" className="plan-focused" contentClassName="gs-shell">
 
         <nav className="gs-tabs pl-tabs" aria-label="Secciones del plan">
-          {TABS.map(({ key, label, hint, icon: Icon }, index) => <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => setTab(key)} aria-label={label} aria-pressed={activeTab === key}>
+          {TABS.map(({ key, label, icon: Icon }) => <button key={key} type="button" className={activeTab === key ? 'active' : ''} onClick={() => setTab(key)} aria-label={label} aria-pressed={activeTab === key}>
             <span className="plan-tab-icon"><Icon aria-hidden="true" /></span>
-            <span className="plan-tab-copy"><strong>{label}</strong><small>{hint}</small></span>
-            <span className="plan-tab-number" aria-hidden="true">0{index + 1}</span>
+            <span className="plan-tab-copy"><strong>{label}</strong></span>
           </button>)}
         </nav>
+        {needsBoard ? <details className="home-data-details plan-report-settings"><summary>Datos usados para el plan</summary>
+          <div className="plan-report-controls"><label>Actividad de los últimos <select className="gs-select pl-window" aria-label="Periodo de referencia del plan" value={windowDays} onChange={event => { setWindowDays(Number(event.target.value)); setBoard(null); setSim(null) }}>
+            {WINDOWS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select></label><button type="button" className="gs-button" onClick={load} disabled={status === 'loading'}>{status === 'loading' ? <RiLoader4Line className="gs-spin" /> : <RiRefreshLine />}Actualizar plan</button></div>
+          {board ? <p>{num(board.snapshot.history.calls)} llamadas, {num(board.snapshot.history.opportunities)} oportunidades y {num(board.snapshot.history.won)} ventas. Venta media: {money(board.snapshot.dealValue.value, currency)}{board.snapshot.dealValue.source === 'baseline' ? ' (referencia del sector)' : ''}.</p> : null}
+        </details> : null}
         <div hidden={activeTab !== 'objetivos'} className="plan-goals">
-          <MonthlyGoals showLinks={false} title={<><RiFocus3Line aria-hidden="true" /> ¿Hasta dónde quieres llegar este mes?</>} onGoalLoaded={setSavedGoal} />
-          <p className="gs-note plan-shared-note"><RiInformationLine aria-hidden="true" /> Un equipo, una misma meta. Estos objetivos también aparecen en Resumen y se mantienen cada mes hasta que los cambies.</p>
+          <MonthlyGoals showLinks={false} title="¿Hasta dónde quieres llegar este mes?" onGoalLoaded={setSavedGoal} />
           <div className="plan-next-grid">
             <section className="plan-next">
               <span className="plan-card-icon"><RiFlashlightLine aria-hidden="true" /></span>
-              <span className="plan-card-kicker">De la intención a la acción</span>
-              <h2>Haz que tu meta tenga fecha.</h2>
-              <p>Elige una acción sugerida y conviértela en una tarea. Un paso concreto para empezar a avanzar.</p>
+              <h2>Qué hacer a continuación</h2>
+              <p>Revisa las sugerencias y añade las que te interesen al calendario.</p>
               <button type="button" className="gs-button plan-primary" onClick={() => setTab('hacer')}>Elegir mi siguiente paso <RiArrowRightLine aria-hidden="true" /></button>
             </section>
             <section className="plan-next plan-next-simulator">
               <span className="plan-card-icon"><RiLineChartLine aria-hidden="true" /></span>
-              <span className="plan-card-kicker">Antes de dar el salto</span>
-              <h2>¿Y si apuntas más alto?</h2>
-              <p>Prueba otro presupuesto o una mejor tasa de cierre. Compara escenarios estimados antes de decidir.</p>
+              <h2>Prueba otro presupuesto</h2>
+              <p>Estima cómo cambiarían tus ventas antes de invertir.</p>
               <button type="button" className="gs-button" onClick={() => setTab('simular')}>Probar un escenario <RiArrowRightLine aria-hidden="true" /></button>
             </section>
           </div>
           <Link className="plan-insights-link" to="/insights"><RiLineChartLine aria-hidden="true" /><span>Descubre qué campañas y agentes están dando resultados</span><RiArrowRightLine aria-hidden="true" /></Link>
         </div>
-        {needsBoard ? <DataStatusBanner status={status} message={notice || undefined} onRetry={load} /> : null}
-        {needsBoard && status === 'loading' && !board ? <PageLoadingState label="Cargando datos del plan" /> : null}
+        {needsBoard && status !== 'loading' ? <DataStatusBanner status={status} message={notice || undefined} onRetry={load} /> : null}
+        {needsBoard && status === 'loading' ? board ? <HomeLoadingIndicator label="Actualizando tu plan…" /> : <HomeLoadingState variant={activeTab === 'simular' ? 'analysis' : 'list'} label={activeTab === 'simular' ? 'Preparando tu simulador…' : 'Organizando tu plan de acción…'} /> : null}
         {needsBoard && board ? (<>
           {status !== 'live' ? <p className="gs-note" role="status">El informe anterior puede estar desactualizado. Actualízalo antes de tomar decisiones.</p> : null}
             {/* ── Simular ─────────────────────────────────────────────── */}
@@ -457,8 +442,8 @@ function GrowthPlan() {
                 <section className="gs-panel pl-sim">
                   <div className="pl-sim-controls">
                     <div className="pl-sim-title">
-                      <h2>Prueba hoy. Decide con perspectiva.</h2>
-                      <p>Mueve los controles y explora cómo cambiarían tus resultados. Es una simulación: tus metas y campañas siguen igual.</p>
+                      <h2>Estima tus ventas</h2>
+                      <p>Ajusta el presupuesto y las tasas. Esta simulación no modifica tus objetivos ni tus campañas.</p>
                     </div>
 
                     <div className="pl-budget">
@@ -538,8 +523,9 @@ function GrowthPlan() {
                         <RiSignalTowerLine /> Tu plan da {num(board.totals.minutesAllowed)} minutos al mes y esto necesita {num(result.minutes)}.
                       </p>
                     ) : null}
-                    <p className="gs-note">*Solo resta el presupuesto de llamadas. No es beneficio neto: faltan producto, personal, impuestos y otros gastos. Coste de voz de referencia: {new Intl.NumberFormat(localeCode(getLocale()), { maximumFractionDigits: 3 }).format(params.costPerMinute)} €/min · {decimal(params.minutesPerCall)} min/llamada.</p>
-                    <p className="gs-note" role="status">{hasReferences ? 'Faltan datos propios: parte del cálculo utiliza tasas de referencia, indicadas junto a cada control.' : 'Los datos de partida proceden de tu actividad registrada; las previsiones no garantizan el resultado.'}</p>
+                    <p className="gs-note">*Ventas menos coste de llamadas. No es beneficio neto: faltan los demás gastos del negocio.</p>
+                    <details className="home-data-details"><summary>Costes usados en la simulación</summary><p>{new Intl.NumberFormat(localeCode(getLocale()), { maximumFractionDigits: 3 }).format(params.costPerMinute)} €/min y {decimal(params.minutesPerCall)} minutos por llamada.</p></details>
+                    <p className="gs-note" role="status">{hasReferences ? 'Estimación con algunas tasas de referencia: aún faltan datos propios.' : 'Estimación basada en tu actividad, no una venta garantizada.'}</p>
                     {touched ? (
                       <p className="gs-note">
                         Has modificado las tasas del cálculo. Puedes consultar el <button type="button" className="gs-link" onClick={() => setTab('hacer')}>plan de acción</button>.
@@ -549,8 +535,8 @@ function GrowthPlan() {
                 </section>
 
                 <Panel
-                  title="Pon la meta. Descubre el esfuerzo."
-                  subtitle="Elige una cifra de ventas y estima cuántas llamadas, conversaciones y oportunidades necesitarías. Tu objetivo guardado no cambia."
+                  title="Qué necesitas para alcanzar una cifra"
+                  subtitle="Estima las llamadas y oportunidades necesarias sin cambiar tu objetivo guardado."
                   icon={RiFocus3Line}
                 >
                   <GoalBox params={params} currency={currency} minutesAllowed={board.totals.minutesAllowed} savedGoal={savedGoal} />
@@ -559,7 +545,7 @@ function GrowthPlan() {
             ) : null}
 
             {activeTab === 'simular' ? (
-              <details className="plan-advanced"><summary>Más previsiones y reparto del presupuesto</summary><p className="gs-note">Escenarios estimados con el informe de referencia. No son ingresos asegurados y no cambian al mover las tasas del simulador. Pulsa Recalcular para actualizar el reparto con el presupuesto elegido.</p><div className="gs-stack">
+              <details className="plan-advanced"><summary>Más previsiones y reparto del presupuesto</summary><p className="gs-note">Estas estimaciones no cambian al mover las tasas del simulador. Para recalcular el reparto, usa «Actualizar plan» en «Datos usados para el plan».</p><div className="gs-stack">
                 <div className="gs-cols">
                   <Panel
                     title="Escenario de mejora estimado"
@@ -634,8 +620,8 @@ function GrowthPlan() {
             {/* ── Hacer ───────────────────────────────────────────────── */}
             {activeTab === 'hacer' ? (
               <div className="gs-stack">
-                <div className="plan-action-intro"><span className="plan-card-icon"><RiTaskLine aria-hidden="true" /></span><div><h2>El progreso empieza con una acción.</h2><p>Elige qué mover hoy. Convierte las sugerencias que encajen contigo en tareas y dales seguimiento en el <Link to="/calendario">Calendario</Link>.</p></div></div>
-                <p className="gs-note">Basado en los últimos {board.windowDays} días. Cada tarea se asigna a ti y vence hoy, en 7 días o en 30 días, según su grupo.</p>
+                <div className="plan-action-intro"><span className="plan-card-icon"><RiTaskLine aria-hidden="true" /></span><div><h2>Acciones sugeridas</h2><p>Añade las que te interesen al <Link to="/calendario">Calendario</Link>.</p></div></div>
+                <p className="gs-note">Cada tarea se asigna a ti y vence hoy, en 7 días o en 30 días, según su grupo.</p>
                 {taskError ? <p className="gs-note" role="alert">{taskError}</p> : null}
                 {Object.values(tasks).includes('done') ? <p className="gs-note" role="status">Tarea guardada. Ya aparece en el calendario.</p> : null}
                 {board.actions.length === 0 ? (
@@ -714,16 +700,9 @@ function GrowthPlan() {
               </div>
             ) : null}
 
-            <p className="gs-note pl-foot">
-              Últimos {board.windowDays} días: {num(board.snapshot.history.calls)} llamadas, {num(board.snapshot.history.opportunities)} oportunidades
-              y {num(board.snapshot.history.won)} ventas. Ticket medio {money(board.snapshot.dealValue.value, currency)}
-              {board.snapshot.dealValue.source === 'baseline' ? ' (referencia del sector)' : ''}.
-              {' '}Informe del {new Date(board.generatedAt).toLocaleString(localeCode(getLocale()))}.
-            </p>
           </>
         ) : null}
-      </div>
-    </main>
+    </HomePageFrame>
   )
 }
 

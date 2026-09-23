@@ -8,3 +8,5 @@
 .market-header p{color:rgba(213,221,240,.86)}
 .market-header .market-button.secondary{border-color:rgba(255,255,255,.22);background:rgba(8,12,20,.4);color:rgba(230,236,250,.92)}
 .market-versions{display:grid;gap:7px;margin:14px 0}.market-versions article{display:grid;grid-template-columns:auto auto 1fr;gap:12px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:9px}.market-versions article small{text-align:right;overflow-wrap:anywhere;color:var(--dim)}.market-editor summary{cursor:pointer;color:var(--text-strong);font-weight:700}
+.market-seller-form .market-check { display:inline-flex; align-items:center; gap:8px; color:var(--text-2); cursor:pointer; }
+.market-seller-form .market-check input { width:15px; height:15px; padding:0; accent-color:var(--violet); cursor:pointer; }

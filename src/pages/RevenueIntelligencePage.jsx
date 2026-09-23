@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   RiAddLine,
   RiAlertLine,
@@ -22,7 +23,7 @@ import {
 import { apiFetch } from '../lib/api'
 import { getLocale, localeCode, useI18n } from '../i18n'
 import BusinessIntelligenceWorkspace from '../components/BusinessIntelligenceWorkspace'
-import PageLoadingState from '../components/ui/PageLoadingState'
+import HomeLoadingState from '../components/ui/HomeLoadingState'
 import ProductPageHeader from '../components/ui/ProductPageHeader'
 import './revenue-intelligence.css'
 import './sales-workspace.css'
@@ -429,10 +430,8 @@ export default function RevenueIntelligencePage({ sectionNavigation = null }) {
     }
   }
 
-  if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading revenue intelligence' : 'Cargando inteligencia comercial'} />
-
   return <main className="ri-page">
-    <ProductPageHeader Icon={RiFlashlightLine} title={locale === 'en' ? 'Revenue intelligence' : 'Prioridades de ventas'} description={locale === 'en' ? 'Prioritize the next move, measure what works and turn winning conversations into reviewable proposals.' : 'Decide a quién contactar, compara mensajes y revisa las mejoras propuestas.'} navigation={sectionNavigation} />
+    <ProductPageHeader Icon={RiFlashlightLine} title={locale === 'en' ? 'Sales priorities' : 'Prioridades de ventas'} description={locale === 'en' ? 'Prioritize the next move, measure what works and turn winning conversations into reviewable proposals.' : 'Decide a quién contactar, compara mensajes y revisa las mejoras propuestas.'} navigation={sectionNavigation} actions={<Link to="/inteligencia">Volver al radar</Link>} />
 
 
 
@@ -440,7 +439,7 @@ export default function RevenueIntelligencePage({ sectionNavigation = null }) {
 
     <section className="ri-section" aria-labelledby="ri-actions-title">
       <SectionHeader eyebrow="Seguimiento" title="A quién contactar" description="Consulta el motivo, el canal y el mensaje sugerido para cada contacto." action={<button type="button" className="ri-button primary" disabled={loading || busyKey === 'refresh-actions'} onClick={refreshActions}><RiRefreshLine className={busyKey === 'refresh-actions' ? 'ri-spin' : ''} aria-hidden="true" />{busyKey === 'refresh-actions' ? 'Calculando' : 'Recalcular'}</button>} />
-      {loading ? <div className="ri-state"><span className="ri-loader" /><p>Calculando prioridades comerciales…</p></div> : failedSources.includes(0) ? <p role="status">No se han podido consultar los contactos prioritarios. Usa Reintentar para cargarlos.</p> : nextActions.length ? <div className="ri-action-list">{nextActions.map(action => <RecommendationCard key={action.id} action={action} busy={busyKey === `action-${action.id}`} onAct={updateAction} />)}</div> : <EmptyState icon={RiFlashlightLine} title="Aún no hay acciones priorizadas"><p>Cuando haya contactos, señales y permisos suficientes, las recomendaciones aparecerán aquí. No se muestran contactos de ejemplo.</p><button type="button" className="ri-button subtle" onClick={refreshActions} disabled={busyKey === 'refresh-actions'}>Recalcular ahora</button></EmptyState>}
+      {loading ? <HomeLoadingState label="Cargando recomendaciones…" /> : failedSources.includes(0) ? <p role="status">No se han podido consultar los contactos prioritarios. Usa Reintentar para cargarlos.</p> : nextActions.length ? <div className="ri-action-list">{nextActions.map(action => <RecommendationCard key={action.id} action={action} busy={busyKey === `action-${action.id}`} onAct={updateAction} />)}</div> : <EmptyState icon={RiFlashlightLine} title="Aún no hay acciones priorizadas"><p>Cuando haya contactos, señales y permisos suficientes, las recomendaciones aparecerán aquí. No se muestran contactos de ejemplo.</p><button type="button" className="ri-button subtle" onClick={refreshActions} disabled={busyKey === 'refresh-actions'}>Recalcular ahora</button></EmptyState>}
     </section>
 
     <details className="sales-advanced"><summary>Pruebas y mejoras pendientes</summary>

@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "SerpItem": {
+      "additionalProperties": false,
+      "properties": {
+        "position": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Position",
+          "type": "integer"
+        },
+        "url": {
+          "maxLength": 2048,
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "maxLength": 400,
+          "title": "Title",
+          "type": "string"
+        },
+        "kind": {
+          "default": "unknown",
+          "enum": [
+            "direct",
+            "marketplace",
+            "directory",
+            "media",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "position",
+        "url"
+      ],
+      "title": "SerpItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "keyword": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Keyword",
+      "type": "string"
+    },
+    "geography": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Geography",
+      "type": "string"
+    },
+    "language": {
+      "default": "es",
+      "title": "Language",
+      "type": "string"
+    },
+    "device": {
+      "default": "desktop",
+      "enum": [
+        "desktop",
+        "mobile"
+      ],
+      "title": "Device",
+      "type": "string"
+    },
+    "captured_at": {
+      "format": "date-time",
+      "title": "Captured At",
+      "type": "string"
+    },
+    "source": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/SerpItem"
+      },
+      "maxItems": 100,
+      "title": "Items",
+      "type": "array"
+    }
+  },
+  "required": [
+    "keyword",
+    "geography",
+    "captured_at",
+    "source",
+    "items"
+  ],
+  "title": "Serp",
+  "type": "object"
+}

@@ -11,7 +11,9 @@ import tls from 'node:tls'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
-import { auditBusiness, DigitalAuditResult } from './digitalAudit.service'
+import { crawlSitemaps, robotsAllows } from './sitemapCrawler'
+import { readResponseBufferLimited } from '../lib/integrationRuntime'
+import { assertAuditablePublicUrl, auditBusiness, DigitalAuditResult } from './digitalAudit.service'
 import { createKnowledgeBase, updateKnowledgeBase } from './knowledge.service'
 import { reviewArticleText } from './contentCritic.service'
 import { askJson, askText, fastModel, isDeepseekConfigured, smartModel } from '../lib/deepseek'
@@ -297,9 +299,17 @@ export interface SiteCrawl {
   missingH1: number
   imgsWithoutAlt: number
   pages: CrawledPage[]
+  discoveredUrls?: string[]
+  sitemapCount?: number
+  crawlLimit?: number
+  truncated?: boolean
+  failedUrls?: string[]
+  skippedByRobots?: number
+  redirects?: Record<string, string>
+  excludedUrls?: string[]
 }
 
-const MAX_CRAWL_PAGES = 12
+const MAX_CRAWL_PAGES = 50
 
 export function extractSitemapLocs(xml: string): string[] {
   return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)]
@@ -322,21 +332,27 @@ export function analyzeCrawledPages(pages: CrawledPage[]): Pick<SiteCrawl, 'dupl
   }
 }
 
-async function fetchText(url: string, timeoutMs = 8000): Promise<string | null> {
+async function fetchText(url: string, timeoutMs = 8000, onResolved?: (url: string) => void): Promise<string | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    })
-    clearTimeout(timer)
-    if (!res.ok) return null
-    return await res.text()
-  } catch {
+    let current = await assertAuditablePublicUrl(url)
+    for (let hop = 0; hop <= 5; hop++) {
+      const res = await fetch(current, { redirect: 'manual', signal: controller.signal, headers: { 'User-Agent': 'VendravaBot/1.0' } })
+      if (res.status >= 300 && res.status < 400) {
+        const next = res.headers.get('location')
+        await res.body?.cancel()
+        if (!next || hop === 5) return null
+        current = await assertAuditablePublicUrl(new URL(next, current).href)
+        continue
+      }
+      if (!res.ok) { await res.body?.cancel(); return null }
+      const text = (await readResponseBufferLimited(res, 2_000_000, timeoutMs)).toString('utf8')
+      onResolved?.(current.toString())
+      return text
+    }
     return null
-  }
+  } catch { return null } finally { clearTimeout(timer) }
 }
 
 function auditPageHtml(url: string, html: string): CrawledPage {
@@ -352,41 +368,30 @@ function auditPageHtml(url: string, html: string): CrawledPage {
 
 export async function crawlSite(url: string): Promise<SiteCrawl> {
   const base = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`)
-  const origin = base.origin
-
-  const robots = await fetchText(`${origin}/robots.txt`)
-  const robotsBlocksAll = !!robots && /User-agent:\s*\*\s*[\r\n]+\s*Disallow:\s*\/\s*$/im.test(robots)
-  const sitemapFromRobots = robots?.match(/Sitemap:\s*(\S+)/i)?.[1] ?? null
-
-  const sitemapXml = await fetchText(sitemapFromRobots ?? `${origin}/sitemap.xml`)
-  let locs = sitemapXml ? extractSitemapLocs(sitemapXml) : []
-  // Índice de sitemaps: un nivel de indirección basta para el 99% de las webs.
-  if (locs.length && sitemapXml && /<sitemapindex/i.test(sitemapXml)) {
-    const first = await fetchText(locs[0])
-    locs = first ? extractSitemapLocs(first) : []
-  }
-  const sameHost = locs.filter((u) => { try { return new URL(u).hostname === base.hostname } catch { return false } })
-  const targets = [...new Set([base.href, ...sameHost])].slice(0, MAX_CRAWL_PAGES)
-
-  const pages: CrawledPage[] = []
-  // Concurrencia 4: suficiente para 12 páginas sin castigar la web auditada.
+  const robots = await fetchText(base.origin + '/robots.txt')
+  const maps = await crawlSitemaps(base.origin, robots, fetchText)
+  const discoveredUrls = [...new Set([base.href, ...maps.urls])]
+  const allowed = discoveredUrls.filter(target => robotsAllows(robots, target))
+  const targets = allowed.slice(0, MAX_CRAWL_PAGES)
+  const pages: CrawledPage[] = [], failedUrls: string[] = [], redirects: Record<string,string> = {}
   for (let i = 0; i < targets.length; i += 4) {
-    const batch = await Promise.all(targets.slice(i, i + 4).map(async (target) => {
-      const html = await fetchText(target)
-      return html && html.length > 200 ? auditPageHtml(target, html) : null
+    await Promise.all(targets.slice(i, i + 4).map(async target => {
+      let resolved = target
+      const html = await fetchText(target, 8000, final => { resolved = final })
+      if (resolved !== target) redirects[target] = resolved
+      if (html && html.length > 200 && /<(?:html|head|body)[\s>]/i.test(html)) {
+        if (!pages.some(page => page.url === resolved)) pages.push(auditPageHtml(resolved, html))
+      }
+      else failedUrls.push(target)
     }))
-    pages.push(...batch.filter((p): p is CrawledPage => !!p))
   }
-
-  return {
-    robotsFound: robots != null,
-    robotsBlocksAll,
-    sitemapFound: !!sitemapXml && locs.length > 0,
-    sitemapUrlCount: sameHost.length,
-    pagesAudited: pages.length,
-    ...analyzeCrawledPages(pages),
-    pages,
-  }
+  pages.sort((a,b) => targets.indexOf(a.url) - targets.indexOf(b.url))
+  return { robotsFound: robots !== null, robotsBlocksAll: !robotsAllows(robots, base.href),
+    sitemapFound: maps.sitemapCount > 0, sitemapUrlCount: maps.urls.length,
+    sitemapCount: maps.sitemapCount, discoveredUrls, crawlLimit: MAX_CRAWL_PAGES,
+    truncated: maps.truncated || allowed.length > MAX_CRAWL_PAGES, failedUrls,
+    skippedByRobots: discoveredUrls.length - allowed.length, redirects, excludedUrls: discoveredUrls.filter(target => !robotsAllows(robots, target)),
+    pagesAudited: pages.length, ...analyzeCrawledPages(pages), pages }
 }
 
 // ---------------------------------------------------------------------------
@@ -462,10 +467,10 @@ export async function generateSeoReport(input: SeoReportInput, opts: { skipAi?: 
     if (site) {
       checklist.push({
         id: 'robots',
-        label: site.robotsBlocksAll ? 'robots.txt bloquea TODO el sitio' : 'robots.txt presente',
+        label: site.robotsBlocksAll ? 'robots.txt bloquea el rastreo de la portada' : 'robots.txt presente',
         ok: site.robotsFound && !site.robotsBlocksAll,
         hint: site.robotsBlocksAll
-          ? 'Tu robots.txt tiene "Disallow: /" para todos los bots: Google no puede indexar nada. Corrígelo ya.'
+          ? 'La portada no permite el rastreo de bots genéricos. Revisa las reglas Allow y Disallow de robots.txt.'
           : 'Publica un robots.txt básico que apunte a tu sitemap.',
       })
       checklist.push({
@@ -637,13 +642,28 @@ function opportunityScore(row: SearchConsoleRow): number {
   return impressions * positionFactor + clicks * 10
 }
 
-export async function searchConsolePerformance(orgId: string, keywords: string[]) {
+export function searchPropertyMatchesUrl(property: string | null, url: string): boolean {
+  if (!property) return false
+  try {
+    const target = new URL(url)
+    if (property.startsWith('sc-domain:')) {
+      const host = property.slice(10).toLowerCase()
+      return target.hostname === host || target.hostname.endsWith('.' + host)
+    }
+    const configured = new URL(property)
+    return target.origin === configured.origin && target.pathname.startsWith(configured.pathname)
+  } catch { return false }
+}
+export async function searchConsolePerformance(orgId: string, keywords: string[], websiteUrl?: string) {
   const integration = await prisma.organicIntegration.findFirst({
     where: { orgId, provider: 'search_console', status: 'connected' },
-    select: { id: true, lastSyncedAt: true },
+    select: { id: true, lastSyncedAt: true, externalPropertyId: true },
   })
+  if (websiteUrl && !searchPropertyMatchesUrl(integration?.externalPropertyId ?? null, websiteUrl)) {
+    return { connected: false, siteMismatch: Boolean(integration), property: integration?.externalPropertyId ?? null, lastSyncedAt: null, totalQueries: 0, matched: [], topQueries: [], quickWins: [], contentGaps: [] }
+  }
   const opportunities = await prisma.organicOpportunity.findMany({
-    where: { orgId, source: 'search_console' },
+    where: { orgId, source: 'search_console', ...(websiteUrl && integration?.externalPropertyId ? { metadata: { path: ['property'], equals: integration.externalPropertyId } } : {}) },
     select: { query: true, metadata: true },
     take: 5000,
   })
@@ -672,6 +692,7 @@ export async function searchConsolePerformance(orgId: string, keywords: string[]
 
   return {
     connected: !!integration,
+    property: integration?.externalPropertyId ?? null,
     lastSyncedAt: integration?.lastSyncedAt ?? null,
     totalQueries: rows.length,
     matched,

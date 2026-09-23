@@ -174,9 +174,9 @@ export async function seoRoutes(app: FastifyInstance) {
 
   app.get('/search-console', async (request, reply) => {
     const { orgId } = request.user as JWTUser
-    const { keywords } = (request.query ?? {}) as { keywords?: string }
+    const { keywords, url } = (request.query ?? {}) as { keywords?: string; url?: string }
     const list = (keywords ?? '').split(',').map((k) => k.trim()).filter(Boolean).slice(0, 30)
-    return reply.send({ data: await searchConsolePerformance(orgId, list) })
+    return reply.send({ data: await searchConsolePerformance(orgId, list, url) })
   })
 
   app.post('/content', canAnalyze, async (request, reply) => {

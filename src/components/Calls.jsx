@@ -211,7 +211,6 @@ export default function CallsPage() {
   useEffect(() => {
     const onKeyDown = event => {
       const tag = event.target?.tagName?.toLowerCase()
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setShowCommand(value => !value); setCommandQuery('') }
       if (event.key === 'Escape') setShowCommand(false)
       if (event.key === '/' && !['input', 'textarea', 'select'].includes(tag)) { event.preventDefault(); document.querySelector('.calls-search input')?.focus() }
     }

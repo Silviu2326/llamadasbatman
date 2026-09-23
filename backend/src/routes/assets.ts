@@ -11,6 +11,7 @@ import {
   type AssetStatus,
 } from '../services/assets.service'
 import { writeAuditLog } from '../lib/audit'
+import { personalStudioRoutes } from './personalStudio'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -31,6 +32,7 @@ const STATUSES: ReadonlySet<string> = new Set(['draft', 'approved', 'published',
  */
 export async function assetsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
+  await app.register(personalStudioRoutes)
   const canRead = { preHandler: [requirePermission('assets.read', { scope: 'org' })] }
   const canPublish = { preHandler: [requirePermission('assets.manage', { scope: 'org' })] }
 

@@ -177,7 +177,7 @@ function PlaybookCard({ pb, selected, onClick, onUse }) {
 
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function Playbooks({ sectionNavigation = null }) {
+export default function Playbooks({ sectionNavigation = null, sectionHelp = null }) {
   const { locale } = useI18n()
   const navigate = useNavigate()
   const [showNewPlaybook, setShowNewPlaybook] = useState(false)
@@ -265,6 +265,7 @@ export default function Playbooks({ sectionNavigation = null }) {
 
         {/* Header */}
         <ProductPageHeader Icon={RiBook2Line} title="Guiones de conversación" description="Prepara lo que dirán tus agentes y cómo responderán a las dudas de los clientes." navigation={sectionNavigation} actions={<div className="ui-page-actions"><button className="ui-primary-action" onClick={() => setShowNewPlaybook(true)}><RiAddLine />{locale === 'en' ? 'Create playbook' : 'Crear guion'}<HiChevronDown /></button></div>} />
+        {sectionHelp}
 
         {showNewPlaybook && <NewPlaybookModal onClose={() => setShowNewPlaybook(false)} onSuccess={() => { setShowNewPlaybook(false); setRefreshKey(k => k + 1) }} />}
 

@@ -277,8 +277,8 @@ export default function LeadDetailPage() {
   const [uploading, setUploading] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
   const [emailEnabled, setEmailEnabled] = useState(false)
-  const [templateId, setTemplateId] = useState('')
-  const [emailTemplates, setEmailTemplates] = useState(null)
+  const [emailDraftId, setEmailDraftId] = useState('')
+  const [emailDrafts, setEmailDrafts] = useState(null)
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailStatus, setEmailStatus] = useState('')
   const [fileInputKey, setFileInputKey] = useState(0)
@@ -300,10 +300,10 @@ export default function LeadDetailPage() {
   const accountSearchTimer = useRef(null)
 
   useEffect(() => {
-    apiFetch('/api/mautic/templates')
+    apiFetch('/api/email/newsletter-drafts')
       .then(response => response.ok ? response.json() : [])
-      .then(data => setEmailTemplates(Array.isArray(data) ? data : []))
-      .catch(() => setEmailTemplates([]))
+      .then(data => setEmailDrafts(Array.isArray(data) ? data : []))
+      .catch(() => setEmailDrafts([]))
   }, [])
 
   useEffect(() => {
@@ -352,7 +352,7 @@ export default function LeadDetailPage() {
       const filesValue = filesResult.status === 'fulfilled' ? filesResult.value : []
       setFiles(Array.isArray(filesValue) ? filesValue : [])
       const stats = statsResult.status === 'fulfilled' ? statsResult.value : null
-      setEmailEnabled(stats?.orgPlan === 'completo' && stats?.mauticEnabled)
+      setEmailEnabled(stats?.orgPlan === 'completo')
       const activitiesValue = activitiesResult.status === 'fulfilled' ? activitiesResult.value : null
       setActivities(Array.isArray(activitiesValue?.data) ? activitiesValue.data : [])
       const consentValue = consentResult.status === 'fulfilled' ? consentResult.value : []
@@ -534,10 +534,10 @@ export default function LeadDetailPage() {
   }
 
   async function sendTemplate() {
-    if (!templateId.trim()) return
+    if (!emailDraftId.trim()) return
     setSendingEmail(true); setEmailStatus('')
     try {
-      const response = await apiFetch(`/api/leads/${id}/send-email`, { method: 'POST', body: JSON.stringify({ mauticEmailId: templateId.trim() }) })
+      const response = await apiFetch(`/api/leads/${id}/send-email`, { method: 'POST', body: JSON.stringify({ emailDraftId: emailDraftId.trim() }) })
       setEmailStatus(response.ok ? 'Email enviado correctamente.' : 'No se pudo enviar el email.')
     } catch { setEmailStatus('No se pudo enviar el email. Revisa la conexión.') } finally { setSendingEmail(false) }
   }
@@ -630,7 +630,7 @@ export default function LeadDetailPage() {
 
       {tab === 'Archivos' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Archivos y recursos</h3><span>{files.length} archivos</span></div><div className="lead-file-upload"><span>Sube una propuesta, brief o caso de éxito para mantener todo junto.</span><button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}><RiUploadCloud2Line /> {uploading ? 'Subiendo…' : 'Subir archivo'}</button><input key={fileInputKey} ref={fileInputRef} type="file" hidden onChange={event => uploadFile(event.target.files?.[0])} /></div><div className="lead-files-list">{files.length ? files.map(file => <div className="lead-file-row" key={file.id || file.name}><RiFileTextLine /><div><strong>{file.name}</strong><span>{file.size ? `${Math.round(file.size / 1024)} KB` : 'Archivo del lead'} · {formatDate(file.createdAt)}</span></div>{file.url && <button className="leads-text-button" onClick={() => window.open(file.url, '_blank')}><RiExternalLinkLine /></button>}</div>) : <div className="lead-audit-card"><strong>Espacio listo para tus archivos</strong><p>La propuesta y los recursos de contexto aparecerán aquí para cualquier persona del equipo.</p></div>}</div></section>}
 
-      {tab === 'Email' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Enviar plantilla de email</h3><span>{emailTemplates?.length ? 'Mautic conectado' : 'Mautic sin plantillas'}</span></div><div className="lead-email-form">{emailTemplates === null ? <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Cargando plantillas…</span> : emailTemplates.length === 0 ? <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>No hay plantillas disponibles. Créalas desde Email marketing.</span> : <select value={templateId} onChange={event => setTemplateId(event.target.value)}><option value="">Selecciona una plantilla…</option>{emailTemplates.map(template => <option key={template.id} value={String(template.id)}>{template.name || template.subject || template.title || `Plantilla #${template.id}`}</option>)}</select>}<button onClick={sendTemplate} disabled={sendingEmail}>{sendingEmail ? 'Enviando…' : 'Enviar email'}</button></div>{emailStatus && <p className="lead-email-status">{emailStatus}</p>}</section>}
+      {tab === 'Email' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Enviar un email</h3><span>{emailDrafts?.length ? 'Borradores de Vendrava' : 'Sin borradores'}</span></div><div className="lead-email-form">{emailDrafts === null ? <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Cargando borradores…</span> : emailDrafts.length === 0 ? <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>No hay borradores. Crea uno desde Email marketing.</span> : <select value={emailDraftId} onChange={event => setEmailDraftId(event.target.value)}><option value="">Selecciona un borrador…</option>{emailDrafts.map(draft => <option key={draft.id} value={String(draft.id)}>{draft.name}</option>)}</select>}<button onClick={sendTemplate} disabled={sendingEmail}>{sendingEmail ? 'Enviando…' : 'Enviar email'}</button></div>{emailStatus && <p className="lead-email-status">{emailStatus}</p>}</section>}
     </div>
 
     <aside className="lead-detail-side">

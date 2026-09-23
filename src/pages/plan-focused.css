@@ -1,11 +1,4 @@
-.plan-focused { background: var(--bg); padding: 0; --plan-accent: var(--success-soft, var(--success)); }
-.plan-focused > .gs-shell { max-width: 1280px; padding: 32px 36px 64px; box-sizing: border-box; }
-.plan-focused .gs-header { position: relative; padding: 28px; margin-bottom: 20px; border: 1px solid color-mix(in srgb, var(--success) 24%, var(--line)); border-radius: 20px; background: radial-gradient(ellipse at 100% 0, color-mix(in srgb, var(--success) 14%, transparent), transparent 65%), var(--surface); flex-wrap: wrap; }
-.plan-focused .gs-heading h1 { font-size: clamp(27px, 3vw, 38px); font-weight: 650; letter-spacing: -1.1px; line-height: 1.15; text-wrap: balance; }
-.plan-focused .gs-heading h1 > span { color: var(--plan-accent); }
-.plan-focused .gs-heading p { font-size: 14px; line-height: 1.7; max-width: 560px; margin-top: 12px; }
-.plan-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--plan-accent); font-size: 11px; font-weight: 650; letter-spacing: 1.2px; text-transform: uppercase; }
-.plan-eyebrow svg { width: 19px; height: 19px; }
+.plan-focused { --plan-accent: var(--success-soft, var(--success)); --gs-accent: var(--success); --gs-brand-from: var(--success-deep); --gs-brand-to: var(--accent-deep); --gs-radius: 14px; --gs-radius-sm: 9px; }
 .plan-focused .pl-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; background: transparent; padding: 0; border: 0; border-radius: 0; margin-bottom: 28px; overflow: visible; }
 .plan-focused .pl-tabs button { position: relative; display: flex; min-width: 0; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 15px 14px; font-size: 14px; font-weight: 500; text-align: left; white-space: normal; }
 .plan-focused .pl-tabs button.active { border-color: color-mix(in srgb, var(--success) 55%, var(--line)); color: var(--text-strong); background: color-mix(in srgb, var(--success) 9%, var(--surface)); box-shadow: inset 0 -2px 0 var(--success); }
@@ -17,21 +10,12 @@
 .plan-tab-number { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .plan-focused .home-section { margin: 0; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
 .plan-focused .home-section h2 { display: flex; gap: 10px; align-items: center; font-size: 20px; margin: 0; font-weight: 600; line-height: 1.4; }
-.plan-focused .home-section h2 svg { flex: 0 0 auto; color: var(--plan-accent); width: 22px; height: 22px; }
-.plan-focused .home-section-title { flex-wrap: wrap; gap: 12px; }
-.plan-focused .home-section-title .home-link { padding: 9px 14px; border: 1px solid color-mix(in srgb, var(--success) 35%, var(--line)); border-radius: 8px; color: var(--plan-accent); background: color-mix(in srgb, var(--success) 8%, transparent); text-decoration: none; font-weight: 600; }
-.plan-focused .home-month-grid { gap: 16px; margin: 22px 0 16px; }
-.plan-focused .home-month-metric { padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); border-top: 2px solid color-mix(in srgb, var(--success) 55%, var(--line)); }
-.plan-focused .home-month-metric:nth-child(2) { border-top-color: var(--accent-soft); }
-.plan-focused .home-month-metric h3 { margin: 0; font-size: 13px; }
-.plan-focused .home-month-metric > strong { margin: 14px 0 10px; font-size: 36px; font-weight: 600; letter-spacing: -1px; }
-.plan-focused .home-month-metric p { margin-bottom: 0; line-height: 1.6; }
-.plan-focused .home-month-metric progress::-webkit-progress-value { background: var(--success); }
-.plan-focused .home-month-metric progress::-moz-progress-bar { background: var(--success); }
 .plan-focused .home-metric-note { font-size: 11px; }
 .plan-shared-note { display: flex; align-items: flex-start; gap: 8px; margin: 12px 4px 24px; }
 .plan-shared-note svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 3px; }
-.plan-next-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plan-next-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.plan-report-controls { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.plan-report-controls label { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .plan-next { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 24px; border: 1px solid color-mix(in srgb, var(--success) 22%, var(--line)); border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--success) 7%, transparent), transparent), var(--surface); }
 .plan-card-icon { width: 42px; height: 42px; margin-bottom: 4px; }
 .plan-card-icon svg { width: 23px; height: 23px; }
@@ -80,9 +64,6 @@
   .plan-focused .pl-tabs button { flex-direction: column; align-items: flex-start; }
 }
 @media(max-width: 650px) {
-  .plan-focused > .gs-shell { padding: 20px 16px 80px; }
-  .plan-focused .gs-header { padding: 22px 20px; border-radius: 16px; }
-  .plan-focused .gs-heading h1 { font-size: 29px; }
   .plan-focused .pl-tabs { gap: 8px; }
   .plan-focused .pl-tabs button { padding: 12px 8px; gap: 8px; }
   .plan-tab-copy strong { font-size: 12px; }

@@ -74,12 +74,6 @@ enum OpportunityStage {
   closed_lost
 }
 
-enum MauticAssetType {
-  template
-  segment
-  campaign
-}
-
 enum TaskStatus {
   open
   in_progress
@@ -121,13 +115,8 @@ model Organization {
   voiceServiceApiKey String?
   createdAt          DateTime @default(now())
 
-  // Mautic (email) y Metricool (redes sociales): el aislamiento por cliente
-  // vive en la app, no en infraestructura duplicada. mauticEnabled/
-  // metricoolEnabled gatean el Plan Completo desde el día 1.
-  mauticEnabled    Boolean @default(false)
-  mauticCompanyId  String?
+  // Metricool can be enabled per organization.
   metricoolEnabled Boolean @default(false)
-
   // Datos de empresa para /configuracion — evita un modelo OrganizationSetting
   // aparte para una relación 1:1 que nunca se consulta sin la Organization.
   email    String?
@@ -143,6 +132,7 @@ model Organization {
   webhookSubscriptions           WebhookSubscription[]
   agents                         Agent[]
   agentVersions                 AgentVersion[]
+  voiceTestNumbers               VoiceTestNumber[]
   campaigns                      Campaign[]
   leads                          Lead[]
   calls                          Call[]
@@ -187,7 +177,6 @@ model Organization {
   outboxEvents                   OutboxEvent[]
   nextBestActions                NextBestAction[]
   auditLogs                      AuditLog[]
-  mauticAssetBindings            MauticAssetBinding[]
   automationStepRuns             AutomationStepRun[]
   scheduledTriggers              ScheduledTrigger[]
   salesActivities                SalesActivity[]
@@ -195,8 +184,8 @@ model Organization {
   opportunityStageHistory        OpportunityStageHistory[]
   automationVersions             AutomationVersion[]
   importJobs                     ImportJob[]
-  mauticContactBindings          MauticContactBinding[]
   marketingCampaigns             MarketingCampaign[]
+  emailNewsletterDrafts          EmailNewsletterDraft[]
   emailDeliveries                EmailDelivery[]
   emailEvents                    EmailEvent[]
   accounts                       Account[]
@@ -390,6 +379,7 @@ model User {
   promotedAdRules             AdRuleAutonomy[]            @relation("AdRulePromotedBy")
   memberships                 OrganizationMembership[]
   agentVersions               AgentVersion[]               @relation("AgentVersionActor")
+  voiceTestNumbers            VoiceTestNumber[]            @relation("VoiceTestNumberActor")
   impersonatedSessions        AuthSession[]                @relation("SessionImpersonator")
   platformActions             PlatformAuditLog[]           @relation("PlatformAuditActor")
   platformActionsReceived     PlatformAuditLog[]           @relation("PlatformAuditTargetUser")
@@ -649,6 +639,34 @@ model AgentVersion {
   @@index([orgId, createdAt])
 }
 
+// Teléfono propio de la organización autorizado para recibir llamadas de
+// prueba. Publicar un agente exige una llamada real evaluada
+// (agents.service.ts, check `test`), pero un agente en borrador no puede
+// entrar en una campaña: sin esta lista blanca la ruta de prueba sería un
+// atajo para marcar cualquier número sin campaña ni agente publicado. Cada
+// alta declara por escrito quién autoriza el número y queda auditada.
+model VoiceTestNumber {
+  id          String    @id @default(cuid())
+  orgId       String
+  phone       String
+  label       String
+  attestation String
+  // Contacto interno que representa el destino. `Call.leadId` es obligatorio y
+  // la pasarela resuelve el teléfono en base de datos, nunca desde la petición:
+  // este lead es lo que ata una llamada de prueba a un número autorizado.
+  leadId      String    @unique
+  createdById String?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  lead      Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdBy User?        @relation("VoiceTestNumberActor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, phone])
+  @@index([orgId, revokedAt])
+}
+
 model Campaign {
   id                  String         @id @default(cuid())
   orgId               String
@@ -762,12 +780,12 @@ model Lead {
   conversations            Conversation[]
   messages                 Message[]
   contactConsents          ContactConsent[]
+  voiceTestNumber          VoiceTestNumber?
   salesSequenceEnrollments SalesSequenceEnrollment[]
   salesSequenceStepRuns    SalesSequenceStepRun[]
   nextBestActions          NextBestAction[]
   salesActivities          SalesActivity[]
   tasks                    Task[]
-  mauticContactBindings    MauticContactBinding[]
   emailDeliveries          EmailDelivery[]
   organicOpportunities     OrganicOpportunity[]
   adConversionSignals      AdConversionSignal[]
@@ -814,6 +832,10 @@ model Call {
   campaignId                      String?
   externalCallId                  String?
   direction                       String     @default("outbound")
+  // Llamada de prueba a un VoiceTestNumber: es una llamada real y gasta
+  // minutos, pero no es actividad comercial y no cuenta en los resultados del
+  // agente. Sí sirve como "prueba real" evaluable para publicar.
+  isTest                          Boolean    @default(false)
   status                          CallStatus
   durationSeconds                 Int?
   recordingUrl                    String?
@@ -845,6 +867,7 @@ model Call {
   runtimeSnapshot Json?
 
   @@unique([orgId, externalCallId])
+  @@index([orgId, isTest, createdAt])
 }
 
 model VoiceCallEvent {
@@ -2397,26 +2420,6 @@ model AuditLog {
   @@index([orgId, createdAt])
 }
 
-// Vincula un activo remoto de Mautic (plantilla/segmento/campaña) a la
-// organización que puede verlo y usarlo (P0-04/EM-01). Sin este binding,
-// ningún externalId se lista ni se acepta en un envío.
-model MauticAssetBinding {
-  id         String          @id @default(cuid())
-  orgId      String
-  assetType  MauticAssetType
-  externalId String
-  name       String
-  metadata   Json?
-  isActive   Boolean         @default(true)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, assetType, externalId])
-  @@index([orgId, assetType, isActive])
-}
-
 // Idempotencia por paso de automatización (P0-07/AU-02). Se reserva la fila
 // antes de ejecutar el efecto externo; el unique de runId+stepKey impide que
 // una caída entre proveedor y DB repita el envío al reintentar el run.
@@ -2547,46 +2550,20 @@ model Task {
 // Fase 2 · Email Marketing (docs/auditoria-nutricion-ventas/01-email-marketing.md)
 // ---------------------------------------------------------------------------
 
-// EM-101: vínculo formal Lead↔contacto Mautic. Sustituye el uso informal de
-// `crmleadid` como único puente — con esto se puede saber estado de sync,
-// último error y reintentar sin adivinar a partir de campos custom remotos.
-model MauticContactBinding {
-  id                String    @id @default(cuid())
-  orgId             String
-  leadId            String
-  externalContactId String
-  syncStatus        String    @default("pending") // pending|synced|error
-  lastSyncedAt      DateTime?
-  lastError         String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  lead Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, leadId])
-  @@unique([orgId, externalContactId])
-  @@index([orgId, syncStatus])
-}
-
-// EM-105 (versión mínima viable, sin variantes/A-B): proyección operativa en
-// el CRM de una campaña — audiencia, plantilla, remitente y calendario viven
-// aquí con ownership real; Mautic sigue siendo el motor de envío remoto.
+// Native email marketing campaigns are managed and sent by Vendrava.
 model MarketingCampaign {
   id                    String    @id @default(cuid())
   orgId                 String
-  provider              String    @default("mautic")
-  externalCampaignId    String?
+  provider              String    @default("resend")
   name                  String
   objective             String?
   status                String    @default("draft") // draft|validating|ready|scheduled|running|paused|completed|error
   audienceDefinition    Json?
   audienceSnapshotCount Int?
-  templateBindingId     String?
-  // EM-113: prueba A/B de asunto. Array de `{ key, templateExternalId, externalCampaignId? }`.
-  // Cada variante es una plantilla distinta de Mautic (el asunto vive en la
-  // plantilla, no aquí), así que probar asuntos es probar plantillas. Null =
-  // campaña de una sola versión, el camino de siempre.
+  emailDraftId          String?
+  // Immutable content snapshot for deterministic campaign sends and retries.
+  contentSnapshot       Json?
+  // Local A/B variants reference EmailNewsletterDraft IDs.
   variantDefinition     Json?
   sender                String?
   replyTo               String?
@@ -2600,12 +2577,28 @@ model MarketingCampaign {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  org        Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  emailDraft EmailNewsletterDraft? @relation(fields: [emailDraftId], references: [id], onDelete: SetNull)
   deliveries EmailDelivery[]
-
   @@index([orgId, status])
 }
 
+
+// Email marketing content drafts, shared within an organization and isolated by tenant.
+model EmailNewsletterDraft {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String   @default("Newsletter sin título")
+  content   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org        Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaigns  MarketingCampaign[]
+  deliveries EmailDelivery[]
+
+  @@index([orgId, updatedAt])
+}
 // EM-102/EM-10: un registro por destinatario y envío, con idempotencyKey para
 // que un reintento (webhook duplicado, job reintentado) nunca reenvíe.
 model EmailDelivery {
@@ -2613,7 +2606,9 @@ model EmailDelivery {
   orgId               String
   campaignId          String?
   leadId              String
-  templateExternalId  String?
+  emailDraftId        String?
+  subjectSnapshot      String?
+  htmlSnapshot         String?
   // EM-113: variante asignada en la publicación. Null en campañas sin A/B.
   variantKey          String?
   toAddress           String
@@ -2635,7 +2630,8 @@ model EmailDelivery {
   createdAt           DateTime  @default(now())
 
   org                   Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  campaign              MarketingCampaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  campaign              MarketingCampaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  emailDraft            EmailNewsletterDraft? @relation(fields: [emailDraftId], references: [id], onDelete: SetNull)
   lead                  Lead                   @relation(fields: [leadId], references: [id], onDelete: Cascade)
   events                EmailEvent[]
   salesSequenceStepRuns SalesSequenceStepRun[]
@@ -2646,14 +2642,12 @@ model EmailDelivery {
   @@index([orgId, campaignId, variantKey])
 }
 
-// EM-102/EM-08: evento normalizado (open/click/bounce/unsubscribe/complaint),
-// reemplaza el read-modify-write de `Lead.customFields.mauticActivity` que
-// perdía eventos concurrentes y limitaba el histórico a 50 entradas.
+// Normalized email events preserve delivery, engagement and compliance history.
 model EmailEvent {
   id              String   @id @default(cuid())
   orgId           String
   deliveryId      String?
-  provider        String   @default("mautic")
+  provider        String   @default("resend")
   externalEventId String?
   type            String // delivered|open|click|soft_bounce|hard_bounce|unsubscribe|complaint|reply
   url             String?
@@ -4886,3 +4880,6 @@ model MarketplaceLedgerEntry {
   @@index([settlementKey, createdAt])
   @@index([listingId, kind, createdAt])
 }
+
+
+

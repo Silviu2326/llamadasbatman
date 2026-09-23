@@ -20,6 +20,7 @@ export async function conversationsRoutes(app: FastifyInstance) {
   app.put('/:id', canMutate, controller.update as any)
   app.post('/:id/takeover', canMutate, controller.takeover as any)
   app.post('/:id/suggest', canUsePaidMessaging, controller.suggest as any)
+  app.put('/:id/assistant', canUsePaidMessaging, controller.assistant as any)
   app.post('/:conversationId/next-actions/:id/accept', {
     preHandler: [
       requirePermission('conversations.write', { scope: 'org' }),

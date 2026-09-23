@@ -23,7 +23,7 @@ function fakeDb(plan: string, usage: Usage = {}) {
     organization: {
       findUnique: async (args: unknown) => {
         orgFilters.push((args as { where?: unknown }).where)
-        return { id: 'org-contract', plan, mauticEnabled: true, metricoolEnabled: false }
+        return { id: 'org-contract', plan, metricoolEnabled: false }
       },
     },
     user: { count: count('users') },

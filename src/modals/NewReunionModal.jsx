@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import FormModal from '../components/ui/FormModal'
 import FormInput from '../components/forms/FormInput'
-import FormSelect from '../components/forms/FormSelect'
 import FormTextarea from '../components/forms/FormTextarea'
 import FormRow from '../components/forms/FormRow'
-import FormToggle from '../components/forms/FormToggle'
 import { apiFetch } from '../lib/api'
-import { RiSearchLine, RiUserLine } from 'react-icons/ri'
+import { RiArrowLeftLine, RiArrowRightLine, RiCalendarLine, RiCheckLine, RiLinkM, RiSearchLine, RiTimeLine, RiUserLine } from 'react-icons/ri'
 import { useI18n } from '../i18n'
+import './new-reunion-modal.css'
 
 const DURACIONES = ['15 min', '30 min', '45 min', '60 min']
 const DUR_MAP = { '15 min': 15, '30 min': 30, '45 min': 45, '60 min': 60 }
@@ -23,15 +22,6 @@ function splitDateTime(iso) {
   }
 }
 
-function toggleBtnStyle(active) {
-  return {
-    flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-    border: `1px solid ${active ? 'var(--violet)' : 'var(--line)'}`,
-    background: active ? '#8b5cf620' : 'transparent',
-    color: active ? 'var(--violet-soft)' : 'var(--muted)',
-  }
-}
-
 /**
  * RE-101: al crear, permite elegir entre dar de alta un lead nuevo (flujo
  * previo) o reutilizar uno ya existente (búsqueda server-side vía
@@ -44,7 +34,7 @@ function toggleBtnStyle(active) {
  * reunión nueva (así no se pierde la referencia a la reunión original).
  */
 export default function NewReunionModal({ onClose, onSuccess, meeting, initialLead }) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const isReschedule = !!meeting
   const initial = isReschedule ? splitDateTime(meeting.scheduledAt) : { date: '', time: '' }
 
@@ -58,6 +48,7 @@ export default function NewReunionModal({ onClose, onSuccess, meeting, initialLe
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [step, setStep] = useState(0)
 
   const [useExisting, setUseExisting] = useState(Boolean(initialLead))
   const [leadQuery, setLeadQuery] = useState('')
@@ -97,6 +88,11 @@ export default function NewReunionModal({ onClose, onSuccess, meeting, initialLe
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [isReschedule])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => document.querySelector('.new-meeting-wizard [data-autofocus]')?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [step])
 
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }))
 
@@ -152,95 +148,114 @@ export default function NewReunionModal({ onClose, onSuccess, meeting, initialLe
     } catch { setError(t('modal.connectionError')) } finally { setSaving(false) }
   }
 
+  const steps = isReschedule
+    ? [
+        { title: 'Nueva fecha', description: 'Elige el nuevo momento de la reunión.', icon: RiCalendarLine },
+        { title: 'Motivo', description: 'Deja contexto para el cambio.', icon: RiTimeLine },
+        { title: 'Confirmar', description: 'Comprueba todo antes de reprogramar.', icon: RiCheckLine },
+      ]
+    : [
+        { title: 'Persona', description: 'Indica con quién te vas a reunir.', icon: RiUserLine },
+        { title: 'Fecha y hora', description: 'Reserva el momento adecuado.', icon: RiCalendarLine },
+        { title: 'Detalles', description: 'Añade el objetivo y el enlace.', icon: RiLinkM },
+        { title: 'Revisar', description: 'Comprueba la invitación antes de crearla.', icon: RiCheckLine },
+      ]
+
+  function validateStep() {
+    setError(null)
+    if (!isReschedule && step === 0) {
+      if (useExisting && !selectedLead) { setError(t('modal.selectExistingLead')); return false }
+      if (!useExisting && !form.lead.trim()) { setError('Escribe el nombre de la persona para continuar.'); return false }
+    }
+    if ((isReschedule ? step === 0 : step === 1) && (!form.date || !form.time)) {
+      setError(t('modal.dateTimeRequired'))
+      return false
+    }
+    return true
+  }
+
+  function nextStep() {
+    if (!validateStep()) return
+    setStep(current => Math.min(steps.length - 1, current + 1))
+  }
+
+  function previousStep() {
+    setError(null)
+    setStep(current => Math.max(0, current - 1))
+  }
+
+  function handleFormSubmit() {
+    if (step < steps.length - 1) nextStep()
+    else handleSubmit()
+  }
+
+  const personName = useExisting ? selectedLead?.name : form.lead
+  const personCompany = useExisting ? selectedLead?.company : form.company
+  const scheduledLabel = form.date && form.time
+    ? new Date(`${form.date}T${form.time}:00`).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : 'Sin fecha seleccionada'
+
+  const footer = <div className="new-meeting-footer">
+    <button type="button" className="new-meeting-back" disabled={saving} onClick={step === 0 ? onClose : previousStep}>{step === 0 ? t('common.cancel') : <><RiArrowLeftLine /> Atrás</>}</button>
+    <span>{step + 1} de {steps.length}</span>
+    <button type="button" className="new-meeting-next" disabled={saving} onClick={step === steps.length - 1 ? handleSubmit : nextStep}>{step === steps.length - 1 ? <><RiCheckLine /> {saving ? t('common.saving') : (isReschedule ? t('modal.confirmNewDate') : t('modal.createMeeting'))}</> : <>Continuar <RiArrowRightLine /></>}</button>
+  </div>
+  const StepIcon = steps[step].icon
+
   return (
     <FormModal
       title={isReschedule ? t('modal.rescheduleMeeting') : t('modal.newMeeting')}
       onClose={() => { if (!saving) onClose() }}
-      onSubmit={handleSubmit}
+      onSubmit={handleFormSubmit}
       submitDisabled={saving}
-      submitText={saving ? t('common.saving') : (isReschedule ? t('modal.confirmNewDate') : t('modal.createMeeting'))}
+      size="lg"
+      footer={footer}
+      className="new-meeting-wizard"
     >
-      {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
+      <div className="new-meeting-progress" aria-label={`Paso ${step + 1} de ${steps.length}`}>
+        <div className="new-meeting-progress-copy"><span className="new-meeting-step-icon"><StepIcon /></span><div><small>Paso {step + 1} de {steps.length}</small><h4>{steps[step].title}</h4><p>{steps[step].description}</p></div></div>
+        <div className="new-meeting-dots" aria-hidden="true">{steps.map((item, index) => <i key={item.title} className={index === step ? 'current' : index < step ? 'done' : ''} />)}</div>
+        <div className="new-meeting-progress-track"><span style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>
+      </div>
 
-      {isReschedule ? (
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 11, color: 'var(--dim)' }}>{t('modal.newMeeting')}</span>
-          <strong style={{ fontSize: 13, color: 'var(--text)' }}>{meeting.objetivo || meeting.title || 'Reunión'}</strong>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{meeting.lead?.name}{meeting.lead?.company ? ` · ${meeting.lead.company}` : ''}</span>
-        </div>
-      ) : (
-        <div>
-          <FormToggle label={t('modal.existingLead')} checked={useExisting} onChange={value => { setUseExisting(value); setSelectedLead(null); setLeadQuery('') }} />
+      {error ? <p className="new-meeting-error" role="alert">{error}</p> : null}
 
-          {useExisting ? (
-            <div ref={boxRef} style={{ position: 'relative', marginTop: 10 }}>
-              <label style={{ display: 'block', fontSize: 11, color: 'var(--dim)', marginBottom: 5, fontWeight: 500 }}>
-                {t('modal.searchLead')}<span style={{ color: 'var(--danger)', marginLeft: 3 }}>*</span>
-              </label>
-              <div style={{ position: 'relative' }}>
-                <RiSearchLine style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--dim)' }} />
-                <input
-                  value={selectedLead ? selectedLead.name : leadQuery}
-                  onChange={event => { setSelectedLead(null); setLeadQuery(event.target.value); setLeadDropdownOpen(true) }}
-                  onFocus={() => setLeadDropdownOpen(true)}
-                  placeholder={t('modal.searchLead')}
-                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px 9px 30px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
-                />
-              </div>
-              {leadDropdownOpen && (leadResults.length > 0 || searchingLeads) && (
-                <div style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: 'var(--shadow-2)' }}>
-                  {searchingLeads && <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--dim)' }}>{t('common.search')}…</div>}
-                  {!searchingLeads && leadResults.map(lead => (
-                    <button
-                      key={lead.id}
-                      type="button"
-                      onClick={() => { setSelectedLead(lead); setLeadDropdownOpen(false) }}
-                      style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)' }}
-                      onMouseEnter={event => (event.currentTarget.style.background = 'var(--surface-hover)')}
-                      onMouseLeave={event => (event.currentTarget.style.background = 'none')}
-                    >
-                      <strong style={{ fontSize: 12.5 }}>{lead.name}</strong>
-                      <span style={{ fontSize: 11, color: 'var(--dim)' }}>{lead.company || t('modal.company')}</span>
-                    </button>
-                  ))}
-                  {!searchingLeads && !leadResults.length && debouncedLeadQuery && (
-                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--dim)' }}>{t('common.noResults')}: "{debouncedLeadQuery}"</div>
-                  )}
-                </div>
-              )}
-              {selectedLead && (
-                <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <RiUserLine style={{ width: 12, height: 12 }} /> {t('modal.selectedLead')}: {selectedLead.name}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
-              <FormInput label={t('modal.fullName')} value={form.lead} onChange={e => update('lead', e.target.value)} placeholder={locale === 'en' ? 'e.g. Maria Rodriguez' : 'Ej. María Rodríguez'} required />
-              <FormInput label={t('modal.company')} value={form.company} onChange={e => update('company', e.target.value)} placeholder={locale === 'en' ? 'e.g. TechSolutions Ltd.' : 'Ej. TechSolutions S.L.'} />
-            </div>
-          )}
-        </div>
-      )}
+      <div className="new-meeting-step" key={step}>
+        {!isReschedule && step === 0 ? <>
+          <div className="new-meeting-question"><span>1</span><div><h3>¿Con quién es la reunión?</h3><p>Puedes crear un contacto ahora o elegir uno que ya exista en tu CRM.</p></div></div>
+          <div className="new-meeting-contact-type">
+            <button type="button" className={!useExisting ? 'active' : ''} onClick={() => { setUseExisting(false); setSelectedLead(null); setLeadQuery(''); setError(null) }}><RiUserLine /><span><strong>Contacto nuevo</strong><small>Añadirlo al CRM al crear la reunión</small></span></button>
+            <button type="button" className={useExisting ? 'active' : ''} onClick={() => { setUseExisting(true); setSelectedLead(null); setLeadQuery(''); setError(null) }}><RiSearchLine /><span><strong>Contacto existente</strong><small>Buscar en tus contactos actuales</small></span></button>
+          </div>
+          {useExisting ? <div className="new-meeting-lead-search" ref={boxRef}>
+            <RiSearchLine /><input data-autofocus value={selectedLead ? selectedLead.name : leadQuery} onChange={event => { setSelectedLead(null); setLeadQuery(event.target.value); setLeadDropdownOpen(true) }} onFocus={() => setLeadDropdownOpen(true)} placeholder="Busca por nombre o empresa…" aria-label={t('modal.searchLead')} />
+            {leadDropdownOpen && (leadResults.length > 0 || searchingLeads || debouncedLeadQuery) ? <div className="new-meeting-lead-results">{searchingLeads ? <p>{t('common.search')}…</p> : leadResults.length ? leadResults.map(lead => <button key={lead.id} type="button" onClick={() => { setSelectedLead(lead); setLeadDropdownOpen(false) }}><strong>{lead.name}</strong><span>{lead.company || 'Sin empresa'}</span></button>) : <p>{t('common.noResults')}: “{debouncedLeadQuery}”</p>}</div> : null}
+            {selectedLead ? <p className="new-meeting-selected"><RiCheckLine /> {selectedLead.name}{selectedLead.company ? ` · ${selectedLead.company}` : ''}</p> : null}
+          </div> : <div className="new-meeting-fields"><FormInput label="Nombre completo" value={form.lead} onChange={event => update('lead', event.target.value)} placeholder="Ej. María Rodríguez" required data-autofocus /><FormInput label="Empresa" value={form.company} onChange={event => update('company', event.target.value)} placeholder="Ej. TechSolutions S.L." /></div>}
+        </> : null}
 
-      <FormRow>
-        <FormInput label={t('modal.date')} type="date" value={form.date} onChange={e => update('date', e.target.value)} required />
-        <FormInput label={t('modal.time')} type="time" value={form.time} onChange={e => update('time', e.target.value)} required />
-      </FormRow>
-      <FormSelect label={t('modal.duration')} value={form.duration} onChange={e => update('duration', e.target.value)} options={DURACIONES} />
-      {/* Sin este campo no había forma de guardar el enlace: el botón "Unirse"
-          no aparecía nunca porque depende de que la reunión tenga meetingUrl. */}
-      {!isReschedule && (
-        <FormInput
-          label={locale === 'en' ? 'Meeting link' : 'Enlace de la reunión'}
-          type="url"
-          value={form.meetingUrl}
-          onChange={e => update('meetingUrl', e.target.value)}
-          placeholder="https://meet.google.com/abc-defg-hij"
-        />
-      )}
-      {!isReschedule && <FormTextarea label={t('modal.meetingObjective')} value={form.objective} onChange={e => update('objective', e.target.value)} placeholder={locale === 'en' ? 'What do we want to achieve on this call?' : '¿Qué queremos conseguir en esta llamada?'} />}
-      {isReschedule && <FormTextarea label={t('modal.changeReason')} value={form.reason} onChange={e => update('reason', e.target.value)} placeholder={locale === 'en' ? 'e.g. The customer asked to move the meeting' : 'Ej. El cliente pidió mover la reunión'} />}
+        {((!isReschedule && step === 1) || (isReschedule && step === 0)) ? <>
+          <div className="new-meeting-question"><span>{isReschedule ? 1 : 2}</span><div><h3>¿Cuándo será?</h3><p>Selecciona fecha, hora y cuánto tiempo quieres reservar.</p></div></div>
+          {isReschedule ? <div className="new-meeting-context"><small>Reprogramando</small><strong>{meeting.objetivo || meeting.title || 'Reunión'}</strong><span>{meeting.lead?.name}{meeting.lead?.company ? ` · ${meeting.lead.company}` : ''}</span></div> : null}
+          <FormRow><FormInput label={t('modal.date')} type="date" value={form.date} onChange={event => update('date', event.target.value)} required data-autofocus /><FormInput label={t('modal.time')} type="time" value={form.time} onChange={event => update('time', event.target.value)} required /></FormRow>
+          {!isReschedule ? <div className="new-meeting-duration"><label>Duración</label><div>{DURACIONES.map(duration => <button type="button" key={duration} className={form.duration === duration ? 'active' : ''} onClick={() => update('duration', duration)}>{duration}</button>)}</div></div> : null}
+        </> : null}
+
+        {((!isReschedule && step === 2) || (isReschedule && step === 1)) ? <>
+          <div className="new-meeting-question"><span>{isReschedule ? 2 : 3}</span><div><h3>{isReschedule ? '¿Por qué cambia la fecha?' : '¿Qué vais a tratar?'}</h3><p>{isReschedule ? 'Añade una nota breve para conservar el contexto.' : 'El objetivo ayuda a que todos lleguen preparados.'}</p></div></div>
+          {isReschedule ? <FormTextarea label={t('modal.changeReason')} value={form.reason} onChange={event => update('reason', event.target.value)} placeholder="Ej. El cliente pidió mover la reunión" rows={4} data-autofocus /> : <><FormTextarea label={t('modal.meetingObjective')} value={form.objective} onChange={event => update('objective', event.target.value)} placeholder="Ej. Revisar necesidades y acordar los siguientes pasos" rows={4} data-autofocus /><FormInput label="Enlace de la reunión" type="url" value={form.meetingUrl} onChange={event => update('meetingUrl', event.target.value)} placeholder="https://meet.google.com/abc-defg-hij" hint="Opcional. Puedes añadir Google Meet, Zoom o cualquier otra sala." /></>}
+        </> : null}
+
+        {step === steps.length - 1 ? <>
+          <div className="new-meeting-question"><span><RiCheckLine /></span><div><h3>{isReschedule ? 'Confirma la nueva fecha' : 'Todo listo para agendar'}</h3><p>Revisa los datos antes de guardar la reunión.</p></div></div>
+          <div className="new-meeting-review">
+            <button type="button" onClick={() => setStep(0)}><span><RiUserLine /> Persona</span><strong>{isReschedule ? (meeting.lead?.name || 'Sin contacto') : (personName || 'Sin nombre')}</strong><small>{isReschedule ? meeting.lead?.company : (personCompany || 'Sin empresa')}</small></button>
+            <button type="button" onClick={() => setStep(isReschedule ? 0 : 1)}><span><RiCalendarLine /> Fecha y hora</span><strong>{scheduledLabel}</strong><small>{isReschedule ? 'Nueva fecha propuesta' : form.duration}</small></button>
+            <button type="button" onClick={() => setStep(isReschedule ? 1 : 2)}><span><RiLinkM /> {isReschedule ? 'Motivo' : 'Detalles'}</span><strong>{isReschedule ? (form.reason || 'Sin motivo añadido') : (form.objective || 'Sin objetivo añadido')}</strong><small>{!isReschedule && form.meetingUrl ? form.meetingUrl : 'Sin enlace de videollamada'}</small></button>
+          </div>
+          <p className="new-meeting-ready"><RiCheckLine /> {isReschedule ? 'La reunión conservará su historial y contacto.' : 'El contacto y la reunión se guardarán juntos en el CRM.'}</p>
+        </> : null}
+      </div>
     </FormModal>
   )
 }

@@ -1,0 +1,44 @@
+@font-face {
+  font-family: 'Alfa Slab One';
+  src: url('/fonts/alfa-slab-one/AlfaSlabOne-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Crimson Text';
+  src: url('/fonts/crimson-text/CrimsonText-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Crimson Text';
+  src: url('/fonts/crimson-text/CrimsonText-SemiBold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+:root {
+  --font-heading: 'Alfa Slab One', Georgia, serif;
+  --font-subtitle: 'Crimson Text', Georgia, serif;
+}
+
+/* Main page titles keep the display face. */
+h1, [role='heading'][aria-level='1'], .ui-page-title {
+  font-family: var(--font-heading) !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+  font-synthesis: none;
+}
+
+/* Secondary titles use Crimson Text to create a clearer, warmer hierarchy. */
+h2, h3, h4, h5, h6, [role='heading']:not([aria-level='1']) {
+  font-family: var(--font-subtitle) !important;
+  font-weight: 600 !important;
+  letter-spacing: -.012em !important;
+  font-synthesis: none;
+}

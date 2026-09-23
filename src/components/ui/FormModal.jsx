@@ -18,7 +18,7 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
-export default function FormModal({ title, children, onClose, onSubmit, submitText = 'Crear', submitDisabled = false, size = 'md' }) {
+export default function FormModal({ title, children, onClose, onSubmit, submitText = 'Crear', submitDisabled = false, size = 'md', footer = null, className = '' }) {
   const { t } = useI18n()
   const modalRef = useRef(null)
   const onCloseRef = useRef(onClose)
@@ -99,7 +99,7 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="fade-up"
+        className={`fade-up ${className}`.trim()}
         style={{
           width: SIZES[size] ?? SIZES.md,
           maxWidth: 'calc(100vw - 32px)',
@@ -158,7 +158,7 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
           </div>
         </form>
 
-        <div
+        {footer ?? <div
           style={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -203,7 +203,7 @@ export default function FormModal({ title, children, onClose, onSubmit, submitTe
           >
             {submitText === 'Crear' ? t('common.create') : submitText}
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

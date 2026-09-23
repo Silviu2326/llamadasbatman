@@ -1,0 +1,58 @@
+; TEMPLATE FOR A NEW, DEDICATED ASTERISK. Do not replace the CRM PBX files.
+; SIP 922118 is available for the agent, per Carlos's confirmation relayed by
+; the user on 2026-09-16. Replace SIP_PASSWORD locally on the dedicated server.
+; Asterisk 22 with res_pjsip, res_audiosocket and app_audiosocket installed.
+[vendrava-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:5060
+; Behind NAT, configure local_net, external_signaling_address and
+; external_media_address for the actual deployment. Keep RTP reachable.
+
+[zadarma-ai-registration]
+type=registration
+transport=vendrava-udp
+outbound_auth=zadarma-ai-auth
+server_uri=sip:sip.zadarma.com
+client_uri=sip:922118@sip.zadarma.com
+contact_user=922118
+retry_interval=60
+expiration=120
+
+[zadarma-ai-auth]
+type=auth
+auth_type=userpass
+username=922118
+password=SIP_PASSWORD
+
+[zadarma-ai]
+type=aor
+contact=sip:sip.zadarma.com
+qualify_frequency=60
+
+[zadarma-ai]
+type=endpoint
+transport=vendrava-udp
+context=vendrava-reject-inbound
+disallow=all
+allow=alaw,ulaw
+outbound_auth=zadarma-ai-auth
+aors=zadarma-ai
+from_user=922118
+from_domain=sip.zadarma.com
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+
+[zadarma-ai-identify]
+type=identify
+endpoint=zadarma-ai
+; Provider addresses supplied by Carlos. Only for the dedicated instance.
+match=185.45.152.180
+match=185.45.152.161
+match=185.45.152.142
+match=185.45.152.216
+match=185.45.152.174
+match=185.45.155.33
+match=195.122.19.17

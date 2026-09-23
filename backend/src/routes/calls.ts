@@ -3,6 +3,7 @@ import { authenticate } from '../middlewares/authenticate'
 import { authenticateVoiceService } from '../middlewares/authenticateVoiceService'
 import { requirePermission } from '../access-control'
 import * as ctrl from '../controllers/calls.controller'
+import { getCallRecording } from '../controllers/callRecordings.controller'
 
 export async function callsRoutes(app: FastifyInstance) {
   const canRead = { preHandler: [authenticate, requirePermission('calls.read', { scope: 'org' })] }
@@ -10,6 +11,7 @@ export async function callsRoutes(app: FastifyInstance) {
 
   app.get('/', canRead, ctrl.list as any)
   app.get('/live', canRead, ctrl.live as any)
+  app.get('/recordings/:uuid', canRead, getCallRecording as any)
   app.get('/voice-metrics', canRead, ctrl.voiceMetrics as any)
   app.post('/tts-latency-demo', canMutate, ctrl.ttsLatencyDemo as any)
   app.post('/bulk-actions', canMutate, ctrl.bulkActions as any)

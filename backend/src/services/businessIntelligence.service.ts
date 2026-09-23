@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma'
 import { getBusinessProfile } from './businessProfile.service'
+import { radarDefaults, radarSetup } from './opportunityRadar'
+import { isSearchConfigured } from './webSearch.service'
 
 export const BUSINESS_INTELLIGENCE_MICROAPP_ID = 'business-opportunity-radar'
 
@@ -149,6 +151,9 @@ export async function getBusinessIntelligenceContext(orgId: string) {
   return {
     ...source,
     vertical,
+    radarDefaults: radarDefaults(source),
+    radarSetup: radarSetup(source),
+    radarSearchAvailable: isSearchConfigured(),
     lenses: buildResearchLenses(vertical.key),
     intelligenceReadiness: {
       score: Math.round(((5 - missing.length) / 5) * 100),
@@ -167,7 +172,7 @@ export async function listBusinessInvestigations(orgId: string, limit = 6) {
       take: Math.min(Math.max(limit, 1), 20),
     }),
     prisma.job.findMany({
-      where: { orgId, microappId: BUSINESS_INTELLIGENCE_MICROAPP_ID, status: { in: ['pending', 'running', 'waiting_provider'] } },
+      where: { orgId, microappId: BUSINESS_INTELLIGENCE_MICROAPP_ID, status: { in: ['pending', 'running', 'waiting_provider', 'awaiting_approval', 'cancel_requested'] } },
       select: { id: true, status: true, progress: true, createdAt: true, costEstimateCents: true },
       orderBy: { createdAt: 'desc' },
       take: 5,

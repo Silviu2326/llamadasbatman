@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma'
 import { Prisma } from '@prisma/client'
-import { sendEmailToLead, sendLeadToSegment, createEmailDelivery } from './mauticSync.service'
+import { createNativeEmailDelivery, resolveNativeEmailDraft, sendNativeMarketingDelivery } from './nativeMarketingEmail.service'
 import { assertEmailSendAllowed, type EmailSendBlockReason } from '../lib/emailCompliance'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
 import { sendWhatsApp } from './whatsapp.service'
@@ -53,7 +53,7 @@ export function normalizeAutomationTrigger(trigger: Record<string, unknown>): Re
   return { ...trigger, event }
 }
 export const AUTOMATION_ACTION_TYPES = [
-  'log', 'update_lead_status', 'send_to_mautic_segment',
+  'log', 'update_lead_status',
   'send_whatsapp_template', 'queue_voice_call', 'send_email_template', 'ai_reply_whatsapp',
   // AU-108: nuevas acciones CRM.
   'create_task', 'set_owner', 'add_tag', 'update_field', 'create_opportunity', 'notify',
@@ -68,8 +68,8 @@ export function validateAutomationActions(actions: unknown[]): asserts actions i
     if (typed.type === 'send_whatsapp_template' && !String(typed.params?.contentSid ?? '').trim()) {
       throw new Error('send_whatsapp_template requiere contentSid')
     }
-    if (typed.type === 'send_email_template' && !String(typed.params?.emailId ?? '').trim()) {
-      throw new Error('send_email_template requiere emailId')
+    if (typed.type === 'send_email_template' && !String(typed.params?.emailDraftId ?? '').trim()) {
+      throw new Error('send_email_template requiere emailDraftId')
     }
     if (typed.type === 'create_task' && !String(typed.params?.title ?? '').trim()) {
       throw new Error('create_task requiere title')
@@ -111,7 +111,6 @@ export interface AutomationStepResult {
 // En ese caso elegimos no repetir el efecto y lo dejamos bloqueado para
 // revisión, en vez de poder enviar dos mensajes o iniciar dos llamadas.
 const EXTERNAL_EFFECT_ACTIONS = new Set<string>([
-  'send_to_mautic_segment',
   'send_whatsapp_template',
   'queue_voice_call',
   'send_email_template',
@@ -127,26 +126,8 @@ function isExternalEffectAction(actionType: string) {
 function automationStepIdempotencyKey(runId: string, stepKey: string) {
   // Es estable a través de los reintentos del mismo run y se conserva tanto
   // en AutomationStepRun como en la metadata de los proveedores que la
-  // soportan. No se afirma que Mautic/Twilio la apliquen como garantía.
+  // soportan. No se afirma que los proveedores la apliquen como garantía.
   return `automation-${runId}-step-${stepKey}`
-}
-
-/**
- * Mautic es una instancia compartida entre organizaciones. Las acciones de
- * automatización no pueden confiar en un id/alias guardado en JSON: el
- * binding activo es la frontera de autorización justo antes del efecto
- * externo, también si una plantilla se desvinculó tras publicar el flujo.
- */
-async function isActiveMauticAssetBound(
-  orgId: string,
-  assetType: 'template' | 'segment',
-  externalId: string,
-): Promise<boolean> {
-  const binding = await prisma.mauticAssetBinding.findFirst({
-    where: { orgId, assetType, externalId, isActive: true },
-    select: { id: true },
-  })
-  return Boolean(binding)
 }
 
 async function executeAutomationAction(
@@ -174,17 +155,6 @@ async function executeAutomationAction(
       })
       if (updated.count === 0) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado en la organización' }
       return { status: 'succeeded', output: { leadId: String(payload.leadId), status: newStatus } }
-    }
-    case 'send_to_mautic_segment': {
-      if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
-      const segmentAlias = String(action.params?.segmentAlias ?? '').trim()
-      if (!segmentAlias) return { status: 'skipped', errorCode: 'MISSING_PARAM', errorDetail: 'Falta segmentAlias en params' }
-      if (!(await isActiveMauticAssetBound(orgId, 'segment', segmentAlias))) {
-        return { status: 'blocked', errorCode: 'MAUTIC_ASSET_UNAUTHORIZED', errorDetail: 'El segmento de Mautic no está vinculado y activo para esta organización' }
-      }
-      const ok = await sendLeadToSegment(String(payload.leadId), segmentAlias, orgId).catch(() => false)
-      if (!ok) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'Mautic no confirmó la asignación al segmento' }
-      return { status: 'succeeded', output: { segmentAlias } }
     }
     case 'send_whatsapp_template': {
       if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
@@ -224,24 +194,24 @@ async function executeAutomationAction(
       const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
       if (!lead) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
       if (!lead.email) return { status: 'blocked', errorCode: 'ADDRESS_MISSING', errorDetail: 'El lead no tiene email' }
-      const emailId = String(action.params?.emailId ?? '').trim()
-      if (!(await isActiveMauticAssetBound(orgId, 'template', emailId))) {
-        return { status: 'blocked', errorCode: 'MAUTIC_ASSET_UNAUTHORIZED', errorDetail: 'La plantilla de Mautic no está vinculada y activa para esta organización' }
-      }
-      const emailDecision = await assertEmailSendAllowed(orgId, leadId, 'contact')
-      if (!emailDecision.allowed) {
-        return { status: 'blocked', errorCode: EMAIL_BLOCK_ERROR_CODE[emailDecision.reason], errorDetail: `Envío bloqueado por cumplimiento: ${emailDecision.reason}` }
-      }
-      // EM-102: registro normalizado del intento de envío antes de invocar Mautic.
-      const delivery = await createEmailDelivery(orgId, leadId, { templateExternalId: emailId, toAddress: lead.email })
-      const sent = await sendEmailToLead(leadId, emailId, orgId, delivery.id)
-      if (!sent) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'Mautic no confirmó el envío automático' }
+      const emailDraftId = String(action.params?.emailDraftId ?? '').trim()
+      const content = await resolveNativeEmailDraft(orgId, emailDraftId)
+      if (!content) return { status: 'blocked', errorCode: 'EMAIL_DRAFT_NOT_FOUND', errorDetail: 'El borrador de email no existe o no pertenece a esta organización' }
+      const emailDecision = await assertEmailSendAllowed(orgId, leadId, 'marketing')
+      if (!emailDecision.allowed) return { status: 'blocked', errorCode: EMAIL_BLOCK_ERROR_CODE[emailDecision.reason], errorDetail: `Envío bloqueado por cumplimiento: ${emailDecision.reason}` }
+      const delivery = await createNativeEmailDelivery({ orgId, leadId, emailDraftId, toAddress: lead.email, idempotencyScope: idempotencyKey, purpose: 'marketing', content })
+      if (delivery.status === 'accepted' || delivery.status === 'delivered') return { status: 'succeeded', output: { leadId, emailDraftId, deliveryId: delivery.id, deduplicated: true } }
+      const workerId = `automation-${run.id}`
+      const claimed = await prisma.emailDelivery.updateMany({ where: { id: delivery.id, status: 'queued' }, data: { status: 'processing', workerId, lockedAt: new Date(), leaseExpiresAt: new Date(Date.now() + 60_000), providerAttemptedAt: new Date(), attempts: { increment: 1 } } })
+      if (!claimed.count) return { status: 'blocked', errorCode: 'DELIVERY_ALREADY_CLAIMED', errorDetail: 'El envío ya está siendo procesado.' }
+      const outcome = await sendNativeMarketingDelivery(delivery.id, workerId)
+      if (outcome !== 'accepted') return { status: 'blocked', errorCode: outcome === 'uncertain' ? 'DELIVERY_UNCERTAIN' : 'PROVIDER_UNAVAILABLE', errorDetail: 'Resend no confirmó el envío; revisa el registro antes de reintentarlo.' }
+      const latest = await prisma.emailDelivery.findUnique({ where: { id: delivery.id }, select: { providerMessageId: true } })
       if (conversationId) {
-        await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'email', provider: 'mautic', address: lead.email, direction: 'outbound', contentType: 'template', body: 'Email automático enviado', status: 'sent', sentAt: new Date(), metadata: { mauticEmailId: emailId, automationId: automation.id, automationRunId: run.id, automationStepIdempotencyKey: idempotencyKey } } })
+        await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'email', provider: 'resend', address: lead.email, direction: 'outbound', contentType: 'html', body: `${content.subject}\n\n${content.html}`, status: 'sent', sentAt: new Date(), providerMessageId: latest?.providerMessageId ?? undefined, metadata: { emailDraftId, deliveryId: delivery.id, automationId: automation.id, automationRunId: run.id, automationStepIdempotencyKey: idempotencyKey } } })
       }
-      return { status: 'succeeded', output: { leadId, emailId, deliveryId: delivery.id } }
-    }
-    case 'ai_reply_whatsapp': {
+      return { status: 'succeeded', output: { leadId, emailDraftId, deliveryId: delivery.id, providerMessageId: latest?.providerMessageId ?? null } }
+    }    case 'ai_reply_whatsapp': {
       if (!payload.leadId) return { status: 'skipped', errorCode: 'LEAD_ID_MISSING', errorDetail: 'El evento no incluye leadId' }
       if (!conversationId || payload.channel !== 'whatsapp') return { status: 'skipped', errorCode: 'UNSUPPORTED_CONTEXT', errorDetail: 'Requiere conversationId y canal whatsapp' }
       const leadId = String(payload.leadId)
@@ -826,3 +796,4 @@ export async function getEngineHealth(orgId: string) {
     },
   }
 }
+

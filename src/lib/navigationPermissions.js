@@ -173,6 +173,8 @@ const NAVIGATION_REQUIREMENTS = {
   '/reuniones': ['meetings.read'],
   // This page is transversal; any one of its read surfaces is enough to show
   // the entry point, while the API still decides which panels are available.
+  '/inteligencia': ['organization.read', 'jobs.read'],
+  '/inteligencia/prioridades': { anyOf: ['leads.read', 'experiments.read', 'memory.read'] },
   '/inteligencia-comercial': { anyOf: ['leads.read', 'experiments.read', 'memory.read'] },
   '/insights': ['dashboard.read'],
   '/knowledge-base': ['knowledge.read'],

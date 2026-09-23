@@ -57,11 +57,15 @@ test('la navegación global mantiene sus espacios y absorbe operación y recurso
   assert.equal(spaceForPath('/knowledge-base').id, 'sales')
 })
 
-test('«Más» solo lista en la sidebar Biblioteca y Configuración', () => {
+test('Configuración es un acceso directo y Biblioteca no aparece en los menús', () => {
   const listed = APP_MODULES
     .filter(module => module.space === 'more' && module.showInLocalNavigation !== false)
     .map(module => module.id)
-  assert.deepEqual(listed, ['assets', 'settings'])
+  assert.deepEqual(listed, ['settings'])
+  const settingsSpace = APP_SPACES.find(space => space.id === 'more')
+  assert.equal(settingsSpace.label, 'Configuración')
+  assert.equal(settingsSpace.directPath, '/configuracion')
+  assert.equal(APP_MODULES.find(module => module.id === 'assets').showInShortcuts, false)
   // Microapps y Studio siguen con ruta viva (paleta, atajos, enlaces de leads)
   // pero no ocupan hueco en el menú.
   assert.equal(MODULE_BY_NAV_ID.microapps.showInLocalNavigation, false)

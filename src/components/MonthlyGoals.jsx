@@ -1,24 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { RiArrowRightSLine } from 'react-icons/ri'
+import { RiArrowRightSLine, RiFocus3Line, RiCoinsLine, RiCalendarCheckLine } from 'react-icons/ri'
+import HomeAccentIcon from './ui/HomeAccentIcon'
 import { apiFetch } from '../lib/api'
 import { localeCode, useI18n } from '../i18n'
 import { goalProgress, validGoals } from '../lib/homeOverview'
+import HomeLoadingState, { HomeLoadingIndicator } from './ui/HomeLoadingState'
 import './home-command-center.css'
 
-export function Notice({ resource, retry, children }) {
-  if (resource.loading && resource.data === null) return <p className="home-message" role="status">Cargando…</p>
+export function Notice({ resource, retry, children, variant = 'list', label = 'Cargando tus próximos pasos…' }) {
+  if (resource.loading && resource.data === null) return <HomeLoadingState variant={variant} label={label} />
   if (resource.error) return <div className="home-message is-error" role="alert">
     <p>{resource.error} {resource.data !== null ? 'Se muestran los últimos datos cargados; pueden estar desactualizados.' : ''}</p>
     <button type="button" onClick={retry} disabled={resource.loading}>Reintentar</button>
   </div>
+  if (resource.loading) return <HomeLoadingIndicator />
   return children || null
 }
 
-function GoalMetric({ title, value, target, format }) {
+function GoalMetric({ title, value, target, format, icon, tone }) {
   const progress = goalProgress(value, target)
-  return <div className="home-month-metric">
-    <h3>{title}</h3><strong>{Number.isFinite(value) ? format(value) : '—'}</strong>
+  return <div className="home-month-metric home-metric-tone" data-tone={tone}>
+    <div className="home-metric-heading"><HomeAccentIcon icon={icon} tone={tone} /><h3>{title}</h3></div><strong>{Number.isFinite(value) ? format(value) : '—'}</strong>
     <p>{progress !== null ? `Objetivo: ${format(target)} · ${progress}% alcanzado` : 'Define tu meta para seguir tu avance'}</p>
     {progress !== null ? <progress max="100" value={Math.min(progress, 100)} aria-label={`${title}: ${progress}% del objetivo`} /> : null}
   </div>
@@ -48,20 +51,20 @@ export function MonthResults({ resource, retry, onSaved, locale, showLinks = tru
       const body = await response.json().catch(() => null)
       if (!response.ok) throw new Error(response.status === 403 ? 'No tienes permiso para modificar los objetivos de la organización.' : 'No se han podido guardar los objetivos.')
       if (!body || !validGoals(body)) throw new Error('No se pudo confirmar el guardado. Actualiza para comprobar los objetivos.')
-      onSaved(body); setEditing(false); setMessage('Objetivos guardados. Ya puedes seguir tu avance hacia la meta.')
+      onSaved(body); setEditing(false); setMessage('Objetivos guardados.')
     } catch (error) { setSaveError(error.message) }
     finally { setSaving(false) }
   }
   return <section className="home-section" aria-labelledby="home-month-title" aria-busy={resource.loading}>
-    <div className="home-section-title"><h2 id="home-month-title">{title}</h2>
+    <div className="home-section-title"><h2 id="home-month-title"><HomeAccentIcon icon={RiFocus3Line} tone="green" />{title}</h2>
       {stats && !editing ? <button className="home-link" type="button" disabled={resource.loading || !!resource.error} onClick={startEditing}>{stats.goals ? 'Editar objetivos' : 'Definir objetivos'}</button> : null}
     </div>
-    <p className="home-description">Decide a dónde quieres llegar. Sigue tus ventas y reuniones frente a tus objetivos del mes.</p>
-    <Notice resource={resource} retry={retry} />
+    <p className="home-description">Tus ventas y reuniones frente al objetivo del mes.</p>
+    <Notice resource={resource} retry={retry} variant="metrics" label="Cargando tus objetivos del mes…" />
     {stats ? <>
       <div className="home-month-grid">
-        <GoalMetric title="Ventas cerradas" value={stats.monthlyClosedWonValue} target={stats.goals?.monthlyRevenue} format={formatMoney} />
-        <GoalMetric title="Reuniones del mes" value={stats.monthlyMeetings} target={stats.goals?.monthlyMeetings} format={number} />
+        <GoalMetric title="Ventas cerradas" value={stats.monthlyClosedWonValue} target={stats.goals?.monthlyRevenue} format={formatMoney} icon={RiCoinsLine} tone="green" />
+        <GoalMetric title="Reuniones del mes" value={stats.monthlyMeetings} target={stats.goals?.monthlyMeetings} format={number} icon={RiCalendarCheckLine} tone="violet" />
       </div>
       {editing ? <form className="home-goal-form" onSubmit={save}>
         <fieldset disabled={saving}><legend>¿Qué quiere conseguir tu equipo este mes?</legend>
@@ -72,7 +75,7 @@ export function MonthResults({ resource, retry, onSaved, locale, showLinks = tru
         {saveError ? <p className="home-message is-error" role="alert">{saveError}</p> : null}
       </form> : null}
       {message ? <p className="home-message" role="status">{message}</p> : null}
-      <p className="home-description home-metric-note">Ventas en euros con fecha de cierre registrada. Reuniones previstas este mes, sin canceladas. Mes calculado en UTC.</p>
+      <details className="home-data-details"><summary>Cómo se calcula</summary><p>Se suman las ventas cerradas en euros y las reuniones previstas para este mes, sin canceladas. Las ventas necesitan una fecha de cierre. El mes se calcula en UTC.</p><p>El objetivo es común para todo el equipo y se mantiene cada mes hasta que lo cambies.</p></details>
     </> : null}
     {showLinks ? <div className="home-section-links"><Link className="home-link" to="/plan">Ver mi plan y objetivos<RiArrowRightSLine aria-hidden="true" /></Link><Link className="home-link" to="/insights">Explorar mis resultados<RiArrowRightSLine aria-hidden="true" /></Link></div> : null}
   </section>

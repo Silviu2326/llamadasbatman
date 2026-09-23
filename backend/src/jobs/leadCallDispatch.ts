@@ -4,7 +4,7 @@ import { connectOptionalRedis, reportQueueError } from '../lib/optionalRedis'
 import { enqueueDatabaseJob, startDatabaseQueueWorker } from '../lib/databaseQueue'
 import { isPostgresQueueBackend } from '../lib/queueBackend'
 import { canCall } from '../voice/compliance'
-import { startOutboundCall } from '../voice/telephony/twilioClient'
+import { startOutboundCall } from '../voice/telephony/outbound'
 import { canStartWhiteLabelVoice } from '../services/whiteLabel.service'
 
 export interface LeadCallJob {
@@ -21,7 +21,7 @@ let leadCallQueue: Queue<LeadCallJob> | null = null
 let leadCallDispatchWorker: Worker<LeadCallJob> | null = null
 let stopDatabaseWorker: (() => void) | null = null
 
-async function processLeadCallJob({ orgId, leadId }: LeadCallJob): Promise<void> {
+export async function processLeadCallJob({ orgId, leadId }: LeadCallJob): Promise<void> {
   console.log(`[LeadCallDispatch] job — lead ${leadId}`)
 
   const lead = await prisma.lead.findFirst({
@@ -34,8 +34,9 @@ async function processLeadCallJob({ orgId, leadId }: LeadCallJob): Promise<void>
     return
   }
 
-  const agent = lead.campaign?.agent ?? (await prisma.agent.findFirst({ where: { orgId, isActive: true } }))
-  if (!agent) return
+  if (lead.campaign?.status !== 'active') return
+  const agent = lead.campaign.agent
+  if (!agent || agent.orgId !== orgId || !agent.isActive || agent.lifecycleStatus !== 'active' || !agent.voiceId || !agent.systemPrompt || !agent.phoneNumber) return
   if (!await canStartWhiteLabelVoice(orgId)) {
     console.warn(`[LeadCallDispatch] lead ${leadId} bloqueado por cuota de voz white-label`)
     return
@@ -65,16 +66,16 @@ async function processLeadCallJob({ orgId, leadId }: LeadCallJob): Promise<void>
  * siempre (una llamada por invocación), que es lo que quieren las fuentes de
  * leads: dos formularios son dos llamadas.
  */
-export async function enqueueLeadCall(orgId: string, leadId: string, dedupeKey?: string): Promise<boolean> {
+export async function enqueueLeadCall(orgId: string, leadId: string, dedupeKey?: string, delayMs = 0): Promise<boolean> {
   if (isPostgresQueueBackend()) {
-    return enqueueDatabaseJob({ queue: QUEUE_NAME, kind: 'call', payload: { orgId, leadId }, dedupeKey })
+    return enqueueDatabaseJob({ queue: QUEUE_NAME, kind: 'call', payload: { orgId, leadId }, dedupeKey, delayMs })
   }
   if (!leadCallQueue) return false
   try {
     await leadCallQueue.add(
       'call',
       { orgId, leadId },
-      { priority: 1, removeOnComplete: 1000, removeOnFail: 1000, ...(dedupeKey ? { jobId: dedupeKey } : {}) }
+      { delay: Math.max(0, delayMs), priority: 1, removeOnComplete: 1000, removeOnFail: 1000, ...(dedupeKey ? { jobId: dedupeKey } : {}) }
     )
     return true
   } catch (error) {

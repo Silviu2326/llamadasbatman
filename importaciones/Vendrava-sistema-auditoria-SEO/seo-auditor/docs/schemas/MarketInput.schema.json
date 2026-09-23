@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "Keyword": {
+      "additionalProperties": false,
+      "properties": {
+        "keyword": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Keyword",
+          "type": "string"
+        },
+        "group_id": {
+          "maxLength": 180,
+          "minLength": 1,
+          "title": "Group Id",
+          "type": "string"
+        },
+        "segment": {
+          "default": "principal",
+          "maxLength": 100,
+          "title": "Segment",
+          "type": "string"
+        },
+        "volume": {
+          "anyOf": [
+            {
+              "maximum": 100000000,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Volume"
+        },
+        "status": {
+          "default": "ambiguous",
+          "enum": [
+            "included",
+            "excluded",
+            "ambiguous"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "fit_weight": {
+          "default": 0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Fit Weight",
+          "type": "number"
+        },
+        "reason": {
+          "default": "",
+          "maxLength": 1000,
+          "title": "Reason",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "period": {
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "title": "Period",
+          "type": "string"
+        },
+        "geography": {
+          "default": "ES",
+          "maxLength": 100,
+          "title": "Geography",
+          "type": "string"
+        },
+        "brand": {
+          "default": false,
+          "title": "Brand",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "keyword",
+        "group_id",
+        "source",
+        "period"
+      ],
+      "title": "Keyword",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "keywords": {
+      "items": {
+        "$ref": "#/$defs/Keyword"
+      },
+      "maxItems": 2000,
+      "title": "Keywords",
+      "type": "array"
+    },
+    "overlap_reviewed": {
+      "default": false,
+      "title": "Overlap Reviewed",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "keywords"
+  ],
+  "title": "MarketInput",
+  "type": "object"
+}

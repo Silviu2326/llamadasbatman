@@ -1,0 +1,320 @@
+{
+  "$defs": {
+    "EntityComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "field": {
+          "enum": [
+            "telephone",
+            "price",
+            "streetAddress"
+          ],
+          "title": "Field",
+          "type": "string"
+        },
+        "structured_value": {
+          "title": "Structured Value",
+          "type": "string"
+        },
+        "visible_value": {
+          "title": "Visible Value",
+          "type": "string"
+        },
+        "identity_confirmed": {
+          "title": "Identity Confirmed",
+          "type": "boolean"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "entity_id",
+        "field",
+        "structured_value",
+        "visible_value",
+        "identity_confirmed",
+        "source"
+      ],
+      "title": "EntityComparison",
+      "type": "object"
+    },
+    "FieldMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "URL",
+            "origin"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "device": {
+          "enum": [
+            "mobile",
+            "desktop",
+            "all"
+          ],
+          "title": "Device",
+          "type": "string"
+        },
+        "period_start": {
+          "title": "Period Start",
+          "type": "string"
+        },
+        "period_end": {
+          "title": "Period End",
+          "type": "string"
+        },
+        "sufficient_sample": {
+          "title": "Sufficient Sample",
+          "type": "boolean"
+        },
+        "lcp_field_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lcp Field Ms"
+        },
+        "inp_field_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inp Field Ms"
+        },
+        "cls_field": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cls Field"
+        }
+      },
+      "required": [
+        "source",
+        "at",
+        "scope",
+        "device",
+        "period_start",
+        "period_end",
+        "sufficient_sample"
+      ],
+      "title": "FieldMetrics",
+      "type": "object"
+    },
+    "LocationContact": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "location_id": {
+          "title": "Location Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "telephone",
+            "email"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "identity_confirmed": {
+          "title": "Identity Confirmed",
+          "type": "boolean"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "location_id",
+        "kind",
+        "value",
+        "identity_confirmed",
+        "source"
+      ],
+      "title": "LocationContact",
+      "type": "object"
+    },
+    "SchemaRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "required_fields": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Required Fields",
+          "type": "array"
+        },
+        "source_url": {
+          "title": "Source Url",
+          "type": "string"
+        },
+        "verified_at": {
+          "format": "date-time",
+          "title": "Verified At",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "required_fields",
+        "source_url",
+        "verified_at",
+        "valid_until"
+      ],
+      "title": "SchemaRequirement",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "source": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    },
+    "captured_at": {
+      "format": "date-time",
+      "title": "Captured At",
+      "type": "string"
+    },
+    "schema_rules": {
+      "items": {
+        "$ref": "#/$defs/SchemaRequirement"
+      },
+      "maxItems": 30,
+      "title": "Schema Rules",
+      "type": "array"
+    },
+    "entity_comparisons": {
+      "items": {
+        "$ref": "#/$defs/EntityComparison"
+      },
+      "maxItems": 100,
+      "title": "Entity Comparisons",
+      "type": "array"
+    },
+    "location_contacts": {
+      "items": {
+        "$ref": "#/$defs/LocationContact"
+      },
+      "maxItems": 100,
+      "title": "Location Contacts",
+      "type": "array"
+    },
+    "performance": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FieldMetrics"
+      },
+      "maxProperties": 80,
+      "title": "Performance",
+      "type": "object"
+    },
+    "search_console": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 1000,
+      "title": "Search Console",
+      "type": "array"
+    },
+    "indexation": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 100,
+      "title": "Indexation",
+      "type": "array"
+    },
+    "backlinks": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 1000,
+      "title": "Backlinks",
+      "type": "array"
+    },
+    "local": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 100,
+      "title": "Local",
+      "type": "array"
+    }
+  },
+  "required": [
+    "source",
+    "captured_at"
+  ],
+  "title": "ExternalInput",
+  "type": "object"
+}

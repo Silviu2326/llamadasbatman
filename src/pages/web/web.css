@@ -8,6 +8,30 @@
   --gs-brand-to: var(--accent-deep);
 }
 
+.wb-connect-card { display: flex; align-items: flex-start; gap: 22px; margin-bottom: 20px; padding: 30px; border: 1px solid var(--line-2); border-radius: 16px; background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 6%, var(--surface)), var(--surface)); }
+.wb-connect-icon { display: grid; place-items: center; flex: 0 0 52px; height: 52px; border-radius: 15px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); font-size: 26px; }
+.wb-connect-copy { flex: 1; min-width: 0; }
+.wb-connect-eyebrow { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.wb-connect-copy h2 { margin: 8px 0 10px; color: var(--text-strong); font-size: clamp(25px, 2.5vw, 34px); line-height: 1.15; overflow-wrap: anywhere; }
+.wb-connect-copy p { max-width: 470px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.wb-connect-copy .gs-button { margin-top: 22px; min-height: 42px; }
+.wb-connect-steps { display: grid; gap: 22px; flex: 0 1 320px; margin: 0; padding: 4px 0 4px 24px; border-left: 1px solid var(--line-2); list-style: none; }
+.wb-connect-steps li { display: flex; align-items: flex-start; gap: 12px; }
+.wb-connect-steps b { display: grid; place-items: center; flex: 0 0 27px; height: 27px; border-radius: 50%; color: var(--muted); background: var(--surface-2); font-size: 11px; }
+.wb-connect-steps li:first-child b { background: var(--accent); color: white; }
+.wb-connect-steps strong { display: block; color: var(--text-strong); font-size: 12px; }
+.wb-connect-steps small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.wb-connect-card.is-connected { align-items: center; }
+@media (max-width: 1050px) {
+  .wb-connect-card { flex-wrap: wrap; padding: 24px; gap: 16px; }
+  .wb-connect-steps { flex: 1 0 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); border-left: 0; border-top: 1px solid var(--line-2); padding: 20px 0 0; }
+}
+@media (max-width: 600px) {
+  .wb-connect-card { padding: 20px; }
+  .wb-connect-icon { display: none; }
+  .wb-connect-steps { grid-template-columns: 1fr; gap: 16px; }
+}
+
 .wb-break { word-break: break-all; max-width: 280px; }
 .wb-missing { color: var(--danger-faint); font-style: italic; }
 .wb-indent { margin-left: 42px; }

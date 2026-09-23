@@ -128,7 +128,9 @@ void (async () => {
         const projects = await allProjects()
         for (const project of projects) {
           try {
-            await refreshProject(project)
+            // Connected websites are owned by the durable website audit scheduler.
+            const connected = await prisma.websiteConnection.findFirst({ where: { orgId: project.orgId, websiteUrl: project.url }, select: { id: true } })
+            if (!connected) await refreshProject(project)
           } catch (error) {
             console.error(`[SeoAuditRefresh] error en org ${project.orgId} (${project.url}):`, error)
           }

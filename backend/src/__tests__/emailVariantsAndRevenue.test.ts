@@ -16,25 +16,25 @@ const campaign = (variantDefinition: unknown) => ({ variantDefinition } as unkno
 test('el reparto A/B se lee solo si está completo', () => {
   assert.deepEqual(
     readVariants(campaign([
-      { key: 'A', templateExternalId: '11' },
-      { key: 'B', templateExternalId: '12' },
+      { key: 'A', emailDraftId: 'draft-11' },
+      { key: 'B', emailDraftId: 'draft-12' },
     ])),
     [
-      { key: 'A', templateExternalId: '11', externalCampaignId: null },
-      { key: 'B', templateExternalId: '12', externalCampaignId: null },
+      { key: 'A', emailDraftId: 'draft-11' },
+      { key: 'B', emailDraftId: 'draft-12' },
     ],
   )
 })
 
 test('una sola variante no es una prueba', () => {
-  assert.equal(readVariants(campaign([{ key: 'A', templateExternalId: '11' }])), null)
+  assert.equal(readVariants(campaign([{ key: 'A', emailDraftId: 'draft-11' }])), null)
 })
 
 test('un reparto malformado no se interpreta a medias', () => {
   assert.equal(readVariants(campaign(null)), null)
   assert.equal(readVariants(campaign('A/B')), null)
-  assert.equal(readVariants(campaign([{ key: 'A' }, { key: 'B', templateExternalId: '12' }])), null)
-  assert.equal(readVariants(campaign([{ key: '', templateExternalId: '11' }, { key: 'B', templateExternalId: '12' }])), null)
+  assert.equal(readVariants(campaign([{ key: 'A' }, { key: 'B', emailDraftId: 'draft-12' }])), null)
+  assert.equal(readVariants(campaign([{ key: '', emailDraftId: 'draft-11' }, { key: 'B', emailDraftId: 'draft-12' }])), null)
 })
 
 const DAY = 86_400_000
@@ -119,3 +119,5 @@ test('un lead que no recibió el envío no se atribuye', () => {
   )
   assert.deepEqual(result.byCurrency, {})
 })
+
+

@@ -26,10 +26,15 @@ function consentScopeLabel(scope) {
   return [...channels, ...purposes].filter(Boolean).join(' · ') || 'Uso de voz del agente'
 }
 
+const EMPTY_TEST_NUMBER = { phone: '', label: '', attestation: '', confirmed: false }
+
 export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsavedChanges, onNavigate, requestedSection, onAgentReload }) {
   const [data, setData] = useState(null)
   const [selectedCampaigns, setSelectedCampaigns] = useState([])
   const [selectedCall, setSelectedCall] = useState('')
+  const [selectedTestNumber, setSelectedTestNumber] = useState('')
+  const [newTestNumber, setNewTestNumber] = useState(EMPTY_TEST_NUMBER)
+  const [testNumberOpen, setTestNumberOpen] = useState(false)
   const [busy, setBusy] = useState('')
   const [notice, setNotice] = useState('')
   const [cloneOpen, setCloneOpen] = useState(false)
@@ -58,7 +63,9 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
       const response = await apiFetch(url, options)
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error || 'No se pudo completar la acción.')
-      setNotice(body.status === 'published' ? 'Agente publicado correctamente.' : 'Cambio aplicado correctamente.')
+      setNotice(body.status === 'published' ? 'Agente publicado correctamente.'
+        : body.status === 'started' ? `Llamando a ${body.to}. Cuando cuelgues, la llamada aparece aquí ya evaluada.`
+        : 'Cambio aplicado correctamente.')
       const refreshed = await load()
       if (key === 'restore' && refreshed?.agent) onAgentReload?.(refreshed.agent)
       return body
@@ -78,6 +85,8 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
 
   const assignedCampaigns = data.campaigns.filter(item => item.assigned).length
   const missingRequirements = data.readiness.checks.filter(item => !item.ready).length
+  const testCall = data.testCall || { numbers: [], blockers: [], dailyLimit: 0, callsToday: 0, ready: false }
+  const activeTestNumbers = (testCall.numbers || []).filter(item => item.active)
 
   return <div id="agent-governance" className="agent-gov">
     <section className="agent-gov-overview">
@@ -135,8 +144,41 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
       </div> : null}
 
       {activeSection === 'quality' ? <div className="agent-gov-layout is-quality">
-        <Card title="Prueba real evaluada" description="Selecciona una llamada auténtica y revisa la calidad de la conversación." icon={<RiTestTubeLine />}>
-          <div className="agent-gov-test-row"><select value={selectedCall} onChange={e => setSelectedCall(e.target.value)}><option value="">Selecciona una llamada completada</option>{data.calls.filter(call => call.status === 'completed').map(call => <option key={call.id} value={call.id}>{new Date(call.createdAt).toLocaleString()} · {call.outcome}</option>)}</select><button disabled={!selectedCall || busy === 'evaluate'} onClick={() => act('evaluate', `/api/agents/${agentId}/evaluations/${selectedCall}`, { method: 'POST' })}>{busy === 'evaluate' ? 'Evaluando…' : 'Evaluar llamada'}</button></div>
+        <Card title="Prueba real evaluada" description="Llama a un número propio con el agente todavía en borrador y evalúa esa conversación." icon={<RiTestTubeLine />}>
+          <div className="agent-gov-testcall">
+            <div className="agent-gov-test-row">
+              <select value={selectedTestNumber} onChange={e => setSelectedTestNumber(e.target.value)} disabled={!activeTestNumbers.length}>
+                <option value="">{activeTestNumbers.length ? 'Selecciona el número al que llamar' : 'Todavía no hay números de prueba'}</option>
+                {activeTestNumbers.map(item => <option key={item.id} value={item.id}>{item.label} · {item.phone}</option>)}
+              </select>
+              <button disabled={!selectedTestNumber || !testCall.ready || busy === 'test-call'} onClick={() => act('test-call', `/api/agents/${agentId}/test-calls`, { method: 'POST', body: JSON.stringify({ testNumberId: selectedTestNumber }) })}>{busy === 'test-call' ? 'Llamando…' : 'Llamar ahora'}</button>
+            </div>
+            <p className="agent-gov-testcall-quota">{testCall.callsToday || 0} de {testCall.dailyLimit} pruebas usadas hoy. La llamada se graba entera y queda en el historial marcada como prueba.</p>
+            {testCall.blockers?.length ? <ul className="agent-gov-testcall-blockers">{testCall.blockers.map(item => <li key={item}><RiCloseLine />{item}</li>)}</ul> : null}
+
+            <div className="agent-gov-testcall-numbers">
+              {testCall.numbers?.length ? testCall.numbers.map(item => <article className="agent-gov-consent" key={item.id}>
+                <div><strong>{item.label}</strong><em className={item.active ? 'is-active' : 'is-revoked'}>{item.active ? 'activo' : 'revocado'}</em></div>
+                <span>{item.phone}</span>
+                <span className="agent-gov-scope">Declaración: {item.attestation}</span>
+                {item.active ? <div className="agent-gov-consent-actions"><button className="is-danger" onClick={() => act('test-number', `/api/agents/${agentId}/test-numbers/${item.id}/revoke`, { method: 'POST' })}>Dar de baja</button></div> : null}
+              </article>) : null}
+            </div>
+
+            <button className="agent-gov-secondary-wide" type="button" onClick={() => setTestNumberOpen(value => !value)}>{testNumberOpen ? 'Cancelar' : 'Autorizar un número de prueba'}</button>
+            {testNumberOpen ? <div className="agent-gov-form agent-gov-testcall-form">
+              <label><span>Teléfono</span><input value={newTestNumber.phone} onChange={e => setNewTestNumber(current => ({ ...current, phone: e.target.value }))} placeholder="+34600000000" /></label>
+              <label><span>Nombre</span><input value={newTestNumber.label} onChange={e => setNewTestNumber(current => ({ ...current, label: e.target.value }))} placeholder="Mi móvil" /></label>
+              <label className="agent-gov-span"><span>Declaración</span><textarea value={newTestNumber.attestation} onChange={e => setNewTestNumber(current => ({ ...current, attestation: e.target.value }))} placeholder="De quién es el número y por qué puedes llamarlo para probar." /></label>
+              <label className="agent-gov-span agent-gov-choice"><input type="checkbox" checked={newTestNumber.confirmed} onChange={e => setNewTestNumber(current => ({ ...current, confirmed: e.target.checked }))} /><span>Este número es mío o su titular acepta recibir llamadas de prueba grabadas.</span></label>
+              <button className="agent-gov-primary agent-gov-span" disabled={!newTestNumber.confirmed || newTestNumber.attestation.trim().length < 20 || !newTestNumber.phone.trim() || busy === 'test-number'} onClick={async () => {
+                const created = await act('test-number', `/api/agents/${agentId}/test-numbers`, { method: 'POST', body: JSON.stringify({ ...newTestNumber, label: newTestNumber.label.trim(), confirmed: true }) })
+                if (created?.id) { setNewTestNumber(EMPTY_TEST_NUMBER); setTestNumberOpen(false); setSelectedTestNumber(created.id) }
+              }}>{busy === 'test-number' ? 'Guardando…' : 'Autorizar número'}</button>
+            </div> : null}
+          </div>
+
+          <div className="agent-gov-test-row"><select value={selectedCall} onChange={e => setSelectedCall(e.target.value)}><option value="">Selecciona una llamada completada</option>{data.calls.filter(call => call.status === 'completed').map(call => <option key={call.id} value={call.id}>{new Date(call.createdAt).toLocaleString()} · {call.outcome}{call.isTest ? ' · prueba' : ''}</option>)}</select><button disabled={!selectedCall || busy === 'evaluate'} onClick={() => act('evaluate', `/api/agents/${agentId}/evaluations/${selectedCall}`, { method: 'POST' })}>{busy === 'evaluate' ? 'Evaluando…' : 'Evaluar llamada'}</button></div>
           {evaluation ? <div className="agent-gov-scores"><div className="is-overall"><strong>{evaluation.overall}</strong><span>Nota total</span></div>{Object.entries(DIMENSIONS).map(([key, label]) => <div key={key}><strong>{evaluation.dimensions?.[key] ?? '—'}</strong><span>{label}</span></div>)}</div> : <p className="agent-gov-empty agent-gov-empty-room">Aún no hay una llamada real evaluada. La simulación escrita no cuenta para publicar.</p>}
         </Card>
         <div className="agent-gov-aside">

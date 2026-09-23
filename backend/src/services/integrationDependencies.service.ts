@@ -4,7 +4,7 @@ import { getProvider } from '../providers/registry'
 type AutomationLike = { id: string; name: string; actions: unknown }
 
 const AUTOMATION_PROVIDER_ACTIONS: Readonly<Record<string, readonly string[]>> = {
-  mautic: ['send_to_mautic_segment', 'send_email_template'],
+  resend: ['send_email_template', 'email.publish'],
   twilio: ['send_whatsapp_template', 'queue_voice_call', 'ai_reply_whatsapp'],
   deepseek: ['ai_reply_whatsapp'],
 }

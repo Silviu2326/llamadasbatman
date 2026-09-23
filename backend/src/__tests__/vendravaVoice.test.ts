@@ -4,7 +4,8 @@ import { SpeechChunker } from '../voice/utils/speechChunker'
 import { ProsodyMeter, describe as describeProsody } from '../voice/utils/prosody'
 import { parseGuruAdvice } from '../voice/intelligence/conversation/vendravaGuru'
 import { parseSseData } from '../voice/intelligence/llm/cerebrasStream'
-import { sanitizeVendravaSettings, vendravaVoiceLanguageSupported } from '../voice/pipelines/vendravaVoice'
+import { sanitizeVendravaSettings, vendravaVoiceLanguageSupported, VendravaVoiceSession } from '../voice/pipelines/vendravaVoice'
+import { createCallContext } from '../voice/intelligence/conversation/callContext'
 import { defaultAgentConfig } from '../voice/agentConfig'
 import { resolveAgentRuntime, runtimePipelineLabel, unsupportedRuntimeProviders } from '../voice/runtimeConfig'
 
@@ -17,6 +18,35 @@ function speech(seconds: number, amplitude: number, sampleRate = 16_000): Buffer
   }
   return frame
 }
+
+test('el saludo inicial usa la apertura guardada y conserva los avisos de IA y grabación', () => {
+  const previous = process.env.DISCLOSE_AI
+  process.env.DISCLOSE_AI = 'true'
+  try {
+    const agentConfig = defaultAgentConfig()
+    agentConfig.identity = { agentName: 'Carlos', agentGender: 'neutral', agentAccent: 'es' }
+    agentConfig.behavior = { openingLine: 'Te llamo por las mejoras de tu web. ¿Tienes veinte segundos?' }
+    const ctx = createCallContext({ callSid: 'offline', phone: '+34600000000', agentConfig, direction: 'outbound' })
+    ctx.recordingConsentPending = true
+    const session = new VendravaVoiceSession(ctx, 'Asistente comercial') as any
+    const greeting = session.greeting()
+    assert.match(greeting, /^Hola, le llama Carlos, un asistente de IA\./)
+    assert.match(greeting, /Te llamo por las mejoras de tu web/)
+    assert.match(greeting, /grabamos esta llamada/)
+    assert.doesNotMatch(greeting, /cómo va tu día/)
+    agentConfig.behavior.openingLine = '  '
+    const fallback = new VendravaVoiceSession(ctx, 'Asistente comercial') as any
+    assert.match(fallback.greeting(), /cómo va tu día/)
+    ctx.recordingConsentPending = false
+    ctx.metadata.recordingPolicy = 'always'
+    const recorded = new VendravaVoiceSession(ctx, 'Asistente comercial') as any
+    assert.match(recorded.greeting(), /Esta llamada se está grabando\./)
+    assert.doesNotMatch(recorded.greeting(), /grabamos esta llamada/)
+  } finally {
+    if (previous === undefined) delete process.env.DISCLOSE_AI
+    else process.env.DISCLOSE_AI = previous
+  }
+})
 
 test('SpeechChunker corta una primera frase corta y deja largas las siguientes', () => {
   const chunker = new SpeechChunker(12, 42)

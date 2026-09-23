@@ -1,3 +1,4 @@
+import { hasRadarKnowledge } from '../services/radarKnowledge.schema'
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { parseRequest } from '../lib/validation'
@@ -11,6 +12,8 @@ import {
   BUSINESS_INTELLIGENCE_MICROAPP_ID,
 } from '../services/businessIntelligence.service'
 import { startMicroappRun } from '../microapps/runtime'
+import { radarSearchSchema } from '../services/opportunityRadar'
+import { createRadarSchedule, listRadarSchedules, scheduleSchema, setRadarScheduleActive } from '../services/radarSchedules.service'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -95,6 +98,7 @@ const startInvestigationSchema = z.object({
   lens: z.enum(RESEARCH_LENSES),
   focus: z.string().trim().max(1200).optional().default(''),
   allowExternalReview: z.literal(true),
+  radar: radarSearchSchema.optional(),
 }).strict()
 
 function handleServiceError(error: unknown, reply: FastifyReply) {
@@ -111,6 +115,32 @@ export async function getBusinessContext(request: FastifyRequest, reply: Fastify
   return reply.send(context)
 }
 
+export async function getRadarSchedules(request: FastifyRequest, reply: FastifyReply) {
+  return reply.send({ schedules: await listRadarSchedules((request.user as JWTUser).orgId) })
+}
+
+function radarScheduleError(error: unknown, reply: FastifyReply) {
+  const failure = error as { message?: string; statusCode?: number }
+  if (!failure.statusCode) throw error
+  return reply.status(failure.statusCode).send({ error: failure.message })
+}
+
+export async function saveRadarSchedule(request: FastifyRequest, reply: FastifyReply) {
+  const body = parseRequest(reply, scheduleSchema, request.body)
+  if (!body) return
+  const { orgId, userId } = request.user as JWTUser
+  try { return reply.status(201).send(await createRadarSchedule(orgId, userId, body)) }
+  catch (error) { return radarScheduleError(error, reply) }
+}
+
+export async function toggleRadarSchedule(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, z.object({ active: z.boolean() }).strict(), request.body)
+  if (!params || !body) return
+  try { return reply.send(await setRadarScheduleActive((request.user as JWTUser).orgId, params.id, body.active)) }
+  catch (error) { return radarScheduleError(error, reply) }
+}
+
 export async function listInvestigations(request: FastifyRequest, reply: FastifyReply) {
   const { orgId } = request.user as JWTUser
   const query = parseRequest(reply, investigationQuerySchema, request.query)
@@ -124,12 +154,15 @@ export async function startInvestigation(request: FastifyRequest, reply: Fastify
   if (!body) return
   const context = await getBusinessIntelligenceContext(orgId)
   if (!context) return reply.status(404).send({ error: 'Organización no encontrada', code: 'ORGANIZATION_NOT_FOUND' })
-  if (!context.intelligenceReadiness.canResearch) {
+  if (!context.intelligenceReadiness.canResearch && !hasRadarKnowledge(body.radar?.companyKnowledge)) {
     return reply.status(409).send({
       error: 'Completa al menos la descripción o el sector de la empresa antes de investigar.',
       code: 'BUSINESS_CONTEXT_INCOMPLETE',
       details: { missing: context.intelligenceReadiness.missing },
     })
+  }
+  if (body.radar && !context.radarSearchAvailable) {
+    return reply.status(503).send({ error: 'La búsqueda web del radar todavía no está conectada. Configura el proveedor de búsqueda antes de iniciar el radar.', code: 'RADAR_SEARCH_UNAVAILABLE' })
   }
   const lens = context.lenses.find(item => item.key === body.lens)
   if (!lens) return reply.status(400).send({ error: 'Lente de investigación desconocida', code: 'RESEARCH_LENS_UNKNOWN' })
@@ -159,15 +192,16 @@ export async function startInvestigation(request: FastifyRequest, reply: Fastify
         lensTitle: lens.title,
         queryAngles: lens.queryAngles,
         focus: body.focus,
+        ...(body.radar ? { radar: body.radar, businessMaterial: await (await import('../services/radarKnowledge.service')).resolveRadarKnowledge(orgId, body.radar.companyKnowledge) } : {}),
       },
-      agentic: {
+      ...(body.radar ? {} : { agentic: {
         enabled: true,
         strategy: 'closed_loop',
         rounds: 2,
         qualityThreshold: 88,
         maxAdditionalCostCents: 200,
         allowExternalReview: body.allowExternalReview,
-      },
+      } }),
       idempotencyKey: `business-radar:${body.lens}:${Date.now()}`,
     })
     return reply.status(202).send({ ...result, microappId: BUSINESS_INTELLIGENCE_MICROAPP_ID })

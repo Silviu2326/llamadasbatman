@@ -3,7 +3,7 @@ import { z } from 'zod'
 import * as leadsService from '../services/leads.service'
 import { OwnershipError, LeadNotFoundError } from '../services/leads.service'
 import { enqueueLeadCall } from '../services/leadIngestion.service'
-import { sendEmailToLead, isTemplateOwnedByOrg, createEmailDelivery } from '../services/mauticSync.service'
+import { createNativeEmailDelivery, resolveNativeEmailDraft, sendNativeMarketingDelivery } from '../services/nativeMarketingEmail.service'
 import * as outboundEmail from '../services/outboundEmail.service'
 import { assertEmailSendAllowed } from '../lib/emailCompliance'
 import { writeAuditLog } from '../lib/audit'
@@ -95,7 +95,7 @@ const auditSchema = z.object({
   city: z.string().trim().max(160).optional(),
 }).strict()
 
-const sendEmailSchema = z.object({ mauticEmailId: z.string().trim().min(1, 'mauticEmailId es requerido').max(128) }).strict()
+const sendEmailSchema = z.object({ emailDraftId: z.string().trim().min(1, 'emailDraftId es requerido').max(128) }).strict()
 
 // LE-106: ownerId nullable — null desasigna el lead.
 const updateOwnerSchema = z.object({ ownerId: z.string().trim().min(1).max(128).nullable() }).strict()
@@ -553,48 +553,35 @@ export async function createNote(
   return reply.status(201).send(note)
 }
 
-/** Botón "Enviar plantilla" de la ficha del lead (sección 4 punto 6/7.3 del plan). */
+/** Envía al lead un borrador local usando Resend y el ledger de entregas. */
 export async function sendEmail(
   request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
+  const { orgId, userId } = request.user as JWTUser
   const params = parseRequest(reply, idParamsSchema, request.params)
   const body = parseRequest(reply, sendEmailSchema, request.body)
   if (!params || !body) return
-
-  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true } })
-  // Plan e integración son cosas distintas: ver mautic.controller.ts.
-  if (org?.plan !== 'completo') {
-    return reply.status(403).send({ error: 'Email marketing es una función del plan Completo. Mejora tu plan para activarlo.', code: 'PLAN_CAPABILITY_REQUIRED' })
-  }
-  if (!org.mauticEnabled) {
-    return reply.status(403).send({ error: 'Email marketing no está habilitado en tu organización. Pide a tu administrador que lo active.', code: 'INTEGRATION_DISABLED' })
-  }
-
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true } })
+  if (org?.plan !== 'completo') return reply.status(403).send({ error: 'Email marketing es una función del plan Completo. Mejora tu plan para activarlo.', code: 'PLAN_CAPABILITY_REQUIRED' })
   const lead = await prisma.lead.findFirst({ where: { id: params.id, orgId }, select: { id: true, email: true } })
   if (!lead) return reply.status(404).send({ error: 'Lead no encontrado' })
-
-  // P0-04/EM-01: el mauticEmailId lo manda el navegador — nunca confiar en él
-  // sin comprobar antes que la plantilla está vinculada a esta organización.
-  if (!(await isTemplateOwnedByOrg(orgId, body.mauticEmailId))) {
-    return reply.status(404).send({ error: 'Plantilla no encontrada' })
-  }
-
-  // P0-05/EM-02: barrera única de consentimiento antes de cualquier envío.
-  const decision = await assertEmailSendAllowed(orgId, lead.id, 'contact')
-  if (!decision.allowed) {
-    return reply.status(409).send({ error: 'Envío bloqueado por cumplimiento', reason: decision.reason })
-  }
   if (!lead.email) return reply.status(409).send({ error: 'El lead no tiene email' })
-
-  // EM-102: registro normalizado del intento de envío antes de invocar Mautic.
-  const delivery = await createEmailDelivery(orgId, lead.id, { templateExternalId: body.mauticEmailId, toAddress: lead.email })
-  const sent = await sendEmailToLead(lead.id, body.mauticEmailId, orgId, delivery.id)
-  if (!sent) return reply.status(502).send({ error: 'No se pudo enviar el email (contacto no sincronizado o Mautic no disponible)' })
-  return reply.send({ ok: true })
+  const content = await resolveNativeEmailDraft(orgId, body.emailDraftId)
+  if (!content) return reply.status(404).send({ error: 'Borrador de email no encontrado' })
+  const decision = await assertEmailSendAllowed(orgId, lead.id, 'contact')
+  if (!decision.allowed) return reply.status(409).send({ error: 'Envío bloqueado por cumplimiento', reason: decision.reason })
+  const delivery = await createNativeEmailDelivery({ orgId, leadId: lead.id, emailDraftId: content.emailDraftId, toAddress: lead.email, idempotencyScope: `manual-email:${userId}:${Date.now()}`, purpose: 'contact', content })
+  const workerId = `lead-email-${process.pid}-${delivery.id}`
+  const claimed = await prisma.emailDelivery.updateMany({ where: { id: delivery.id, status: 'queued' }, data: { status: 'processing', workerId, lockedAt: new Date(), leaseExpiresAt: new Date(Date.now() + 60_000), providerAttemptedAt: new Date(), attempts: { increment: 1 } } })
+  if (!claimed.count) return reply.status(409).send({ error: 'El envío ya está siendo procesado.' })
+  const outcome = await sendNativeMarketingDelivery(delivery.id, workerId, 'contact')
+  if (outcome !== 'accepted') return reply.status(outcome === 'uncertain' ? 202 : 502).send({ error: outcome === 'uncertain' ? 'Resend no confirmó si aceptó el email; comprueba el historial antes de reintentarlo.' : 'No se pudo enviar el email.' })
+  const latest = await prisma.emailDelivery.findUnique({ where: { id: delivery.id }, select: { providerMessageId: true, subjectSnapshot: true, htmlSnapshot: true } })
+  const conversation = await import('../services/conversations.service').then(module => module.ensureConversationForLead(orgId, lead.id))
+  await prisma.message.create({ data: { orgId, conversationId: conversation.id, leadId: lead.id, authorUserId: userId, channel: 'email', provider: 'resend', address: lead.email, direction: 'outbound', contentType: 'html', body: `${latest?.subjectSnapshot ?? content.subject}\n\n${latest?.htmlSnapshot ?? content.html}`, status: 'sent', sentAt: new Date(), providerMessageId: latest?.providerMessageId ?? undefined, metadata: { emailDraftId: content.emailDraftId, deliveryId: delivery.id } } })
+  return reply.send({ ok: true, deliveryId: delivery.id })
 }
-
 export async function getAudit(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
@@ -688,3 +675,4 @@ export async function updatePreferences(
 
   return reply.send(preference)
 }
+

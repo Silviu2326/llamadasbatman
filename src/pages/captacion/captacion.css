@@ -102,7 +102,78 @@
 
 /* ── Portada ──────────────────────────────────────────────────────────────── */
 
-.captacion-home { --gs-accent: var(--accent); --gs-brand-from: var(--accent-deep); --gs-brand-to: var(--violet-deep); }
+.captacion-shell {
+  --capt-nav-accent: #d76542;
+  --capt-nav-teal: #2f716a;
+}
+.captacion-shell .captacion-stages-home svg {
+  color: var(--capt-nav-teal);
+  border-color: color-mix(in srgb, var(--capt-nav-teal) 35%, var(--line));
+  background: color-mix(in srgb, var(--capt-nav-teal) 10%, var(--surface));
+}
+.captacion-shell .captacion-stage.active::after,
+.captacion-shell .captacion-stage-slot.active .captacion-stage-group::after { background: var(--capt-nav-accent); }
+.captacion-shell .captacion-stage.active .captacion-stage-number,
+.captacion-shell .captacion-stage-slot.active .captacion-stage-number {
+  color: #fff;
+  border-color: var(--capt-nav-accent);
+  background: var(--capt-nav-accent);
+}
+.captacion-shell .captacion-stage.active .captacion-stage-icon,
+.captacion-shell .captacion-stage-slot.active .captacion-stage-icon {
+  color: var(--capt-nav-teal);
+  border-color: color-mix(in srgb, var(--capt-nav-teal) 36%, var(--line));
+  background: color-mix(in srgb, var(--capt-nav-teal) 12%, var(--surface));
+}.captacion-home {
+  --gs-accent: #d76542;
+  --gs-brand-from: #193e43;
+  --gs-brand-to: #2f716a;
+  --capt-plan: #c86b4d;
+  --capt-attract: #2f7180;
+  --capt-convert: #aa7a25;
+  --capt-close: #347a5d;
+  background:
+    radial-gradient(circle at 92% 4%, color-mix(in srgb, #d8a85e 14%, transparent), transparent 23%),
+    linear-gradient(180deg, color-mix(in srgb, #f4efe6 42%, var(--bg)), var(--bg) 34%);
+}
+.captacion-home .product-page-header {
+  position: relative;
+  padding-bottom: 18px;
+  border-bottom: 1px solid color-mix(in srgb, #2f716a 18%, var(--line-2));
+}
+.captacion-home .product-page-header::after {
+  position: absolute;
+  right: 2px;
+  bottom: -1px;
+  width: 74px;
+  height: 3px;
+  border-radius: 3px 0 0 3px;
+  content: '';
+  background: linear-gradient(90deg, #d76542, #d8a85e);
+}
+.captacion-home .product-page-header__icon {
+  border: 1px solid color-mix(in srgb, #2f716a 32%, var(--line));
+  border-radius: 13px;
+  color: #f8f4e9;
+  background: #193e43;
+  box-shadow: 0 7px 16px color-mix(in srgb, #193e43 18%, transparent);
+}
+.captacion-home .product-page-header h1 { color: #172f3a; letter-spacing: -.9px; }
+.captacion-home .product-page-header p { max-width: 720px; color: #526672; font-size: 12px; line-height: 1.55; }
+.captacion-home .captacion-stages-home svg { color: #2f716a; border-color: color-mix(in srgb, #2f716a 35%, var(--line)); background: color-mix(in srgb, #2f716a 10%, var(--surface)); }
+.captacion-home .captacion-stage.active::after,
+.captacion-home .captacion-stage-slot.active .captacion-stage-group::after { background: #d76542; }
+.captacion-home .captacion-stage.active .captacion-stage-number,
+.captacion-home .captacion-stage-slot.active .captacion-stage-number { background: #d76542; border-color: #d76542; }
+.captacion-home .captacion-card { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.captacion-home .captacion-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--card-color) 42%, var(--line)); box-shadow: 0 12px 24px color-mix(in srgb, var(--card-color) 12%, transparent); }
+.captacion-home .captacion-card::before { height: 3px; background: linear-gradient(90deg, var(--card-color), color-mix(in srgb, var(--card-color) 25%, transparent)); }
+.captacion-home .captacion-card-icon { border-radius: 12px; background: color-mix(in srgb, var(--card-color) 10%, var(--surface)); }
+.captacion-home .captacion-card-number { color: color-mix(in srgb, var(--card-color) 72%, var(--muted)); }
+.captacion-home .gs-button.primary { color: #fffaf2; border-color: #193e43; background: #193e43; box-shadow: 0 8px 16px color-mix(in srgb, #193e43 18%, transparent); }
+.captacion-home .gs-button.primary:hover { background: #2f716a; border-color: #2f716a; }
+.captacion-home .captacion-note { border-color: color-mix(in srgb, #d8a85e 36%, var(--line-2)); background: color-mix(in srgb, #f4efe6 48%, var(--surface)); }
+.captacion-home .captacion-note svg { color: #aa7a25; }
 .captacion-stage-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
 .captacion-card {
   position: relative;

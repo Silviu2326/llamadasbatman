@@ -174,7 +174,7 @@ export async function listOrganizations(filters: Paged & { q?: string; plan?: st
       select: {
         id: true, name: true, plan: true, email: true, website: true, industry: true,
         currency: true, timezone: true, createdAt: true,
-        mauticEnabled: true, metricoolEnabled: true, stripeCustomerId: true,
+        metricoolEnabled: true, stripeCustomerId: true,
         wallet: { select: { balanceCents: true, currency: true } },
         _count: { select: { memberships: true, leads: true, campaigns: true, calls: true, agents: true } },
       },
@@ -190,7 +190,7 @@ export async function getOrganization(orgId: string) {
     select: {
       id: true, name: true, plan: true, email: true, website: true, phone: true,
       industry: true, timezone: true, address: true, currency: true, createdAt: true,
-      mauticEnabled: true, mauticCompanyId: true, metricoolEnabled: true, stripeCustomerId: true,
+      metricoolEnabled: true, stripeCustomerId: true,
       wallet: { select: { balanceCents: true, currency: true, softLimitCents: true, hardLimitCents: true, updatedAt: true } },
       whiteLabelConfig: { select: { id: true } },
       agencyClientWorkspace: { select: { agencyOrgId: true, displayName: true, status: true } },
@@ -713,7 +713,7 @@ export async function resetUserPassword(actor: PlatformActor, userId: string, in
 // devuelve una unión enorme y las comparaciones campo a campo dejan de tipar.
 const ORGANIZATION_SELECT = {
   name: true, plan: true, email: true, website: true, phone: true, industry: true,
-  timezone: true, address: true, currency: true, mauticEnabled: true, metricoolEnabled: true,
+  timezone: true, address: true, currency: true, metricoolEnabled: true,
 } as const
 
 export type OrganizationPatch = Partial<Record<keyof typeof ORGANIZATION_SELECT, string | boolean>>

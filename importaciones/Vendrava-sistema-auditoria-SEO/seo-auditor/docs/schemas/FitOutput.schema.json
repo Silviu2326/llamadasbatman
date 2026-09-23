@@ -1,0 +1,58 @@
+{
+  "$defs": {
+    "FitProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "group_id": {
+          "title": "Group Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "included",
+            "excluded",
+            "ambiguous"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "business_evidence": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Business Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_id",
+        "status",
+        "reason",
+        "business_evidence"
+      ],
+      "title": "FitProposal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "proposals": {
+      "items": {
+        "$ref": "#/$defs/FitProposal"
+      },
+      "maxItems": 200,
+      "title": "Proposals",
+      "type": "array"
+    }
+  },
+  "required": [
+    "proposals"
+  ],
+  "title": "FitOutput",
+  "type": "object"
+}

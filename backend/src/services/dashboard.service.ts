@@ -197,7 +197,7 @@ export async function getStats(orgId: string, days = 7) {
 
   const [userCount, org] = await Promise.all([
     prisma.user.count({ where: { orgId } }),
-    prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, mauticEnabled: true, metricoolEnabled: true, settings: true } }),
+    prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true, metricoolEnabled: true, settings: true } }),
   ])
 
   const sentimentTotals: Record<string, number> = {}
@@ -220,7 +220,6 @@ export async function getStats(orgId: string, days = 7) {
     newLeads: leadsThisWeek,
     averageCallDuration: formatDuration(callDurationAgg._avg.durationSeconds),
     userCount, orgPlan: org?.plan ?? 'free',
-    mauticEnabled: org?.mauticEnabled ?? false,
     metricoolEnabled: org?.metricoolEnabled ?? false,
     goals: dashboardGoals(org?.settings),
   }

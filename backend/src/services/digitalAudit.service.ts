@@ -195,7 +195,7 @@ export async function assertAuditablePublicUrl(value: string): Promise<URL> {
   return parsed
 }
 
-export async function fetchHtml(url: string, timeoutMs = 10000): Promise<{ status: number; html: string; info: WebInfo }> {
+export async function fetchHtml(url: string, timeoutMs = 10000): Promise<{ status: number; html: string; info: WebInfo; headers?: Headers; errorCode?: string }> {
   const info: WebInfo = { isHttps: false, finalUrl: url, loadMs: null, httpStatus: 0 }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -229,9 +229,12 @@ export async function fetchHtml(url: string, timeoutMs = 10000): Promise<{ statu
       throw new Error('AUDIT_CONTENT_TYPE_BLOCKED')
     }
     const html = (await readResponseBufferLimited(res, MAX_AUDIT_HTML_BYTES, timeoutMs)).toString('utf8')
-    return { status: res.status, html, info }
-  } catch {
-    return { status: 0, html: '', info }
+    return { status: res.status, html, info, headers: res.headers }
+  } catch (error) {
+    // Conservamos la causa para distinguir un bloqueo local de una web caída.
+    const failure = error as { message?: string; cause?: { code?: string } }
+    const errorCode = controller.signal.aborted ? 'AUDIT_TIMEOUT' : failure.cause?.code || failure.message || 'AUDIT_FETCH_FAILED'
+    return { status: 0, html: '', info, errorCode }
   } finally {
     clearTimeout(timer)
   }

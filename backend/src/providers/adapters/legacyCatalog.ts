@@ -28,7 +28,39 @@ registerProvider({
 })
 registerProvider({
   id: 'resend', displayName: 'Resend', capabilities: [directOnly('email.transactional')],
-  auth: { modes: ['managed'] }, commercialUseAllowed: true, tosReviewedAt: '2026-08-18',
+  auth: {
+    modes: ['managed', 'byok'],
+    byokFields: [
+      { key: 'apiKey', label: 'Clave de envío', kind: 'secret', required: true, help: 'Se guarda cifrada y nunca vuelve a mostrarse.' },
+      { key: 'fromEmail', label: 'Dirección remitente', kind: 'text', required: true, help: 'Debe pertenecer a un dominio verificado en tu cuenta de Resend.' },
+      { key: 'fromName', label: 'Nombre remitente', kind: 'text', required: false, help: 'Por ejemplo, Preclases.' },
+      { key: 'replyTo', label: 'Dirección para respuestas', kind: 'text', required: false },
+      { key: 'webhookSigningSecret', label: 'Secreto de firma del webhook de recepción', kind: 'secret', required: false, help: 'Se guarda cifrado. Cópialo desde el webhook email.received creado en Resend.' },
+    ],
+    async testConnection(secret) {
+      const apiKey = secret.apiKey?.trim()
+      const fromEmail = secret.fromEmail?.trim().toLowerCase()
+      if (!apiKey || !fromEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) {
+        return { ok: false, message: 'Indica una clave y una dirección remitente válida.' }
+      }
+      try {
+        const response = await fetch('https://api.resend.com/domains', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(8_000),
+        })
+        if (!response.ok) return { ok: false, message: response.status === 401 ? 'La clave de envío no es válida.' : 'No se pudo consultar la cuenta de envío.' }
+        const payload = await response.json() as { data?: Array<{ name?: string; status?: string; capabilities?: { sending?: string } }> }
+        const domain = fromEmail.split('@')[1]
+        const verified = (payload.data ?? []).some(item => item.name?.toLowerCase() === domain && item.status === 'verified' && item.capabilities?.sending === 'enabled')
+        return verified
+          ? { ok: true, message: 'Cuenta conectada y dominio remitente verificado.' }
+          : { ok: false, message: `Verifica ${domain} y habilita el envío antes de usar esta dirección.` }
+      } catch {
+        return { ok: false, message: 'No se pudo conectar con el servicio de envío.' }
+      }
+    },
+  },
+  commercialUseAllowed: true, tosReviewedAt: '2026-08-18',
   docsUrl: 'https://resend.com/docs',
 })
 registerProvider({

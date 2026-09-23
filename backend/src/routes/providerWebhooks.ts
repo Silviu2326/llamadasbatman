@@ -433,7 +433,7 @@ export async function pollPendingMagnificJobs(): Promise<{ checked: number; clos
 
 export async function providerWebhooksRoutes(app: FastifyInstance) {
   // Raw body para poder verificar la firma HMAC; el parser queda encapsulado
-  // en este plugin (mismo patrón que mauticWebhooks.ts).
+  // en este plugin (mismo patrón que resendEmailWebhooks.ts).
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
     ;(req as any).rawBody = body
     try { done(null, JSON.parse(body as string)) } catch (error) { done(error as Error, undefined) }

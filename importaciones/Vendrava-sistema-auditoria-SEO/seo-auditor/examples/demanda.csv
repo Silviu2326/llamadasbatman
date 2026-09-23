@@ -1,0 +1,3 @@
+keyword,group_id,segment,volume,status,fit_weight,reason,source,period,geography,brand
+fabricante envases personalizados,industrial,principal,2250,included,1,Supuesto de ejemplo industrial,Ejemplo ficticio,2026-09,ES,false
+cajas para mudanzas,mudanzas,principal,5250,excluded,0,Particular excluido en este ejemplo,Ejemplo ficticio,2026-09,ES,false

@@ -5,8 +5,10 @@ import { redactProviderError, validatePublicBaseUrl, validateSecretValue } from 
 import { buildIntegrationCatalog } from '../lib/integrationCatalog'
 import { getProvider, listProviders } from '../providers/registry'
 import { providerDependencyImpacts } from '../services/integrationDependencies.service'
+import { resendInboundWebhookEndpoint } from '../services/resendInboundEmail.service'
 import {
   decryptDefaultOrganizationCredential,
+  getOrganizationCredential,
   getMonthlyUsageByProvider,
   listOrganizationCredentials,
   markOrganizationCredentialError,
@@ -35,7 +37,6 @@ const bodySchema = z.object({
 
 const ALLOWED_SECRET_KEYS: Record<string, readonly string[]> = {
   metricool: ['baseUrl', 'userToken', 'userId', 'blogId', 'timezone'],
-  mautic: ['baseUrl', 'clientId', 'clientSecret', 'webhookSecret'],
   twilio: ['accountSid', 'authToken', 'fromNumber', 'whatsappFrom', 'webhookBaseUrl', 'mxNumbers', 'voiceStreamSecret', 'humanTransferNumber', 'whatsappWelcomeContentSid'],
   telegram: ['botToken'],
   google: ['clientId', 'clientSecret'],
@@ -56,12 +57,10 @@ function validateProviderSecrets(provider: string, input: Record<string, unknown
   if (baseUrl && validatePublicBaseUrl(`${provider}.baseUrl`, baseUrl)) throw new Error('INTEGRATION_BASE_URL_INVALID')
   const secretFields = provider === 'metricool'
     ? ['userToken']
-    : provider === 'mautic'
-      ? ['clientSecret', 'webhookSecret']
-      : provider === 'twilio'
-        ? ['authToken', 'voiceStreamSecret']
-        : provider === 'telegram'
-          ? ['botToken']
+    : provider === 'twilio'
+      ? ['authToken', 'voiceStreamSecret']
+      : provider === 'telegram'
+        ? ['botToken']
         : ['clientSecret']
   for (const field of secretFields) {
     if (result[field] && validateSecretValue(field, String(result[field]), field === 'authToken' ? 16 : 32)) throw new Error('INTEGRATION_SECRET_INVALID')
@@ -198,4 +197,13 @@ export async function testProvider(
     await markOrganizationCredentialError(orgId, providerId, error)
     return reply.send({ ok: false, message: redactProviderError(error) })
   }
+}
+
+export async function resendInboundWebhook(request: FastifyRequest, reply: FastifyReply) {
+  const { orgId } = request.user as JWTUser
+  const credential = await getOrganizationCredential(orgId, 'resend').catch(() => null)
+  const endpoint = resendInboundWebhookEndpoint(orgId)
+  const signingSecretConfigured = typeof credential?.secrets.webhookSigningSecret === 'string' && Boolean(credential.secrets.webhookSigningSecret)
+  const resendApiKeyConfigured = typeof credential?.secrets.apiKey === 'string' && Boolean(credential.secrets.apiKey)
+  return reply.send({ endpoint, signingSecretConfigured, resendApiKeyConfigured, ready: Boolean(endpoint && signingSecretConfigured && resendApiKeyConfigured) })
 }

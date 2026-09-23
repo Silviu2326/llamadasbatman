@@ -82,6 +82,31 @@ function ProviderCard({ provider, onChanged, canManage }) {
   const [values, setValues] = useState({})
   const [busy, setBusy] = useState('') // '' | saving | testing | disconnecting
   const [message, setMessage] = useState(null) // { tone: 'ok'|'error'|'info', text }
+  const [inboundWebhook, setInboundWebhook] = useState(null)
+  const [inboundFeedback, setInboundFeedback] = useState('')
+
+  useEffect(() => {
+    if (provider.id !== 'resend' || !connected) { setInboundWebhook(null); return undefined }
+    let active = true
+    apiFetch('/api/integration-credentials/resend/inbound-webhook')
+      .then(async response => {
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(payload.error || 'No se pudo cargar la URL de recepción.')
+        if (active) setInboundWebhook(payload)
+      })
+      .catch(error => { if (active) setInboundWebhook({ error: error.message }) })
+    return () => { active = false }
+  }, [provider.id, connected])
+
+  async function copyInboundWebhook() {
+    if (!inboundWebhook?.endpoint) return
+    try {
+      await navigator.clipboard.writeText(inboundWebhook.endpoint)
+      setInboundFeedback('URL copiada')
+    } catch {
+      setInboundFeedback('No se pudo copiar; selecciona y copia la URL.')
+    }
+  }
 
   const cost = formatCents(usage?.costCents)
   const quantity = usage?.quantity != null && !Number.isNaN(Number(usage.quantity))
@@ -190,6 +215,17 @@ function ProviderCard({ provider, onChanged, canManage }) {
         </div>
       )}
 
+      {provider.id === 'resend' && connected && (
+        <section className="conn-inbound-setup" aria-label="Recepción de email">
+          <strong>Recibir respuestas en Vendrava</strong>
+          <p>Crea en Resend un webhook para <code>email.received</code> con esta dirección. Guarda su secreto de firma en la credencial de esta organización. Al actualizarla, vuelve a introducir la API key y el remitente guardados.</p>
+          {inboundWebhook?.endpoint
+            ? <div className="conn-inbound-endpoint"><code>{inboundWebhook.endpoint}</code><button type="button" className="conn-button ghost" onClick={copyInboundWebhook}>Copiar URL</button></div>
+            : <p className="conn-inbound-pending">{inboundWebhook?.error || 'Configura la URL pública HTTPS del servidor para mostrar el endpoint.'}</p>}
+          {inboundWebhook?.endpoint && <small>{inboundWebhook.ready ? 'URL, clave y secreto guardados. Falta comprobar el dominio receptor y el webhook en Resend.' : 'La clave o el secreto de firma aún no están guardados.'}{inboundFeedback && <span> · {inboundFeedback}</span>}</small>}
+        </section>
+      )}
+
       <dl className="conn-meta">
         {(cost || quantity) && (
           <div>
@@ -261,10 +297,12 @@ function ProviderCard({ provider, onChanged, canManage }) {
   )
 }
 
-export default function ConnectionsCenterPage({ embedded = false }) {
+export default function ConnectionsCenterPage({ embedded = false, initialSearch = '' }) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [providers, setProviders] = useState([])
+  const [search, setSearch] = useState(initialSearch)
+  useEffect(() => setSearch(initialSearch), [initialSearch])
   const [listState, setListState] = useState('loading') // loading | ready | empty | error
   const requestRef = useRef(0)
 
@@ -286,8 +324,9 @@ export default function ConnectionsCenterPage({ embedded = false }) {
 
   useEffect(() => { fetchCatalog() }, [fetchCatalog])
 
-  const current = providers.filter(provider => !provider.legacy)
-  const legacy = providers.filter(provider => provider.legacy)
+  const matching = providers.filter(provider => `${provider.id} ${provider.displayName}`.toLowerCase().includes(search.trim().toLowerCase()))
+  const current = matching.filter(provider => !provider.legacy)
+  const legacy = matching.filter(provider => provider.legacy)
   const canManage = hasNavigationPermission(user, ['integrations.manage'])
 
   if (listState === 'loading') return <PageLoadingState label="Cargando conexiones" />
@@ -296,6 +335,8 @@ export default function ConnectionsCenterPage({ embedded = false }) {
 
   return (
     <Root className={`conn-page dark-scroll${embedded ? ' is-embedded' : ''}`}>
+      {embedded ? <label className="conn-provider-search">Buscar proveedor<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nombre del proveedor…" /></label> : null}
+      {listState === 'ready' && !matching.length ? <p role="status">No hay proveedores que coincidan con «{search}». Prueba otro nombre para ver los servicios disponibles.</p> : null}
       {!embedded ? <header className="conn-header">
         <div className="conn-title">
           <div className="conn-title-icon"><RiPlugLine /></div>

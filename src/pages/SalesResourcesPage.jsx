@@ -29,9 +29,9 @@ export default function SalesResourcesPage() {
     }}
   />, [activeId, searchParams, setSearchParams])
 
-  return <><SalesResourceUsage /><Suspense fallback={<PageLoadingState label="Cargando recursos IA" />}>
+  return <Suspense fallback={<PageLoadingState label="Cargando recursos IA" />}>
     {activeId === 'playbooks'
-      ? <Playbooks embedded sectionNavigation={navigation} />
-      : <KnowledgeBase embedded sectionNavigation={navigation} />}
-  </Suspense></>
+      ? <Playbooks embedded sectionNavigation={navigation} sectionHelp={<SalesResourceUsage />} />
+      : <KnowledgeBase embedded sectionNavigation={navigation} sectionHelp={<SalesResourceUsage />} />}
+  </Suspense>
 }

@@ -159,7 +159,7 @@ const ACTION_REFERENCE_KEYS = [
   'leadIds',
   'agentId',
   'marketingCampaignId',
-  'templateExternalId',
+  'emailDraftId',
   'budgetCents',
   'dailyBudgetCents',
   'durationDays',
@@ -795,3 +795,4 @@ export async function rollbackPlan(actor: OrchestrationActor, planId: string, id
   void dispatchOrchestrationJobs().catch(error => console.error('[Orchestration] compensación falló:', error))
   return { ...(await getPersistedPlan(actor.orgId, planId) ?? {}), ...result.output, idempotentReplay: false }
 }
+

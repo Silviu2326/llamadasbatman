@@ -119,7 +119,7 @@ const SERVER_SIDE_HEALTH: HealthResponse = {
 const initialView: VoiceSessionView = {
   mode: "idle",
   phase: "ready",
-  statusMessage: "Ready to call",
+  statusMessage: "Listo para llamar",
   health: SERVER_SIDE_HEALTH,
   providers: initialProviders,
   pipeline: initialPipeline,
@@ -171,8 +171,9 @@ function demoHistory(now: number): LatencySnapshot[] {
   });
 }
 
-export function useVoiceSession(options: { token?: string | null; agentId?: string }) {
-  const { token, agentId } = options;
+export function useVoiceSession(options: { token?: string | null; agentId?: string; locale?: string }) {
+  const { token, agentId, locale = "es" } = options;
+  const es = locale !== "en";
   const [view, setView] = useState<VoiceSessionView>(initialView);
   const [settings, setSettings] = useState<SessionSettings>(DEFAULT_SETTINGS);
   const [phoneAudio, setPhoneAudio] = useState(false);
@@ -277,7 +278,7 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
         });
         break;
       case "audio.start":
-        playerRef.current?.configure(event.sampleRate);
+        playerRef.current?.configure(event.sampleRate, event.encoding);
         setView((current) => ({ ...current, phase: "speaking" }));
         break;
       case "audio.clear":
@@ -358,8 +359,13 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
         if ("speechSynthesis" in window && !speakerMutedRef.current) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(event.text);
-          utterance.lang = "en-US";
-          utterance.rate = 1.08;
+          const language = es ? "es" : "en";
+          const voices = window.speechSynthesis.getVoices();
+          utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith(language) && /google|microsoft|natural|neural/i.test(voice.name))
+            ?? voices.find((voice) => voice.lang.toLowerCase().startsWith(language));
+          utterance.lang = es ? "es-ES" : "en-US";
+          utterance.rate = es ? 0.98 : 1.02;
+          utterance.pitch = 1;
           window.speechSynthesis.speak(utterance);
         }
         break;
@@ -379,7 +385,7 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
       case "audio.end":
         break;
     }
-  }, []);
+  }, [es]);
 
   /**
    * El simulador del CRM envuelve cada evento del pipeline en
@@ -393,17 +399,17 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
       return;
     }
     if (message.type === "error") {
-      handleServerEvent({ type: "error", code: "sim_error", message: message.message ?? "Error de sesión.", fatal: true });
+          handleServerEvent({ type: "error", code: "sim_error", message: message.message ?? (es ? "Error de sesión." : "Session error."), fatal: true });
       return;
     }
     if (message.type === "interrupt") playerRef.current?.clear();
-  }, [handleServerEvent]);
+  }, [es, handleServerEvent]);
 
   const openSocket = useCallback(async (): Promise<WebSocket> => {
     const existing = socketRef.current;
     if (existing?.readyState === WebSocket.OPEN) return existing;
     existing?.close();
-    if (!token) throw new Error("Tu sesión ha caducado. Inicia sesión de nuevo.");
+    if (!token) throw new Error(es ? "Tu sesión ha caducado. Inicia sesión de nuevo." : "Your session has expired. Sign in again.");
 
     const socket = new WebSocket(WS_URL, ["vendrava", token]);
     socket.binaryType = "arraybuffer";
@@ -416,23 +422,23 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
       try {
         handleSimMessage(String(message.data));
       } catch {
-        setView((current) => ({ ...current, error: "Received an unreadable server event." }));
+        setView((current) => ({ ...current, error: es ? "El servidor envió un evento ilegible." : "Received an unreadable server event." }));
       }
     };
     socket.onclose = () => {
       setView((current) =>
         current.mode === "live" || current.mode === "connecting"
-          ? { ...current, mode: "error", phase: "ready", error: "Voice socket closed." }
+          ? { ...current, mode: "error", phase: "ready", error: es ? "Se cerró la conexión de voz." : "Voice socket closed." }
           : current,
       );
     };
 
     await new Promise<void>((resolve, reject) => {
       socket.onopen = () => resolve();
-      socket.onerror = () => reject(new Error("Could not open the voice socket."));
+      socket.onerror = () => reject(new Error(es ? "No se pudo abrir la conexión de voz." : "Could not open the voice socket."));
     });
     return socket;
-  }, [handleSimMessage, token]);
+  }, [es, handleSimMessage, token]);
 
   const startLive = useCallback(async () => {
     try {
@@ -445,7 +451,7 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
         health: current.health,
         mode: "connecting",
         phase: "connecting",
-        statusMessage: "Requesting microphone",
+        statusMessage: es ? "Solicitando micrófono" : "Requesting microphone",
         startedAt: Date.now(),
       }));
       await playerRef.current?.resume();
@@ -487,7 +493,7 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
         error: (error as Error).message,
       }));
     }
-  }, [agentId, openSocket, settings]);
+  }, [agentId, es, openSocket, settings]);
 
   const stop = useCallback(() => {
     demoRunRef.current += 1;
@@ -526,7 +532,7 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
       ...initialView,
       mode: "demo",
       phase: "demo",
-      statusMessage: "Simulated UI turn",
+      statusMessage: es ? "Turno de interfaz simulado" : "Simulated UI turn",
       startedAt: now,
       latencyHistory: demoHistory(now),
     }));
@@ -534,9 +540,10 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
       handleServerEvent({ type: "provider.status", provider, status: "active" });
     }
 
-    const question = "Hi Carlos, I only have a minute—what is this about?";
-    handleServerEvent({ type: "transcript", id: "demo-greeting", speaker: "assistant", text: DEFAULT_GREETING, final: true });
-    handleServerEvent({ type: "demo.speak", text: DEFAULT_GREETING });
+    const greeting = es ? "Hola, soy Isa de Vendrava. Seré breve: ¿qué tal va tu día?" : DEFAULT_GREETING;
+    const question = es ? "Hola Isa, solo tengo un minuto: ¿de qué se trata?" : "Hi Carlos, I only have a minute—what is this about?";
+    handleServerEvent({ type: "transcript", id: "demo-greeting", speaker: "assistant", text: greeting, final: true });
+    handleServerEvent({ type: "demo.speak", text: greeting });
     await delay(450);
     if (!alive()) return;
 
@@ -558,10 +565,12 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
     if (!alive()) return;
     handleServerEvent({ type: "pipeline.stage", stage: "cerebras", status: "complete", latencyMs: 218 });
     handleServerEvent({ type: "latency.update", llm: 218 });
-    handleServerEvent({ type: "transcript", id: "demo-carlos", speaker: "assistant", text: "Absolutely—I’ll keep it brief.", final: false });
+    handleServerEvent({ type: "transcript", id: "demo-carlos", speaker: "assistant", text: es ? "Claro, seré breve." : "Absolutely—I’ll keep it brief.", final: false });
     await delay(115);
     if (!alive()) return;
-    const answer = "Absolutely—I’ll keep it brief. I’m calling from Vendrava to see whether a faster voice workflow could help your team.";
+    const answer = es
+      ? "Claro, seré breve. Te llamo de Vendrava para ver si un flujo de voz más rápido podría ayudar a tu equipo."
+      : "Absolutely—I’ll keep it brief. I’m calling from Vendrava to see whether a faster voice workflow could help your team.";
     handleServerEvent({ type: "transcript", id: "demo-carlos", speaker: "assistant", text: answer, final: true });
     handleServerEvent({ type: "demo.speak", text: answer });
     handleServerEvent({ type: "pipeline.stage", stage: "fish", status: "complete", latencyMs: 176 });
@@ -579,8 +588,8 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
         { stage: "fish", startMs: 230, endMs: 406 },
       ],
     });
-    handleServerEvent({ type: "trace", id: "demo-trace", at: Date.now(), label: "Demo response ready", stage: "fish", durationMs: 489 });
-  }, [handleServerEvent, stop]);
+    handleServerEvent({ type: "trace", id: "demo-trace", at: Date.now(), label: es ? "Respuesta de demo lista" : "Demo response ready", stage: "fish", durationMs: 489 });
+  }, [es, handleServerEvent, stop]);
 
   const sendText = useCallback((text: string) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {

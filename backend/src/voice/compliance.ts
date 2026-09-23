@@ -1,4 +1,6 @@
 import { prisma } from '../lib/prisma'
+import { hasContactConsent } from '../services/contactConsent.service'
+import { requestedInternalVoiceTest } from '../services/internalVoiceTestRequest.service'
 import { assertConsumptionLimit } from '../access-control/consumption'
 import { createTwilioClient, getTwilioIntegrationConfig } from '../services/twilioIntegration.service'
 
@@ -47,7 +49,10 @@ export function normalizeE164(phone: string): string | null {
   if (!digits.startsWith('+')) {
     if (!/^\d+$/.test(digits)) return null
     const countryCode = (process.env.DEFAULT_PHONE_COUNTRY_CODE ?? '52').replace(/^\+/, '')
-    digits = digits.length === 10 ? `+${countryCode}${digits}` : `+${digits}`
+    if (countryCode === '34' && /^[6789]\d{8}$/.test(digits)) digits = `+34${digits}`
+    else if (digits.length === 10 && ['1', '52'].includes(countryCode)) digits = `+${countryCode}${digits}`
+    else if (digits.startsWith(countryCode) && digits.length > 10) digits = `+${digits}`
+    else return null // Ambiguous national numbers must not become another country's prefix.
   }
 
   if (!/^\+[1-9]\d{7,14}$/.test(digits)) return null
@@ -67,6 +72,7 @@ export function normalizeE164(phone: string): string | null {
 function resolveCallTimeZone(phone?: string, timeZone?: string | null): string | null {
   const explicit = timeZone?.trim()
   if (explicit) return explicit
+  if (phone?.startsWith('+34')) return 'Europe/Madrid'
   if (phone?.startsWith('+52')) return LADA_TZ[phone.slice(3, 5)] ?? 'America/Mexico_City'
   const configured = process.env.DEFAULT_CALL_TIMEZONE?.trim()
   if (configured) return configured
@@ -77,8 +83,21 @@ function resolveCallTimeZone(phone?: string, timeZone?: string | null): string |
 export function withinLegalHours(phone?: string, now?: Date, timeZone?: string | null): boolean {
   const tz = resolveCallTimeZone(phone, timeZone)
   if (!tz) return false
-  const d = now ? new Date(now.toLocaleString('en-US', { timeZone: tz })) : new Date(new Date().toLocaleString('en-US', { timeZone: tz }))
-  return d.getHours() >= HOUR_START && d.getHours() < HOUR_END
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: 'numeric', hourCycle: 'h23', weekday: 'short' }).formatToParts(now ?? new Date())
+    const hour = Number(parts.find(part => part.type === 'hour')?.value)
+    const day = parts.find(part => part.type === 'weekday')?.value
+    if (phone?.startsWith('+34') && (day === 'Sat' || day === 'Sun')) return false
+    return hour >= HOUR_START && hour < HOUR_END
+  } catch { return false }
+}
+
+export function nextCallWindow(phone: string, now = new Date(), timeZone?: string | null): Date | null {
+  for (let offset = 15; offset <= 4 * 24 * 60; offset += 15) {
+    const candidate = new Date(now.getTime() + offset * 60_000)
+    if (withinLegalHours(phone, candidate, timeZone)) return candidate
+  }
+  return null
 }
 
 export function detectOptout(text: string): boolean {
@@ -147,7 +166,7 @@ async function leadCallContext(orgId: string, leadId?: string): Promise<LeadCall
   }
 }
 
-export async function canCall(orgId: string, phone: string, leadId?: string): Promise<{ allowed: boolean; reason: string }> {
+export async function canCall(orgId: string, phone: string, leadId?: string, options: { internalTestAgentId?: string } = {}): Promise<{ allowed: boolean; reason: string }> {
   const normalizedPhone = normalizeE164(phone)
   if (!normalizedPhone) return { allowed: false, reason: 'invalid_phone' }
   // Techo de gasto del plan: una llamada arranca cuatro proveedores de pago,
@@ -161,7 +180,9 @@ export async function canCall(orgId: string, phone: string, leadId?: string): Pr
   if (optOut) return { allowed: false, reason: 'optout' }
 
   const { callTimeZone, lineType } = await leadCallContext(orgId, leadId)
-  if (!withinLegalHours(normalizedPhone, undefined, callTimeZone)) {
+  const testRequest = leadId && options.internalTestAgentId
+    ? await requestedInternalVoiceTest(orgId, leadId, options.internalTestAgentId, normalizedPhone) : null
+  if (!withinLegalHours(normalizedPhone, undefined, callTimeZone) && testRequest?.allowOutsideHours !== true) {
     // A +1 number with no stored timezone lands here: we cannot prove the local
     // hour, so we do not dial. The pipeline stores the zone during enrichment.
     return { allowed: false, reason: 'outside_hours' }
@@ -169,18 +190,14 @@ export async function canCall(orgId: string, phone: string, leadId?: string): Pr
 
   // Opt-in gate: when the org requires documented voice consent, a lead
   // without a granted ContactConsent(channel=voice) cannot be called.
-  if (process.env.REQUIRE_VOICE_CONSENT === 'true' && leadId) {
-    const consent = await prisma.contactConsent.findFirst({
-      where: { orgId, leadId, channel: 'voice', status: 'granted' },
-      select: { expiresAt: true },
-    })
-    const granted = Boolean(consent) && !(consent!.expiresAt && consent!.expiresAt < new Date())
+  if (normalizedPhone.startsWith('+34') || process.env.REQUIRE_VOICE_CONSENT === 'true') {
+    const granted = leadId ? await hasContactConsent(orgId, leadId, 'voice') : false
     // Business-landline exemption: the TCPA's artificial-voice prohibition
     // covers mobiles and residential lines, not business landlines. It stays
     // behind a flag because acting on it is a legal decision that belongs to
     // the operator (and their counsel), not a default.
     const landlineExempt =
-      process.env.ALLOW_COLD_CALL_BUSINESS_LANDLINE === 'true' && lineType === 'landline'
+      normalizedPhone.startsWith('+1') && process.env.ALLOW_COLD_CALL_BUSINESS_LANDLINE === 'true' && lineType === 'landline'
     if (!granted && !landlineExempt) {
       return { allowed: false, reason: 'missing_voice_consent' }
     }
@@ -209,11 +226,14 @@ const VOICE_CONSENT_PHRASES = [
  * en medio no es un consentimiento, es una conversación. Y una negación en el
  * texto lo invalida entero.
  */
-export function detectVoiceConsentReply(text: string): boolean {
+export function detectVoiceConsentReply(text: string, offeredAiCall = false): boolean {
   const t = text.toLowerCase().trim().replace(/[.!¡]+/g, '')
   if (!t || t.length > 80) return false
   if (detectOptout(t)) return false
   if (/\b(no|not|don'?t|nope|stop|never)\b/.test(t)) return false
+  // A reply to an audit is not consent to an AI call. The outgoing message
+  // must explicitly have offered one, or the reply must explicitly request it.
+  if (!offeredAiCall && !(/\b(ia|ai|artificial)\b/.test(t) && /ll[aá]ma|llame|call/.test(t))) return false
   return VOICE_CONSENT_PHRASES.some(p => t === p || t.startsWith(`${p} `) || t.includes(` ${p} `))
 }
 
@@ -252,6 +272,7 @@ export async function grantVoiceConsent(
 }
 
 export async function registerOptout(orgId: string, phone: string, reason = 'manual'): Promise<void> {
+  phone = normalizeE164(phone) ?? phone
   await prisma.optOut.upsert({
     where: { orgId_phone: { orgId, phone } },
     create: { orgId, phone, reason },

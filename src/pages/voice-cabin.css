@@ -37,7 +37,16 @@
   min-height: 100vh;
   margin: 0 auto;
   padding: 0 14px;
-}.cabin-root .topbar {
+}.cabin-root .cabin-shell {
+  width: min(100%, 1820px);
+  min-height: 100vh;
+  height: auto;
+  margin: 0 auto;
+  padding: 0 14px;
+  display: block;
+  overflow: visible;
+}
+.cabin-root .topbar {
   min-height: 64px;
   display: grid;
   grid-template-columns: minmax(300px, 1fr) auto minmax(480px, 1fr);
@@ -307,4 +316,92 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+@media (max-width: 820px) {
+  .cabin-root .cabin-shell { padding: 0 9px; }
+}
+@media (max-width: 600px) {
+  .cabin-root .cabin-shell { padding: 0 7px; }
+}
+
+/* Vista de interacción: dos canales sencillos para leer actividad y latencia de un vistazo. */
+.cabin-root .interaction-view {
+  flex: 0 0 auto;
+  padding: 22px 22px 24px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent);
+}
+.cabin-root .interaction-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 17px;
+}
+.cabin-root .interaction-intro .eyebrow {
+  color: var(--ink-soft);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.cabin-root .interaction-intro .eyebrow svg { color: var(--blue); }
+.cabin-root .interaction-intro p { margin-top: 7px; color: var(--muted); font-size: 10px; }
+.cabin-root .interaction-latency { display: grid; justify-items: end; gap: 4px; }
+.cabin-root .interaction-latency b { color: var(--ink); font: 22px/1 var(--mono); letter-spacing: -0.04em; }
+.cabin-root .interaction-latency span { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+.cabin-root .interaction-track {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 38px 112px minmax(0, 1fr) 92px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+.cabin-root .interaction-track + .interaction-track { margin-top: 11px; }
+.cabin-root .interaction-track-user { color: #225d34; background: #dff5e6; border-color: #c8e8d2; }
+.cabin-root .interaction-track-ai { color: #214e89; background: #e5f0ff; border-color: #cfe1fa; }
+.cabin-root .track-play {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #122016;
+  background: rgba(255,255,255,0.75);
+  cursor: pointer;
+}
+.cabin-root .interaction-track-ai .track-play { color: #173d70; }
+.cabin-root .track-play:hover:not(:disabled) { background: #fff; transform: translateY(-1px); }
+.cabin-root .track-play:disabled { cursor: default; opacity: 0.55; }
+.cabin-root .track-label b, .cabin-root .track-label small, .cabin-root .track-meta span, .cabin-root .track-meta b { display: block; }
+.cabin-root .track-label b { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
+.cabin-root .track-label small { margin-top: 4px; color: currentColor; opacity: 0.72; font-size: 8px; }
+.cabin-root .track-wave {
+  position: relative;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: clamp(2px, 0.28vw, 4px);
+  overflow: hidden;
+}
+.cabin-root .track-wave::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed currentColor; opacity: 0.28; }
+.cabin-root .track-wave i { position: relative; z-index: 1; flex: 1 1 3px; max-width: 4px; min-height: 3px; border-radius: 3px; background: currentColor; opacity: 0.82; transition: height 120ms ease, opacity 120ms ease; }
+.cabin-root .interaction-track-user .track-wave i { background: #236d39; }
+.cabin-root .interaction-track-ai .track-wave i { background: #24518e; }
+.cabin-root .phase-listening .interaction-track-user .track-wave i, .cabin-root .phase-speaking .interaction-track-ai .track-wave i, .cabin-root .phase-demo .interaction-track-ai .track-wave i { opacity: 1; }
+.cabin-root .track-meta { text-align: right; }
+.cabin-root .track-meta span { font-size: 8px; font-weight: 800; letter-spacing: 0.08em; }
+.cabin-root .track-meta b { margin-top: 5px; font: 10px/1 var(--mono); opacity: 0.75; }
+@media (max-width: 820px) {
+  .cabin-root .interaction-view { padding: 16px 11px 18px; }
+  .cabin-root .interaction-intro { align-items: flex-start; }
+  .cabin-root .interaction-latency b { font-size: 17px; }
+  .cabin-root .interaction-track { grid-template-columns: 34px 82px minmax(0, 1fr) 67px; gap: 8px; padding-right: 8px; }
+  .cabin-root .track-label b { font-size: 12px; }
+  .cabin-root .track-label small { font-size: 7px; }
+  .cabin-root .track-meta span { font-size: 7px; }
+  .cabin-root .track-meta b { font-size: 8px; }
 }

@@ -5,7 +5,6 @@ import * as marketingCampaignsService from './marketingCampaigns.service'
 import * as metaCampaignBuilder from './metaCampaignBuilder.service'
 import { getDecryptedToken } from './metaAdAccount.service'
 import * as metricoolSync from './metricoolSync.service'
-import * as mauticSync from './mauticSync.service'
 import * as pipelineService from './pipeline.service'
 import * as tasksService from './tasks.service'
 import { enrichFromWebsite } from './digitalAudit.service'
@@ -38,7 +37,7 @@ export interface OrchestrationActionReferences {
   leadIds?: string[]
   agentId?: string
   marketingCampaignId?: string
-  templateExternalId?: string
+  emailDraftId?: string
   budgetCents?: number
   dailyBudgetCents?: number
   durationDays?: number
@@ -62,7 +61,7 @@ export const ORCHESTRATION_ACTION_CATALOG: readonly OrchestrationActionContract[
   { kind: 'ads.publish_paused', title: 'Crear campaña Ads pausada', required: ['budgetCents'], anyOf: ['campaignId'], references: ['campaignId', 'landingSlug', 'budgetCents'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome' },
   { kind: 'ads.activate', title: 'Activar campaña Ads', required: ['dailyBudgetCents', 'durationDays'], anyOf: ['campaignId'], references: ['campaignId', 'dailyBudgetCents', 'durationDays'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome' },
   { kind: 'social.create_draft', title: 'Crear borrador social', required: ['text', 'platforms'], anyOf: ['campaignId', 'landingSlug'], references: ['campaignId', 'landingSlug'], effects: 'external', compensation: 'manual_review', retryPolicy: 'blocked_on_uncertain_external_outcome' },
-  { kind: 'email.publish', title: 'Publicar campaña de email', required: ['marketingCampaignId', 'templateExternalId'], references: ['marketingCampaignId', 'templateExternalId'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome' },
+  { kind: 'email.publish', title: 'Publicar campaña de email', required: ['marketingCampaignId'], references: ['marketingCampaignId'], effects: 'external', compensation: 'automatic', retryPolicy: 'blocked_on_uncertain_external_outcome' },
   { kind: 'agent.activate', title: 'Activar agente comercial', required: ['agentId'], references: ['agentId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
   { kind: 'lead.create_follow_up', title: 'Crear seguimiento de lead', required: ['leadId', 'title'], references: ['leadId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
   { kind: 'pipeline.move_stage', title: 'Mover oportunidad en pipeline', required: ['opportunityId', 'toStage'], references: ['opportunityId'], effects: 'local', compensation: 'automatic', retryPolicy: 'safe' },
@@ -126,7 +125,7 @@ export function validateOrchestrationActionInput(
       return null
     }
     case 'email.publish':
-      return requiredText(input, 'marketingCampaignId') || requiredText(input, 'templateExternalId')
+      return requiredText(input, 'marketingCampaignId')
     case 'agent.activate':
       return requiredText(input, 'agentId')
     case 'lead.create_follow_up':
@@ -462,28 +461,21 @@ async function createSocialDraft(context: AdapterContext): Promise<AdapterResult
 
 async function publishEmail(context: AdapterContext): Promise<AdapterResult> {
   const campaignId = stringInput(context.action, 'marketingCampaignId')
-  const templateExternalId = stringInput(context.action, 'templateExternalId')
-  if (!campaignId || !templateExternalId) return blocked('EMAIL_INPUT_INCOMPLETE', 'La campaña de email necesita marketingCampaignId y templateExternalId.')
-  const org = await prisma.organization.findUnique({ where: { id: context.orgId }, select: { mauticEnabled: true } })
-  if (!org?.mauticEnabled) return blocked('MAUTIC_DISABLED', 'Activa Mautic para esta organización antes de enviar emails.')
-  if (!(await mauticSync.isConfiguredForOrg(context.orgId))) return blocked('MAUTIC_NOT_CONFIGURED', 'Configura Mautic para esta organización.')
-  const campaign = await prisma.marketingCampaign.findFirst({ where: { id: campaignId, orgId: context.orgId }, select: { status: true, templateBindingId: true, externalCampaignId: true } })
+  if (!campaignId) return blocked('EMAIL_INPUT_INCOMPLETE', 'La acción necesita marketingCampaignId.')
+  const campaign = await prisma.marketingCampaign.findFirst({ where: { id: campaignId, orgId: context.orgId }, select: { status: true, emailDraftId: true } })
   if (!campaign) return blocked('EMAIL_CAMPAIGN_NOT_FOUND', 'La campaña de email no existe en esta organización.')
-  if (campaign.templateBindingId !== templateExternalId) return blocked('EMAIL_TEMPLATE_MISMATCH', 'templateExternalId no coincide con la plantilla vinculada a la campaña.')
-  if (['running', 'scheduled', 'completed'].includes(campaign.status)) {
-    return { status: 'succeeded', output: { campaignId, templateExternalId, externalCampaignId: campaign.externalCampaignId, enrolled: null, skipped: null, externalEffect: true, remoteState: campaign.status, idempotentReplay: true } }
-  }
-  if (campaign.status === 'publishing') return blocked('OUTCOME_UNKNOWN', 'La campaña de email estaba publicándose cuando se interrumpió el proceso; revisa Mautic antes de reintentar.')
+  if (!campaign.emailDraftId) return blocked('EMAIL_DRAFT_REQUIRED', 'La campaña necesita un borrador local de email.')
+  if (['running', 'scheduled', 'completed'].includes(campaign.status)) return { status: 'succeeded', output: { campaignId, emailDraftId: campaign.emailDraftId, enrolled: null, skipped: null, externalEffect: true, remoteState: campaign.status, idempotentReplay: true } }
+  if (campaign.status === 'publishing') return blocked('OUTCOME_UNKNOWN', 'La campaña estaba publicándose cuando se interrumpió el proceso; revisa su cola local antes de reintentar.')
   try {
     const validation = await marketingCampaignsService.validateCampaign(context.orgId, campaignId)
     if (!validation.valid) return blocked('EMAIL_CAMPAIGN_INVALID', `La campaña de email no está lista: ${validation.missing.join(', ')}`)
     const result = await marketingCampaignsService.publishCampaign(context.orgId, context.actorUserId, campaignId)
-    return { status: 'succeeded', output: { campaignId, enrolled: result.enrolled, skipped: result.skipped, externalEffect: true, remoteState: result.campaign.status } }
+    return { status: 'succeeded', output: { campaignId, emailDraftId: campaign.emailDraftId, enrolled: result.enrolled, skipped: result.skipped, externalEffect: true, remoteState: result.campaign.status } }
   } catch (error) {
     return failed(error)
   }
 }
-
 async function activateAgent(context: AdapterContext): Promise<AdapterResult> {
   const agentId = stringInput(context.action, 'agentId')
   if (!agentId) return blocked('AGENT_ID_REQUIRED', 'Indica agentId para activar el agente.')
@@ -714,3 +706,4 @@ export async function compensateOrchestrationAction(context: AdapterContext, out
 export function actionHasExternalEffect(kind: OrchestrationActionKind): boolean {
   return kind === 'ads.publish_paused' || kind === 'ads.activate' || kind === 'social.create_draft' || kind === 'email.publish'
 }
+

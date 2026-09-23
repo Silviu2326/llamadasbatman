@@ -5,6 +5,19 @@
 @media(max-width:900px){.inbox-topbar{min-height:54px}.inbox-heading p{font-size:12px}.inbox-workspace{display:block;overflow:auto}.conversation-queue{min-height:310px;max-height:43vh;margin-bottom:10px}.conversation-thread{min-height:570px}.thread-header .status-select{order:4}.thread-header .icon-button{order:5}.takeover-button{order:6}.message-bubble{max-width:84%}.composer-tabs{overflow:auto}.composer-tabs button{white-space:nowrap}.topbar-actions{gap:9px}}
 
 /* Interactive controls added after the first visual pass. */
+.thread-header{flex-wrap:wrap}
+.thread-error[role="alert"]{flex:0;padding:10px 14px;text-align:left;justify-items:start}
+.conversations-inbox-page{container-type:inline-size}
+.thread-person{min-width:150px}
+@container(max-width:1080px){
+  .inbox-workspace{grid-template-columns:250px minmax(0,1fr);grid-template-rows:minmax(460px,1fr) auto;overflow:auto}
+  .conversation-inspector{grid-column:1/-1}
+}
+@container(max-width:700px){
+  .inbox-workspace{display:block}
+  .conversation-queue{min-height:260px;max-height:38vh;margin-bottom:10px}
+  .conversation-thread{min-height:570px}
+}
 .template-button{position:relative;display:flex;align-items:center;gap:5px;height:31px;margin-left:auto!important;padding:0 8px;border:1px solid var(--line-2)!important;border-radius:5px;color:var(--muted);background:var(--surface);font-size:10px;cursor:pointer}
 .template-button select{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
 .template-button svg{width:14px}

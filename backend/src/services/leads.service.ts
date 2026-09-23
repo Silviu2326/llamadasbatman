@@ -3,7 +3,6 @@ import { prisma } from '../lib/prisma'
 import { LeadStatus } from '@prisma/client'
 import { auditBusiness } from './digitalAudit.service'
 import { getPresignedUrl, putObject } from '../lib/s3'
-import { syncContact } from './mauticSync.service'
 import { writeAuditLog } from '../lib/audit'
 import { triggerContextualMicroapps } from '../microapps/contextualAutomation'
 import { logSalesActivity } from '../lib/salesActivity'
@@ -221,7 +220,7 @@ export async function assignOwner(orgId: string, actorUserId: string, actorRole:
 
 /**
  * FND-05: punto único de creación de Lead para todas las fuentes (manual,
- * CSV, Meta, landing, API). Antes solo `ingestLead()` sincronizaba Mautic y
+ * CSV, Meta, landing, API). Antes solo `ingestLead()` propagaba la sincronización externa y
  * orquestaba la conversación/consentimiento/evento `lead.created`; un lead
  * dado de alta desde la UI o importado quedaba sin ninguno de esos efectos.
  * `orchestrateNewLead()` es idempotente (upsert de conversación + outbox
@@ -272,7 +271,6 @@ export async function createLead(orgId: string, actorUserId: string | null | und
     after: lead,
   })
 
-  await syncContact(lead).catch(() => {})
   await orchestrateNewLead(orgId, lead.id, consent).catch((error) => {
     console.error('[Leads] orchestration failed:', (error as Error).message)
   })
@@ -428,12 +426,6 @@ export async function updateLead(orgId: string, actorUserId: string, actorRole: 
     after: after ?? undefined,
   })
 
-  // Solo re-sincroniza si cambió el estado (el segmento de Mautic depende
-  // de eso) — evita un fetch a Mautic en cada edición de nombre/tags.
-  if (data.status && after) {
-    await syncContact(after).catch(() => {})
-  }
-
   if (data.status && after && data.status !== before.status) {
     await logSalesActivity({
       orgId,
@@ -475,11 +467,6 @@ export async function auditLead(
     data: { customFields: { ...customFields, website: website ?? null, digitalAudit: result } as any },
   })
   await prisma.leadAudit.create({ data: { orgId, leadId: id, result: result as any } })
-
-  // La auditoría solo sirve si llega a donde se escribe. Al re-sincronizar,
-  // `syncContact` sube los hallazgos como campos personalizados y una
-  // plantilla de Mautic ya puede decir algo cierto de este negocio.
-  await syncContact(updated).catch(() => {})
 
   return result
 }
@@ -647,3 +634,5 @@ export async function getLeadTimeline(orgId: string, id: string) {
 
   return { lead, calls, meetings, opportunities, origin: lead ? origin : null }
 }
+
+
