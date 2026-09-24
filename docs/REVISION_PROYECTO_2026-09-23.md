@@ -760,3 +760,161 @@ Fuentes: Wikipedia «Jev (AI model)», blog de TypeSafe AI «Introducing System 
 Models & Jev», Tom's Hardware, OpenRouter «Jev SDK for TypeScript and Python»,
 Vercel KB «classify, route, and score with Jev», LangChain «What Is Jev?»,
 MarkTechPost (19-09-2026).
+
+---
+
+## 10. Cierre del módulo de contacto con clientes (24-09-2026)
+
+Objetivo: dejar terminado el módulo que contacta y habla con clientes (agentes
+IA, leads, campañas, llamadas y su resultado en el CRM, conocimiento del
+agente). Se corrigieron los hallazgos de las secciones 2.2, 3 y 8 en cinco
+tramos paralelos, una revisión de integración del diff completo (15 hallazgos,
+todos corregidos) y un recorrido de usuario nuevo. Rama
+`claude/project-review-f33u1t`.
+
+| Commit | Tramo |
+|---|---|
+| `26915fa` | Despacho: cola sin solapes, intentos solo tras marcar, capacidad sin coste, códigos tipados |
+| `c83c547` | Leads: importación en el CRM, consentimiento, E.164, deduplicación, elegibilidad |
+| `88d1816` | Conocimiento: extracción de PDF/DOCX/URL en servidor, documentos por agente, guiones con pasos |
+| `edb634f` | Agentes: cierre del `PUT`, readiness real, límites operativos, estado real en la UI |
+| `93e9bce` | Llamada y CRM: resultado clasificado, transcripción por turnos, buzón, silencio, reconciliación |
+| `bb55cbe` | Correcciones de integración (§10.3) |
+
+### 10.1 Notas finales
+
+| Tramo | Antes (§8) | Ahora | Para llegar a 9 |
+|---|---|---|---|
+| 8.1 Crear y configurar el agente | 6 | **8** | Subida del documento de evidencia del consentimiento; readiness de credenciales depende del entorno del API; tests del flujo de UI |
+| 8.2 Documentos, guiones y web | 5 | **8** | Recuperación por turno (hoy el ranking se hace una vez antes del primer turno); prueba con PDF real |
+| 8.3 Importar leads | 4 | **7,5** | Worker de importaciones desplegado; retro-normalizar teléfonos antiguos |
+| 8.4 Llamada y resultado en el CRM | 5 | **7,5** | Verificación con llamada real (AMD, silencio, clasificador); causa real de `Originate` (AMI con `read=call`); coste por proveedor |
+
+**Media del flujo: 7,75 / 10** (antes 5). Los cinco bloqueos de §8.0 están
+cerrados en código, con prueba offline cada uno:
+
+| Bloqueo | Estado | Prueba |
+|---|---|---|
+| 1. Importación inalcanzable | Cerrado | `src/lib/leadImport.test.mjs`; `SalesCRMPage.jsx` monta `ImportLeadsModal` |
+| 2. Consentimiento imposible de registrar | Cerrado | `leadImportDedupe.offline.test.ts`, `consentEnqueue.offline.test.ts` |
+| 3. Rechazo invisible | Cerrado | `leadCallDispatch.offline.test.ts`, `leadCallability.offline.test.ts` |
+| 4. Teléfonos sin normalizar / país 52 | Cerrado en código y en `.env.example` | `leadImportDedupe.offline.test.ts` |
+| 5. Línea única quema intentos | Cerrado (sin verificar con línea real) | `leadCallDispatch.offline.test.ts`, `callWorker.offline.test.ts`, `zadarmaRemote.offline.test.ts` |
+
+### 10.2 Validación final
+
+| Comprobación | Resultado |
+|---|---|
+| `npm run build` (raíz y backend) | ✅ OK |
+| `npm run check:styles` | ✅ OK |
+| `npm run test:offline` | ✅ 4/4 |
+| Suite offline de backend (`*.offline.test.ts` + judge, autorización, contratos, AMD, outcome, voz) | ✅ 290/290 (antes de este trabajo: 48) |
+| `node --test src/lib/*.test.mjs` | ✅ 93/94; el único fallo (`salesRendering`, reunión desde el CRM) es previo y ajeno |
+
+No se ejecutaron pruebas con base de datos ni se hizo ninguna llamada.
+`authorizationRoutes.test.ts` nunca pasaba sin base de datos (503 por
+`applyWorkspaceContext`); ahora corre offline con stubs mínimos.
+
+### 10.3 Correcciones de integración (`bb55cbe`)
+
+De la revisión del diff completo salieron 15 hallazgos; los más relevantes:
+
+- **Un error de dialplan o permisos en `Originate`** contaba como intento y
+  habría quemado los tres intentos de toda la campaña en 45 min. Ahora
+  `ORIGINATE_INVALID` bloquea sin gastar intento; solo «Originate failed» se
+  considera marcado.
+- **Un buzón podía acabar como «no interesado»**: el saludo del contestador
+  entraba como turno del prospecto y el clasificador decidía. Ahora el buzón
+  detectado gana siempre y esos turnos no cuentan.
+- **El detector de buzón podía colgar a una recepcionista** («¿para hablar con
+  quién?», «no está disponible»). Ahora exige una frase inequívoca o dos
+  señales débiles.
+- Reanudar una campaña no duplica llamadas a leads con reintento pendiente.
+- El consentimiento registrado al importar solo encola si la campaña está
+  activa con agente publicado, y con la misma clave que `autoCall`.
+- Guardar la ficha del agente ya no pisa los documentos elegidos.
+- Corregir el resultado de una llamada antigua no revierte el estado actual
+  del lead.
+- El backpressure de audio es real: el productor espera al drenaje.
+- Nuevo resultado `human_requested` («pidió hablar con una persona»),
+  separado de `callback_requested` («llámame después»).
+- Reintento automático tras buzón o IVR.
+- El consumidor genérico de llamadas de `worker.ts` no arranca sin
+  `LEAD_CALL_DISPATCH_IN_WORKER=true` y excluye `ZADARMA_ORG_ID` (cierra la
+  fuga de aislamiento de §3).
+
+### 10.4 Contratos y endpoints nuevos del módulo
+
+| Endpoint | Descripción |
+|---|---|
+| `POST /api/leads/import` | CSV (`text/plain`) o JSON `{fileName, contentBase64}` (XLSX); query `campaignId`, `autoCall`, `consentVoice`, `consentSource`, `consentEvidence`, `attachExisting`; 202 con `mapping` y `unmappedHeaders` |
+| `POST /api/leads/:id/consent` | `{ action: grant\|revoke, source, evidence, expiresAt? }` → consentimiento de voz auditado |
+| `GET /api/leads/:id` | añade `callability { eligible, reasons[], warnings[], lastCallBlock }` |
+| `POST /api/leads/:id/call-now` | 422 `lead_not_callable` con motivos |
+| `GET /api/campaigns/:id/start-preview` | `breakdown { eligible, withoutPhone, invalidPhone, optOut, missingConsent, maxAttempts }`, `canStart` |
+| `POST /api/campaigns/:id/start` | 409 `AGENT_NOT_PUBLISHED`/`AGENT_MISSING`; encola solo elegibles con `dedupeKey`; `breakdown.alreadyQueued` |
+| `PATCH /api/calls/:id` | `{ outcome?, summary?, callbackAt?, meetingAt?, notes? }`; reaplica efectos; auditoría |
+| `GET /api/calls/:id` | añade `transcriptTurns`, `evaluation`, `metrics` |
+| `POST /api/knowledge/upload` | PDF/DOCX ≤10 MB, extracción en servidor, asset archivado |
+| `GET/PUT /api/knowledge/agent-links` | documentos asignados a un agente (`settings.knowledgeIds`) |
+| `GET /api/knowledge/prompt-preview?agentId=` | prompt real del agente con fuentes |
+| `DELETE /api/playbooks/:id` | borrado lógico; `PUT` con `steps` validados |
+| `PUT /api/agents/:id` | ya no acepta `lifecycleStatus`, `isActive` ni `settings.knowledgeIds`; `phoneNumber` solo si viene |
+| `POST /api/agents/:id/pause` · `/resume` | cambio de estado explícito |
+| `GET /api/agents/outbound-numbers` | líneas de salida del entorno |
+| Pasarela `POST /calls` (error) | `{ error, code, retryable, dialed, retryAfterMs?, cause? }`; 429 capacidad, 422 preparación, 409 `ORIGINATE_*`, 503 `AMI_UNAVAILABLE` |
+
+Vocabulario de `outcome` ampliado: `no_answer`, `busy`, `voicemail`, `ivr`,
+`wrong_number`, `human_requested`, `callback_requested`, `interested`,
+`not_interested`, `meeting_scheduled`.
+
+### 10.5 Qué hay que desplegar para que funcione en producción
+
+Nada de esto se ha ejecutado desde aquí. Orden recomendado:
+
+1. **Neon:** aplicar la migración aditiva
+   `backend/prisma/migrations/20260924090000_call_outcome_details`
+   (`Call.meetingAt`, `Call.transcriptTurns`) **antes** de arrancar el runtime
+   nuevo; si no, `ingestCall` fallará y las llamadas irán a `pending.json`.
+2. **VPS (pasarela + call-worker):** `prisma generate`, copiar `dist` y
+   reiniciar solo `vendrava-zadarma.service` y `vendrava-call-worker.service`
+   (procedimiento de `integrations/zadarma/deploy/`). Desplegar los dos a la
+   vez: un worker nuevo con pasarela vieja degrada a `gateway_rejected`. No
+   tocar Asterisk, nginx ni Sprintmarkt. Recomendado fijar
+   `DEFAULT_PHONE_COUNTRY_CODE=34` en `/etc/vendrava/zadarma.env`.
+3. **API (Railway):** desplegar HEAD y definir `ZADARMA_CALLER_ID` (para que el
+   check de número de salida sea real), `CEREBRAS_API_KEY`, `DEEPGRAM_API_KEY`,
+   `FISH_API_KEY` (readiness de credenciales) y `DEFAULT_PHONE_COUNTRY_CODE=34`.
+   Para las importaciones hace falta **un proceso `node dist/worker.js` con
+   `BACKGROUND_WORKERS_ENABLED=true`**; no arrancará el consumidor de llamadas
+   salvo `LEAD_CALL_DISPATCH_IN_WORKER=true`.
+4. **Frontend (Vercel):** desplegar HEAD.
+
+Variables nuevas, todas opcionales con valor por defecto: `ZADARMA_AMD_WINDOW_MS`
+(10000), `VOICE_SILENCE_REPROMPT_MS` (12000), `VOICE_SILENCE_HANGUP_MS` (25000),
+`VOICE_FAREWELL_GRACE_MS` (4000), `VOICE_HISTORY_CHAR_BUDGET` (16000),
+`PROMPT_CHAR_BUDGET` (24000), `WORKER_QUEUE_CONCURRENCY`, `REQUIRE_VOICE_CONSENT`,
+`LEAD_CALL_DISPATCH_IN_WORKER`.
+
+### 10.6 Lo que solo se puede comprobar con una llamada real
+
+- Detección de buzón por el primer audio y sus falsos positivos.
+- Tiempos de silencio, repregunta y despedida.
+- Calidad del clasificador de resultado y de la extracción de `meetingAt`.
+- Inferencia de `no_answer`/`busy` por tiempo de timbre (el usuario AMI del
+  VPS tiene `read=none`; con `read=call` llegaría la causa real).
+- Backpressure con una respuesta larga.
+- Reconciliación con los permisos reales del directorio de grabaciones.
+- Opt-out con transcripción en streaming.
+- Puntuación del evaluador en una conversación bidireccional.
+
+La microprueba del 19-09 es anterior a todo este trabajo. La siguiente prueba
+debe hacerse con `POST /agents/:id/test-calls` sobre el número autorizado,
+tras el despliegue, y solo entonces publicar el agente.
+
+### 10.7 Pendiente fuera del módulo
+
+- Rotar las cinco credenciales del commit `9ca9d1b` (§2.1).
+- `/health/integrations*`, `TRUST_PROXY`, WebSockets sin revocación (§2.2).
+- Datos personales y ficheros sobrantes versionados (§4).
+- Integración de Jev (§9), pendiente de acceso a su documentación.
