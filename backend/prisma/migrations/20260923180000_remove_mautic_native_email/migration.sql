@@ -22,7 +22,7 @@ WHERE campaign."templateBindingId" = binding."id"
 
 UPDATE "EmailDelivery" AS delivery
 SET "emailDraftId" = draft."id",
-    "subjectSnapshot" = COALESCE(draft."content"->>'subject', draft."name')
+    "subjectSnapshot" = COALESCE(draft."content"->>'subject', draft."name")
 FROM "EmailNewsletterDraft" AS draft
 WHERE delivery."orgId" = draft."orgId"
   AND delivery."templateExternalId" = draft."mauticTemplateId";
