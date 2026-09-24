@@ -98,13 +98,18 @@ export async function reject(
 }
 
 export async function approveAll(
-  request: FastifyRequest<{ Body: { pieceIds?: string[]; platforms?: string[] } }>,
+  request: FastifyRequest<{ Body: { pieceIds?: string[]; platforms?: string[]; scheduledAt?: Record<string, string> } }>,
   reply: FastifyReply,
 ) {
   const { orgId, userId } = request.user as JWTUser
   const pieceIds = request.body?.pieceIds
   if (!Array.isArray(pieceIds) || !pieceIds.length) return reply.status(400).send({ error: 'pieceIds es obligatorio' })
-  return guard(reply, () => approval.approveAndDraft(orgId, { userId }, pieceIds, { platforms: request.body?.platforms }))
+  // Fechas por pieza (sala de aprobación): solo cadenas, acotadas a las piezas del lote.
+  const rawSchedule = request.body?.scheduledAt
+  const scheduledAt = rawSchedule && typeof rawSchedule === 'object' && !Array.isArray(rawSchedule)
+    ? Object.fromEntries(Object.entries(rawSchedule).filter(([id, value]) => pieceIds.includes(id) && typeof value === 'string' && value.length <= 40))
+    : undefined
+  return guard(reply, () => approval.approveAndDraft(orgId, { userId }, pieceIds, { platforms: request.body?.platforms, scheduledAt }))
 }
 
 /**

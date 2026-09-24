@@ -14,7 +14,7 @@ import {
   recordModuleVisit,
   togglePinnedModule,
 } from './navigationState.js'
-import { canNavigateTo } from './navigationPermissions.js'
+import { canNavigateTo, hasNavigationPermission } from './navigationPermissions.js'
 
 test('recuerda el último módulo por espacio y ordena recientes sin duplicados', () => {
   let state = emptyNavigationState()
@@ -119,4 +119,16 @@ test('el back office solo es alcanzable con el privilegio de operador', () => {
 test('preferencias y recientes quedan aislados por organización', () => {
   assert.notEqual(navigationStorageKey({ orgId: 'org-a' }), navigationStorageKey({ orgId: 'org-b' }))
   assert.equal(navigationStorageKey({ orgId: 'org-a' }), navigationStorageKey({ orgId: 'org-a' }))
+})
+
+test('funnels.write replica catalog.ts en el fallback por rol', () => {
+  for (const role of ['owner', 'admin', 'revenue_ops', 'marketing_growth', 'agent']) {
+    assert.equal(hasNavigationPermission({ role }, ['funnels.write']), true, role)
+    assert.equal(hasNavigationPermission({ role }, ['funnels.read']), true, role)
+  }
+  for (const role of ['analyst', 'viewer', 'sales_rep', 'compliance', 'guest']) {
+    assert.equal(hasNavigationPermission({ role }, ['funnels.write']), false, role)
+  }
+  // Una lista explícita del backend manda sobre el fallback.
+  assert.equal(hasNavigationPermission({ role: 'analyst', permissions: ['funnels.write'] }, ['funnels.write']), true)
 })

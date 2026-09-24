@@ -90,6 +90,8 @@
 .og-approval-piece > header { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .og-approval-origin { color: var(--dim); font-size: 9.5px; }
 .og-approval-editor { background: var(--surface-3); font-size: 10.5px; }
+.og-approval-schedule { margin-top: 8px; max-width: 320px; }
+.og-approval-schedule small { color: var(--text-muted); font-size: 10.5px; }
 .og-approval-piece > footer { display: flex; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
 .og-history { padding: 10px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--surface); }
 .og-history ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }

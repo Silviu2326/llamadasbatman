@@ -4,6 +4,57 @@ import { prisma } from '../lib/prisma'
 import { findByVertical } from './adPlaybook.service'
 import { generateFallbackAssets } from './assetGenerator.service'
 import { classifyPublishError, publishCampaign } from './metaCampaignBuilder.service'
+import { createActivation } from './adPlan.service'
+import { createAudience } from './adAudience.service'
+
+/**
+ * El asistente y /captacion/atraer/ads hablan del mismo objeto: la activación
+ * Meta (objetivo y presupuesto del brief) y la audiencia escrita se persisten
+ * como filas del plan, que es lo que publishCampaign y la página de Ads leen.
+ * Idempotente: si la campaña ya tiene activación meta o una audiencia con ese
+ * nombre, no se duplican (un reintento del asistente no puede crear dos).
+ */
+export async function materializeWizardPlan(orgId: string, campaignId: string, input: {
+  objetivo: string
+  presupuestoMensual: number
+  audience?: string
+}) {
+  const existingActivation = await prisma.adActivation.findFirst({
+    where: { orgId, campaignId, platform: 'meta' },
+    select: { id: true },
+  })
+  let activationId = existingActivation?.id ?? null
+  if (!activationId) {
+    const created = await createActivation(orgId, {
+      campaignId,
+      platform: 'meta',
+      objective: input.objetivo.trim() || null,
+      budgetCents: Math.round(input.presupuestoMensual * 100),
+    })
+    activationId = created?.id ?? null
+  }
+
+  let audienceId: string | null = null
+  const audienceName = input.audience?.trim().slice(0, 140) ?? ''
+  if (audienceName) {
+    const existingAudience = await prisma.adAudience.findFirst({
+      where: { orgId, campaignId, name: audienceName, archivedAt: null },
+      select: { id: true },
+    })
+    audienceId = existingAudience?.id ?? null
+    if (!audienceId) {
+      const created = await createAudience(orgId, {
+        name: audienceName,
+        campaignId,
+        segment: audienceName,
+        dataSource: 'wizard',
+      })
+      audienceId = created?.id ?? null
+    }
+  }
+
+  return { activationId, audienceId }
+}
 
 export async function runWizard(orgId: string, input: {
   vertical: string
@@ -66,6 +117,10 @@ export async function runWizard(orgId: string, input: {
       status: 'draft',
     },
   })
+
+  // Activación Meta y audiencia como filas del plan antes de publicar, para
+  // que publishCampaign lea exactamente lo que el asistente definió.
+  await materializeWizardPlan(orgId, campaign.id, input)
 
   // Si ya hay una cuenta de Meta conectada, se intenta publicar en PAUSED. Si
   // no hay cuenta o Meta falla, la campaña queda en draft y la respuesta dice

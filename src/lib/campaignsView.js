@@ -2,17 +2,28 @@
 // resumen, embudo y mezcla de canales con sus estados de medición, validación
 // del formulario de campaña, texto de confirmación de activación y lectura del
 // error real del backend. Sin React para poder probarla con node --test.
+//
+// Todo texto visible sale de `t` (createTranslator de src/i18n, claves
+// campaigns.*); por defecto se traduce al idioma base para que las funciones
+// sigan siendo utilizables sin contexto React.
+import { createTranslator, DEFAULT_LOCALE } from '../i18n/index.js'
 
 export const CHANNELS = [
-  { id: 'ads', label: 'Publicidad', color: 'var(--warn)' },
-  { id: 'social', label: 'Redes sociales', color: 'var(--cyan)' },
-  { id: 'prospecting', label: 'Prospección', color: 'var(--success)' },
-  { id: 'multichannel', label: 'Multicanal', color: 'var(--pink)' },
-  { id: 'outbound', label: 'Llamadas outbound', color: 'var(--violet)' },
+  { id: 'ads', color: 'var(--warn)' },
+  { id: 'social', color: 'var(--cyan)' },
+  { id: 'prospecting', color: 'var(--success)' },
+  { id: 'multichannel', color: 'var(--pink)' },
+  { id: 'outbound', color: 'var(--violet)' },
 ]
 
 const EMPTY = '—'
 const defaultFormat = value => String(value)
+const defaultT = createTranslator(DEFAULT_LOCALE)
+
+// Clave singular/plural: los mensajes con cantidad tienen `one` y `other`.
+function plural(t, key, count, vars = {}) {
+  return t(`${key}.${count === 1 ? 'one' : 'other'}`, { count, ...vars })
+}
 
 // Suma de todas las filas ya normalizadas (toRow) para tarjetas, embudo y mezcla.
 export function summarizeCampaigns(rows = []) {
@@ -31,35 +42,39 @@ export function summarizeCampaigns(rows = []) {
 
 // Embudo: si el resumen no está medido ('loading' | 'plan' | 'error') no se
 // pintan ceros que parecerían actividad real, sino «—» y barras vacías.
-export function buildFunnelView(stats, statsStatus, format = defaultFormat) {
+// `noteKind` ('' | 'loading' | 'unmeasured') es el estado; `note` su texto.
+export function buildFunnelView(stats, statsStatus, format = defaultFormat, t = defaultT) {
   const measured = statsStatus === 'live'
   const max = stats.totalLeads || 1
   const pct = value => `${Math.min(100, Math.round((value / max) * 100))}%`
   const steps = [
-    { key: 'leads', label: 'Leads', value: stats.totalLeads, width: '100%', color: 'var(--violet-deep)' },
-    { key: 'contacted', label: 'Contactados', value: stats.contacted, width: pct(stats.contacted), color: 'var(--cyan)' },
-    { key: 'meetings', label: 'Reuniones agendadas', value: stats.meetingsScheduled, width: pct(stats.meetingsScheduled), color: 'var(--pink)' },
+    { key: 'leads', label: t('campaigns.funnel.leads'), value: stats.totalLeads, width: '100%', color: 'var(--violet-deep)' },
+    { key: 'contacted', label: t('campaigns.funnel.contacted'), value: stats.contacted, width: pct(stats.contacted), color: 'var(--cyan)' },
+    { key: 'meetings', label: t('campaigns.funnel.meetings'), value: stats.meetingsScheduled, width: pct(stats.meetingsScheduled), color: 'var(--pink)' },
   ].map(step => measured
     ? { ...step, display: format(step.value) }
     : { ...step, value: null, width: '0%', display: EMPTY })
+  const noteKind = measured ? '' : statsStatus === 'loading' ? 'loading' : 'unmeasured'
   return {
     measured,
     steps,
     conversionDisplay: measured ? `${stats.conversionRate}%` : EMPTY,
-    note: measured ? '' : statsStatus === 'loading' ? 'Calculando…' : 'Sin medición',
+    noteKind,
+    note: noteKind ? t(`campaigns.funnel.${noteKind === 'loading' ? 'calculating' : 'unmeasured'}`) : '',
   }
 }
 
 // Mezcla de canales: 'unmeasured' (sin datos fiables), 'empty' (medido y sin
 // campañas) o 'ready' con segmentos para el conic-gradient.
-export function buildChannelMixView(stats, statsStatus) {
+export function buildChannelMixView(stats, statsStatus, t = defaultT) {
   if (statsStatus !== 'live') {
-    return { state: 'unmeasured', note: statsStatus === 'loading' ? 'Calculando…' : 'Sin medición', channels: [], gradient: '' }
+    const noteKind = statsStatus === 'loading' ? 'loading' : 'unmeasured'
+    return { state: 'unmeasured', noteKind, note: t(`campaigns.funnel.${noteKind === 'loading' ? 'calculating' : 'unmeasured'}`), channels: [], gradient: '' }
   }
-  if (!stats.total) return { state: 'empty', note: '', channels: [], gradient: '' }
+  if (!stats.total) return { state: 'empty', noteKind: '', note: '', channels: [], gradient: '' }
   let cursor = 0
   const channels = CHANNELS
-    .map(channel => ({ ...channel, count: stats.channelCounts?.[channel.id] || 0 }))
+    .map(channel => ({ ...channel, label: t(`campaigns.channels.${channel.id}`), count: stats.channelCounts?.[channel.id] || 0 }))
     .filter(channel => channel.count > 0)
     .map(channel => {
       const start = cursor
@@ -68,6 +83,7 @@ export function buildChannelMixView(stats, statsStatus) {
     })
   return {
     state: 'ready',
+    noteKind: '',
     note: '',
     channels,
     gradient: `conic-gradient(${channels.map(c => `${c.color} ${c.start}% ${c.end}%`).join(', ')})`,
@@ -77,12 +93,14 @@ export function buildChannelMixView(stats, statsStatus) {
 // Validación del formulario de crear/editar campaña. `budget` es el texto del
 // input en euros; se devuelve el payload listo para POST/PUT.
 // En edición (`editing`) un presupuesto vacío se envía como null para borrarlo.
-export function validateCampaignForm({ name = '', objective = '', budget = '' } = {}, { editing = false } = {}) {
+// `field` indica qué campo falló ('name' | 'objective' | 'budget') para aria-invalid.
+export function validateCampaignForm({ name = '', objective = '', budget = '' } = {}, { editing = false, t = defaultT } = {}) {
+  const fail = (field, key) => ({ ok: false, field, error: t(`campaigns.validation.${key}`) })
   const trimmedName = String(name).trim()
-  if (!trimmedName) return { ok: false, error: 'Ponle un nombre a la campaña para continuar.' }
-  if (trimmedName.length > 140) return { ok: false, error: 'El nombre no puede superar 140 caracteres.' }
+  if (!trimmedName) return fail('name', 'nameRequired')
+  if (trimmedName.length > 140) return fail('name', 'nameTooLong')
   const trimmedObjective = String(objective).trim()
-  if (trimmedObjective.length > 2000) return { ok: false, error: 'El objetivo no puede superar 2.000 caracteres.' }
+  if (trimmedObjective.length > 2000) return fail('objective', 'objectiveTooLong')
 
   const rawBudget = String(budget ?? '').trim().replace(',', '.')
   let budgetCents
@@ -90,61 +108,53 @@ export function validateCampaignForm({ name = '', objective = '', budget = '' } 
     budgetCents = editing ? null : undefined
   } else {
     const euros = Number(rawBudget)
-    if (!Number.isFinite(euros)) return { ok: false, error: 'El presupuesto debe ser un número.' }
-    if (euros < 0) return { ok: false, error: 'El presupuesto no puede ser negativo.' }
+    if (!Number.isFinite(euros)) return fail('budget', 'budgetNumber')
+    if (euros < 0) return fail('budget', 'budgetNegative')
     budgetCents = Math.round(euros * 100)
-    if (budgetCents > 100_000_000) return { ok: false, error: 'El presupuesto máximo es 1.000.000 €.' }
+    if (budgetCents > 100_000_000) return fail('budget', 'budgetMax')
   }
 
   const payload = { name: trimmedName }
   if (trimmedObjective) payload.objective = trimmedObjective
   else if (editing) payload.objective = null
   if (budgetCents !== undefined) payload.budgetCents = budgetCents
-  return { ok: true, error: '', payload }
+  return { ok: true, field: '', error: '', payload }
 }
 
 // Texto del diálogo que confirma la activación (encola llamadas reales).
-export function startConfirmation(preview) {
-  const name = preview?.name || 'esta campaña'
+export function startConfirmation(preview, t = defaultT) {
+  const name = preview?.name || t('campaigns.start.fallbackName')
   const count = Math.max(0, Number(preview?.eligibleLeads) || 0)
   const withoutPhone = Math.max(0, Number(preview?.newLeadsWithoutPhone) || 0)
   const lines = []
-  if (count === 0) {
-    lines.push(`Al activar «${name}» no se encolará ninguna llamada: no hay leads nuevos con teléfono.`)
-  } else {
-    lines.push(`Al activar «${name}» se encolará${count === 1 ? '' : 'n'} ${count} llamada${count === 1 ? '' : 's'} telefónica${count === 1 ? '' : 's'} real${count === 1 ? '' : 'es'} a leads nuevos con teléfono.`)
-  }
-  if (withoutPhone > 0) lines.push(`${withoutPhone} lead${withoutPhone === 1 ? '' : 's'} nuevo${withoutPhone === 1 ? '' : 's'} sin teléfono no se llamará${withoutPhone === 1 ? '' : 'n'}.`)
+  if (count === 0) lines.push(t('campaigns.start.none', { name }))
+  else lines.push(plural(t, 'campaigns.start.some', count, { name }))
+  if (withoutPhone > 0) lines.push(plural(t, 'campaigns.start.withoutPhone', withoutPhone))
   // Desglose de motivos del backend (start-preview.breakdown): lo que la
   // campaña dejará fuera aunque se active, y por qué.
-  lines.push(...breakdownLines(preview?.breakdown))
-  if (!preview?.agent) lines.push('La campaña no tiene agente asignado: la activación se rechazará hasta que asignes uno publicado.')
+  lines.push(...breakdownLines(preview?.breakdown, t))
+  if (!preview?.agent) lines.push(t('campaigns.start.noAgent'))
   // Publicar un agente lo deja en lifecycleStatus 'active' (agents.service).
-  else if (preview.agent.lifecycleStatus && preview.agent.lifecycleStatus !== 'active') lines.push(`El agente ${preview.agent.name} no está publicado: la activación se rechazará hasta publicarlo.`)
+  else if (preview.agent.lifecycleStatus && preview.agent.lifecycleStatus !== 'active') lines.push(t('campaigns.start.agentNotPublished', { name: preview.agent.name }))
   return {
-    title: count > 0 ? `Activar y encolar ${count} llamada${count === 1 ? '' : 's'}` : 'Activar campaña',
+    title: count > 0 ? plural(t, 'campaigns.start.title', count) : t('campaigns.start.titleNone'),
     message: lines.join(' '),
-    confirmText: count > 0 ? `Activar y llamar (${count})` : 'Activar',
+    confirmText: count > 0 ? t('campaigns.start.confirm', { count }) : t('campaigns.start.confirmNone'),
     count,
   }
 }
 
-const BREAKDOWN_LABELS = [
-  ['optOut', n => `${n} en la lista de exclusión (opt-out)`],
-  ['missingConsent', n => `${n} sin consentimiento de voz registrado`],
-  ['invalidPhone', n => `${n} con teléfono no válido`],
-  ['maxAttempts', n => `${n} con los intentos agotados`],
-]
+const BREAKDOWN_KEYS = ['optOut', 'missingConsent', 'invalidPhone', 'maxAttempts']
 
 // Frases del desglose de la vista previa; vacío si no hay nada que excluir.
-export function breakdownLines(breakdown) {
+export function breakdownLines(breakdown, t = defaultT) {
   if (!breakdown || typeof breakdown !== 'object') return []
-  const parts = BREAKDOWN_LABELS
-    .map(([key, label]) => [Math.max(0, Number(breakdown[key]) || 0), label])
-    .filter(([n]) => n > 0)
-    .map(([n, label]) => label(n))
+  const parts = BREAKDOWN_KEYS
+    .map(key => [key, Math.max(0, Number(breakdown[key]) || 0)])
+    .filter(([, n]) => n > 0)
+    .map(([key, n]) => t(`campaigns.start.breakdown.${key}`, { count: n }))
   if (!parts.length) return []
-  return [`No se llamará a: ${parts.join(', ')}.`]
+  return [t('campaigns.start.exclusions', { parts: parts.join(', ') })]
 }
 
 // Lee el mensaje de error real del backend (`error` o `message`) y cae al

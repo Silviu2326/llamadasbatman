@@ -83,10 +83,13 @@ const ROLE_ALIASES = {
   lector: 'viewer',
 }
 
+// `funnels.write` replica backend/src/access-control/catalog.ts (owner, admin,
+// revenue_ops, marketing_growth, agent): la página de Funnels decide con él si
+// pinta las acciones de escritura. La API sigue autorizando cada mutación.
 const ROLE_FALLBACK_PERMISSIONS = {
-  owner: [...READ_PERMISSIONS, 'organization.manage', 'leads.write', 'social.write', 'jobs.manage', 'assets.manage', 'integrations.manage', 'costs.request'],
-  admin: [...READ_PERMISSIONS, 'organization.manage', 'leads.write', 'social.write', 'jobs.manage', 'assets.manage', 'integrations.manage'],
-  revenue_ops: [...BUSINESS_READ, 'organic.read', 'organization.read', 'integrations.read', 'access_control.read', 'leads.write', 'jobs.manage', 'assets.manage', 'costs.request'],
+  owner: [...READ_PERMISSIONS, 'organization.manage', 'leads.write', 'social.write', 'funnels.write', 'jobs.manage', 'assets.manage', 'integrations.manage', 'costs.request'],
+  admin: [...READ_PERMISSIONS, 'organization.manage', 'leads.write', 'social.write', 'funnels.write', 'jobs.manage', 'assets.manage', 'integrations.manage'],
+  revenue_ops: [...BUSINESS_READ, 'organic.read', 'organization.read', 'integrations.read', 'access_control.read', 'leads.write', 'funnels.write', 'jobs.manage', 'assets.manage', 'costs.request'],
   sales_manager: [
     'dashboard.read', 'leads.read', 'accounts.read', 'calls.read', 'conversations.read',
     'playbooks.read', 'knowledge.read', 'meetings.read', 'pipeline.read', 'tasks.read',
@@ -101,7 +104,7 @@ const ROLE_FALLBACK_PERMISSIONS = {
     'dashboard.read', 'leads.read', 'campaigns.read', 'organic.read', 'ads.read', 'social.read',
     'funnels.read', 'agents.read', 'playbooks.read', 'automations.read', 'knowledge.read',
     'growth.read', 'experiments.read', 'memory.read', 'integrations.read',
-    'leads.write', 'social.write', 'jobs.manage', 'assets.read', 'assets.manage', 'costs.request',
+    'leads.write', 'social.write', 'funnels.write', 'jobs.manage', 'assets.read', 'assets.manage', 'costs.request',
   ],
   analyst: ['dashboard.read', 'campaigns.read', 'organic.read', 'ads.read', 'social.read', 'assets.read', 'funnels.read', 'pipeline.read', 'growth.read', 'experiments.read', 'organization.read'],
   compliance: [
@@ -113,7 +116,7 @@ const ROLE_FALLBACK_PERMISSIONS = {
   guest: ['dashboard.read'],
   // Legacy roles remain usable even when the server has not yet attached an
   // explicit permission list to the refreshed user object.
-  agent: [...BUSINESS_READ, 'organization.read', 'integrations.read', 'integrations.manage', 'access_control.read', 'leads.write', 'social.write', 'jobs.manage', 'assets.manage', 'costs.request'],
+  agent: [...BUSINESS_READ, 'organization.read', 'integrations.read', 'integrations.manage', 'access_control.read', 'leads.write', 'social.write', 'funnels.write', 'jobs.manage', 'assets.manage', 'costs.request'],
   viewer: [...BUSINESS_READ, 'organization.read'],
 }
 

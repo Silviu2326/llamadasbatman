@@ -24,11 +24,22 @@ import {
   upsertProject,
 } from '../services/seoAgency.service'
 import { OrganicGoogleIntegrationError } from '../services/organicGoogleIntegration.service'
+import { articleFromMarkdown, evaluateSeoArticleQuality, SeoArticleForQuality } from '../services/seoQuality'
 import { createDraftPost } from '../services/metricoolSync.service'
 import { getKnowledgeBase } from '../services/knowledge.service'
 import { prisma } from '../lib/prisma'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
+
+/** Contexto del quality gate que llega en query (GET) o body (POST), acotado. */
+export function qualityContext(raw: unknown): Partial<SeoArticleForQuality> {
+  const source = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+  const str = (key: string, max = 400) => (typeof source[key] === 'string' ? (source[key] as string).slice(0, max) : undefined)
+  const outline = Array.isArray(source.outline) ? (source.outline as unknown[]).filter((item): item is string => typeof item === 'string').slice(0, 40)
+    : typeof source.outline === 'string' ? source.outline.split('|').map((item) => item.trim()).filter(Boolean).slice(0, 40) : undefined
+  const mode = source.mode === 'activa' || source.mode === 'pasiva' ? source.mode : undefined
+  return { title: str('title'), metaDescription: str('metaDescription'), h1: str('h1'), outline, keyword: str('keyword', 200), audience: str('audience'), cta: str('cta'), mode }
+}
 
 export async function seoRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticate)
@@ -76,11 +87,33 @@ export async function seoRoutes(app: FastifyInstance) {
     return reply.send({ data: await rankHistory(orgId, url.trim()) })
   })
 
+  // Quality gate del artículo: la misma función pura que la vista previa,
+  // pero es esta la que manda. `context` es lo que la base no guarda
+  // (meta, keyword, audiencia, CTA, modo) y llega del cliente.
+  app.get<{ Params: { id: string } }>('/content/:id/quality', async (request, reply) => {
+    const { orgId } = request.user as JWTUser
+    const article = await prisma.knowledgeBase.findFirst({
+      where: { id: request.params.id, orgId, type: 'seo-article', isActive: true },
+      select: { name: true, content: true },
+    })
+    if (!article) return reply.status(404).send({ error: 'Artículo no encontrado' })
+    return reply.send({ data: evaluateSeoArticleQuality(articleFromMarkdown(article.name, article.content, qualityContext(request.query))) })
+  })
+
   app.post<{ Params: { id: string } }>('/content/:id/publish', canEditCampaign, async (request, reply) => {
     const { orgId } = request.user as JWTUser
+    const article = await prisma.knowledgeBase.findFirst({
+      where: { id: request.params.id, orgId, type: 'seo-article', isActive: true },
+      select: { name: true, content: true },
+    })
+    if (!article) return reply.status(404).send({ error: 'Artículo no encontrado' })
+    const quality = evaluateSeoArticleQuality(articleFromMarkdown(article.name, article.content, qualityContext(request.body)))
+    if (!quality.passed) {
+      return reply.status(422).send({ error: 'El artículo no supera el quality gate SEO', code: 'QUALITY_CHECKS_FAILED', checks: quality.checks })
+    }
     const result = await publishArticle(orgId, request.params.id)
     if (!result) return reply.status(404).send({ error: 'Artículo no encontrado' })
-    return reply.send({ data: result })
+    return reply.send({ data: { ...result, checks: quality.checks } })
   })
 
   app.get('/history', async (request, reply) => {

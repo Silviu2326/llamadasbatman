@@ -28,8 +28,12 @@ const createCampaignSchema = campaignInputSchema.extend({
   landingSlug: z.string().trim().min(1).max(160).optional(),
   adAssets: z.record(z.unknown()).optional(),
 }).strict()
+// Activar encola llamadas reales y pasa por el gate de agente publicado:
+// solo POST /:id/start puede poner 'active'. El PUT lo rechaza con 400.
 const updateCampaignSchema = campaignInputSchema.extend({
-  status: z.enum(VALID_STATUSES).optional(),
+  status: z.enum(VALID_STATUSES.filter(status => status !== 'active') as ['draft', 'paused', 'done'], {
+    errorMap: () => ({ message: "status 'active' solo se establece con POST /api/campaigns/:id/start" }),
+  }).optional(),
 }).strict().refine(value => Object.values(value).some(item => item !== undefined), 'Incluye al menos un campo para actualizar')
 const landingSchema = z.object({
   landingSlug: z.string().trim().min(1).max(160).nullable().optional(),
@@ -132,6 +136,7 @@ export async function update(
     return reply.send({ ok: true })
   } catch (err) {
     if (err instanceof CampaignAgentError) return reply.status(404).send({ error: 'agentId no encontrado', code: 'AGENT_NOT_FOUND' })
+    if (err instanceof CampaignStartError) return reply.status(err.status).send({ error: err.message, code: err.code })
     throw err
   }
 }
@@ -197,6 +202,7 @@ export async function pause(
   const params = parseRequest(reply, idParamsSchema, request.params)
   if (!params) return
   const result = await campaignsService.pauseCampaign(orgId, params.id)
+  if (!result) return reply.status(404).send({ error: 'Not found', code: 'CAMPAIGN_NOT_FOUND' })
   return reply.send(result)
 }
 

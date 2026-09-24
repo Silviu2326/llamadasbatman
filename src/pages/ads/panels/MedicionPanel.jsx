@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { RiArrowRightLine, RiGoogleLine, RiMetaLine, RiShieldCheckLine } from 'react-icons/ri'
 import AdsDataIntegrity from '../../../components/ads/AdsDataIntegrity'
 import AdsFunnel from '../../../components/ads/AdsFunnel'
+import { localeCode } from '../../../i18n'
 import './ads-panels-core.css'
 
 // Medición: la casa de la confianza en los datos. Antes de pedir confianza en
@@ -9,27 +10,29 @@ import './ads-panels-core.css'
 // calculó (ads.md §4.2), por eso la banda de integridad abre el panel.
 // Regla sagrada del dominio: null = «Sin medición», 0 = medido y salió cero.
 
-const CAPI_LABEL = { ready: 'Preparado', sending: 'Enviando', error: 'Con errores', not_configured: 'Sin configurar' }
+const CAPI_STATES = ['ready', 'sending', 'error', 'not_configured']
 const CAPI_TONE = { ready: 'ok', sending: 'ok', error: 'bad', not_configured: 'warn' }
 
 // Un dato sin medir no se pinta como cero ni como visto bueno.
-function Stat({ label, value, detail, tone }) {
+function Stat({ label, value, detail, tone, missingLabel }) {
   const missing = value == null
   return <div className={`gs-stat${tone && !missing ? ` is-${tone}` : ''}${missing ? ' ahc-missing' : ''}`}>
     <span>{label}</span>
-    <strong>{missing ? 'Sin medición' : value}</strong>
+    <strong>{missing ? missingLabel : value}</strong>
     {detail && <small>{detail}</small>}
   </div>
 }
 
-function formatSnapshot(iso) {
+function formatSnapshot(iso, locale) {
   if (!iso) return null
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleString(localeCode(locale), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function MedicionPanel({ overview, plan, ui }) {
+  const { t, locale } = ui
+  const noMeasurement = t('ads.common.noMeasurement')
   const data = overview.overview
   const account = data?.account
   const quality = data?.dataQuality
@@ -41,12 +44,12 @@ export default function MedicionPanel({ overview, plan, ui }) {
   // todavía no dice nada (ads.md §4.7).
   const immatureCount = campaigns.filter(c => c.economics && c.economics.cohortStatus !== 'mature').length
   const cohortSummary = immatureCount > 0
-    ? `${immatureCount === 1 ? 'Una campaña tiene' : `${immatureCount} campañas tienen`} la cohorte sin madurar: su falta de ventas todavía no significa nada.`
+    ? (immatureCount === 1 ? t('ads.resumen.cohortOne') : t('ads.resumen.cohortMany', { count: immatureCount }))
     : null
 
   const capi = quality?.capi
   const capiDetail = capi && capi.total > 0
-    ? (capi.failed > 0 ? `${capi.failed} con error de ${capi.total}` : capi.sent > 0 ? `${capi.sent} señales enviadas` : capi.skippedNoConsent > 0 ? `${capi.skippedNoConsent} sin consentimiento` : null)
+    ? (capi.failed > 0 ? t('ads.medicion.capiFailed', { failed: capi.failed, total: capi.total }) : capi.sent > 0 ? t('ads.medicion.capiSent', { count: capi.sent }) : capi.skippedNoConsent > 0 ? t('ads.medicion.capiNoConsent', { count: capi.skippedNoConsent }) : null)
     : null
 
   return <div className="gs-stack">
@@ -55,7 +58,7 @@ export default function MedicionPanel({ overview, plan, ui }) {
         dice en vez de mostrar un visto bueno. */}
     {quality
       ? <AdsDataIntegrity account={account} dataQuality={quality} onSync={overview.refreshDataQuality} syncing={overview.refreshingQuality} />
-      : <p className="gs-empty-inline">Todavía no hay diagnóstico de integridad: conecta Meta para poder ejecutarlo.</p>}
+      : <p className="gs-empty-inline">{t('ads.medicion.noDiagnosis')}</p>}
 
     {/* Canales: los dos que existen de verdad. Google Ads está en vista previa
         y se dice tal cual, sin fingir una conexión. */}
@@ -64,26 +67,26 @@ export default function MedicionPanel({ overview, plan, ui }) {
         <div className="gs-panel-head">
           <div>
             <h2><span className="gs-panel-icon"><RiMetaLine /></span> Meta Ads</h2>
-            <p>Facebook e Instagram, con campañas y conversiones sincronizadas.</p>
+            <p>{t('ads.medicion.metaText')}</p>
           </div>
-          <span className={`gs-pill ${metaConnected ? 'tone-ok' : 'tone-warn'}`}>{metaConnected ? 'Conectado' : 'Pendiente de conectar'}</span>
+          <span className={`gs-pill ${metaConnected ? 'tone-ok' : 'tone-warn'}`}>{metaConnected ? t('ads.medicion.connected') : t('ads.medicion.pending')}</span>
         </div>
         <div className="gs-panel-body">
-          <p className="gs-muted">{metaConnected ? `Cuenta ${account.metaAdAccountId}` : 'Publica campañas y recibe leads desde Meta.'}</p>
-          <Link to="/captacion/conectar" className="gs-button">{metaConnected ? 'Gestionar cuenta' : 'Conectar Meta'} <RiArrowRightLine /></Link>
+          <p className="gs-muted">{metaConnected ? t('ads.medicion.accountLine', { id: account.metaAdAccountId }) : t('ads.medicion.metaPitch')}</p>
+          <Link to="/captacion/conectar" className="gs-button">{metaConnected ? t('ads.medicion.manage') : t('ads.medicion.connect')} <RiArrowRightLine /></Link>
         </div>
       </section>
       <section className="gs-panel is-dashed">
         <div className="gs-panel-head">
           <div>
             <h2><span className="gs-panel-icon"><RiGoogleLine /></span> Google Ads</h2>
-            <p>Búsqueda, Performance Max y campañas orientadas a intención.</p>
+            <p>{t('ads.medicion.googleText')}</p>
           </div>
-          <span className="gs-pill">Vista previa</span>
+          <span className="gs-pill">{t('ads.medicion.preview')}</span>
         </div>
         <div className="gs-panel-body">
-          <p className="gs-muted">Vista de producto · Search y Performance Max preparados para esta sección.</p>
-          <button type="button" className="gs-button" onClick={() => ui.showNotice('La conexión de Google Ads se añadirá en la siguiente fase. Esta vista ya queda preparada.')}>Explorar vista previa <RiArrowRightLine /></button>
+          <p className="gs-muted">{t('ads.medicion.googlePreviewText')}</p>
+          <button type="button" className="gs-button" onClick={() => ui.showNotice(t('ads.medicion.googleNotice'))}>{t('ads.medicion.explorePreview')} <RiArrowRightLine /></button>
         </div>
       </section>
     </div>
@@ -93,22 +96,22 @@ export default function MedicionPanel({ overview, plan, ui }) {
     {quality && <section className="gs-panel">
       <div className="gs-panel-head">
         <div>
-          <h2><span className="gs-panel-icon"><RiShieldCheckLine /></span> Señal de vuelta: CAPI y píxel</h2>
-          <p>La señal que Vendrava devuelve a Meta y la cobertura con la que puede atribuir cada lead a su anuncio.</p>
+          <h2><span className="gs-panel-icon"><RiShieldCheckLine /></span> {t('ads.medicion.signalTitle')}</h2>
+          <p>{t('ads.medicion.signalText')}</p>
         </div>
       </div>
       <div className="gs-panel-body">
         <div className="gs-stat-grid">
-          <Stat label="Conversions API" value={CAPI_LABEL[quality.capiStatus] ?? null} detail={capiDetail} tone={CAPI_TONE[quality.capiStatus]} />
-          <Stat label="Atribución" value={quality.attributionCoveragePct == null ? null : `${quality.attributionCoveragePct} %`} detail={quality.adLevelCoveragePct == null ? 'hasta campaña' : `anuncio ${quality.adLevelCoveragePct} %`} tone={quality.attributionCoveragePct == null ? null : quality.attributionCoveragePct >= 90 ? 'ok' : quality.attributionCoveragePct >= 70 ? 'warn' : 'bad'} />
-          <Stat label="Duplicados" value={quality.duplicateRatePct == null ? null : `${quality.duplicateRatePct} %`} detail="eventos repetidos detectados" tone={quality.duplicateRatePct == null ? null : quality.duplicateRatePct <= 5 ? 'ok' : 'warn'} />
-          <Stat label="Consentimiento" value={quality.consentCoveragePct == null ? null : `${quality.consentCoveragePct} %`} detail="leads con consentimiento registrado" tone={quality.consentCoveragePct == null ? null : quality.consentCoveragePct >= 90 ? 'ok' : 'warn'} />
-          <Stat label="Último snapshot" value={formatSnapshot(quality.lastSnapshotAt)} detail={quality.status === 'stale' ? 'datos obsoletos' : null} tone={quality.status === 'stale' ? 'bad' : null} />
+          <Stat missingLabel={noMeasurement} label={t('ads.medicion.capiLabel')} value={CAPI_STATES.includes(quality.capiStatus) ? t(`ads.medicion.capi.${quality.capiStatus}`) : null} detail={capiDetail} tone={CAPI_TONE[quality.capiStatus]} />
+          <Stat missingLabel={noMeasurement} label={t('ads.medicion.attribution')} value={quality.attributionCoveragePct == null ? null : `${quality.attributionCoveragePct} %`} detail={quality.adLevelCoveragePct == null ? t('ads.medicion.upToCampaign') : t('ads.medicion.adLevel', { pct: quality.adLevelCoveragePct })} tone={quality.attributionCoveragePct == null ? null : quality.attributionCoveragePct >= 90 ? 'ok' : quality.attributionCoveragePct >= 70 ? 'warn' : 'bad'} />
+          <Stat missingLabel={noMeasurement} label={t('ads.medicion.duplicates')} value={quality.duplicateRatePct == null ? null : `${quality.duplicateRatePct} %`} detail={t('ads.medicion.duplicatesDetail')} tone={quality.duplicateRatePct == null ? null : quality.duplicateRatePct <= 5 ? 'ok' : 'warn'} />
+          <Stat missingLabel={noMeasurement} label={t('ads.medicion.consent')} value={quality.consentCoveragePct == null ? null : `${quality.consentCoveragePct} %`} detail={t('ads.medicion.consentDetail')} tone={quality.consentCoveragePct == null ? null : quality.consentCoveragePct >= 90 ? 'ok' : 'warn'} />
+          <Stat missingLabel={noMeasurement} label={t('ads.medicion.lastSnapshot')} value={formatSnapshot(quality.lastSnapshotAt, locale)} detail={quality.status === 'stale' ? t('ads.medicion.stale') : null} tone={quality.status === 'stale' ? 'bad' : null} />
         </div>
         {/* Lo que la calidad del dato bloquea se dice en claro: métricas
             profundas y automatización no operan sobre datos que no sostienen. */}
-        {quality.blocksDeepMetrics && <p className="gs-alert is-error"><RiShieldCheckLine /><span>Las métricas profundas (CPQL, CAC, ROAS real) están bloqueadas hasta reparar la integridad de los datos.</span></p>}
-        {quality.blocksAutomation && <p className="gs-alert"><RiShieldCheckLine /><span>Las decisiones automáticas están bloqueadas: ninguna regla actuará mientras la medición siga así.</span></p>}
+        {quality.blocksDeepMetrics && <p className="gs-alert is-error"><RiShieldCheckLine /><span>{t('ads.medicion.deepBlocked')}</span></p>}
+        {quality.blocksAutomation && <p className="gs-alert"><RiShieldCheckLine /><span>{t('ads.medicion.automationBlocked')}</span></p>}
       </div>
     </section>}
 
@@ -125,10 +128,10 @@ export default function MedicionPanel({ overview, plan, ui }) {
     {/* Los enlaces profundos de atribución (UTM por campaña, reconciliación de
         eventos) viven en el detalle de cada campaña, pestaña Economía. */}
     <p className="gs-note">
-      La atribución campaña → lead → venta se consulta en el detalle de cada campaña (pestaña Economía), donde viven los enlaces UTM y la reconciliación de eventos.{' '}
+      {t('ads.medicion.note')}{' '}
       {plan.selectedId
-        ? <Link className="gs-link" to={`/campanas/${plan.selectedId}`}>Abrir la campaña seleccionada <RiArrowRightLine /></Link>
-        : 'Selecciona una campaña en Resumen para saltar directamente a su economía.'}
+        ? <Link className="gs-link" to={`/campanas/${plan.selectedId}`}>{t('ads.medicion.openCampaign')} <RiArrowRightLine /></Link>
+        : t('ads.medicion.selectCampaign')}
     </p>
   </div>
 }

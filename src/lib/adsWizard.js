@@ -2,6 +2,25 @@
 // poder probarla con node:test sin montar React: construcción del payload,
 // precedencia de la audiencia, variantes de creatividad, recomendaciones y el
 // mensaje tras crear la campaña.
+//
+// Los textos salen de src/i18n/messages/ads.js: las funciones reciben `t`
+// (el de useI18n) y, si no se pasa, usan el traductor en español de abajo,
+// que no depende de React y sirve igual en node:test.
+
+import adsMessages from '../i18n/messages/ads.js'
+
+/** Traductor mínimo sobre messages/ads.js para uso fuera de React (tests, defaults). */
+export function adsTranslator(locale = 'es') {
+  const bundle = adsMessages[locale] ?? adsMessages.es
+  return (key, variables) => {
+    const value = key.split('.').reduce((node, part) => node?.[part], bundle)
+      ?? key.split('.').reduce((node, part) => node?.[part], adsMessages.es)
+    if (!variables || typeof value !== 'string') return value
+    return value.replace(/\{\{(\w+)\}\}/g, (_, name) => String(variables[name] ?? ''))
+  }
+}
+
+const defaultT = adsTranslator('es')
 
 /**
  * Lo que escribe el usuario manda sobre el público conocido del perfil
@@ -23,28 +42,28 @@ function clip(value, max) {
  * busca). Son copy inicial: la variante elegida viaja al backend y se usa al
  * publicar solo si la campaña no tiene creatividades aprobadas en el plan.
  */
-export function buildCreativeVariants({ campaignFocus = '', objetivo = '', audience = '' } = {}) {
-  const focus = clip(campaignFocus, 70) || 'tu oferta'
-  const goal = clip(objetivo, 80).toLowerCase() || 'dar el siguiente paso'
+export function buildCreativeVariants({ campaignFocus = '', objetivo = '', audience = '' } = {}, t = defaultT) {
+  const focus = clip(campaignFocus, 70) || t('adsWizard.lib.yourOffer')
+  const goal = clip(objetivo, 80).toLowerCase() || t('adsWizard.lib.nextStep')
   const who = clip(audience, 60)
   return [
     {
-      label: 'Resultado',
-      title: clip(`${focus}: resultados que se notan`, 120),
-      body: clip(`Descubre cómo ${focus.toLowerCase()} te ayuda a ${goal}.${who ? ` Pensado para ${who.toLowerCase()}.` : ''}`, 500),
-      cta: 'Más información',
+      label: t('adsWizard.lib.resultLabel'),
+      title: clip(t('adsWizard.lib.resultTitle', { focus }), 120),
+      body: clip(t('adsWizard.lib.resultBody', { focus: focus.toLowerCase(), goal }) + (who ? t('adsWizard.lib.resultAudience', { who: who.toLowerCase() }) : ''), 500),
+      cta: t('adsWizard.lib.resultCta'),
     },
     {
-      label: 'Rapidez',
-      title: clip(`${focus}, sin esperas`, 120),
-      body: clip(`Da el primer paso hoy: te respondemos rápido y sin compromiso para ${goal}.`, 500),
-      cta: 'Contactar',
+      label: t('adsWizard.lib.speedLabel'),
+      title: clip(t('adsWizard.lib.speedTitle', { focus }), 120),
+      body: clip(t('adsWizard.lib.speedBody', { goal }), 500),
+      cta: t('adsWizard.lib.speedCta'),
     },
     {
-      label: 'Oferta',
-      title: clip(`Empieza con ${focus.toLowerCase()}`, 120),
-      body: clip(`Plazas y horarios limitados. Reserva ahora y asegura tu sitio para ${goal}.`, 500),
-      cta: 'Reservar',
+      label: t('adsWizard.lib.offerLabel'),
+      title: clip(t('adsWizard.lib.offerTitle', { focus: focus.toLowerCase() }), 120),
+      body: clip(t('adsWizard.lib.offerBody', { goal }), 500),
+      cta: t('adsWizard.lib.offerCta'),
     },
   ]
 }
@@ -88,13 +107,13 @@ export function buildWizardPayload({
  * - objective: enfoca el objetivo y, si está vacío, propone uno medible.
  * - creative: pasa a la siguiente variante de anuncio.
  */
-export function applyRecommendationEffect(recommendation, { strategy, objetivo = '', creativeIndex = 0, variantCount = 3 } = {}) {
+export function applyRecommendationEffect(recommendation, { strategy, objetivo = '', creativeIndex = 0, variantCount = 3 } = {}, t = defaultT) {
   const action = recommendation?.action
   if (action === 'audience') {
     return strategy?.audience ? { patch: { audience: strategy.audience }, focusId: 'ads-audience' } : { patch: {}, focusId: 'ads-audience' }
   }
   if (action === 'objective') {
-    const patch = String(objetivo).trim() ? {} : { objetivo: 'Conseguir solicitudes de contacto cualificadas' }
+    const patch = String(objetivo).trim() ? {} : { objetivo: t('adsWizard.lib.defaultObjective') }
     return { patch, focusId: 'ads-objective', hint: recommendation.body || '' }
   }
   if (action === 'creative') {
@@ -130,35 +149,32 @@ export function hasGeneratedStrategy(strategy) {
 }
 
 /** Etiqueta honesta del pronóstico según su fuente. */
-export function describeForecast(strategy) {
+export function describeForecast(strategy, t = defaultT) {
   const benchmark = !strategy || strategy.forecastSource === 'sector_benchmark' || !strategy.forecastSource
   return benchmark
-    ? {
-        badge: 'Referencia orientativa del sector',
-        note: strategy?.forecastNote
-          || 'No es una predicción: son costes medios del sector aplicados a tu presupuesto, sin datos de tu cuenta. Las cifras reales aparecerán en Ads cuando la campaña tenga resultados.',
-      }
-    : { badge: 'Estimación', note: strategy.forecastNote || '' }
+    ? { badge: t('adsWizard.lib.forecastBadge'), note: strategy?.forecastNote || t('adsWizard.lib.forecastNote') }
+    : { badge: t('adsWizard.lib.estimate'), note: strategy.forecastNote || '' }
 }
 
 /** Quién redactó la estrategia, para el estado del borrador. */
-export function describeStrategyProvider(provider) {
-  if (provider === 'deepseek' || provider === 'claude') return 'Estrategia generada con IA y guardada'
-  return 'Estrategia generada con reglas por sector (sin IA)'
+export function describeStrategyProvider(provider, t = defaultT) {
+  if (provider === 'deepseek' || provider === 'claude') return t('adsWizard.lib.providerAi')
+  return t('adsWizard.lib.providerRules')
 }
 
 /**
  * Mensaje tras crear la campaña. `published`/`publishError` los devuelve el
  * backend; sin ellos (versión anterior) se deduce del estado de Meta.
  */
-export function describeWizardOutcome(campaign) {
+export function describeWizardOutcome(campaign, t = defaultT) {
   if (!campaign) return null
   if (campaign.published || campaign.metaCampaignId) {
-    return { tone: 'success', text: 'Campaña creada y enviada a Meta en pausa. Revísala y actívala cuando esté lista.' }
+    return { tone: 'success', text: t('adsWizard.lib.outcomeSuccess') }
   }
   const error = campaign.publishError
   if (error?.code === 'META_NOT_CONNECTED' || !error) {
-    return { tone: 'info', text: 'Campaña creada en borrador. Conecta una cuenta de Meta para publicarla.' }
+    return { tone: 'info', text: t('adsWizard.lib.outcomeInfo') }
   }
-  return { tone: 'warning', text: `Campaña creada en borrador, pero no se pudo publicar en Meta: ${error.message}` }
+  // El mensaje del error es dato del backend: se inserta, no se traduce.
+  return { tone: 'warning', text: t('adsWizard.lib.outcomeWarning', { message: error.message }) }
 }

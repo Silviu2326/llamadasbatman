@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '../../lib/api'
+import { useI18n } from '../../i18n'
 import { DEMO_MODE } from '../../lib/dataMode'
 import { classifyFetchError, statusMessage } from '../../lib/dataStatus'
 import { defaultObjectiveFor, generateMedia, pieceToText, rasterizeSlide, textToPiece, uploadMedia } from './contentFormats'
@@ -15,6 +16,7 @@ import { defaultObjectiveFor, generateMedia, pieceToText, rasterizeSlide, textTo
  * mismo aviso que el resto.
  */
 export function useContentStudio({ notify }) {
+  const { t } = useI18n()
   // Conexión con Metricool y métricas.
   const [loadingConnection, setLoadingConnection] = useState(true)
   const [gated, setGated] = useState(false)
@@ -35,7 +37,7 @@ export function useContentStudio({ notify }) {
   const [campaignStatus, setCampaignStatus] = useState('loading')
   const [campaignError, setCampaignError] = useState('')
   const [selectedCampaignId, setSelectedCampaignId] = useState('')
-  const [socialCta, setSocialCta] = useState('Descubre cómo podemos ayudarte')
+  const [socialCta, setSocialCta] = useState(() => t('organic.studioHook.defaultCta'))
 
   // Radar → estudio → sala → resultados.
   const [radar, setRadar] = useState(null)
@@ -51,6 +53,8 @@ export function useContentStudio({ notify }) {
   const [queue, setQueue] = useState([])
   const [results, setResults] = useState(null)
   const [drafts, setDrafts] = useState({})
+  // Fecha de publicación elegida por pieza (datetime-local); viaja con «Aprobar todo».
+  const [schedule, setSchedule] = useState({})
   const [histories, setHistories] = useState({})
   const [batchProgress, setBatchProgress] = useState(null)
 
@@ -118,7 +122,7 @@ export function useContentStudio({ notify }) {
       setAnalytics(null)
       const status = classifyFetchError(error)
       setAnalyticsStatus(status)
-      setAnalyticsError(statusMessage(status, { error: 'Metricool no devolvió métricas.' }))
+      setAnalyticsError(statusMessage(status, { error: t('organic.studioHook.metricoolNoMetrics') }))
     } finally {
       setAnalyticsLoading(false)
     }
@@ -150,7 +154,7 @@ export function useContentStudio({ notify }) {
       setConnected(false)
       const status = classifyFetchError(error)
       setConnectionStatus(status)
-      setConnectionError(statusMessage(status, { error: 'No se pudo consultar la conexión con Metricool.' }))
+      setConnectionError(statusMessage(status, { error: t('organic.studioHook.connectionCheckFailed') }))
     } finally {
       setLoadingConnection(false)
     }
@@ -171,7 +175,7 @@ export function useContentStudio({ notify }) {
       setCampaigns([])
       const status = classifyFetchError(error)
       setCampaignStatus(status)
-      setCampaignError(statusMessage(status, { error: 'No se pudieron cargar las campañas para enlazar el contenido.' }))
+      setCampaignError(statusMessage(status, { error: t('organic.studioHook.campaignsLoadFailed') }))
     } finally {
       setCampaignsLoading(false)
     }
@@ -194,11 +198,11 @@ export function useContentStudio({ notify }) {
       setConnectionError('')
       setProviderUrl(data.appUrl ?? null)
       loadAnalytics()
-      notify?.('Metricool conectado')
+      notify?.(t('organic.studioHook.metricoolConnected'))
     } catch {
       setConnectionStatus('error')
-      setConnectionError('No se pudo conectar con Metricool. Intenta de nuevo.')
-      notify?.('No se pudo conectar con Metricool. Intenta de nuevo.')
+      setConnectionError(t('organic.studioHook.metricoolConnectFailed'))
+      notify?.(t('organic.studioHook.metricoolConnectFailed'))
     } finally {
       setConnecting(false)
     }
@@ -212,11 +216,11 @@ export function useContentStudio({ notify }) {
       const res = await apiFetch('/api/content/opportunities/refresh', { method: 'POST' })
       const data = await res.json().catch(() => ({}))
       // 409 = falta configuración o material: estado del producto, no un fallo.
-      if (!res.ok) throw new Error(data.error || 'No se pudo analizar')
-      notify?.(`Analizadas ${data.analyzed} conversaciones · ${data.created} oportunidades`)
+      if (!res.ok) throw new Error(data.error || t('organic.studioHook.analyzeFailed'))
+      notify?.(t('organic.studioHook.analyzed', { analyzed: data.analyzed, created: data.created }))
       await loadRadar()
     } catch (error) {
-      notify?.(error instanceof Error ? error.message : 'No se pudo analizar')
+      notify?.(error instanceof Error ? error.message : t('organic.studioHook.analyzeFailed'))
     } finally {
       setRadarBusy(false)
     }
@@ -224,13 +228,13 @@ export function useContentStudio({ notify }) {
 
   async function dismissOpportunity(id) {
     const res = await apiFetch(`/api/content/opportunities/${id}/dismiss`, { method: 'POST', body: JSON.stringify({}) })
-    if (!res.ok) return notify?.('No se pudo descartar la oportunidad')
+    if (!res.ok) return notify?.(t('organic.studioHook.dismissFailed'))
     setRadar(previous => previous && { ...previous, opportunities: previous.opportunities.filter(item => item.id !== id) })
   }
 
   async function loadEvidence(id) {
     const res = await apiFetch(`/api/content/opportunities/${id}/evidence`)
-    if (!res.ok) return notify?.('No se pudieron cargar las evidencias')
+    if (!res.ok) return notify?.(t('organic.studioHook.evidenceFailed'))
     setEvidence(await res.json())
   }
 
@@ -268,12 +272,12 @@ export function useContentStudio({ notify }) {
         }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'No se pudieron generar las piezas')
+      if (!res.ok) throw new Error(data.error || t('organic.studioHook.generateFailed'))
       setStudio(data)
       setPieceImageStatus({})
       await loadQueueAndResults()
     } catch (error) {
-      notify?.(error instanceof Error ? error.message : 'No se pudieron generar las piezas')
+      notify?.(error instanceof Error ? error.message : t('organic.studioHook.generateFailed'))
     } finally {
       setStudioBusy(false)
     }
@@ -282,7 +286,7 @@ export function useContentStudio({ notify }) {
   async function savePieceImage(pieceId, imageUrl) {
     const res = await apiFetch(`/api/content/pieces/${pieceId}/image`, { method: 'PUT', body: JSON.stringify({ imageUrl }) })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.error || 'No se pudo guardar la imagen en la pieza.')
+    if (!res.ok) throw new Error(data.error || t('organic.studioHook.imageSaveFailed'))
     setStudio(previous => previous && {
       ...previous,
       pieces: previous.pieces.map(piece => (piece.id === pieceId ? { ...piece, imageUrl: data.imageUrl ?? null } : piece)),
@@ -297,12 +301,12 @@ export function useContentStudio({ notify }) {
 
   async function uploadPieceImage(pieceId, file) {
     if (!file) return
-    if (file.size > 8 * 1024 * 1024) return notify?.('La imagen no puede superar los 8 MB.')
+    if (file.size > 8 * 1024 * 1024) return notify?.(t('organic.studioHook.imageTooBig'))
     setPieceImageStatus(previous => ({ ...previous, [pieceId]: 'uploading' }))
     try {
       await savePieceImage(pieceId, await uploadMedia(file))
     } catch (error) {
-      failPieceImage(pieceId, error, 'No se pudo subir la imagen.')
+      failPieceImage(pieceId, error, t('organic.studioHook.imageUploadFailed'))
     }
   }
 
@@ -314,7 +318,7 @@ export function useContentStudio({ notify }) {
     try {
       await savePieceImage(piece.id, await uploadMedia(await rasterizeSlide(slide)))
     } catch (error) {
-      failPieceImage(piece.id, error, 'No se pudo usar la slide como imagen.')
+      failPieceImage(piece.id, error, t('organic.studioHook.slideFailed'))
     }
   }
 
@@ -324,7 +328,7 @@ export function useContentStudio({ notify }) {
       // El generador acepta 2.000 caracteres; el brief útil está al principio.
       await savePieceImage(piece.id, await generateMedia(pieceToText(piece).slice(0, 1500)))
     } catch (error) {
-      failPieceImage(piece.id, error, 'No se pudo generar la imagen.')
+      failPieceImage(piece.id, error, t('organic.studioHook.imageGenerateFailed'))
     }
   }
 
@@ -333,7 +337,7 @@ export function useContentStudio({ notify }) {
     try {
       await savePieceImage(pieceId, null)
     } catch (error) {
-      failPieceImage(pieceId, error, 'No se pudo quitar la imagen.')
+      failPieceImage(pieceId, error, t('organic.studioHook.imageRemoveFailed'))
     }
   }
 
@@ -343,7 +347,7 @@ export function useContentStudio({ notify }) {
     const res = await apiFetch(path, { method: 'POST', ...options })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      notify?.(data.error || 'No se pudo completar la acción')
+      notify?.(data.error || t('organic.studioHook.actionFailed'))
       return false
     }
     if (successMessage) notify?.(successMessage)
@@ -354,7 +358,7 @@ export function useContentStudio({ notify }) {
   async function loadHistory(id) {
     const res = await apiFetch(`/api/content/pieces/${id}/history`)
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) return notify?.(data.error || 'No se pudo cargar el historial')
+    if (!res.ok) return notify?.(data.error || t('organic.studioHook.historyFailed'))
     setHistories(previous => ({ ...previous, [id]: data }))
   }
 
@@ -365,13 +369,13 @@ export function useContentStudio({ notify }) {
     if (res.ok) {
       setHistories(previous => ({ ...previous, [id]: data }))
       await loadQueueAndResults()
-    } else notify?.(data.error || 'No se pudo guardar el comentario')
+    } else notify?.(data.error || t('organic.studioHook.commentFailed'))
     setStudioBusy(false)
   }
 
   async function submitPiece(id) {
     setStudioBusy(true)
-    if (await pieceAction(`/api/content/pieces/${id}/submit`, {}, 'Pieza enviada a aprobación')) {
+    if (await pieceAction(`/api/content/pieces/${id}/submit`, {}, t('organic.studioHook.submitted'))) {
       setStudio(previous => previous && {
         ...previous,
         pieces: previous.pieces.map(piece => (piece.id === id ? { ...piece, status: 'pending_approval' } : piece)),
@@ -386,9 +390,9 @@ export function useContentStudio({ notify }) {
     if (text === undefined) return
     setStudioBusy(true)
     const res = await apiFetch(`/api/content/pieces/${piece.id}`, { method: 'PUT', body: JSON.stringify({ body: textToPiece(piece, text) }) })
-    if (!res.ok) notify?.('No se pudo guardar la edición')
+    if (!res.ok) notify?.(t('organic.studioHook.editFailed'))
     else {
-      notify?.('Edición guardada')
+      notify?.(t('organic.studioHook.editSaved'))
       setDrafts(previous => { const next = { ...previous }; delete next[piece.id]; return next })
       await loadQueueAndResults()
     }
@@ -397,13 +401,13 @@ export function useContentStudio({ notify }) {
 
   async function approvePiece(id) {
     setStudioBusy(true)
-    if (await pieceAction(`/api/content/pieces/${id}/approve`, {}, 'Pieza aprobada')) await loadQueueAndResults()
+    if (await pieceAction(`/api/content/pieces/${id}/approve`, {}, t('organic.studioHook.approved'))) await loadQueueAndResults()
     setStudioBusy(false)
   }
 
   async function rejectPiece(id, reason, comment) {
     setStudioBusy(true)
-    if (await pieceAction(`/api/content/pieces/${id}/reject`, { body: JSON.stringify({ reason, comment }) }, 'Pieza rechazada')) await loadQueueAndResults()
+    if (await pieceAction(`/api/content/pieces/${id}/reject`, { body: JSON.stringify({ reason, comment }) }, t('organic.studioHook.rejected'))) await loadQueueAndResults()
     setStudioBusy(false)
   }
 
@@ -414,14 +418,17 @@ export function useContentStudio({ notify }) {
     setStudioBusy(true)
     setBatchProgress({ done: 0, total: pending.length })
     try {
-      const res = await apiFetch('/api/content/pieces/approve-all', { method: 'POST', body: JSON.stringify({ pieceIds: pending.map(piece => piece.id) }) })
+      const scheduledAt = Object.fromEntries(pending
+        .filter(piece => schedule[piece.id])
+        .map(piece => [piece.id, new Date(schedule[piece.id]).toISOString()]))
+      const res = await apiFetch('/api/content/pieces/approve-all', { method: 'POST', body: JSON.stringify({ pieceIds: pending.map(piece => piece.id), scheduledAt }) })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'No se pudo aprobar el lote')
+      if (!res.ok) throw new Error(data.error || t('organic.studioHook.batchFailed'))
       setBatchProgress({ done: data.approved, total: data.total })
       const blocked = data.results?.find(result => result.approved && !result.drafted)
-      notify?.(blocked ? `${data.approved} aprobadas · ${data.drafted} en borrador. ${blocked.reason}` : `${data.approved} aprobadas y ${data.drafted} borradores creados`)
+      notify?.(blocked ? t('organic.studioHook.batchBlocked', { approved: data.approved, drafted: data.drafted, reason: blocked.reason }) : t('organic.studioHook.batchDone', { approved: data.approved, drafted: data.drafted }))
     } catch (error) {
-      notify?.(error instanceof Error ? error.message : 'No se pudo aprobar el lote')
+      notify?.(error instanceof Error ? error.message : t('organic.studioHook.batchFailed'))
     } finally {
       setBatchProgress(null)
       setStudioBusy(false)
@@ -434,26 +441,26 @@ export function useContentStudio({ notify }) {
   async function saveBrand(next) {
     const res = await apiFetch('/api/content/brand', { method: 'PUT', body: JSON.stringify(next) })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) return notify?.(data.error || 'No se pudo guardar la marca')
+    if (!res.ok) return notify?.(data.error || t('organic.studioHook.brandFailed'))
     setBrand(data.brand)
-    notify?.('Marca guardada: los próximos carruseles saldrán con estos colores')
+    notify?.(t('organic.studioHook.brandSaved'))
   }
 
   async function createApprovalLink() {
     const res = await apiFetch('/api/content/approval-links', { method: 'POST', body: JSON.stringify({}) })
     const data = await res.json().catch(() => ({}))
     // El 409 aquí es el plan: el enlace de cliente es del plan Agency.
-    if (!res.ok) return notify?.(data.error || 'No se pudo crear el enlace')
+    if (!res.ok) return notify?.(data.error || t('organic.studioHook.linkFailed'))
     setNewApprovalLink(data)
     await loadBrandAndLinks()
   }
 
   async function revokeApprovalLink(id) {
     const res = await apiFetch(`/api/content/approval-links/${id}`, { method: 'DELETE' })
-    if (!res.ok) return notify?.('No se pudo revocar el enlace')
+    if (!res.ok) return notify?.(t('organic.studioHook.revokeFailed'))
     setNewApprovalLink(null)
     await loadBrandAndLinks()
-    notify?.('Enlace revocado')
+    notify?.(t('organic.studioHook.linkRevoked'))
   }
 
   // ── Copiloto por brief ──────────────────────────────────────────────────
@@ -477,7 +484,7 @@ export function useContentStudio({ notify }) {
       setPostImages({})
       setImageStatus({})
     } catch {
-      notify?.('No se pudo generar el plan de contenido. Intenta de nuevo.')
+      notify?.(t('organic.studioHook.planFailed'))
     } finally {
       setAiLoading(false)
     }
@@ -485,7 +492,7 @@ export function useContentStudio({ notify }) {
 
   async function uploadPostImage(file, index) {
     if (!file) return
-    if (file.size > 8 * 1024 * 1024) return notify?.('La imagen no puede superar los 8 MB.')
+    if (file.size > 8 * 1024 * 1024) return notify?.(t('organic.studioHook.imageTooBig'))
     setImageStatus(previous => ({ ...previous, [index]: 'uploading' }))
     try {
       const imageUrl = await uploadMedia(file)
@@ -493,7 +500,7 @@ export function useContentStudio({ notify }) {
       setImageStatus(previous => ({ ...previous, [index]: 'done' }))
     } catch (error) {
       setImageStatus(previous => ({ ...previous, [index]: 'error' }))
-      notify?.(error instanceof Error ? error.message : 'No se pudo subir la imagen.')
+      notify?.(error instanceof Error ? error.message : t('organic.studioHook.imageUploadFailed'))
     }
   }
 
@@ -505,7 +512,7 @@ export function useContentStudio({ notify }) {
       setImageStatus(previous => ({ ...previous, [index]: 'done' }))
     } catch (error) {
       setImageStatus(previous => ({ ...previous, [index]: 'error' }))
-      notify?.(error instanceof Error ? error.message : 'No se pudo generar la imagen.')
+      notify?.(error instanceof Error ? error.message : t('organic.studioHook.imageGenerateFailed'))
     }
   }
 
@@ -514,8 +521,8 @@ export function useContentStudio({ notify }) {
   }
 
   async function createDraft(post, index) {
-    if (!selectedCampaignId) return notify?.('Selecciona una campaña antes de crear el borrador.')
-    if (!selectedCampaign?.landingSlug) return notify?.('La campaña necesita una landing publicada.')
+    if (!selectedCampaignId) return notify?.(t('organic.studioHook.selectCampaign'))
+    if (!selectedCampaign?.landingSlug) return notify?.(t('organic.studioHook.campaignNeedsLanding'))
     setDraftStatus(previous => ({ ...previous, [index]: 'creating' }))
     try {
       const res = await apiFetch('/api/metricool/posts', {
@@ -531,13 +538,13 @@ export function useContentStudio({ notify }) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || 'No se pudo crear el borrador en Metricool.')
+        throw new Error(data?.error || t('organic.studioHook.draftFailed'))
       }
       setDraftStatus(previous => ({ ...previous, [index]: 'done' }))
-      notify?.('Borrador conectado a la campaña y creado en Metricool.')
+      notify?.(t('organic.studioHook.draftCreated'))
     } catch (error) {
       setDraftStatus(previous => ({ ...previous, [index]: 'error' }))
-      notify?.(error instanceof Error ? error.message : 'No se pudo crear el borrador en Metricool.')
+      notify?.(error instanceof Error ? error.message : t('organic.studioHook.draftFailed'))
     }
   }
 
@@ -557,6 +564,8 @@ export function useContentStudio({ notify }) {
     approval: {
       queue, pendingCount, busy: studioBusy, progress: batchProgress, drafts, histories,
       setDraft: (id, value) => setDrafts(previous => ({ ...previous, [id]: value })),
+      schedule,
+      setSchedule: (id, value) => setSchedule(previous => ({ ...previous, [id]: value })),
       saveEdit: savePieceEdit, approve: approvePiece, reject: rejectPiece, approveAll, loadHistory, comment: commentPiece,
     },
     results,

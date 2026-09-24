@@ -39,13 +39,12 @@ export const CAPTURE_STAGES = [
   { id: 'close', number: '04', label: 'Cerrar', labelEn: 'Close', detail: 'Funnels, llamadas y reuniones', detailEn: 'Funnels, calls and meetings', to: '/captacion/cerrar', Icon: RiFlowChart },
 ]
 
-function pick(item, locale, key) {
-  return locale === 'en' ? item[`${key}En`] || item[key] : item[key]
-}
-
+// Los textos visibles salen de captacion.stages.<id>.* (i18n); `label`/
+// `labelEn` del array se conservan para otros consumidores (paleta, asistente).
 export default function CaptureStages() {
   const { user } = useAuth()
-  const { locale } = useI18n()
+  const { t } = useI18n()
+  const pick = (item, key) => t(`captacion.stages.${item.id}.${key}`)
   const { pathname } = useLocation()
   const [expandedGroup, setExpandedGroup] = useState(pathname.startsWith('/captacion/atraer') ? 'attract' : null)
 
@@ -60,10 +59,10 @@ export default function CaptureStages() {
     .filter(stage => (stage.children ? stage.children.length > 0 : canNavigateTo(user, stage.to)))
 
   return (
-    <nav className="captacion-stages" aria-label={locale === 'en' ? 'Acquisition stages' : 'Etapas de captación'}>
+    <nav className="captacion-stages" aria-label={t('captacion.stagesAria')}>
       <Link to="/captacion" className={`captacion-stages-home${pathname === '/captacion' ? ' active' : ''}`} aria-current={pathname === '/captacion' ? 'page' : undefined}>
         <RiRocket2Line aria-hidden="true" />
-        <span>{locale === 'en' ? 'Acquisition' : 'Captación'}</span>
+        <span>{t('captacion.title')}</span>
       </Link>
       <ol>
         {stages.map(stage => {
@@ -83,14 +82,14 @@ export default function CaptureStages() {
                   >
                     <span className="captacion-stage-number">{stage.number}</span>
                     <span className="captacion-stage-icon"><Icon aria-hidden="true" /></span>
-                    <span className="captacion-stage-copy"><strong>{pick(stage, locale, 'label')}</strong><small>{pick(stage, locale, 'detail')}</small></span>
+                    <span className="captacion-stage-copy"><strong>{pick(stage, 'label')}</strong><small>{pick(stage, 'detail')}</small></span>
                     <RiArrowDownSLine className="captacion-stage-chevron" aria-hidden="true" />
                   </button>
                   {isExpanded ? (
-                    <div id={`capture-stage-${stage.id}`} className="captacion-stage-children" role="menu" aria-label={pick(stage, locale, 'label')}>
+                    <div id={`capture-stage-${stage.id}`} className="captacion-stage-children" role="menu" aria-label={pick(stage, 'label')}>
                       {stage.children.map(child => {
                         const ChildIcon = child.Icon
-                        return <NavLink key={child.id} to={child.to} role="menuitem" className={({ isActive }) => (isActive ? 'active' : '')}><ChildIcon aria-hidden="true" /><span>{pick(child, locale, 'label')}</span></NavLink>
+                        return <NavLink key={child.id} to={child.to} role="menuitem" className={({ isActive }) => (isActive ? 'active' : '')}><ChildIcon aria-hidden="true" /><span>{pick(child, 'label')}</span></NavLink>
                       })}
                     </div>
                   ) : null}
@@ -99,7 +98,7 @@ export default function CaptureStages() {
                 <NavLink to={stage.to} className={({ isActive }) => `captacion-stage${isActive ? ' active' : ''}`}>
                   <span className="captacion-stage-number">{stage.number}</span>
                   <span className="captacion-stage-icon"><Icon aria-hidden="true" /></span>
-                  <span className="captacion-stage-copy"><strong>{pick(stage, locale, 'label')}</strong><small>{pick(stage, locale, 'detail')}</small></span>
+                  <span className="captacion-stage-copy"><strong>{pick(stage, 'label')}</strong><small>{pick(stage, 'detail')}</small></span>
                 </NavLink>
               )}
             </li>

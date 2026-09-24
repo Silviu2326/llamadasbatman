@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '../../lib/api'
+import { createTranslator, getLocale } from '../../i18n'
 async function read(response) {
   const body = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(body.error || 'No se pudieron cargar los datos de la web.')
+  if (!response.ok) throw new Error(body.error || createTranslator(getLocale())('webSeo.workspaceHook.loadFailed'))
   return body
 }
 export function useWebsiteWorkspace(requestedId) {

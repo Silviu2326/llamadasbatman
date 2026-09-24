@@ -38,7 +38,7 @@ export async function contentRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Body: { imageUrl?: string | null } }>('/pieces/:id/image', canWrite, studio.setImage)
   app.post<{ Params: { id: string } }>('/pieces/:id/approve', canWrite, studio.approve)
   app.post<{ Params: { id: string }; Body: { reason?: string; comment?: string } }>('/pieces/:id/reject', canWrite, studio.reject)
-  app.post<{ Body: { pieceIds?: string[]; platforms?: string[] } }>('/pieces/approve-all', canWrite, studio.approveAll)
+  app.post<{ Body: { pieceIds?: string[]; platforms?: string[]; scheduledAt?: Record<string, string> } }>('/pieces/approve-all', canWrite, studio.approveAll)
   // Historial y comentarios de una pieza (§3): leerlos es leer la sala;
   // comentar es escribir en ella, y por eso pide `social.write`.
   app.get<{ Params: { id: string } }>('/pieces/:id/history', canRead, studio.history)

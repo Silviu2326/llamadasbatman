@@ -255,6 +255,91 @@ async function fetchFirstPage(accessToken: string): Promise<{ id: string } | nul
   return firstIdFromResponse('pages fetch', data)
 }
 
+export interface MetaNamedOption { id: string; name: string | null }
+
+/** Lista id+nombre de un listado de Graph; una fila sin id válido invalida la respuesta. */
+function namedListFromResponse(operation: string, value: unknown): MetaNamedOption[] {
+  if (!value || typeof value !== 'object' || !('data' in value) || !Array.isArray(value.data)) {
+    throw invalidMetaResponse(operation)
+  }
+  return value.data.map(item => {
+    if (!item || typeof item !== 'object' || !('id' in item) || typeof item.id !== 'string' || !item.id) {
+      throw invalidMetaResponse(operation)
+    }
+    const name = 'name' in item && typeof item.name === 'string' ? item.name.slice(0, 200) : null
+    return { id: item.id, name }
+  })
+}
+
+async function fetchAccountOptions(accessToken: string) {
+  const [adAccounts, pages] = await Promise.all([
+    requestMetaJson<unknown>(
+      'adaccounts fetch',
+      `${GRAPH_URL}/me/adaccounts?fields=id,name&limit=100&access_token=${encodeURIComponent(accessToken)}`
+    ).then(data => namedListFromResponse('adaccounts fetch', data)),
+    requestMetaJson<unknown>(
+      'pages fetch',
+      `${GRAPH_URL}/me/accounts?fields=id,name&limit=100&access_token=${encodeURIComponent(accessToken)}`
+    ).then(data => namedListFromResponse('pages fetch', data)),
+  ])
+  return { adAccounts, pages }
+}
+
+export class MetaAccountSelectionError extends Error {
+  readonly statusCode: number
+  constructor(message: string, readonly code: string, statusCode = 409) {
+    super(message)
+    this.name = 'MetaAccountSelectionError'
+    this.statusCode = statusCode
+  }
+}
+
+/**
+ * Cuentas publicitarias y páginas que el token conectado puede administrar,
+ * pedidas a Graph en el momento (no se guardan: la lista cambia en Meta).
+ * Devuelve null sin cuenta conectada.
+ */
+export async function listAccountOptions(orgId: string) {
+  const account = await prisma.metaAdAccount.findFirst({ where: { orgId, status: 'connected' } })
+  if (!account?.systemUserTokenEnc) return null
+  const options = await fetchAccountOptions(decryptToken(account.systemUserTokenEnc))
+  return {
+    ...options,
+    current: { adAccountId: account.metaAdAccountId, pageId: account.metaPageId ?? null },
+  }
+}
+
+/**
+ * Cambia la cuenta publicitaria y la página con las que opera la organización.
+ * Solo se aceptan ids que Graph devuelva para el token conectado: un id ajeno
+ * nunca llega a la base.
+ */
+export async function selectAccountTargets(orgId: string, selection: { adAccountId: string; pageId: string | null }) {
+  const account = await prisma.metaAdAccount.findFirst({ where: { orgId, status: 'connected' } })
+  if (!account?.systemUserTokenEnc) return null
+  const options = await fetchAccountOptions(decryptToken(account.systemUserTokenEnc))
+  if (!options.adAccounts.some(item => item.id === selection.adAccountId)) {
+    throw new MetaAccountSelectionError('La cuenta publicitaria elegida no está entre las que administra el usuario conectado.', 'META_AD_ACCOUNT_NOT_ALLOWED')
+  }
+  if (selection.pageId && !options.pages.some(item => item.id === selection.pageId)) {
+    throw new MetaAccountSelectionError('La página elegida no está entre las que administra el usuario conectado.', 'META_PAGE_NOT_ALLOWED')
+  }
+
+  // (orgId, metaAdAccountId) es único: una fila antigua revocada con la misma
+  // cuenta bloquearía el cambio, así que se retira antes de mover la conexión.
+  if (selection.adAccountId !== account.metaAdAccountId) {
+    await prisma.metaAdAccount.deleteMany({
+      where: { orgId, metaAdAccountId: selection.adAccountId, id: { not: account.id }, status: { not: 'connected' } },
+    })
+  }
+  const updated = await prisma.metaAdAccount.update({
+    where: { id: account.id },
+    data: { metaAdAccountId: selection.adAccountId, metaPageId: selection.pageId, lastValidatedAt: new Date(), lastError: null },
+  })
+  const { systemUserTokenEnc: _omit, ...safe } = updated
+  return safe
+}
+
 export async function completeOAuth(orgId: string, code: string, codeVerifier: string) {
   const shortLivedToken = await exchangeCodeForToken(code, codeVerifier)
   const longLived = await exchangeForLongLivedToken(shortLivedToken)
@@ -305,14 +390,16 @@ export async function getDecryptedToken(orgId: string): Promise<string | null> {
   return decryptToken(account.systemUserTokenEnc)
 }
 
-export async function setBudgetCap(orgId: string, id: string, dailyBudgetCapCents: number) {
+/** null quita el tope: la campaña deja de pausarse por gasto diario. */
+export async function setBudgetCap(orgId: string, id: string, dailyBudgetCapCents: number | null) {
   return prisma.metaAdAccount.updateMany({
     where: { id, orgId },
     data: { dailyBudgetCapCents },
   })
 }
 
-export async function setPixelId(orgId: string, id: string, metaPixelId: string) {
+/** null retira el píxel: CAPI deja de tener destino. */
+export async function setPixelId(orgId: string, id: string, metaPixelId: string | null) {
   return prisma.metaAdAccount.updateMany({
     where: { id, orgId },
     data: { metaPixelId },

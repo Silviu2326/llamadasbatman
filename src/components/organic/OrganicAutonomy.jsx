@@ -8,6 +8,7 @@ import {
   RiStopCircleLine,
 } from 'react-icons/ri'
 import './organic-components.css'
+import { useI18n } from '../../i18n'
 
 /**
  * Sala de autonomía — `docs/vendrava/organico.md` §9 y fase 4 de §11.
@@ -28,29 +29,26 @@ import './organic-components.css'
  * ninguno.
  */
 
-const LEVEL_COPY = {
-  N1: { label: 'N1 · sugerir', detail: 'Vendrava calcula y explica; decide siempre una persona.' },
-  N2: { label: 'N2 · aprobar', detail: 'Una persona aprueba cada acción concreta con un clic.' },
-  N3: { label: 'N3 · automático', detail: 'Solo la lista cerrada de §9, con cooldown y freno.' },
+const LEVELS = ['N1', 'N2', 'N3']
+const levelCopy = (level, t) => {
+  const key = LEVELS.includes(level) ? level : 'N1'
+  return { label: t(`organic.autonomy.level.${key}`), detail: t(`organic.autonomy.level.${key}Detail`) }
 }
 
-const STATUS_COPY = {
-  advisory: { label: 'Observación', tone: 'idle' },
-  pending_approval: { label: 'Esperando aprobación', tone: 'warn' },
-  shadow: { label: 'Modo sombra', tone: 'idle' },
-  executed: { label: 'Ejecutada', tone: 'ok' },
-  blocked: { label: 'Bloqueada', tone: 'bad' },
-  rejected: { label: 'Rechazada', tone: 'idle' },
-  approved: { label: 'Aprobada', tone: 'ok' },
-  expired: { label: 'Caducada', tone: 'idle' },
+const STATUS_TONE = { advisory: 'idle', pending_approval: 'warn', shadow: 'idle', executed: 'ok', blocked: 'bad', rejected: 'idle', approved: 'ok', expired: 'idle' }
+const statusCopy = (status, t) => {
+  const key = STATUS_TONE[status] ? status : 'advisory'
+  return { label: t(`organic.autonomy.status.${key}`), tone: STATUS_TONE[key] }
 }
 
 function LevelBadge({ level }) {
-  const copy = LEVEL_COPY[level] ?? LEVEL_COPY.N1
+  const { t } = useI18n()
+  const copy = levelCopy(level, t)
   return <span className={`organic-autonomy-level is-${level.toLowerCase()}`} title={copy.detail}>{copy.label}</span>
 }
 
 export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleShadow, onRun, onApprove, onReject, onPromote, onDemote }) {
+  const { t } = useI18n()
   const [rejecting, setRejecting] = useState('')
   const [reason, setReason] = useState('')
   if (!state) return null
@@ -62,67 +60,67 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
     <section id="organic-autonomy" className="organic-panel organic-autonomy">
       <header className="organic-panel-header">
         <div>
-          <h2><span className="organic-panel-icon"><RiShieldKeyholeLine /></span>Sala de autonomía</h2>
-          <p>Qué puede hacer Vendrava sin preguntar, qué se ha ganado ese permiso y qué se comprobó antes de cada acción.</p>
+          <h2><span className="organic-panel-icon"><RiShieldKeyholeLine /></span>{t('organic.autonomy.title')}</h2>
+          <p>{t('organic.autonomy.intro')}</p>
         </div>
         <span className="organic-panel-note">{state.policyVersion}</span>
       </header>
 
       {stopped && (
         <p className="organic-autonomy-stop" role="alert">
-          <RiStopCircleLine /> La autonomía está parada para toda la organización
-          {killSwitch.reason ? `: ${killSwitch.reason}` : '.'} El freno se comparte con Ads y se suelta desde allí.
+          <RiStopCircleLine /> {t('organic.autonomy.stopped')}
+          {killSwitch.reason ? `: ${killSwitch.reason}` : '.'} {t('organic.autonomy.stoppedShared')}
         </p>
       )}
 
       <div className="organic-autonomy-controls">
         <label>
-          <span>Nivel concedido</span>
+          <span>{t('organic.autonomy.grantedLevel')}</span>
           <select
             className="organic-control"
             value={config.level}
             disabled={busy || stopped}
             onChange={event => onChangeLevel(event.target.value)}
           >
-            {Object.entries(LEVEL_COPY).map(([value, copy]) => <option key={value} value={value}>{copy.label}</option>)}
+            {LEVELS.map(value => <option key={value} value={value}>{levelCopy(value, t).label}</option>)}
           </select>
-          <small>{(LEVEL_COPY[config.level] ?? LEVEL_COPY.N1).detail}</small>
+          <small>{levelCopy(config.level, t).detail}</small>
         </label>
 
         <label className="organic-autonomy-shadow">
-          <span>Modo sombra</span>
+          <span>{t('organic.autonomy.shadowMode')}</span>
           <button
             type="button"
             className={`organic-button ${config.shadowMode ? 'secondary' : 'ghost'}`}
             disabled={busy || stopped}
             onClick={() => onToggleShadow(!config.shadowMode)}
           >
-            {config.shadowMode ? <><RiEyeOffLine /> Activado</> : <><RiPlayCircleLine /> Desactivado</>}
+            {config.shadowMode ? <><RiEyeOffLine /> {t('organic.autonomy.enabled')}</> : <><RiPlayCircleLine /> {t('organic.autonomy.disabled')}</>}
           </button>
           <small>
             {config.shadowMode
-              ? 'N3 escribe lo que haría, sin hacerlo. No se puede salir de sombra con los datos en rojo.'
-              : 'N3 ejecuta de verdad las acciones de la lista de §9.'}
+              ? t('organic.autonomy.shadowOn')
+              : t('organic.autonomy.shadowOff')}
           </small>
         </label>
 
         <div className="organic-autonomy-limits">
-          <span>Guardarraíles</span>
+          <span>{t('organic.autonomy.guardrails')}</span>
           <ul>
-            <li>Máximo {config.maxActionsPerDay} acciones al día</li>
-            <li>{config.cooldownMinutes} min entre acciones del mismo tipo</li>
-            <li>Cobertura mínima de atribución: {config.minAttributionCoveragePct} %</li>
+            <li>{t('organic.autonomy.maxPerDay', { n: config.maxActionsPerDay })}</li>
+            <li>{t('organic.autonomy.cooldown', { n: config.cooldownMinutes })}</li>
+            <li>{t('organic.autonomy.minCoverage', { n: config.minAttributionCoveragePct })}</li>
             <li>
-              Hoy: fuentes «{dataQuality?.status ?? 'sin medir'}»
+              {t('organic.autonomy.today', { status: dataQuality?.status ?? t('organic.autonomy.unmeasured') })}
               {dataQuality?.attributionCoveragePct != null
-                ? ` · cobertura ${dataQuality.attributionCoveragePct} %`
-                : ' · cobertura sin medir'}
+                ? t('organic.autonomy.coverage', { n: dataQuality.attributionCoveragePct })
+                : t('organic.autonomy.coverageUnmeasured')}
             </li>
           </ul>
         </div>
 
         <button type="button" className="organic-button primary" disabled={busy} onClick={onRun}>
-          <RiShieldKeyholeLine /> {busy ? 'Revisando…' : 'Revisar ahora'}
+          <RiShieldKeyholeLine /> {busy ? t('organic.autonomy.reviewing') : t('organic.autonomy.reviewNow')}
         </button>
       </div>
 
@@ -133,11 +131,11 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
               <strong>{kind.label}</strong>
               <LevelBadge level={kind.effectiveLevel} />
             </header>
-            {!kind.executable && <p className="organic-autonomy-unavailable">Sin ejecución todavía: {kind.unavailableReason}</p>}
-            {kind.degradedReason && <p className="organic-autonomy-degraded">Degradada sola: {kind.degradedReason}</p>}
+            {!kind.executable && <p className="organic-autonomy-unavailable">{t('organic.autonomy.noExecution', { reason: kind.unavailableReason })}</p>}
+            {kind.degradedReason && <p className="organic-autonomy-degraded">{t('organic.autonomy.degraded', { reason: kind.degradedReason })}</p>}
             {kind.promotion?.blockers?.length
               ? <ul className="organic-autonomy-blockers">{kind.promotion.blockers.map(item => <li key={item}>{item}</li>)}</ul>
-              : <p className="organic-autonomy-ready">Se ha ganado subir a {kind.promotion?.eligibleFor}.</p>}
+              : <p className="organic-autonomy-ready">{t('organic.autonomy.earned', { level: kind.promotion?.eligibleFor })}</p>}
             {/* Subir y bajar en la misma tarjeta: el camino de vuelta existía
                 en el backend pero no en la pantalla, así que para retirar un
                 permiso concreto había que usar el freno de emergencia, que
@@ -146,12 +144,12 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
               <footer className="organic-autonomy-kind-actions">
                 {kind.promotion?.eligibleFor && (
                   <button type="button" className="organic-button secondary" disabled={busy} onClick={() => onPromote(kind.kind)}>
-                    Subir a {kind.promotion.eligibleFor}
+                    {t('organic.autonomy.promote', { level: kind.promotion.eligibleFor })}
                   </button>
                 )}
                 {kind.effectiveLevel !== 'N1' && onDemote && (
                   <button type="button" className="organic-button ghost" disabled={busy} onClick={() => onDemote(kind.kind)}>
-                    Bajar permiso
+                    {t('organic.autonomy.demote')}
                   </button>
                 )}
               </footer>
@@ -162,9 +160,9 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
 
       {decisions.length > 0 && (
         <div className="organic-autonomy-decisions">
-          <h3>Qué ha decidido Vendrava</h3>
+          <h3>{t('organic.autonomy.decisions')}</h3>
           {decisions.map(decision => {
-            const status = STATUS_COPY[decision.status] ?? STATUS_COPY.advisory
+            const status = statusCopy(decision.status, t)
             const pending = ['advisory', 'pending_approval', 'shadow'].includes(decision.status)
             return (
               <article key={decision.id} className={`is-${status.tone}`}>
@@ -198,19 +196,19 @@ export default function OrganicAutonomy({ state, busy, onChangeLevel, onToggleSh
                       setReason('')
                     }}
                   >
-                    <label htmlFor={`reject-${decision.id}`}>¿Por qué la rechazas?</label>
-                    <textarea id={`reject-${decision.id}`} rows="2" value={reason} onChange={event => setReason(event.target.value)} placeholder="Ej.: la propiedad de Search Console está mal elegida" />
+                    <label htmlFor={`reject-${decision.id}`}>{t('organic.autonomy.whyReject')}</label>
+                    <textarea id={`reject-${decision.id}`} rows="2" value={reason} onChange={event => setReason(event.target.value)} placeholder={t('organic.autonomy.rejectPlaceholder')} />
                     <div>
-                      <button type="button" className="organic-link" onClick={() => setRejecting('')}>Cancelar</button>
-                      <button type="submit" className="organic-button secondary" disabled={reason.trim().length < 3}>Confirmar</button>
+                      <button type="button" className="organic-link" onClick={() => setRejecting('')}>{t('organic.autonomy.cancel')}</button>
+                      <button type="submit" className="organic-button secondary" disabled={reason.trim().length < 3}>{t('organic.autonomy.confirm')}</button>
                     </div>
                   </form>
                 ) : (
                   <div className="organic-rec-actions">
                     <button type="button" className="organic-button primary" disabled={busy || stopped} onClick={() => onApprove(decision.id)}>
-                      Aprobar y ejecutar
+                      {t('organic.autonomy.approveExecute')}
                     </button>
-                    <button type="button" className="organic-link" onClick={() => setRejecting(decision.id)}>Rechazar</button>
+                    <button type="button" className="organic-link" onClick={() => setRejecting(decision.id)}>{t('organic.autonomy.reject')}</button>
                   </div>
                 ))}
               </article>

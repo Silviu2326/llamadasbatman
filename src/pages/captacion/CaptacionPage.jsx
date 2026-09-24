@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import CaptureStages from './CaptureStages'
 import PageLoadingState from '../../components/ui/PageLoadingState'
+import { useI18n } from '../../i18n'
 import './captacion.css'
 
 /**
@@ -19,13 +20,14 @@ import './captacion.css'
  * vistazo y la siguiente acción de cada una.
  */
 export default function CaptacionPage() {
+  const { t } = useI18n()
   return (
     <div className="captacion-shell">
       <CaptureStages />
       <div className="captacion-stage-view">
         {/* Suspense propio: el del router desmontaría la barra mientras carga
             el chunk de la etapa, y la sección parpadearía entera. */}
-        <Suspense fallback={<PageLoadingState inline label="Cargando etapa" />}>
+        <Suspense fallback={<PageLoadingState inline label={t('captacion.loadingStage')} />}>
           <Outlet />
         </Suspense>
       </div>

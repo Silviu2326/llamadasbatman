@@ -7,9 +7,10 @@ import {
   RiSearchEyeLine,
 } from 'react-icons/ri'
 import './seo-components.css'
+import { localeCode, useI18n } from '../../i18n'
 
-function formatNumber(value) {
-  return new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(value ?? 0)
+function formatNumber(value, locale) {
+  return new Intl.NumberFormat(localeCode(locale), { maximumFractionDigits: 0 }).format(value ?? 0)
 }
 
 function buildOpportunities({ report, searchConsole }) {
@@ -39,38 +40,40 @@ function buildOpportunities({ report, searchConsole }) {
 }
 
 function OpportunityCard({ item, onOpenFactory }) {
+  const { t, locale } = useI18n()
   const isHidden = item.kind === 'hidden-demand'
   const ctr = item.impressions ? (item.clicks / item.impressions) * 100 : 0
   const advice = isHidden
-    ? 'Añade una guía al clúster de contenidos'
+    ? t('webSeo.radar.adviceGuide')
     : item.position <= 10
-      ? 'Mejora title, meta y CTA de la página'
-      : 'Amplía la cobertura semántica del contenido'
+      ? t('webSeo.radar.adviceTop10')
+      : t('webSeo.radar.adviceCoverage')
 
   return (
     <article className={`seo-opportunity-card${isHidden ? ' is-hidden-demand' : ''}`}>
       <div className="seo-opportunity-card-head">
         <span className="seo-opportunity-kind">
           {isHidden ? <RiLightbulbFlashLine /> : <RiFlashlightLine />}
-          {isHidden ? 'Demanda oculta' : 'Quick win'}
+          {isHidden ? t('webSeo.radar.hiddenDemand') : t('webSeo.radar.quickWin')}
         </span>
-        <span className="seo-opportunity-position">Pos. {item.position.toFixed(1)}</span>
+        <span className="seo-opportunity-position">{t('webSeo.radar.position', { n: item.position.toFixed(1) })}</span>
       </div>
       <strong>{item.query}</strong>
       <p>{advice}</p>
       <div className="seo-opportunity-stats">
-        <span><b>{formatNumber(item.impressions)}</b> impresiones</span>
-        <span><b>{formatNumber(item.clicks)}</b> clics</span>
+        <span><b>{formatNumber(item.impressions, locale)}</b> {t('webSeo.radar.impressions')}</span>
+        <span><b>{formatNumber(item.clicks, locale)}</b> {t('webSeo.radar.clicks')}</span>
         <span><b>{ctr.toFixed(1)}%</b> CTR</span>
       </div>
       <button type="button" className="seo-button small" onClick={() => onOpenFactory(item.keyword, isHidden ? 'pasiva' : 'activa')}>
-        {isHidden ? 'Crear guía' : 'Optimizar contenido'} <RiArrowRightLine />
+        {isHidden ? t('webSeo.radar.createGuide') : t('webSeo.radar.optimize')} <RiArrowRightLine />
       </button>
     </article>
   )
 }
 
 function SeoOpportunityRadar({ report, searchConsole, onOpenFactory, onOpenTab }) {
+  const { t } = useI18n()
   const opportunities = useMemo(() => buildOpportunities({ report, searchConsole }), [report, searchConsole])
   if (!searchConsole?.connected || !searchConsole.totalQueries) return null
 
@@ -81,15 +84,15 @@ function SeoOpportunityRadar({ report, searchConsole, onOpenFactory, onOpenTab }
     <section className="seo-opportunity-radar seo-rise" aria-labelledby="seo-opportunity-title">
       <header className="seo-opportunity-head">
         <div>
-          <span className="seo-overline">Datos propios · Search Console</span>
-          <h2 id="seo-opportunity-title"><RiSearchEyeLine /> Radar de oportunidades</h2>
-          <p>Encuentra consultas que ya tienen señales de demanda y conviértelas en trabajo priorizado.</p>
+          <span className="seo-overline">{t('webSeo.radar.overline')}</span>
+          <h2 id="seo-opportunity-title"><RiSearchEyeLine /> {t('webSeo.radar.title')}</h2>
+          <p>{t('webSeo.radar.intro')}</p>
         </div>
         <div className="seo-opportunity-summary">
-          <span><b>{quickWins}</b> quick wins</span>
-          <span><b>{hiddenDemand}</b> temas nuevos</span>
+          <span><b>{quickWins}</b> {t('webSeo.radar.quickWins')}</span>
+          <span><b>{hiddenDemand}</b> {t('webSeo.radar.newTopics')}</span>
           <button type="button" className="seo-button small" onClick={() => onOpenTab('contenidos')}>
-            Ver plan <RiArrowRightLine />
+            {t('webSeo.radar.seePlan')} <RiArrowRightLine />
           </button>
         </div>
       </header>
@@ -98,7 +101,7 @@ function SeoOpportunityRadar({ report, searchConsole, onOpenFactory, onOpenTab }
           {opportunities.map((item) => <OpportunityCard key={`${item.kind}-${item.query}`} item={item} onOpenFactory={onOpenFactory} />)}
         </div>
       ) : (
-        <div className="seo-opportunity-empty"><RiBarChartBoxLine /><span>Aún no hay consultas entre las posiciones 4 y 20. Sincroniza de nuevo cuando Search Console acumule más datos.</span></div>
+        <div className="seo-opportunity-empty"><RiBarChartBoxLine /><span>{t('webSeo.radar.empty')}</span></div>
       )}
     </section>
   )

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '../../lib/api'
+import { useI18n } from '../../i18n'
 import { FALLBACK_IMAGES, getLink, normalizeCampaign, readExternalWebs, writeExternalWebs } from './landingModel'
 
 /**
@@ -11,6 +12,7 @@ import { FALLBACK_IMAGES, getLink, normalizeCampaign, readExternalWebs, writeExt
  * landings se siguen mostrando sin métricas inventadas.
  */
 export function useLandings({ notify, initialLandingKey = '', initialCampaignId = '' }) {
+  const { t } = useI18n()
   const [campaigns, setCampaigns] = useState([])
   const [items, setItems] = useState([])
   const [externalWebs, setExternalWebs] = useState([])
@@ -46,14 +48,14 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
   }, [])
 
   const openDetail = useCallback(async landingKey => {
-    if (!landingKey) return notify?.('Esta landing todavía no tiene telemetría')
+    if (!landingKey) return notify?.(t('webSeo.landingsHook.noTelemetry'))
     setDetail(null)
     setVariants([])
     setExperiment(null)
     setDetailLoading(true)
     try {
       const response = await apiFetch(`/api/landings/${landingKey}`)
-      if (!response.ok) throw new Error('No se pudo cargar el detalle de la landing')
+      if (!response.ok) throw new Error(t('webSeo.landingsHook.detailFailed'))
       setDetail(await response.json())
       // Variantes, autonomía e informe son lecturas independientes.
       await Promise.all([
@@ -85,9 +87,9 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
         apiFetch('/api/campaigns?limit=100'),
         apiFetch('/api/landings/overview').catch(() => ({ ok: false })),
       ])
-      if (!response.ok) throw new Error('No se pudieron cargar las campañas')
+      if (!response.ok) throw new Error(t('webSeo.landingsHook.campaignsFailed'))
       const data = await response.json()
-      if (!Array.isArray(data?.items)) throw new Error('La respuesta de campañas no tiene el formato esperado')
+      if (!Array.isArray(data?.items)) throw new Error(t('webSeo.landingsHook.campaignsFormat'))
       const landingsData = landingsResponse.ok ? await landingsResponse.json() : null
       const telemetryByCampaign = new Map((landingsData?.items || []).map(item => [item.campaignId, item]))
       setTelemetryRead(Boolean(landingsData))
@@ -116,11 +118,11 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
       else if (wanted.campaignId) {
         const match = (landingsData?.items || []).find(item => item.campaignId === wanted.campaignId)
         if (match?.landingKey) openDetail(match.landingKey)
-        else notify?.('Esa campaña todavía no tiene landing con telemetría')
+        else notify?.(t('webSeo.landingsHook.campaignNoTelemetry'))
       }
     } catch (error) {
       setItems([])
-      setLoadError(error instanceof Error ? error.message : 'No se pudieron cargar las campañas')
+      setLoadError(error instanceof Error ? error.message : t('webSeo.landingsHook.campaignsFailed'))
     } finally {
       setLoading(false)
     }
@@ -155,7 +157,7 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
       const response = await apiFetch(path, { method: 'POST', ...options })
       const data = await response.json().catch(() => ({}))
       // 409 con el motivo cuando la transición no está permitida: se muestra tal cual.
-      if (!response.ok) throw new Error(data.error || 'No se pudo completar la acción')
+      if (!response.ok) throw new Error(data.error || t('webSeo.landingsHook.actionFailed'))
       notify?.(successMessage)
       await loadVariants(detail.landingKey)
     } catch (error) {
@@ -166,19 +168,19 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
   }
 
   const variantActions = {
-    generate: landingKey => runVariantAction('/api/landings/variants', { body: JSON.stringify({ landingKey }) }, 'Variante propuesta'),
-    requestApproval: id => runVariantAction(`/api/landings/variants/${id}/request-approval`, {}, 'Enviada a aprobación'),
-    start: id => runVariantAction(`/api/landings/variants/${id}/start`, { body: JSON.stringify({}) }, 'Experimento activado'),
-    conclude: id => runVariantAction(`/api/landings/experiments/${id}/conclude`, {}, 'Experimento cerrado'),
-    discard: id => runVariantAction(`/api/landings/variants/${id}/discard`, { body: JSON.stringify({}) }, 'Variante descartada'),
+    generate: landingKey => runVariantAction('/api/landings/variants', { body: JSON.stringify({ landingKey }) }, t('webSeo.landingsHook.variantProposed')),
+    requestApproval: id => runVariantAction(`/api/landings/variants/${id}/request-approval`, {}, t('webSeo.landingsHook.approvalRequested')),
+    start: id => runVariantAction(`/api/landings/variants/${id}/start`, { body: JSON.stringify({}) }, t('webSeo.landingsHook.experimentStarted')),
+    conclude: id => runVariantAction(`/api/landings/experiments/${id}/conclude`, {}, t('webSeo.landingsHook.experimentClosed')),
+    discard: id => runVariantAction(`/api/landings/variants/${id}/discard`, { body: JSON.stringify({}) }, t('webSeo.landingsHook.variantDiscarded')),
     runAutonomy: async () => {
       if (!detail) return
       setVariantBusy(true)
       try {
         const response = await apiFetch('/api/landings/autonomy/run', { method: 'POST' })
         const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data.error || 'No se pudo ejecutar la pasada')
-        notify?.(data.shadowMode ? 'Pasada en sombra registrada: no se ha tocado ninguna landing' : 'Pasada de autonomía ejecutada')
+        if (!response.ok) throw new Error(data.error || t('webSeo.landingsHook.passFailed'))
+        notify?.(data.shadowMode ? t('webSeo.landingsHook.shadowPass') : t('webSeo.landingsHook.passDone'))
         const refreshed = await apiFetch(`/api/landings/autonomy?landingKey=${encodeURIComponent(detail.landingKey)}`)
         setAutonomy(refreshed.ok ? await refreshed.json() : null)
       } catch (error) {
@@ -193,9 +195,9 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
     setRefreshing(true)
     try {
       const response = await apiFetch('/api/landings/refresh', { method: 'POST' })
-      if (!response.ok) throw new Error('No se pudo recalcular la telemetría')
+      if (!response.ok) throw new Error(t('webSeo.landingsHook.recalcFailed'))
       await loadLandings()
-      notify?.('Telemetría recalculada')
+      notify?.(t('webSeo.landingsHook.recalcDone'))
     } catch (error) {
       notify?.(error.message)
     } finally {
@@ -214,12 +216,12 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
 
   async function copyLink(item) {
     const link = getLink(item)
-    if (!link) return notify?.('Añade un slug para disponer de un enlace público')
+    if (!link) return notify?.(t('webSeo.landingsHook.needSlugForLink'))
     try {
       await navigator.clipboard.writeText(link)
-      notify?.('Enlace copiado al portapapeles')
+      notify?.(t('webSeo.landingsHook.linkCopied'))
     } catch {
-      notify?.('No se pudo copiar el enlace')
+      notify?.(t('webSeo.landingsHook.copyFailed'))
     }
   }
 
@@ -227,30 +229,30 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
     setSaving(true)
     try {
       if (modal.mode === 'import') {
-        const next = { ...modal.item, ...form, id: modal.item?.id || `external-${Date.now()}`, external: true, status: 'external', updatedAt: 'Actualizado ahora', templateId: 'generic-v1', leads: null, visits: null, meetings: null, image: FALLBACK_IMAGES[1] }
+        const next = { ...modal.item, ...form, id: modal.item?.id || `external-${Date.now()}`, external: true, status: 'external', updatedAt: t('webSeo.landingsHook.updatedNow'), templateId: 'generic-v1', leads: null, visits: null, meetings: null, image: FALLBACK_IMAGES[1] }
         const nextWebs = modal.item ? externalWebs.map(item => (item.id === next.id ? next : item)) : [next, ...externalWebs]
         setExternalWebs(nextWebs)
         writeExternalWebs(nextWebs)
         setModal(null)
-        notify?.(modal.item ? 'Sitio web actualizado' : 'Sitio web añadido a tu espacio')
+        notify?.(modal.item ? t('webSeo.landingsHook.siteUpdated') : t('webSeo.landingsHook.siteAdded'))
         return
       }
       const assets = { ...(modal.item?.assets || {}), title: form.name, offer: form.offer, leadMagnet: form.leadMagnet, adCopy: form.adCopy, landingTemplateId: form.templateId }
       if (modal.mode === 'create') {
         const response = await apiFetch('/api/campaigns', { method: 'POST', body: JSON.stringify({ name: form.campaignName || form.name, objective: form.adCopy, landingSlug: form.slug, adAssets: assets }) })
-        if (!response.ok) throw new Error('No se pudo crear la landing')
+        if (!response.ok) throw new Error(t('webSeo.landingsHook.createFailed'))
         const campaign = await response.json()
         const created = { ...campaign, adAssets: assets, landingSlug: form.slug }
         setCampaigns(previous => [created, ...previous])
         setItems(previous => [normalizeCampaign(created, previous.length), ...previous])
       } else if (!modal.item.external) {
         const response = await apiFetch(`/api/campaigns/${modal.item.sourceId || modal.item.id}/landing`, { method: 'PUT', body: JSON.stringify({ landingSlug: form.slug, adAssets: assets }) })
-        if (!response.ok) throw new Error('No se pudo guardar la landing')
+        if (!response.ok) throw new Error(t('webSeo.landingsHook.saveFailed'))
         setCampaigns(previous => previous.map(campaign => (campaign.id === modal.item.id ? { ...campaign, landingSlug: form.slug, adAssets: assets } : campaign)))
-        setItems(previous => previous.map(item => (item.id === modal.item.id ? { ...item, ...form, slug: form.slug, templateId: form.templateId, assets, updatedAt: 'Actualizado ahora' } : item)))
+        setItems(previous => previous.map(item => (item.id === modal.item.id ? { ...item, ...form, slug: form.slug, templateId: form.templateId, assets, updatedAt: t('webSeo.landingsHook.updatedNow') } : item)))
       }
       setModal(null)
-      notify?.(modal.mode === 'create' ? 'Landing creada como borrador' : 'Landing actualizada correctamente')
+      notify?.(modal.mode === 'create' ? t('webSeo.landingsHook.createdDraft') : t('webSeo.landingsHook.updated'))
     } catch (error) {
       notify?.(error.message)
     } finally {
@@ -259,14 +261,14 @@ export function useLandings({ notify, initialLandingKey = '', initialCampaignId 
   }
 
   async function toggleStatus(item) {
-    if (item.external) return notify?.('Las webs externas no permiten cambiar estado desde campañas')
-    if (!item.slug) return notify?.('Añade un slug antes de publicar esta landing')
+    if (item.external) return notify?.(t('webSeo.landingsHook.externalNoStatus'))
+    if (!item.slug) return notify?.(t('webSeo.landingsHook.needSlugToPublish'))
     const nextStatus = item.status === 'published' ? 'paused' : 'active'
     const response = await apiFetch(`/api/campaigns/${item.sourceId || item.id}`, { method: 'PUT', body: JSON.stringify({ status: nextStatus }) })
-    if (!response.ok) return notify?.('No se pudo actualizar el estado')
+    if (!response.ok) return notify?.(t('webSeo.landingsHook.statusFailed'))
     setItems(previous => previous.map(current => (current.id === item.id ? { ...current, status: nextStatus === 'active' ? 'published' : 'draft' } : current)))
     setCampaigns(previous => previous.map(campaign => (campaign.id === item.id ? { ...campaign, status: nextStatus } : campaign)))
-    notify?.(nextStatus === 'active' ? 'Landing publicada' : 'Landing pausada')
+    notify?.(nextStatus === 'active' ? t('webSeo.landingsHook.published') : t('webSeo.landingsHook.paused'))
   }
 
   return {

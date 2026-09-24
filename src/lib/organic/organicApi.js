@@ -1,5 +1,8 @@
 import { apiFetch } from '../api'
 import { readPlanGate } from '../planGate'
+import { createTranslator, getLocale } from '../../i18n'
+
+const t = (key, vars) => createTranslator(getLocale())(key, vars)
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
@@ -95,7 +98,7 @@ export async function fetchOrganicOverview({ projectId, period } = {}) {
   const gate = response.ok ? null : await readPlanGate(response)
   if (gate) return { status: 'setup', data: null, gate }
   const payload = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(payload?.error || 'No pudimos cargar Organic Leads.')
+  if (!response.ok) throw new Error(payload?.error || t('organic.api.overviewFailed'))
   if (!payload?.project && !payload?.data?.project && !payload?.overview?.project) {
     return { status: 'setup', data: null }
   }
@@ -106,7 +109,7 @@ async function requestJson(path, options = {}) {
   const response = await apiFetch(path, options)
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
-    const error = new Error(payload?.error || 'No pudimos completar la acción orgánica.')
+    const error = new Error(payload?.error || t('organic.api.actionFailed'))
     error.status = response.status
     throw error
   }
@@ -117,9 +120,9 @@ export async function fetchOrganicIntegrations() {
   const response = await apiFetch('/api/organic/integrations')
   const payload = await response.json().catch(() => null)
   if (response.status === 404 || response.status === 405) {
-    return { status: 'unavailable', integrations: [], error: 'El estado de integraciones aún no está disponible en el backend.' }
+    return { status: 'unavailable', integrations: [], error: t('organic.api.integrationsUnavailable') }
   }
-  if (!response.ok) throw new Error(payload?.error || 'No pudimos consultar las integraciones orgánicas.')
+  if (!response.ok) throw new Error(payload?.error || t('organic.api.integrationsFailed'))
   const integrations = Array.isArray(payload?.integrations) ? payload.integrations : []
   return {
     status: payload?.setupRequired ? 'setup' : 'ready',
@@ -257,7 +260,7 @@ export function createOrganicDraft(payload = {}) {
       projectId: payload.projectId || undefined,
       opportunityId: payload.opportunityId || null,
       type: payload.type || 'service_page',
-      title: payload.name || payload.title || 'Nuevo activo orgánico',
+      title: payload.name || payload.title || t('organic.api.newAsset'),
       content: { notes: payload.notes || '' },
       targetUrl: payload.targetUrl || null,
     }),

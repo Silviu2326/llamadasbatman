@@ -295,9 +295,28 @@ function readInitialLocale() {
   return window.navigator?.language?.toLowerCase().startsWith('en') ? 'en' : DEFAULT_LOCALE
 }
 
+// Las páginas que migran del texto en el código a claves de mensaje añaden su
+// propio fichero en src/i18n/messages/<pagina>.js (export default { es, en }) y
+// lo registran aquí. Así cada página vive en su fichero y no crece este.
+import captacionMessages from './messages/captacion.js'
+import adsMessages from './messages/ads.js'
+import organicMessages from './messages/organic.js'
+
+const PAGE_MESSAGES = [captacionMessages, adsMessages, organicMessages]
+
+function resolveIn(locale, key) {
+  const parts = key.split('.')
+  const fromBase = parts.reduce((value, part) => value?.[part], messages[locale])
+  if (fromBase !== undefined) return fromBase
+  for (const bundle of PAGE_MESSAGES) {
+    const found = parts.reduce((value, part) => value?.[part], bundle?.[locale])
+    if (found !== undefined) return found
+  }
+  return undefined
+}
+
 function resolveMessage(locale, key) {
-  return key.split('.').reduce((value, part) => value?.[part], messages[locale])
-    ?? key.split('.').reduce((value, part) => value?.[part], messages[DEFAULT_LOCALE])
+  return resolveIn(locale, key) ?? resolveIn(DEFAULT_LOCALE, key)
 }
 
 function interpolate(value, variables) {

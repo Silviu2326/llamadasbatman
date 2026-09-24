@@ -15,7 +15,7 @@ export class CampaignAgentError extends Error {
 
 /** Activación rechazada con un código estable para el frontend (409) o 404. */
 export class CampaignStartError extends Error {
-  constructor(public code: 'CAMPAIGN_NOT_FOUND' | 'AGENT_MISSING' | 'AGENT_NOT_PUBLISHED', message: string, public status: 404 | 409 = 409) {
+  constructor(public code: 'CAMPAIGN_NOT_FOUND' | 'AGENT_MISSING' | 'AGENT_NOT_PUBLISHED' | 'STATUS_NOT_ALLOWED', message: string, public status: 400 | 404 | 409 = 409) {
     super(message)
     this.name = 'CampaignStartError'
   }
@@ -114,6 +114,8 @@ export async function updateCampaign(orgId: string, id: string, data: {
   goal?: string | null
   settings?: Record<string, unknown>
 }) {
+  // Defensa en el servicio además del esquema de la ruta: 'active' solo por startCampaign.
+  if (data.status === 'active') throw new CampaignStartError('STATUS_NOT_ALLOWED', "status 'active' solo se establece con POST /api/campaigns/:id/start", 400)
   await assertOwnedAgent(orgId, data.agentId)
   return prisma.campaign.updateMany({
     where: { id, orgId },
@@ -335,12 +337,13 @@ export async function startCampaign(orgId: string, id: string) {
   return { ok: true, queued, breakdown }
 }
 
+/** Devuelve null si la campaña no existe en la organización (404 en la ruta). */
 export async function pauseCampaign(orgId: string, id: string) {
-  await prisma.campaign.updateMany({
+  const result = await prisma.campaign.updateMany({
     where: { id, orgId },
     data: { status: 'paused' },
   })
-
+  if (!result.count) return null
   return { ok: true }
 }
 

@@ -5,7 +5,7 @@ process.env.REDIS_ENABLED = 'false'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { prisma } from '../lib/prisma'
-import { campaignCallDedupeKey, CampaignAgentError, CampaignStartError, createCampaign, startCampaign, updateCampaign } from '../services/campaigns.service'
+import { campaignCallDedupeKey, CampaignAgentError, CampaignStartError, createCampaign, pauseCampaign, startCampaign, updateCampaign } from '../services/campaigns.service'
 
 function patchAll(t: any, patches: Array<[any, string, any]>) {
   const saved = patches.map(([target, key, fn]) => { const prev = target[key]; target[key] = fn; return [target, key, prev] as const })
@@ -121,4 +121,17 @@ test('createCampaign/updateCampaign rechazan un agentId de otra organización', 
   await createCampaign('org', { name: 'Y' })
   assert.equal(created.length, 2)
   assert.deepEqual(await updateCampaign('org', 'c1', { name: 'Z' }), { count: 1 })
+})
+
+test('updateCampaign no acepta status active y pauseCampaign devuelve null si no existe', async t => {
+  const updates: any[] = []
+  patchAll(t, [
+    [prisma.campaign, 'updateMany', async (args: any) => { updates.push(args); return { count: args.where.id === 'c1' ? 1 : 0 } }],
+  ])
+  await assert.rejects(updateCampaign('org', 'c1', { status: 'active' }), (err: any) => err instanceof CampaignStartError && err.code === 'STATUS_NOT_ALLOWED' && err.status === 400)
+  assert.equal(updates.length, 0, 'el PUT nunca activa la campaña')
+  assert.deepEqual(await updateCampaign('org', 'c1', { status: 'paused' }), { count: 1 })
+
+  assert.deepEqual(await pauseCampaign('org', 'c1'), { ok: true })
+  assert.equal(await pauseCampaign('org', 'no-existe'), null)
 })
