@@ -42,7 +42,8 @@ export default function NewLeadModal({ onClose, onSuccess, initialValues = null 
           customFields: form.role || form.value ? { role: form.role, value: form.value } : undefined,
         }),
       })
-      if (!res.ok) { setError(t('modal.createError')); return }
+      // 422 invalid_phone / 409 already_exists traen un mensaje concreto del backend.
+      if (!res.ok) { const body = await res.json().catch(() => null); setError(body?.error || t('modal.createError')); return }
       const item = await res.json()
       if (callNow && item.phone) {
         apiFetch(`/api/leads/${item.id}/call-now`, { method: 'POST' }).catch(() => {})

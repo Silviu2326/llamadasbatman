@@ -10,8 +10,11 @@ import { ChannelConsentInput } from './conversations.service'
  * (ver META_ADS_AUTOMATION.md). Si Redis no está disponible, no revienta:
  * el lead queda creado igual, solo no se dispara la llamada automática.
  */
-export async function enqueueLeadCall(orgId: string, leadId: string): Promise<boolean> {
-  return enqueueLeadCallJob(orgId, leadId)
+export async function enqueueLeadCall(
+  orgId: string, leadId: string, dedupeKey?: string, delayMs = 0,
+  options: { campaignId?: string; onFinished?: 'ignore' | 'requeue' } = {},
+): Promise<boolean> {
+  return enqueueLeadCallJob(orgId, leadId, dedupeKey, delayMs, options)
 }
 
 /**

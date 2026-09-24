@@ -115,15 +115,36 @@ export function startConfirmation(preview) {
     lines.push(`Al activar «${name}» se encolará${count === 1 ? '' : 'n'} ${count} llamada${count === 1 ? '' : 's'} telefónica${count === 1 ? '' : 's'} real${count === 1 ? '' : 'es'} a leads nuevos con teléfono.`)
   }
   if (withoutPhone > 0) lines.push(`${withoutPhone} lead${withoutPhone === 1 ? '' : 's'} nuevo${withoutPhone === 1 ? '' : 's'} sin teléfono no se llamará${withoutPhone === 1 ? '' : 'n'}.`)
-  if (!preview?.agent) lines.push('La campaña no tiene agente asignado: las llamadas no saldrán hasta que asignes uno.')
+  // Desglose de motivos del backend (start-preview.breakdown): lo que la
+  // campaña dejará fuera aunque se active, y por qué.
+  lines.push(...breakdownLines(preview?.breakdown))
+  if (!preview?.agent) lines.push('La campaña no tiene agente asignado: la activación se rechazará hasta que asignes uno publicado.')
   // Publicar un agente lo deja en lifecycleStatus 'active' (agents.service).
-  else if (preview.agent.lifecycleStatus && preview.agent.lifecycleStatus !== 'active') lines.push(`El agente ${preview.agent.name} no está publicado: las llamadas no saldrán hasta publicarlo.`)
+  else if (preview.agent.lifecycleStatus && preview.agent.lifecycleStatus !== 'active') lines.push(`El agente ${preview.agent.name} no está publicado: la activación se rechazará hasta publicarlo.`)
   return {
     title: count > 0 ? `Activar y encolar ${count} llamada${count === 1 ? '' : 's'}` : 'Activar campaña',
     message: lines.join(' '),
     confirmText: count > 0 ? `Activar y llamar (${count})` : 'Activar',
     count,
   }
+}
+
+const BREAKDOWN_LABELS = [
+  ['optOut', n => `${n} en la lista de exclusión (opt-out)`],
+  ['missingConsent', n => `${n} sin consentimiento de voz registrado`],
+  ['invalidPhone', n => `${n} con teléfono no válido`],
+  ['maxAttempts', n => `${n} con los intentos agotados`],
+]
+
+// Frases del desglose de la vista previa; vacío si no hay nada que excluir.
+export function breakdownLines(breakdown) {
+  if (!breakdown || typeof breakdown !== 'object') return []
+  const parts = BREAKDOWN_LABELS
+    .map(([key, label]) => [Math.max(0, Number(breakdown[key]) || 0), label])
+    .filter(([n]) => n > 0)
+    .map(([n, label]) => label(n))
+  if (!parts.length) return []
+  return [`No se llamará a: ${parts.join(', ')}.`]
 }
 
 // Lee el mensaje de error real del backend (`error` o `message`) y cae al

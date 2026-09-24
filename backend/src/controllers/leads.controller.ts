@@ -1,7 +1,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import * as leadsService from '../services/leads.service'
-import { OwnershipError, LeadNotFoundError } from '../services/leads.service'
+import { OwnershipError, LeadNotFoundError, InvalidPhoneError, LeadDuplicateError } from '../services/leads.service'
+import { getLeadCallability } from '../services/leadCallability'
+import { ImportParseError, looksLikeXlsx, parseImportCsv, parseImportXlsx, type ParsedImportFile } from '../services/leadImportParser'
 import { enqueueLeadCall } from '../services/leadIngestion.service'
 import { createNativeEmailDelivery, resolveNativeEmailDraft, sendNativeMarketingDelivery } from '../services/nativeMarketingEmail.service'
 import * as outboundEmail from '../services/outboundEmail.service'
@@ -9,7 +11,6 @@ import { assertEmailSendAllowed } from '../lib/emailCompliance'
 import { writeAuditLog } from '../lib/audit'
 import { prisma } from '../lib/prisma'
 import { parseRequest } from '../lib/validation'
-import { parse } from 'csv-parse/sync'
 import { LeadStatus } from '@prisma/client'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string; workspaceScope?: 'own' | 'team' | 'org' }
@@ -79,6 +80,27 @@ const updateLeadSchema = z.object({
 const importQuerySchema = z.object({
   campaignId: z.string().trim().min(1, 'campaignId es requerido').max(128),
   autoCall: z.enum(['true', 'false']).optional(),
+  // Base legal declarada para todo el lote (casilla del modal). Solo 'true'
+  // registra consentimiento de voz; ausente o 'false' no registra nada.
+  consentVoice: z.enum(['true', 'false']).optional(),
+  consentSource: z.string().trim().max(120).optional(),
+  consentEvidence: z.string().trim().max(2_000).optional(),
+  // Un lead que ya existía sin campaña se asigna a la de la importación.
+  attachExisting: z.enum(['true', 'false']).optional(),
+}).strict()
+
+// XLSX (o CSV en base64) llega como JSON; el CSV plano sigue llegando como text/plain.
+const importJsonBodySchema = z.object({
+  fileName: z.string().trim().min(1).max(255).optional(),
+  contentBase64: z.string().min(1, 'contentBase64 es requerido').max(20_000_000),
+}).strict()
+
+const consentBodySchema = z.object({
+  channel: z.literal('voice').optional(),
+  action: z.enum(['grant', 'revoke']),
+  source: z.string().trim().min(2, 'Indica la fuente del consentimiento').max(120),
+  evidence: z.string().trim().min(3, 'Indica la evidencia (documento, formulario, conversación…)').max(2_000),
+  expiresAt: z.string().datetime().optional(),
 }).strict()
 
 const noteSchema = z.object({ text: z.string().trim().min(1, 'text es requerido').max(4_000) }).strict()
@@ -109,6 +131,8 @@ const emailPreferenceSchema = z.object({
 
 function ownershipStatus(err: unknown) {
   if (err instanceof OwnershipError) return { status: 404 as const, body: { error: `${err.field} no encontrado` } }
+  if (err instanceof InvalidPhoneError) return { status: 422 as const, body: { error: 'El teléfono no es válido: usa formato internacional (+34…) o un número nacional de 9 dígitos.', code: 'invalid_phone', phone: err.phone } }
+  if (err instanceof LeadDuplicateError) return { status: 409 as const, body: { error: `Ya existe un contacto con el mismo ${err.matchedBy === 'phone' ? 'teléfono' : 'email'}.`, code: 'already_exists', existingLeadId: err.existingLeadId, matchedBy: err.matchedBy } }
   return null
 }
 
@@ -143,7 +167,10 @@ export async function get(
   if (!params) return
   const lead = await leadsService.getLead(orgId, { userId, role, workspaceScope }, params.id)
   if (!lead) return reply.status(404).send({ error: 'Not found' })
-  return reply.send(lead)
+  // Elegibilidad visible: mismas reglas que el dispatch, con motivos legibles.
+  // Si falla no rompe la ficha: se devuelve el lead sin `callability`.
+  const callability = await getLeadCallability(orgId, lead.id).catch(() => null)
+  return reply.send({ ...lead, callability })
 }
 
 export async function create(
@@ -154,7 +181,8 @@ export async function create(
   const body = parseRequest(reply, createLeadSchema, request.body)
   if (!body) return
   try {
-    const lead = await leadsService.createLead(orgId, userId, body)
+    // strict: teléfono normalizado a E.164 o 422; contacto ya existente → 409.
+    const lead = await leadsService.createLead(orgId, userId, body, { strict: true })
     return reply.status(201).send(lead)
   } catch (err) {
     const mapped = ownershipStatus(err)
@@ -164,14 +192,16 @@ export async function create(
 }
 
 /**
- * LE-103: parsea/normaliza el CSV igual que antes, pero ya no procesa las
- * filas en la propia petición HTTP — crea un ImportJob 'pending' que
- * importJobRunner.ts procesa en background y responde 202 de inmediato.
+ * LE-103: parsea el archivo (CSV con cabeceras flexibles y separador `,`/`;`,
+ * o XLSX en JSON base64) y crea un ImportJob 'pending' que importJobRunner.ts
+ * procesa en background; responde 202 de inmediato. La normalización de
+ * teléfonos, la deduplicación contra la organización y la lista de exclusión
+ * se aplican fila a fila en el runner (createLead strict).
  */
 export async function importCsv(
   request: FastifyRequest<{
-    Querystring: { campaignId: string; autoCall?: string }
-    Body: string
+    Querystring: { campaignId: string; autoCall?: string; consentVoice?: string; consentSource?: string; consentEvidence?: string; attachExisting?: string }
+    Body: unknown
   }>,
   reply: FastifyReply
 ) {
@@ -180,27 +210,51 @@ export async function importCsv(
   if (!query) return
   const { campaignId, autoCall } = query
 
-  let rows: Array<{ name: string; phone?: string; email?: string; company?: string }>
+  let parsed: ParsedImportFile
+  let fileName: string | undefined
   try {
-    rows = parse(request.body, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    })
+    if (typeof request.body === 'string') {
+      parsed = parseImportCsv(request.body)
+    } else {
+      const body = parseRequest(reply, importJsonBodySchema, request.body)
+      if (!body) return
+      fileName = body.fileName
+      const buffer = Buffer.from(body.contentBase64, 'base64')
+      parsed = looksLikeXlsx(fileName, buffer) ? await parseImportXlsx(buffer) : parseImportCsv(buffer.toString('utf8'))
+    }
   } catch (err) {
-    return reply.status(400).send({ error: 'Invalid CSV format' })
+    if (err instanceof ImportParseError) {
+      const message = err.code === 'empty' ? 'El archivo no tiene filas'
+        : err.code === 'missing_name_column' ? 'El archivo no tiene columna de nombre (name/nombre)'
+        : 'Formato de archivo no válido (se acepta CSV con , o ; y XLSX)'
+      return reply.status(400).send({ error: message, code: err.code })
+    }
+    throw err
   }
 
+  const rows = parsed.rows
   if (!rows.length) {
-    return reply.status(400).send({ error: 'CSV is empty' })
+    return reply.status(400).send({ error: 'El archivo no tiene filas', code: 'empty' })
   }
   if (rows.length > MAX_IMPORT_ROWS) {
-    return reply.status(400).send({ error: `El CSV supera el máximo de ${MAX_IMPORT_ROWS} filas por importación` })
+    return reply.status(400).send({ error: `El archivo supera el máximo de ${MAX_IMPORT_ROWS} filas por importación` })
   }
 
   try {
-    const job = await leadsService.createImportJob(orgId, userId, campaignId, rows, { autoCall: autoCall === 'true' })
-    return reply.status(202).send({ id: job.id, status: job.status, totalRows: job.totalRows })
+    const job = await leadsService.createImportJob(orgId, userId, campaignId, rows, {
+      autoCall: autoCall === 'true',
+      fileName,
+      consent: query.consentVoice === 'true' ? { voice: true, source: query.consentSource, evidence: query.consentEvidence } : undefined,
+      attachExistingToCampaign: query.attachExisting === 'true',
+    })
+    return reply.status(202).send({
+      id: job.id,
+      status: job.status,
+      totalRows: job.totalRows,
+      skippedCount: job.skippedCount,
+      mapping: parsed.mapping,
+      unmappedHeaders: parsed.unmappedHeaders,
+    })
   } catch (err) {
     const mapped = ownershipStatus(err)
     if (mapped) return reply.status(mapped.status).send(mapped.body)
@@ -364,6 +418,34 @@ export async function getConsent(
   return reply.send(result)
 }
 
+/**
+ * POST /api/leads/:id/consent — registra o revoca a mano el consentimiento
+ * de voz con fuente y evidencia. Acción explícita del usuario; queda en
+ * AuditLog y en el timeline (SalesActivity).
+ */
+export async function setConsent(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const { orgId, userId } = request.user as JWTUser
+  const params = parseRequest(reply, idParamsSchema, request.params)
+  const body = parseRequest(reply, consentBodySchema, request.body)
+  if (!params || !body) return
+  try {
+    const consent = await leadsService.setLeadVoiceConsent(orgId, userId, params.id, {
+      action: body.action,
+      source: body.source,
+      evidence: body.evidence,
+      expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+    })
+    const callability = await getLeadCallability(orgId, params.id).catch(() => null)
+    return reply.send({ ok: true, consent, callability })
+  } catch (err) {
+    if (err instanceof LeadNotFoundError) return reply.status(404).send({ error: 'Not found' })
+    throw err
+  }
+}
+
 export async function callNow(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
@@ -376,7 +458,13 @@ export async function callNow(
   // Fail fast with a stable error code: the worker would silently drop these.
   if (!lead.phone) return reply.status(422).send({ ok: false, queued: false, error: 'lead_without_phone' })
   if (!lead.campaignId) return reply.status(422).send({ ok: false, queued: false, error: 'lead_without_campaign' })
-  const queued = await enqueueLeadCall(orgId, lead.id)
+  // Mismas reglas que el dispatch, pero explicadas antes de encolar: el
+  // worker descartaría el trabajo en silencio y el usuario no sabría por qué.
+  const callability = await getLeadCallability(orgId, lead.id).catch(() => null)
+  if (callability && !callability.eligible) {
+    return reply.status(422).send({ ok: false, queued: false, error: 'lead_not_callable', reasons: callability.reasons })
+  }
+  const queued = await enqueueLeadCall(orgId, lead.id, `lead-call:${lead.id}:${lead.campaignId}:manual:${Date.now()}`)
   if (!queued) return reply.status(503).send({ ok: false, queued: false, error: 'call_queue_unavailable' })
   return reply.send({ ok: true, queued })
 }

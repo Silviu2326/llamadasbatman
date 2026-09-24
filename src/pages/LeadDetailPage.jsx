@@ -263,6 +263,11 @@ export default function LeadDetailPage() {
   const [files, setFiles] = useState([])
   const [activities, setActivities] = useState([])
   const [consent, setConsent] = useState([])
+  // Elegibilidad para que el agente llame (GET /api/leads/:id → callability).
+  const [callability, setCallability] = useState(null)
+  const [consentForm, setConsentForm] = useState({ source: '', evidence: '' })
+  const [consentSaving, setConsentSaving] = useState('')
+  const [consentMessage, setConsentMessage] = useState('')
   const [emailHistory, setEmailHistory] = useState([])
   const [preferences, setPreferences] = useState([])
   const [prefSaving, setPrefSaving] = useState('')
@@ -321,7 +326,8 @@ export default function LeadDetailPage() {
       apiFetch('/api/leads/owners').then(response => response.ok ? response.json() : []),
       apiFetch(`/api/leads/${id}/email-history`).then(response => response.ok ? response.json() : []),
       apiFetch(`/api/leads/${id}/preferences`).then(response => response.ok ? response.json() : []),
-    ]).then(([timelineResult, auditResult, notesResult, filesResult, statsResult, activitiesResult, consentResult, ownersResult, emailHistoryResult, preferencesResult]) => {
+      apiFetch(`/api/leads/${id}`).then(response => response.ok ? response.json() : null),
+    ]).then(([timelineResult, auditResult, notesResult, filesResult, statsResult, activitiesResult, consentResult, ownersResult, emailHistoryResult, preferencesResult, leadResult]) => {
       if (!active) return
       const timelineOutcome = timelineResult.status === 'fulfilled' ? timelineResult.value : { status: 0, data: null }
       const timeline = timelineOutcome.data
@@ -363,6 +369,8 @@ export default function LeadDetailPage() {
       setEmailHistory(Array.isArray(emailHistoryValue) ? emailHistoryValue : [])
       const preferencesValue = preferencesResult.status === 'fulfilled' ? preferencesResult.value : []
       setPreferences(Array.isArray(preferencesValue) ? preferencesValue : [])
+      const leadValue = leadResult.status === 'fulfilled' ? leadResult.value : null
+      setCallability(leadValue?.callability || null)
     }).catch(() => {
       // El handler de arriba puede lanzar (p. ej. un lead malformado en mapLead).
       if (active) { setLoadError('No se pudo cargar el lead. Revisa la conexión.'); setLoadRetryable(true) }
@@ -523,6 +531,25 @@ export default function LeadDetailPage() {
   }
 
   // EM-110: activa/desactiva una categoría del centro de preferencias de email.
+  // Consentimiento de voz manual: acción explícita con fuente y evidencia.
+  // Nunca se registra solo; sin él, un número español no se llama.
+  async function setVoiceConsent(action) {
+    const source = consentForm.source.trim()
+    const evidence = consentForm.evidence.trim()
+    if (source.length < 2 || evidence.length < 3) { setConsentMessage('Indica la fuente y la evidencia del consentimiento (documento, formulario, conversación…).'); return }
+    setConsentSaving(action); setConsentMessage('')
+    try {
+      const response = await apiFetch(`/api/leads/${id}/consent`, { method: 'POST', body: JSON.stringify({ channel: 'voice', action, source, evidence }) })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error || 'No se pudo registrar el consentimiento.')
+      const voiceRows = Array.isArray(body?.consent) ? body.consent : []
+      setConsent(previous => [...previous.filter(item => item.channel !== 'voice'), ...voiceRows])
+      if (body?.callability) setCallability(body.callability)
+      setConsentForm({ source: '', evidence: '' })
+      setConsentMessage(action === 'grant' ? 'Consentimiento de voz registrado.' : 'Consentimiento de voz revocado.')
+    } catch (err) { setConsentMessage(err?.message || 'No se pudo registrar el consentimiento.') } finally { setConsentSaving('') }
+  }
+
   async function togglePreference(purpose, nextStatus) {
     setPrefSaving(purpose)
     try {
@@ -572,12 +599,14 @@ export default function LeadDetailPage() {
 
     <main className="lead-detail-main"><div className="lead-detail-content"><nav className="lead-detail-tabs" aria-label="Secciones de la ficha">{tabs.map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}{item === 'Notas' && notes.length > 0 && <span style={{ marginLeft: 4, color: 'var(--accent-soft)' }}>({notes.length})</span>}</button>)}</nav>
 
-      {tab === 'Resumen' && <div className="lead-detail-grid"><div><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Puntuación Vendrava</h3><span>{score != null ? 'Score automático' : 'Sin score'}</span></div>{score != null ? <div className="lead-detail-score-layout"><DetailScoreRing score={score} /><div className="lead-breakdown">{scoreBreakdown.map(item => <div className="lead-breakdown-row" key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div></div> : <div className="lead-audit-card"><strong>No hay score disponible</strong><p>La puntuación se calcula automáticamente con la actividad del lead; todavía no hay datos suficientes.</p></div>}</section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Información de contacto</h3></div><div className="lead-contact-list"><div className="lead-contact-row"><RiMailLine /><span>{lead.email || 'Email no disponible'}</span></div><div className="lead-contact-row"><RiPhoneLine /><span>{lead.phone || 'Teléfono no disponible'}</span></div><div className="lead-contact-row"><RiMapPin2Line /><span>{lead.city || 'Ubicación no disponible'}</span></div><div className="lead-contact-row"><RiGlobalLine /><span>{lead.website || 'Web no disponible'}</span></div></div></section></div><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Actividad registrada</h3><span>{timeline.length} eventos</span></div>{timeline.length ? <div className="lead-activity-timeline">{timeline.slice(0, 4).map((item, index) => { const Icon = item.icon; return <div className="lead-activity-item" key={`${item.label}-${index}`}><span className="lead-activity-dot"><Icon /></span><div><strong>{item.label}</strong><p>{item.text}</p></div><time>{formatDate(item.date)}</time></div> })}</div> : <div className="lead-audit-card"><strong>No hay actividad registrada</strong><p>Las llamadas, emails y reuniones de este lead aparecerán aquí.</p></div>}</section></div>}
+      {tab === 'Resumen' && <div className="lead-detail-grid"><div><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Puntuación Vendrava</h3><span>{score != null ? 'Score automático' : 'Sin score'}</span></div>{score != null ? <div className="lead-detail-score-layout"><DetailScoreRing score={score} /><div className="lead-breakdown">{scoreBreakdown.map(item => <div className="lead-breakdown-row" key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div></div> : <div className="lead-audit-card"><strong>No hay score disponible</strong><p>La puntuación se calcula automáticamente con la actividad del lead; todavía no hay datos suficientes.</p></div>}</section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Información de contacto</h3></div><div className="lead-contact-list"><div className="lead-contact-row"><RiMailLine /><span>{lead.email || 'Email no disponible'}</span></div><div className="lead-contact-row"><RiPhoneLine /><span>{lead.phone || 'Teléfono no disponible'}</span></div><div className="lead-contact-row"><RiMapPin2Line /><span>{lead.city || 'Ubicación no disponible'}</span></div><div className="lead-contact-row"><RiGlobalLine /><span>{lead.website || 'Web no disponible'}</span></div></div></section><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Llamadas del agente</h3><span>{callability ? (callability.eligible ? 'Se puede llamar' : 'No se llamará') : 'Sin evaluar'}</span></div>{callability ? <div className="lead-audit-card" style={{ borderColor: callability.eligible ? 'color-mix(in srgb, var(--success) 40%, transparent)' : 'color-mix(in srgb, var(--warn) 40%, transparent)' }}><strong>{callability.eligible ? 'Este lead cumple todas las condiciones para que el agente lo llame.' : 'Este lead no se llamará porque:'}</strong>{callability.reasons?.length ? <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12.5, lineHeight: 1.5 }}>{callability.reasons.map(reason => <li key={reason.code}>{reason.message}{reason.code === 'missing_voice_consent' && <> <button className="leads-text-button" onClick={() => setTab('Consentimiento')}>Registrar consentimiento</button></>}</li>)}</ul> : <p>Teléfono {callability.phone || lead.phone}. La llamada saldrá cuando la campaña la encole o al pulsar «Llamar ahora».</p>}{callability.warnings?.length ? <p style={{ marginTop: 6, fontSize: 12, color: 'var(--dim)' }}>{callability.warnings.map(item => item.message).join(' ')}</p> : null}{callability.lastCallBlock ? <p style={{ marginTop: 6, fontSize: 12, color: 'var(--warn)' }}>Último intento bloqueado por el sistema de llamadas: {callability.lastCallBlock.reason}{callability.lastCallBlock.at ? ` (${formatDate(callability.lastCallBlock.at)})` : ''}.</p> : null}</div> : <div className="lead-audit-card"><strong>Sin evaluación de llamada</strong><p>No se pudo comprobar si el agente puede llamar a este lead. Recarga la ficha.</p></div>}</section></div><section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Actividad registrada</h3><span>{timeline.length} eventos</span></div>{timeline.length ? <div className="lead-activity-timeline">{timeline.slice(0, 4).map((item, index) => { const Icon = item.icon; return <div className="lead-activity-item" key={`${item.label}-${index}`}><span className="lead-activity-dot"><Icon /></span><div><strong>{item.label}</strong><p>{item.text}</p></div><time>{formatDate(item.date)}</time></div> })}</div> : <div className="lead-audit-card"><strong>No hay actividad registrada</strong><p>Las llamadas, emails y reuniones de este lead aparecerán aquí.</p></div>}</section></div>}
 
       {tab === 'Actividad' && <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Historial del lead</h3><span>{activities.length} eventos</span></div>{activities.length ? <div className="lead-activity-timeline">{activities.map(item => { const cfg = activityConfig(item.type); const Icon = cfg.icon; return <div className="lead-activity-item" key={item.id}><span className="lead-activity-dot" style={{ color: cfg.color, borderColor: `color-mix(in srgb, ${cfg.color} 33%, transparent)`, background: `color-mix(in srgb, ${cfg.color} 8%, transparent)` }}><Icon /></span><div><strong>{cfg.label}</strong><p>{activityText(item)}</p></div><time>{formatDate(item.occurredAt)}</time></div> })}</div> : <div className="lead-audit-card"><strong>No hay actividad registrada</strong><p>Notas, llamadas, cambios de estado y reuniones aparecerán aquí en orden cronológico.</p></div>}</section>}
 
       {tab === 'Consentimiento' && <div className="lead-detail-grid">
         <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Consentimiento de contacto</h3><span>{consent.length} canales</span></div>{consent.length ? <div className="lead-contact-list">{consent.map(item => { const statusCfg = CONSENT_STATUS_CONFIG[item.status] || CONSENT_STATUS_CONFIG.unknown; return <div className="lead-contact-row" key={item.id}><RiShieldCheckLine /><span>{CONSENT_CHANNEL_LABEL[item.channel] || item.channel} · {item.purpose}</span><span className="lead-status" style={{ '--status-color': statusCfg.color, '--status-bg': `color-mix(in srgb, ${statusCfg.color} 9%, transparent)`, marginLeft: 'auto' }}><i />{statusCfg.label}</span></div> })}</div> : <div className="lead-audit-card"><strong>Sin registros de consentimiento</strong><p>Todavía no se ha capturado consentimiento para ningún canal de este lead.</p></div>}</section>
+
+        <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Consentimiento de voz (llamadas del agente)</h3><span>{consent.some(item => item.channel === 'voice' && item.status === 'granted') ? 'Registrado' : 'Sin registrar'}</span></div><div className="lead-audit-card"><p style={{ marginTop: 0 }}>Los números españoles solo se llaman con consentimiento de voz vigente. Regístralo aquí únicamente si tienes base legal documentada (formulario, contrato, conversación previa) e indica dónde está la prueba. Queda en la auditoría con tu usuario.</p><div style={{ display: 'grid', gap: 8 }}><input value={consentForm.source} maxLength={120} onChange={event => setConsentForm(form => ({ ...form, source: event.target.value }))} placeholder="Fuente (ej. formulario web, contrato 2025, llamada previa)" style={{ width: '100%', boxSizing: 'border-box', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, padding: '8px 12px', color: 'var(--text)', fontSize: 13 }} /><textarea value={consentForm.evidence} maxLength={2000} rows={2} onChange={event => setConsentForm(form => ({ ...form, evidence: event.target.value }))} placeholder="Evidencia (ej. URL del formulario y fecha, cláusula del contrato, resumen de la conversación)" style={{ width: '100%', boxSizing: 'border-box', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, padding: '8px 12px', color: 'var(--text)', fontSize: 13, resize: 'vertical' }} /><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button type="button" className="leads-text-button" disabled={Boolean(consentSaving)} onClick={() => setVoiceConsent('grant')}><RiShieldCheckLine /> {consentSaving === 'grant' ? 'Registrando…' : 'Registrar consentimiento'}</button><button type="button" className="leads-text-button" disabled={Boolean(consentSaving)} onClick={() => setVoiceConsent('revoke')} style={{ color: 'var(--danger-soft)' }}>{consentSaving === 'revoke' ? 'Revocando…' : 'Revocar consentimiento'}</button></div>{consentMessage && <p role="status" className="lead-email-status" style={{ margin: 0 }}>{consentMessage}</p>}</div></div></section>
 
         {/* EM-110: centro de preferencias por categoría — reutiliza ContactConsent (channel=email). */}
         <section className="lead-detail-card"><div className="lead-detail-card-heading"><h3>Preferencias de email</h3><span>{preferences.length} categorías</span></div><div className="lead-contact-list">

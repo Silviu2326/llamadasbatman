@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  buildChannelMixView, buildFunnelView, readApiError, startConfirmation,
+  breakdownLines, buildChannelMixView, buildFunnelView, readApiError, startConfirmation,
   summarizeCampaigns, validateCampaignForm,
 } from './campaignsView.js'
 
@@ -85,6 +85,17 @@ test('texto de confirmación indica cuántas llamadas reales se encolarán', () 
   assert.equal(none.confirmText, 'Activar')
   assert.match(none.message, /no se encolará ninguna llamada/)
   assert.match(none.message, /no tiene agente asignado/)
+})
+
+test('startConfirmation muestra el desglose de motivos del backend', () => {
+  const view = startConfirmation({
+    name: 'C', eligibleLeads: 2, newLeadsWithoutPhone: 0, agent: { name: 'Carlos', lifecycleStatus: 'active' },
+    breakdown: { eligible: 2, withoutPhone: 0, invalidPhone: 1, optOut: 3, missingConsent: 4, maxAttempts: 0 },
+  })
+  assert.match(view.message, /No se llamará a: 3 en la lista de exclusión \(opt-out\), 4 sin consentimiento de voz registrado, 1 con teléfono no válido\./)
+  assert.doesNotMatch(view.message, /intentos agotados/)
+  assert.deepEqual(breakdownLines(null), [])
+  assert.deepEqual(breakdownLines({ optOut: 0, missingConsent: 0 }), [])
 })
 
 test('readApiError devuelve error/message del backend o el texto por defecto', async () => {
