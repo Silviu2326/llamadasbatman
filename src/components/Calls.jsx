@@ -20,7 +20,7 @@ import './calls.css'
 import PageLoadingState from './ui/PageLoadingState'
 import ProductPageHeader from './ui/ProductPageHeader'
 import { getLocale, localeCode, useI18n } from '../i18n'
-import { CALL_OUTCOME, FILTERABLE_OUTCOMES, OUTCOME_COLOR, OUTCOME_ICON, outcomeLabel } from '../lib/callOutcome'
+import { CALL_OUTCOME, FILTERABLE_OUTCOMES, OUTCOME_COLOR, OUTCOME_ICON, displayOutcome, outcomeLabel } from '../lib/callOutcome'
 import FishLatencyDemo from './FishLatencyDemo'
 
 // El desglose y los filtros se derivan del vocabulario canónico. Antes eran
@@ -55,7 +55,7 @@ function mapCall(call, index) {
     role: call.lead?.role ?? '',
     time: call.startedAt ? new Date(call.startedAt).toLocaleString(localeCode(getLocale()), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha',
     dur: seconds ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : '—',
-    status: outcomeLabel(call.outcome),
+    status: outcomeLabel(displayOutcome(call)),
     score: call.sentimentScore ?? null,
     agent: call.agent?.name ?? 'Sin agente',
     recordingUrl: call.recordingUrl,

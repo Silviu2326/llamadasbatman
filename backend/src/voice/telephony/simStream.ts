@@ -239,6 +239,7 @@ export async function handleSimStream(socket: WebSocket, principal: VoiceSimulat
 
     const systemPrompt = await buildIntelligentPrompt({
       orgId: principal.orgId,
+      agentId: agentId ?? null,
       basePrompt: (agentConfig?.playbook?.scripts?.base_prompt as string) || DEFAULT_PROMPT,
       agentType: agentConfig?.agentType,
       direction,

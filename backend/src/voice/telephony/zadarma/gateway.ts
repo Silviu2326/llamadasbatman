@@ -133,7 +133,7 @@ export function buildZadarmaControl(config: ZadarmaGatewayConfig, registry: SipC
 }
 
 export async function startZadarmaGateway(config: ZadarmaGatewayConfig) {
-  const { prepareSipCall, prepareSipTestCall } = await import('./runtime')
+  const { prepareSipCall, prepareSipTestCall, startPendingCallReconciler } = await import('./runtime')
   const registry = new SipCallRegistry(config.maxConcurrent)
   const media = createAudioSocketServer((id, hangup) => registry.claim(id, hangup), {
     maxDurationMs: config.maxDurationMs, onError: code => console.error('[ZADARMA]', code),
@@ -157,5 +157,8 @@ export async function startZadarmaGateway(config: ZadarmaGatewayConfig) {
     })
     await control.listen({ host: '127.0.0.1', port: config.controlPort })
   } catch (error) { await media.shutdown(); await control.close(); throw error }
-  return { close: async () => { await media.shutdown(); await control.close() } }
+  // Reintenta las ingestas que fallaron al colgar (<uuid>.pending.json) y
+  // enlaza grabaciones huérfanas; corre al arrancar y cada pocos minutos.
+  const stopReconciler = startPendingCallReconciler()
+  return { close: async () => { stopReconciler(); await media.shutdown(); await control.close() } }
 }

@@ -48,6 +48,12 @@ export const CALL_OUTCOME = {
   FAX_OR_NOISE: 'fax_or_noise',
   /** La detección de máquina no pudo clasificar la respuesta. */
   UNKNOWN: 'unknown',
+  /** Nadie descolgó (timeout de marcación o cancelación sin respuesta). */
+  NO_ANSWER: 'no_answer',
+  /** Línea ocupada o rechazo inmediato de la red. */
+  BUSY: 'busy',
+  /** Contestó una persona que no es el contacto ni conoce a la empresa. */
+  WRONG_NUMBER: 'wrong_number',
 } as const
 
 export type CallOutcome = (typeof CALL_OUTCOME)[keyof typeof CALL_OUTCOME]
@@ -82,6 +88,36 @@ export const NO_CONTACT_CALL_OUTCOMES = [
   CALL_OUTCOME.IVR,
   CALL_OUTCOME.FAX_OR_NOISE,
   CALL_OUTCOME.UNKNOWN,
+  CALL_OUTCOME.NO_ANSWER,
+  CALL_OUTCOME.BUSY,
+  CALL_OUTCOME.WRONG_NUMBER,
+] as const
+
+/**
+ * Nadie del negocio atendió: el lead no se considera contactado, no cambia de
+ * estado y la campaña no suma `contacted`. `none` y `unknown` quedan fuera a
+ * propósito: pudo haber conversación aunque el clasificador no la resolviera.
+ */
+export const UNREACHED_CALL_OUTCOMES = [
+  CALL_OUTCOME.NO_ANSWER,
+  CALL_OUTCOME.BUSY,
+  CALL_OUTCOME.VOICEMAIL,
+  CALL_OUTCOME.IVR,
+  CALL_OUTCOME.FAX_OR_NOISE,
+] as const
+
+/** Resultados que puede producir el clasificador LLM al colgar (callOutcomeClassifier.ts). */
+export const CLASSIFIABLE_CALL_OUTCOMES = [
+  CALL_OUTCOME.MEETING_SCHEDULED,
+  CALL_OUTCOME.INTERESTED,
+  CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  CALL_OUTCOME.NOT_INTERESTED,
+  CALL_OUTCOME.WRONG_NUMBER,
+  CALL_OUTCOME.VOICEMAIL,
+  CALL_OUTCOME.IVR,
+  CALL_OUTCOME.NO_ANSWER,
+  CALL_OUTCOME.BUSY,
+  CALL_OUTCOME.NONE,
 ] as const
 
 /**
@@ -101,6 +137,20 @@ const LEGACY_OUTCOME_ALIASES: Record<string, CallOutcome> = {
   en_curso: CALL_OUTCOME.NONE,
   // `qualified` era el valor que leía voiceExperiment.ts; nunca se escribió.
   qualified: CALL_OUTCOME.INTERESTED,
+  no_contesta: CALL_OUTCOME.NO_ANSWER,
+  'no-answer': CALL_OUTCOME.NO_ANSWER,
+  noanswer: CALL_OUTCOME.NO_ANSWER,
+  ocupado: CALL_OUTCOME.BUSY,
+  numero_equivocado: CALL_OUTCOME.WRONG_NUMBER,
+  'wrong-number': CALL_OUTCOME.WRONG_NUMBER,
+  wrongnumber: CALL_OUTCOME.WRONG_NUMBER,
+  buzon: CALL_OUTCOME.VOICEMAIL,
+  buzón: CALL_OUTCOME.VOICEMAIL,
+  contestador: CALL_OUTCOME.VOICEMAIL,
+  interesado: CALL_OUTCOME.INTERESTED,
+  no_interesado: CALL_OUTCOME.NOT_INTERESTED,
+  reunion_agendada: CALL_OUTCOME.MEETING_SCHEDULED,
+  reunión_agendada: CALL_OUTCOME.MEETING_SCHEDULED,
 }
 
 export function isValidCallOutcome(value: unknown): value is CallOutcome {
@@ -124,6 +174,12 @@ export function normalizeCallOutcome(value: unknown): CallOutcome | null {
 export function isQualifyingOutcome(value: unknown): boolean {
   const outcome = normalizeCallOutcome(value)
   return outcome != null && (QUALIFYING_CALL_OUTCOMES as readonly string[]).includes(outcome)
+}
+
+/** ¿Nadie del negocio atendió? Entonces el lead no cuenta como contactado. */
+export function isUnreachedOutcome(value: unknown): boolean {
+  const outcome = normalizeCallOutcome(value)
+  return outcome != null && (UNREACHED_CALL_OUTCOMES as readonly string[]).includes(outcome)
 }
 
 /** ¿Hubo conversación con una persona, sea cual sea el desenlace? */

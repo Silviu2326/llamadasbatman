@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 import * as callsService from '../services/calls.service'
 import { emitToOrg } from '../websockets/index'
 import { CallStatus } from '@prisma/client'
-import { normalizeCallOutcome } from '../lib/callOutcome'
+import { CALL_OUTCOMES, normalizeCallOutcome } from '../lib/callOutcome'
 import { z } from 'zod'
 import {
   FISH_LATENCY_MODES,
@@ -101,6 +101,39 @@ export async function get(
   return reply.send(call)
 }
 
+const isoDate = z.string().trim().refine(value => !Number.isNaN(new Date(value).getTime()), 'Fecha ISO 8601 no válida')
+
+/** Cuerpo de PATCH /api/calls/:id. Los alias antiguos de `outcome` se normalizan en el servicio. */
+export const callResultPatchSchema = z.object({
+  outcome: z.string().trim().min(1).max(60)
+    .refine(value => normalizeCallOutcome(value) !== null, { message: `Resultado no reconocido. Valores admitidos: ${CALL_OUTCOMES.join(', ')}` })
+    .optional(),
+  summary: z.string().trim().max(4000).nullable().optional(),
+  callbackAt: isoDate.nullable().optional(),
+  meetingAt: isoDate.nullable().optional(),
+  notes: z.string().trim().min(1).max(4000).optional(),
+}).strict().refine(value => Object.keys(value).length > 0, { message: 'Nada que actualizar' })
+
+export async function update(
+  request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+  reply: FastifyReply
+) {
+  const parsed = callResultPatchSchema.safeParse(request.body ?? {})
+  if (!parsed.success) {
+    return reply.status(400).send({ error: 'Datos de la llamada no válidos.', details: parsed.error.flatten() })
+  }
+  const { orgId, userId } = request.user as JWTUser
+  try {
+    const result = await callsService.updateCallResult(orgId, request.params.id, parsed.data, { userId })
+    if (!result) return reply.status(404).send({ error: 'Not found' })
+    emitToOrg(orgId, 'call:updated', result.call)
+    return reply.send({ ...result.call, effects: result.effects })
+  } catch (error) {
+    if (error instanceof callsService.InvalidCallOutcomeError) return reply.status(error.statusCode).send({ error: error.message })
+    throw error
+  }
+}
+
 export async function trace(
   request: FastifyRequest<{ Params: { id: string }; Querystring: { limit?: string } }>,
   reply: FastifyReply,
@@ -152,10 +185,13 @@ export async function ingest(
       recordingUrl?: string
       transcript?: string
       transcriptWords?: unknown
+      transcriptTurns?: unknown
       sentiment?: string
       sentimentScore?: number
       summary?: string
       outcome?: string
+      callbackAt?: string
+      meetingAt?: string
       contactClassification?: string
       contactClassificationConfidence?: number
       amdResult?: unknown

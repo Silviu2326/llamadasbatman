@@ -416,6 +416,7 @@ export async function handleMediaStream(connection: WebSocket, trusted?: MediaSt
       orgId: ctx.orgId,
       basePrompt: (agentConfig?.playbook?.scripts?.base_prompt as string) ?? '',
       leadId: ctx.leadId,
+      agentId: ctx.agentId || null,
       agentType: agentConfig?.agentType,
       direction: ctx.direction,
       strategyId: agentConfig?.playbook.strategy,

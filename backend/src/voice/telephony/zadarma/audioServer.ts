@@ -10,10 +10,19 @@ export interface SipVoiceCall {
 
 export type ClaimCall = (uuid: string, hangup: () => void) => Promise<SipVoiceCall>
 
-export function acceptAudioSocket(socket: Socket, claim: ClaimCall, options: { maxDurationMs?: number; onError?: (code: string) => void } = {}) {
+export interface AudioSocketOptions {
+  maxDurationMs?: number
+  /** Backlog de reproducción a partir del cual `onAudio` espera a que drene (15 s). */
+  playbackSoftMs?: number
+  /** Backlog que se considera una respuesta desbocada y cuelga (60 s). */
+  playbackHardMs?: number
+  onError?: (code: string) => void
+}
+
+export function acceptAudioSocket(socket: Socket, claim: ClaimCall, options: AudioSocketOptions = {}) {
   const parser = new AudioSocketParser()
   const pcm = new SipPcmBridge()
-  const playback = new PcmPlaybackQueue()
+  const playback = new PcmPlaybackQueue(options.playbackSoftMs ?? 15_000, options.playbackHardMs ?? 60_000)
   let call: SipVoiceCall | undefined
   let closed = false
   let seenUuid = false
@@ -80,8 +89,12 @@ export function acceptAudioSocket(socket: Socket, claim: ClaimCall, options: { m
               ...call.callbacks,
               onAudio: async audio => {
                 if (closed) return
-                try { playback.push(pcm.output(audio)) }
+                // Backpressure: the promise settles once the backlog drains
+                // below the soft limit. Only the hard limit hangs up.
+                let drained: Promise<void>
+                try { drained = playback.push(pcm.output(audio)) }
                 catch (error) { stop('output_backlog'); throw error }
+                await drained
               },
               onInterrupt: async () => { playback.clear(); pcm.clearOutput() },
             })

@@ -3,10 +3,48 @@ import { CallStatus, Prisma } from '@prisma/client'
 import { enqueueAutomationEvent } from '../jobs/automationRunner'
 import { ensureConversationForLead } from './conversations.service'
 import { logSalesActivity } from '../lib/salesActivity'
-import { CALL_OUTCOMES, normalizeCallOutcome } from '../lib/callOutcome'
+import { writeAuditLog } from '../lib/audit'
+import { CALL_OUTCOME, CALL_OUTCOMES, isQualifyingOutcome, isUnreachedOutcome, normalizeCallOutcome, type CallOutcome } from '../lib/callOutcome'
 import { recordWhiteLabelVoiceUsage } from './whiteLabel.service'
 import { recordUsage } from '../lib/usage'
 import { triggerContextualMicroapps } from '../microapps/contextualAutomation'
+
+/** Turno de la transcripción tal como lo guarda `Call.transcriptTurns`. */
+export interface CallTranscriptTurn {
+  role: 'agente' | 'prospecto'
+  text: string
+  atMs: number
+}
+
+const TURN_ROLES: Record<string, CallTranscriptTurn['role']> = {
+  agente: 'agente', assistant: 'agente', agent: 'agente', ia: 'agente',
+  prospecto: 'prospecto', user: 'prospecto', cliente: 'prospecto', lead: 'prospecto', usuario: 'prospecto',
+}
+
+/** Acepta lo que envíe cualquier pipeline y guarda solo turnos bien formados. */
+export function normalizeTranscriptTurns(value: unknown): CallTranscriptTurn[] | null {
+  if (!Array.isArray(value)) return null
+  const turns: CallTranscriptTurn[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const role = TURN_ROLES[String(record.role ?? record.speaker ?? '').trim().toLowerCase()]
+    const text = typeof record.text === 'string' ? record.text.trim() : ''
+    const atMs = Number(record.atMs)
+    if (!role || !text) continue
+    turns.push({ role, text: text.slice(0, 4000), atMs: Number.isFinite(atMs) && atMs >= 0 ? Math.round(atMs) : 0 })
+  }
+  return turns.length ? turns.slice(0, 2000) : null
+}
+
+function parseIsoDate(value: unknown): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const CALLBACK_TASK_TITLE = 'Volver a llamar'
 
 /**
  * Coste de voz para Vendrava en céntimos por minuto (IA + telefonía).
@@ -112,7 +150,14 @@ export async function listCalls(orgId: string, filters: CallFilters = {}) {
   if (agentId) where.agentId = agentId
   if (campaignId) where.campaignId = campaignId
   if (status) where.status = status
-  if (outcome) where.outcome = outcome
+  if (outcome) {
+    // Las filas de intentos sin respuesta las crea el despacho con
+    // `outcome: 'none'` y el motivo en `status`; el filtro las incluye.
+    const normalized = normalizeCallOutcome(outcome) ?? outcome
+    where.OR = normalized === CALL_OUTCOME.NO_ANSWER || normalized === CALL_OUTCOME.BUSY
+      ? [{ outcome: normalized }, { outcome: CALL_OUTCOME.NONE, status: normalized as CallStatus }]
+      : [{ outcome: normalized }]
+  }
   if (dateFrom || dateTo) {
     where.createdAt = {
       ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
@@ -135,10 +180,59 @@ export async function listCalls(orgId: string, filters: CallFilters = {}) {
 }
 
 export async function getCall(orgId: string, id: string) {
-  return prisma.call.findFirst({
+  const call = await prisma.call.findFirst({
     where: { id, orgId },
-    include: { lead: true, agent: true, campaign: true, meetings: true },
+    include: {
+      lead: true, agent: true, campaign: true, meetings: true,
+      voiceEvaluation: { select: { status: true, overall: true, dimensions: true, criticalErrors: true, trainingTag: true, judgeModel: true, rubricVersion: true, updatedAt: true } },
+      voiceMetrics: { select: { metric: true, value: true, unit: true }, orderBy: { createdAt: 'asc' } },
+    },
   })
+  if (!call) return null
+  const { voiceEvaluation, voiceMetrics, ...rest } = call
+  return {
+    ...rest,
+    transcriptTurns: normalizeTranscriptTurns(call.transcriptTurns) ?? [],
+    evaluation: voiceEvaluation ? {
+      status: voiceEvaluation.status,
+      overall: voiceEvaluation.overall,
+      dimensions: voiceEvaluation.dimensions,
+      criticalErrors: voiceEvaluation.criticalErrors,
+      trainingTag: voiceEvaluation.trainingTag,
+      judgeModel: voiceEvaluation.judgeModel,
+      rubricVersion: voiceEvaluation.rubricVersion,
+      updatedAt: voiceEvaluation.updatedAt,
+      approved: voiceEvaluation.status === 'completed' && (voiceEvaluation.overall ?? 0) >= 75 && !(Array.isArray(voiceEvaluation.criticalErrors) && voiceEvaluation.criticalErrors.length),
+    } : null,
+    metrics: summarizeCallMetrics(call, voiceMetrics),
+  }
+}
+
+/** Métricas planas para la ficha: media por métrica de la traza más los totales de la llamada. */
+export function summarizeCallMetrics(
+  call: { durationSeconds: number | null; transcriptTurns?: unknown; sentimentScore?: number | null },
+  rows: Array<{ metric: string; value: number; unit: string | null }>,
+): Record<string, number | string> {
+  const turns = normalizeTranscriptTurns(call.transcriptTurns) ?? []
+  const grouped = new Map<string, { sum: number; count: number; unit: string | null }>()
+  for (const row of rows) {
+    const current = grouped.get(row.metric) ?? { sum: 0, count: 0, unit: row.unit }
+    current.sum += row.value
+    current.count += 1
+    grouped.set(row.metric, current)
+  }
+  const metrics: Record<string, number | string> = {}
+  if (call.durationSeconds != null) metrics.durationSeconds = call.durationSeconds
+  if (turns.length) {
+    metrics.agentTurns = turns.filter(turn => turn.role === 'agente').length
+    metrics.prospectTurns = turns.filter(turn => turn.role === 'prospecto').length
+  }
+  if (call.sentimentScore != null) metrics.sentimentScore = call.sentimentScore
+  for (const [metric, item] of grouped) {
+    const average = Math.round((item.sum / item.count) * 100) / 100
+    metrics[metric] = item.unit ? `${average} ${item.unit}` : average
+  }
+  return metrics
 }
 
 export async function getCallTrace(orgId: string, callId: string, limit = 1000) {
@@ -230,10 +324,17 @@ export async function ingestCall(
     recordingUrl?: string
     transcript?: string
     transcriptWords?: unknown
+    /** Transcripción por turnos `{ role, text, atMs }`; se guarda además del texto plano. */
+    transcriptTurns?: unknown
     sentiment?: string
     sentimentScore?: number
     summary?: string
     outcome?: string
+    /** ISO 8601: el contacto pidió que se le llame en ese momento. */
+    callbackAt?: string
+    /** ISO 8601: reunión acordada en la llamada. Sin fecha no se crea reunión. */
+    meetingAt?: string
+    highIntent?: boolean
     contactClassification?: string
     contactClassificationConfidence?: number
     amdResult?: unknown
@@ -257,6 +358,10 @@ export async function ingestCall(
     data = { ...data, outcome: normalized }
   }
 
+  const transcriptTurns = normalizeTranscriptTurns(data.transcriptTurns)
+  const callbackAt = parseIsoDate(data.callbackAt)
+  const meetingAt = parseIsoDate(data.meetingAt)
+
   let created = false
   let call = data.externalCallId
     ? await prisma.call.findUnique({
@@ -279,10 +384,13 @@ export async function ingestCall(
           recordingUrl: data.recordingUrl,
           transcript: data.transcript,
           transcriptWords: data.transcriptWords ? (data.transcriptWords as Prisma.InputJsonValue) : undefined,
+          transcriptTurns: transcriptTurns ? (transcriptTurns as unknown as Prisma.InputJsonValue) : undefined,
           sentiment: data.sentiment,
           sentimentScore: data.sentimentScore,
           summary: data.summary,
           outcome: data.outcome ?? 'none',
+          callbackAt: callbackAt ?? undefined,
+          meetingAt: meetingAt ?? undefined,
           contactClassification: data.contactClassification,
           contactClassificationConfidence: data.contactClassificationConfidence,
           amdResult: data.amdResult ? (data.amdResult as Prisma.InputJsonValue) : undefined,
@@ -330,10 +438,13 @@ export async function ingestCall(
         recordingUrl: data.recordingUrl,
         transcript: data.transcript,
         transcriptWords: data.transcriptWords ? (data.transcriptWords as Prisma.InputJsonValue) : undefined,
+        transcriptTurns: transcriptTurns ? (transcriptTurns as unknown as Prisma.InputJsonValue) : undefined,
         sentiment: data.sentiment,
         sentimentScore: data.sentimentScore,
         summary: data.summary,
         outcome: incomingOutcome,
+        callbackAt: callbackAt ?? undefined,
+        meetingAt: meetingAt ?? undefined,
         contactClassification: data.contactClassification,
         contactClassificationConfidence: data.contactClassificationConfidence,
         amdResult: data.amdResult ? (data.amdResult as Prisma.InputJsonValue) : undefined,
@@ -409,6 +520,7 @@ export async function ingestCall(
           outcome: effectiveOutcome ?? 'none',
           recordingUrl: call.recordingUrl ?? null,
           sentiment: call.sentiment ?? null,
+          highIntent: data.highIntent ?? isQualifyingOutcome(effectiveOutcome),
         },
       },
       update: {
@@ -421,6 +533,7 @@ export async function ingestCall(
           outcome: effectiveOutcome ?? 'none',
           recordingUrl: call.recordingUrl ?? null,
           sentiment: call.sentiment ?? null,
+          highIntent: data.highIntent ?? isQualifyingOutcome(effectiveOutcome),
         },
       },
     })
@@ -464,34 +577,34 @@ export async function ingestCall(
     }
   })
 
-  // Update lead status to contacted if it was new
+  const unreached = isUnreachedOutcome(effectiveOutcome)
+
   if (created) {
     await recordWhiteLabelVoiceUsage(orgId, call.durationSeconds)
-    await prisma.lead.updateMany({
-      where: { id: data.leadId, orgId, status: 'new' },
-      data: { status: 'contacted' },
-    })
-
-    // Update campaign stats only once for the initial call event.
-    if (data.campaignId) {
-      await prisma.campaign.updateMany({
-        where: { id: data.campaignId, orgId },
-        data: { contacted: { increment: 1 } },
+    // Buzón, no contesta u ocupado: nadie del negocio atendió, así que el
+    // lead no pasa a contactado ni la campaña suma `contacted`.
+    if (!unreached) {
+      await prisma.lead.updateMany({
+        where: { id: data.leadId, orgId, status: 'new' },
+        data: { status: 'contacted' },
       })
+      if (data.campaignId) {
+        await prisma.campaign.updateMany({
+          where: { id: data.campaignId, orgId },
+          data: { contacted: { increment: 1 } },
+        })
+      }
     }
   }
 
-  // Auto-create meeting if outcome is meeting_scheduled
-  if (effectiveOutcome === 'meeting_scheduled') {
-    const meetingResult = await ensureAutoMeeting(orgId, data.leadId, call.id)
-
-    if (meetingResult.created && effectiveCampaignId) {
-      await prisma.campaign.updateMany({
-        where: { id: effectiveCampaignId, orgId },
-        data: { meetingsScheduled: { increment: 1 } },
-      })
-    }
-  }
+  await applyCallOutcomeEffects(orgId, {
+    callId: call.id,
+    leadId: data.leadId,
+    campaignId: effectiveCampaignId ?? null,
+    outcome: effectiveOutcome ?? 'none',
+    callbackAt: callbackAt ?? call.callbackAt ?? null,
+    meetingAt: meetingAt ?? call.meetingAt ?? null,
+  })
 
   await enqueueAutomationEvent(orgId, 'call.completed', {
     eventId,
@@ -512,18 +625,150 @@ export async function ingestCall(
   return call
 }
 
-export async function createAutoMeeting(orgId: string, leadId: string, callId: string) {
-  return (await ensureAutoMeeting(orgId, leadId, callId)).meeting
+/**
+ * Efectos del resultado de una llamada sobre el CRM. Se aplican al ingerir y
+ * se reaplican cuando alguien corrige el resultado desde la ficha:
+ *
+ * - `interested` / `meeting_scheduled` → lead `qualified` (desde new/contacted).
+ * - `not_interested` / `wrong_number` → lead `unqualified` (nunca desde `converted`).
+ * - `meeting_scheduled` con fecha → Meeting; sin fecha, nada que inventar.
+ * - `callback_requested` → tarea "Volver a llamar" con `dueAt` = callbackAt.
+ * - no contesta / buzón / ocupado → sin cambios.
+ */
+export async function applyCallOutcomeEffects(orgId: string, input: {
+  callId: string
+  leadId: string
+  campaignId?: string | null
+  outcome: string
+  callbackAt?: Date | null
+  meetingAt?: Date | null
+}): Promise<{ leadStatus: string | null; meetingCreated: boolean; taskCreated: boolean }> {
+  const outcome = normalizeCallOutcome(input.outcome) ?? CALL_OUTCOME.NONE
+  let leadStatus: string | null = null
+  if (outcome === CALL_OUTCOME.INTERESTED || outcome === CALL_OUTCOME.MEETING_SCHEDULED) {
+    const updated = await prisma.lead.updateMany({
+      where: { id: input.leadId, orgId, status: { in: ['new', 'contacted', 'unqualified'] } },
+      data: { status: 'qualified' },
+    })
+    if (updated.count > 0) leadStatus = 'qualified'
+  } else if (outcome === CALL_OUTCOME.NOT_INTERESTED || outcome === CALL_OUTCOME.WRONG_NUMBER) {
+    const updated = await prisma.lead.updateMany({
+      where: { id: input.leadId, orgId, status: { in: ['new', 'contacted', 'qualified'] } },
+      data: { status: 'unqualified' },
+    })
+    if (updated.count > 0) leadStatus = 'unqualified'
+  } else if (outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN) {
+    const updated = await prisma.lead.updateMany({
+      where: { id: input.leadId, orgId, status: 'new' },
+      data: { status: 'contacted' },
+    })
+    if (updated.count > 0) leadStatus = 'contacted'
+  }
+
+  let meetingCreated = false
+  if (outcome === CALL_OUTCOME.MEETING_SCHEDULED && input.meetingAt) {
+    const meetingResult = await ensureAutoMeeting(orgId, input.leadId, input.callId, input.meetingAt)
+    meetingCreated = meetingResult.created
+    if (meetingResult.created && input.campaignId) {
+      await prisma.campaign.updateMany({
+        where: { id: input.campaignId, orgId },
+        data: { meetingsScheduled: { increment: 1 } },
+      })
+    }
+  }
+
+  let taskCreated = false
+  if (outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN) {
+    const existing = await prisma.callTask.findFirst({ where: { orgId, callId: input.callId, title: CALLBACK_TASK_TITLE }, select: { id: true } })
+    if (!existing) {
+      await prisma.callTask.create({
+        data: { orgId, callId: input.callId, title: CALLBACK_TASK_TITLE, dueAt: input.callbackAt ?? undefined },
+      })
+      taskCreated = true
+    } else if (input.callbackAt) {
+      await prisma.callTask.updateMany({ where: { id: existing.id, orgId }, data: { dueAt: input.callbackAt } })
+    }
+  }
+  return { leadStatus, meetingCreated, taskCreated }
 }
 
-async function ensureAutoMeeting(orgId: string, leadId: string, callId: string) {
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  tomorrow.setHours(10, 0, 0, 0)
+export const CALL_RESULT_OUTCOMES = CALL_OUTCOMES
 
+export interface CallResultPatch {
+  outcome?: string
+  summary?: string | null
+  callbackAt?: string | null
+  meetingAt?: string | null
+  notes?: string
+}
+
+/**
+ * Corrección manual del resultado (PATCH /api/calls/:id). Si cambia el
+ * resultado se reaplican sus efectos sobre el lead, la reunión y la tarea de
+ * seguimiento; todo queda en el registro de auditoría.
+ */
+export async function updateCallResult(orgId: string, callId: string, patch: CallResultPatch, actor: { userId: string; name?: string | null }) {
+  const call = await prisma.call.findFirst({ where: { id: callId, orgId } })
+  if (!call) return null
+  let outcome: CallOutcome | undefined
+  if (patch.outcome !== undefined) {
+    const normalized = normalizeCallOutcome(patch.outcome)
+    if (!normalized) throw new InvalidCallOutcomeError(String(patch.outcome))
+    outcome = normalized
+  }
+  const data: Prisma.CallUpdateInput = {}
+  if (outcome !== undefined) data.outcome = outcome
+  if (patch.summary !== undefined) data.summary = patch.summary === null ? null : patch.summary.trim().slice(0, 4000) || null
+  if (patch.callbackAt !== undefined) data.callbackAt = patch.callbackAt === null ? null : parseIsoDate(patch.callbackAt) ?? undefined
+  if (patch.meetingAt !== undefined) data.meetingAt = patch.meetingAt === null ? null : parseIsoDate(patch.meetingAt) ?? undefined
+
+  const updated = Object.keys(data).length
+    ? await prisma.call.update({ where: { id: call.id }, data })
+    : call
+
+  if (patch.notes?.trim()) {
+    await prisma.leadNote.create({
+      data: { orgId, leadId: call.leadId, callId: call.id, text: patch.notes.trim().slice(0, 4000), authorName: actor.name ?? 'Usuario' },
+    })
+  }
+
+  const outcomeChanged = outcome !== undefined && outcome !== call.outcome
+  const effects = outcomeChanged || (patch.meetingAt !== undefined && updated.outcome === CALL_OUTCOME.MEETING_SCHEDULED) || (patch.callbackAt !== undefined && updated.outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN)
+    ? await applyCallOutcomeEffects(orgId, {
+        callId: call.id, leadId: call.leadId, campaignId: call.campaignId,
+        outcome: updated.outcome, callbackAt: updated.callbackAt, meetingAt: updated.meetingAt,
+      })
+    : { leadStatus: null, meetingCreated: false, taskCreated: false }
+
+  await writeAuditLog({
+    orgId, actorUserId: actor.userId, action: 'call.result.update', entityType: 'Call', entityId: call.id,
+    before: { outcome: call.outcome, summary: call.summary, callbackAt: call.callbackAt, meetingAt: call.meetingAt },
+    after: { outcome: updated.outcome, summary: updated.summary, callbackAt: updated.callbackAt, meetingAt: updated.meetingAt, effects },
+  })
+  if (outcomeChanged) {
+    await logSalesActivity({
+      orgId, type: 'call', leadId: call.leadId, source: 'call', sourceId: call.id,
+      metadata: { status: updated.status, outcome: updated.outcome, durationSeconds: updated.durationSeconds, correctedBy: actor.userId, previousOutcome: call.outcome },
+    })
+  }
+  return { call: updated, effects }
+}
+
+export async function createAutoMeeting(orgId: string, leadId: string, callId: string, scheduledAt: Date) {
+  return (await ensureAutoMeeting(orgId, leadId, callId, scheduledAt)).meeting
+}
+
+/** Solo con fecha real: una reunión "mañana a las diez" inventada no es una reunión. */
+async function ensureAutoMeeting(orgId: string, leadId: string, callId: string, scheduledAt: Date) {
   const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
   const existing = await prisma.meeting.findFirst({ where: { orgId, callId } })
-  if (existing) return { meeting: existing, created: false }
+  if (existing) {
+    if (existing.status === 'scheduled' && existing.scheduledAt.getTime() !== scheduledAt.getTime()) {
+      const meeting = await prisma.meeting.update({ where: { id: existing.id }, data: { scheduledAt } })
+      return { meeting, created: false }
+    }
+    return { meeting: existing, created: false }
+  }
 
   // The deterministic id closes the race between two provider retries even
   // before a dedicated business unique index is present in every database.
@@ -535,9 +780,10 @@ async function ensureAutoMeeting(orgId: string, leadId: string, callId: string) 
         orgId,
         leadId,
         callId,
-        title: `Meeting with ${lead?.name ?? 'Lead'}`,
-        scheduledAt: tomorrow,
+        title: `Reunión con ${lead?.name ?? 'contacto'}`,
+        scheduledAt,
         status: 'scheduled',
+        notes: 'Acordada en la llamada del agente de voz.',
       },
     })
     return { meeting, created: true }

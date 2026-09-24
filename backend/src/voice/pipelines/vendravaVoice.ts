@@ -10,6 +10,7 @@ import { streamCerebras, streamOpenAICompatible, type ChatMessage } from '../int
 import { FishAudioSpeechTask } from '../tts/fishAudioTts'
 import { MiniMaxSpeechTask } from '../tts/minimaxTts'
 import { askGuru } from '../intelligence/conversation/vendravaGuru'
+import { trimConversationHistory } from '../intelligence/promptContext'
 import { ProsodyMeter } from '../utils/prosody'
 import { SpeechChunker } from '../utils/speechChunker'
 import {
@@ -23,14 +24,34 @@ import {
 import {
   DEFAULT_GREETING,
   DEFAULT_SETTINGS,
+  END_CALL_MARKER,
   TTS_SAMPLE_RATE,
+  hasEndMarker,
+  looksLikeFarewell,
+  resolveSilencePolicy,
+  stripEndMarker,
   type CabinEvent,
   type EmotionReading,
   type PipelineStage,
   type ProviderName,
   type SessionSettings,
+  type SilencePolicy,
   type StageStatus,
 } from './vendravaProtocol'
+
+/**
+ * Presupuesto de caracteres del historial de turnos que se envía al LLM en
+ * cada generación (sin contar el system prompt). Con ~4 caracteres por token,
+ * 16 000 caracteres son unos 4 000 tokens: una llamada de 20 minutos entera
+ * no cabe, y no hace falta; lo último dicho es lo que importa.
+ */
+const HISTORY_CHAR_BUDGET = (() => {
+  const raw = Number(process.env.VOICE_HISTORY_CHAR_BUDGET)
+  return Number.isFinite(raw) && raw >= 2_000 && raw <= 200_000 ? Math.round(raw) : 16_000
+})()
+
+/** Bytes de PCM16 mono a 24 kHz por milisegundo: para estimar lo que queda por sonar. */
+const TTS_BYTES_PER_MS = (TTS_SAMPLE_RATE * 2) / 1000
 
 /**
  * Puerto del laboratorio (vendrava-voice-lab) al contrato VoiceSession del CRM:
@@ -54,14 +75,16 @@ Mantén cada turno corto: normalmente una o dos frases y menos de 35 palabras.
 Responde directamente, sin markdown, listas, acotaciones ni introducciones.
 Usa un ritmo natural y no abuses de muletillas.
 Si te preguntan si eres una persona, di claramente que eres un asistente de voz de IA.
-No inventes datos del cliente, pedido o empresa. Si falta información, haz una sola pregunta breve.`
+No inventes datos del cliente, pedido o empresa. Si falta información, haz una sola pregunta breve.
+Cuando la conversación haya terminado (te has despedido, el contacto ha rechazado claramente o la cita ya está cerrada), despídete en una frase sin hacer preguntas y añade al final exactamente la marca ${END_CALL_MARKER}. No la uses en ningún otro caso.`
     : `--- LIVE VOICE CALL RULES (these override any conflicting instruction above) ---
 You are speaking on a live phone call, not writing. Always reply in English.
 Keep each turn short: normally one or two sentences and under 35 words.
 Respond directly, without markdown, lists, stage directions, or prefacing your answer.
 Use contractions and varied rhythm, but do not overuse filler words.
 If asked whether you are human, clearly say you are an AI voice assistant.
-Never invent customer, order, or company facts. Ask one concise follow-up question when information is missing.`
+Never invent customer, order, or company facts. Ask one concise follow-up question when information is missing.
+When the conversation is over (you have said goodbye, the contact clearly declined, or the appointment is confirmed), close in one sentence without asking anything and append exactly the marker ${END_CALL_MARKER} at the very end. Never use it otherwise.`
 }
 
 export type VoiceLanguage = 'en' | 'es'
@@ -154,6 +177,10 @@ interface GenerationState {
   firstTextQueuedAt?: number
   firstAudioAt?: number
   ttsQueue: Promise<void>
+  /** Bytes de audio ya entregados: con ellos se estima cuánto queda por sonar. */
+  audioBytes: number
+  /** El modelo cerró la conversación con la marca de fin. */
+  endCall: boolean
 }
 
 interface StaticSpeechState {
@@ -161,6 +188,8 @@ interface StaticSpeechState {
   speech: PreparedTts
   cancelled: boolean
   audioStarted: boolean
+  audioBytes: number
+  startedAt?: number
 }
 
 function normalizeTranscript(value: string): string {
@@ -194,6 +223,14 @@ export class VendravaVoiceSession implements VoiceSession {
   private guruDirective?: string
   private guruAbort?: AbortController
   private blockResponses = false
+  private readonly silence: SilencePolicy
+  private silenceTimer?: ReturnType<typeof setTimeout>
+  private silenceStartedAt?: number
+  private silenceReprompted = false
+  private farewellTimer?: ReturnType<typeof setTimeout>
+  private ending = false
+  /** Bytes entregados y momento del primer byte del último audio, para estimar el drenado. */
+  private lastAudio?: { bytes: number; firstAt: number }
 
   private onAudio?: VoiceSessionCallbacks['onAudio']
   private onInterrupt?: VoiceSessionCallbacks['onInterrupt']
@@ -219,6 +256,24 @@ export class VendravaVoiceSession implements VoiceSession {
     }, this.language)
     this.systemPrompt = `${systemPrompt?.trim() || fallbackPersona(this.language)}\n\n${voiceDeliveryRules(this.language)}`
     this.history = [{ role: 'system', content: this.systemPrompt }]
+    this.silence = resolveSilencePolicy(ctx.agentConfig?.behavior)
+  }
+
+  /** Política de silencio efectiva (env + `behavior` del agente). */
+  get silencePolicy(): SilencePolicy {
+    return this.silence
+  }
+
+  /**
+   * System prompt más los turnos recientes que caben en el presupuesto. Si el
+   * turno del usuario ya está en `history` (generación comprometida) se deja
+   * fuera: el llamante lo añade él mismo al final.
+   */
+  private promptHistory(excludeLastUserTurn: boolean): ChatMessage[] {
+    const [system, ...turns] = this.history
+    const scope = excludeLastUserTurn ? turns.slice(0, -1) : turns
+    const trimmed = trimConversationHistory(scope, HISTORY_CHAR_BUDGET)
+    return system ? [system, ...trimmed] : trimmed
   }
 
   async attach(callbacks: VoiceSessionCallbacks): Promise<void> {
@@ -238,6 +293,8 @@ export class VendravaVoiceSession implements VoiceSession {
   /** Opt-out o transferencia: calla ya y no vuelve a generar en esta llamada. */
   async stopResponding(reason: string): Promise<void> {
     this.blockResponses = true
+    this.clearSilenceTimers()
+    this.clearFarewellTimer()
     this.interruptOutput(reason)
   }
 
@@ -322,6 +379,8 @@ export class VendravaVoiceSession implements VoiceSession {
   async close(): Promise<void> {
     this.disposed = true
     this.live = false
+    this.clearSilenceTimers()
+    this.clearFarewellTimer()
     this.transcriptionStt?.closeGracefully()
     this.transcriptionStt = undefined
     this.emotionStt?.closeGracefully()
@@ -438,7 +497,12 @@ export class VendravaVoiceSession implements VoiceSession {
         this.turnFinalAt = undefined
         this.stage(this.transcriptionProvider, 'active')
         this.trace('User started speaking', 'browser')
+        this.clearSilenceTimers()
+        this.clearFarewellTimer()
         if (this.activeGeneration || this.activeStaticSpeech) this.prosody.countInterruption()
+        if (this.activeGeneration?.audioStarted || this.activeStaticSpeech?.audioStarted) {
+          this.send({ type: 'barge_in.detected', reason: 'user_started_speaking' })
+        }
         this.prosody.beginTurn(this.turnLastUpdateAt, this.agentFinishedAt)
         this.interruptOutput('barge-in')
         this.prewarmTts()
@@ -475,7 +539,10 @@ export class VendravaVoiceSession implements VoiceSession {
     this.stage(this.transcriptionProvider, 'complete', sttLatency)
     this.send({ type: 'latency.update', stt: sttLatency })
     this.send({ type: 'transcript', id: randomUUID(), speaker: 'user', text: transcript, final: true })
+    this.send({ type: 'turn.user_finished', text: transcript })
     this.trace('User turn final', this.transcriptionProvider, sttLatency)
+    this.clearSilenceTimers()
+    this.clearFarewellTimer()
 
     this.lastEmotion = this.prosody.endTurn(now, transcript)
     this.send({ type: 'emotion.update', emotion: this.lastEmotion })
@@ -532,6 +599,8 @@ export class VendravaVoiceSession implements VoiceSession {
       startedAt: performance.now(),
       committedAt: speculative ? undefined : this.turnFinalAt ?? performance.now(),
       ttsQueue: Promise.resolve(),
+      audioBytes: 0,
+      endCall: false,
     }
     speech.deliver = chunk => this.handleGenerationAudio(generation, chunk)
     this.activeGeneration = generation
@@ -556,8 +625,7 @@ export class VendravaVoiceSession implements VoiceSession {
       })
       .catch(error => this.handleProviderError(this.ttsProvider, error))
 
-    const priorMessages = generation.committed ? this.history.slice(0, -1) : this.history
-    const messages: ChatMessage[] = [...priorMessages, ...this.turnCoaching(), { role: 'user', content: userText }]
+    const messages: ChatMessage[] = [...this.promptHistory(generation.committed), ...this.turnCoaching(), { role: 'user', content: userText }]
 
     const chunker = new SpeechChunker()
     try {
@@ -570,11 +638,12 @@ export class VendravaVoiceSession implements VoiceSession {
           this.trace('First LLM token', this.llmProvider, llmLatency)
         }
         generation.text += delta
+        if (!generation.endCall && hasEndMarker(generation.text)) generation.endCall = true
         if (generation.committed) this.emitAssistantTranscript(generation, false)
-        for (const phrase of chunker.push(delta)) this.queueSpeech(generation, phrase)
+        for (const phrase of chunker.push(delta)) this.queueSpeech(generation, stripEndMarker(phrase))
       }
 
-      for (const phrase of chunker.flush()) this.queueSpeech(generation, phrase)
+      for (const phrase of chunker.flush()) this.queueSpeech(generation, stripEndMarker(phrase))
       generation.llmDone = true
       this.stage(this.llmProvider, 'complete', generation.firstTokenAt ? generation.firstTokenAt - generation.startedAt : undefined)
       if (generation.committed) this.finishAssistantTranscript(generation)
@@ -680,13 +749,17 @@ export class VendravaVoiceSession implements VoiceSession {
     }
 
     this.startGenerationAudio(generation)
+    generation.audioBytes += chunk.length
+    this.noteAudio(chunk.length)
     void this.onAudio?.(chunk)
   }
 
   private startGenerationAudio(generation: GenerationState): void {
     if (generation.audioStarted || generation.cancelled) return
     generation.audioStarted = true
+    this.lastAudio = { bytes: 0, firstAt: performance.now() }
     this.send({ type: 'audio.start', responseId: generation.id, sampleRate: TTS_SAMPLE_RATE, encoding: 'pcm_s16le' })
+    this.send({ type: 'audio.output_started', responseId: generation.id })
     const total = performance.now() - (generation.committedAt ?? generation.startedAt)
     this.send({ type: 'latency.update', total, record: true })
     this.sendTurnMetrics(generation)
@@ -740,7 +813,11 @@ export class VendravaVoiceSession implements VoiceSession {
 
     if (generation.bufferedAudio.length) {
       this.startGenerationAudio(generation)
-      for (const chunk of generation.bufferedAudio) void this.onAudio?.(chunk)
+      for (const chunk of generation.bufferedAudio) {
+        generation.audioBytes += chunk.length
+        this.noteAudio(chunk.length)
+        void this.onAudio?.(chunk)
+      }
       generation.bufferedAudio = []
     }
 
@@ -751,7 +828,7 @@ export class VendravaVoiceSession implements VoiceSession {
 
   private emitAssistantTranscript(generation: GenerationState, final: boolean): void {
     if (!generation.committed) return
-    const clean = generation.text.trimStart()
+    const clean = stripEndMarker(generation.text.trimStart())
     if (!clean && !final) return
     if (clean === generation.displayedText && !final) return
     generation.displayedText = clean
@@ -760,7 +837,7 @@ export class VendravaVoiceSession implements VoiceSession {
 
   private finishAssistantTranscript(generation: GenerationState): void {
     if (!generation.committed || generation.storedInHistory) return
-    const text = generation.text.trim()
+    const text = stripEndMarker(generation.text.trim())
     this.emitAssistantTranscript(generation, true)
     if (text) {
       this.history.push({ role: 'assistant', content: text })
@@ -786,6 +863,107 @@ export class VendravaVoiceSession implements VoiceSession {
     generation.audioEnded = true
     this.agentFinishedAt = performance.now()
     this.send({ type: 'audio.end', responseId: generation.id })
+    const drainMs = this.pendingDrainMs()
+    if (generation.endCall) {
+      this.requestEnd('end_marker', drainMs)
+      return
+    }
+    if (looksLikeFarewell(stripEndMarker(generation.text))) {
+      // Despedida sin marca: se deja un margen por si el prospecto retoma.
+      this.armFarewell(drainMs + this.silence.farewellGraceMs)
+      return
+    }
+    this.armSilenceTimers(drainMs)
+  }
+
+  // ── Silencio, despedida y fin de llamada ──────────────────────────────────
+
+  private noteAudio(bytes: number): void {
+    if (!this.lastAudio) this.lastAudio = { bytes: 0, firstAt: performance.now() }
+    this.lastAudio.bytes += bytes
+  }
+
+  /** Cuánto audio ya entregado queda todavía por sonar en la telefonía (estimación). */
+  private pendingDrainMs(): number {
+    if (!this.lastAudio) return 0
+    const durationMs = this.lastAudio.bytes / TTS_BYTES_PER_MS
+    const elapsed = performance.now() - this.lastAudio.firstAt
+    return Math.max(0, Math.round(durationMs - elapsed)) + 250
+  }
+
+  private clearSilenceTimers(): void {
+    if (this.silenceTimer) clearTimeout(this.silenceTimer)
+    this.silenceTimer = undefined
+    this.silenceStartedAt = undefined
+    this.silenceReprompted = false
+  }
+
+  private clearFarewellTimer(): void {
+    if (this.farewellTimer) clearTimeout(this.farewellTimer)
+    this.farewellTimer = undefined
+  }
+
+  /**
+   * El agente acaba de callar. Si el prospecto no habla en `repromptMs`, se le
+   * pregunta una vez si sigue ahí; si tampoco habla al llegar a `hangupMs`
+   * desde el primer silencio, el agente se despide y pide colgar. Un teléfono
+   * descolgado ya no dura veinte minutos a coste de proveedor.
+   */
+  private armSilenceTimers(drainMs: number): void {
+    if (!this.live || this.ending || this.blockResponses) return
+    if (this.silenceTimer) clearTimeout(this.silenceTimer)
+    const now = performance.now()
+    if (this.silenceStartedAt === undefined) this.silenceStartedAt = now + drainMs
+    const fireAt = this.silenceStartedAt + (this.silenceReprompted ? this.silence.hangupMs : this.silence.repromptMs)
+    this.silenceTimer = setTimeout(() => void this.onSilence(), Math.max(0, fireAt - now))
+  }
+
+  private async onSilence(): Promise<void> {
+    this.silenceTimer = undefined
+    if (!this.live || this.ending || this.blockResponses || this.activeGeneration || this.activeStaticSpeech) return
+    const silentMs = Math.round(performance.now() - (this.silenceStartedAt ?? performance.now()))
+    if (!this.silenceReprompted) {
+      this.silenceReprompted = true
+      this.send({ type: 'silence.reprompt', silentMs })
+      this.trace('Prospect silent — reprompting', 'system', silentMs)
+      // Al terminar su audio, speakStatic vuelve a armar el temporizador ya
+      // con `silenceReprompted`, así que el siguiente disparo es el de colgar.
+      await this.speakStatic(this.language === 'es' ? '¿Sigue ahí? ¿Me escucha bien?' : 'Are you still there? Can you hear me?', true)
+      return
+    }
+    this.trace('Prospect silent — ending call', 'system', silentMs)
+    await this.sayGoodbyeAndEnd('silence_timeout')
+  }
+
+  private armFarewell(delayMs: number): void {
+    if (!this.live || this.ending) return
+    this.clearFarewellTimer()
+    this.farewellTimer = setTimeout(() => {
+      this.farewellTimer = undefined
+      if (!this.live || this.ending || this.activeGeneration || this.activeStaticSpeech) return
+      this.requestEnd('agent_farewell', 0)
+    }, Math.max(0, delayMs))
+  }
+
+  private async sayGoodbyeAndEnd(reason: 'silence_timeout'): Promise<void> {
+    if (this.ending) return
+    const farewell = this.language === 'es'
+      ? 'Parece que no le escucho bien. Le llamaremos en otro momento. Gracias, hasta luego.'
+      : "It seems I can't hear you. We'll call back another time. Thank you, goodbye."
+    this.blockResponses = true
+    await this.speakStatic(farewell, true)
+    this.requestEnd(reason, this.pendingDrainMs())
+  }
+
+  /** Pide a la telefonía que cuelgue cuando termine de sonar lo que ya está en cola. */
+  private requestEnd(reason: 'agent_farewell' | 'silence_timeout' | 'end_marker', drainMs: number): void {
+    if (this.ending || !this.live) return
+    this.ending = true
+    this.blockResponses = true
+    this.clearSilenceTimers()
+    this.clearFarewellTimer()
+    this.trace(`Call end requested (${reason})`, 'system', drainMs)
+    this.send({ type: 'call.end_requested', reason, drainMs: Math.max(0, Math.round(drainMs)) })
   }
 
   private maybeReleaseGeneration(generation: GenerationState): void {
@@ -865,8 +1043,12 @@ export class VendravaVoiceSession implements VoiceSession {
     this.interruptOutput('new static speech', false)
     const id = randomUUID()
     const speech = this.createPreparedTts()
-    const state: StaticSpeechState = { id, speech, cancelled: false, audioStarted: false }
+    const state: StaticSpeechState = { id, speech, cancelled: false, audioStarted: false, audioBytes: 0 }
     this.activeStaticSpeech = state
+    // Mientras el agente habla no corre el reloj de silencio, pero la cuenta
+    // (primer silencio, repregunta ya hecha) se conserva para la repregunta.
+    if (this.silenceTimer) clearTimeout(this.silenceTimer)
+    this.silenceTimer = undefined
 
     const displayText = text.replace(/\s*\((?:breath|sighs|laughs)\)\s*/gi, ' ').replace(/\s{2,}/g, ' ')
     this.send({ type: 'transcript', id, speaker: 'assistant', text: displayText, final: true })
@@ -878,11 +1060,16 @@ export class VendravaVoiceSession implements VoiceSession {
       if (state.cancelled) return
       if (!state.audioStarted) {
         state.audioStarted = true
+        state.startedAt = performance.now()
+        this.lastAudio = { bytes: 0, firstAt: state.startedAt }
         const latency = performance.now() - startedAt
         this.send({ type: 'audio.start', responseId: id, sampleRate: TTS_SAMPLE_RATE, encoding: 'pcm_s16le' })
+        this.send({ type: 'audio.output_started', responseId: id })
         this.send({ type: 'latency.update', tts: latency, total: latency, record: false })
         this.stage(this.ttsProvider, 'complete', latency)
       }
+      state.audioBytes += chunk.length
+      this.noteAudio(chunk.length)
       void this.onAudio?.(chunk)
     }
 
@@ -894,6 +1081,8 @@ export class VendravaVoiceSession implements VoiceSession {
       if (!state.cancelled && state.audioStarted) {
         this.agentFinishedAt = performance.now()
         this.send({ type: 'audio.end', responseId: id })
+        if (this.activeStaticSpeech === state) this.activeStaticSpeech = undefined
+        if (!this.ending) this.armSilenceTimers(this.pendingDrainMs())
       }
     } catch (error) {
       if (!state.cancelled) this.handleProviderError(this.ttsProvider, error)

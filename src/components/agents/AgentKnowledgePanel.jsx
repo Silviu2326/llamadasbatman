@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RiBookOpenLine, RiExternalLinkLine, RiEyeLine, RiLoader4Line, RiRefreshLine } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
+import '../knowledge-base.css'
 
 /**
  * Panel «Documentos de entrenamiento» de la ficha del agente.

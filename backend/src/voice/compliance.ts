@@ -14,21 +14,52 @@ const LADA_TZ: Record<string, string> = {
 
 // Bilingual (ES/EN): detection scans one flat list — phrases are specific
 // enough that no language switch is needed.
+// Se comparan sin acentos (ver `foldText`): el STT en streaming los pone de
+// forma irregular y "llámame" y "llamame" tienen que ser la misma frase.
 const OPTOUT_PHRASES = [
-  'no me llamen', 'no me vuelvan a llamar', 'quiten mi número',
-  'no me contacten', 'bórrenme', 'elimínenme', 'no quiero que me llamen',
-  'quíteme de la lista', 'quitenme de la lista', 'déjenme en paz', 'dejenme en paz',
+  // usted / ustedes
+  'no me llamen', 'no me vuelvan a llamar', 'quiten mi numero', 'quite mi numero',
+  'no me contacten', 'borrenme', 'eliminenme', 'no quiero que me llamen',
+  'quiteme de la lista', 'quitenme de la lista', 'dejenme en paz', 'dejeme en paz',
+  'no me llame', 'no me vuelva a llamar', 'no me moleste', 'no me molesten',
+  // tuteo
+  'no me llames', 'no me vuelvas a llamar', 'no vuelvas a llamarme', 'no me llames mas',
+  'dejame en paz', 'borrame', 'eliminame', 'quitame de la lista', 'quita mi numero',
+  'no quiero que me llames', 'no me contactes', 'no me molestes', 'no me escribas ni me llames',
+  // vosotros
+  'no me llameis', 'no me volvais a llamar', 'no volvais a llamarme', 'dejadme en paz',
+  'borradme', 'eliminadme', 'quitadme de la lista', 'quitad mi numero',
+  'no quiero que me llameis', 'no me contacteis', 'no me molesteis',
+  // impersonales
+  'no quiero mas llamadas', 'no quiero recibir mas llamadas', 'no quiero que me vuelvan a llamar',
+  'que no me llamen mas', 'dad de baja mi numero', 'den de baja mi numero', 'da de baja mi numero',
+  'borra mi numero', 'borren mi numero', 'borrad mi numero', 'eliminen mi numero', 'elimina mi numero',
+  'no me interesa que me llamen', 'no me interesa que me llames', 'no me interesa que me llameis',
+  'lista robinson', 'no quiero que me contacten',
+  // English
   'do not call me', "don't call me", 'do not call again', 'stop calling',
   'remove me from your list', 'take me off your list', 'remove my number',
   'do not contact me', "don't contact me", 'unsubscribe me', 'leave me alone',
-  'put me on the do not call list',
+  'put me on the do not call list', 'never call me again', 'do not call this number',
 ]
+
+/** Minúsculas, sin acentos y con la puntuación reducida a espacios. */
+function foldText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[¡!¿?.,;:()"]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 const TRANSFER_PHRASES = [
   'hablar con una persona', 'hablar con un humano', 'hablar con un agente',
-  'pásame con alguien', 'pasame con alguien', 'pásame con una persona',
+  'pasame con alguien', 'pasame con una persona', 'pasadme con alguien', 'paseme con alguien',
   'quiero hablar con alguien real', 'no quiero hablar con un robot', 'no quiero hablar con un bot',
-  'necesito un humano', 'quiero un representante', 'quiero hablar con un supervisor',
+  'no quiero hablar con una maquina', 'necesito un humano', 'quiero un representante',
+  'quiero hablar con un supervisor', 'que me llame una persona', 'que me llame alguien',
+  'hablar con alguien de verdad', 'con una persona real', 'eres un robot? pasame',
   'speak to a person', 'speak to a human', 'speak to an agent', 'speak with a person',
   'talk to a person', 'talk to a human', 'talk to an agent', 'talk to someone real',
   'i want a human', 'i need a human', 'transfer me to a person', 'transfer me to an agent',
@@ -48,7 +79,7 @@ export function normalizeE164(phone: string): string | null {
   if (digits.startsWith('00')) digits = `+${digits.slice(2)}`
   if (!digits.startsWith('+')) {
     if (!/^\d+$/.test(digits)) return null
-    const countryCode = (process.env.DEFAULT_PHONE_COUNTRY_CODE ?? '52').replace(/^\+/, '')
+    const countryCode = (process.env.DEFAULT_PHONE_COUNTRY_CODE ?? '34').replace(/^\+/, '')
     if (countryCode === '34' && /^[6789]\d{8}$/.test(digits)) digits = `+34${digits}`
     else if (digits.length === 10 && ['1', '52'].includes(countryCode)) digits = `+${countryCode}${digits}`
     else if (digits.startsWith(countryCode) && digits.length > 10) digits = `+${digits}`
@@ -101,12 +132,14 @@ export function nextCallWindow(phone: string, now = new Date(), timeZone?: strin
 }
 
 export function detectOptout(text: string): boolean {
-  const t = text.toLowerCase()
+  const t = foldText(text ?? '')
+  if (!t) return false
   return OPTOUT_PHRASES.some(p => t.includes(p))
 }
 
 export function detectTransferRequest(text: string): boolean {
-  const t = text.toLowerCase()
+  const t = foldText(text ?? '')
+  if (!t) return false
   return TRANSFER_PHRASES.some(p => t.includes(p))
 }
 
@@ -215,8 +248,10 @@ const VOICE_CONSENT_PHRASES = [
   'yes', 'yes please', 'sure', 'ok', 'okay', 'go ahead', 'sounds good',
   'call me', 'give me a call', 'you can call me', 'feel free to call',
   'please call', "let's talk", 'happy to talk', 'i agree',
-  'sí', 'si', 'vale', 'de acuerdo', 'llámame', 'llamame', 'puedes llamarme',
-  'pueden llamarme', 'adelante',
+  'si', 'si claro', 'si por favor', 'vale', 'de acuerdo', 'llamame', 'llamadme', 'llameme', 'llamenme',
+  'puedes llamarme', 'podeis llamarme', 'puede llamarme', 'pueden llamarme', 'adelante',
+  'claro', 'perfecto', 'por supuesto', 'sin problema', 'me parece bien', 'esta bien', 'genial',
+  'cuando quieras', 'cuando queráis', 'cuando querais', 'acepto', 'estoy de acuerdo', 'ok llamame',
 ]
 
 /**
@@ -227,14 +262,14 @@ const VOICE_CONSENT_PHRASES = [
  * texto lo invalida entero.
  */
 export function detectVoiceConsentReply(text: string, offeredAiCall = false): boolean {
-  const t = text.toLowerCase().trim().replace(/[.!¡]+/g, '')
+  const t = foldText(text ?? '')
   if (!t || t.length > 80) return false
   if (detectOptout(t)) return false
-  if (/\b(no|not|don'?t|nope|stop|never)\b/.test(t)) return false
+  if (/\b(no|not|don'?t|nope|stop|never|nunca|jamas|tampoco|ni hablar|prefiero que no)\b/.test(t)) return false
   // A reply to an audit is not consent to an AI call. The outgoing message
   // must explicitly have offered one, or the reply must explicitly request it.
-  if (!offeredAiCall && !(/\b(ia|ai|artificial)\b/.test(t) && /ll[aá]ma|llame|call/.test(t))) return false
-  return VOICE_CONSENT_PHRASES.some(p => t === p || t.startsWith(`${p} `) || t.includes(` ${p} `))
+  if (!offeredAiCall && !(/\b(ia|ai|artificial|robot|asistente)\b/.test(t) && /llama|llame|llamad|call/.test(t))) return false
+  return VOICE_CONSENT_PHRASES.some(p => t === p || t.startsWith(`${p} `) || t.includes(` ${p} `) || t.endsWith(` ${p}`))
 }
 
 /**
@@ -334,23 +369,31 @@ export function openingGreeting(options: {
   return greeting
 }
 
+// Sin acentos: se comparan contra `foldText`.
 const CONSENT_YES = [
-  'sí', 'si', 'claro', 'de acuerdo', 'está bien', 'esta bien', 'me parece bien', 'adelante', 'por supuesto', 'ok', 'okay', 'vale',
+  'si', 'claro', 'de acuerdo', 'esta bien', 'me parece bien', 'adelante', 'por supuesto', 'ok', 'okay', 'vale',
+  'perfecto', 'sin problema', 'ningun problema', 'no hay problema', 'no pasa nada', 'como quieras', 'como quiera',
+  'me da igual', 'no me importa', 'por mi bien', 'puedes grabar', 'puede grabar', 'podeis grabar', 'pueden grabar',
+  'graba', 'grabe', 'grabad', 'graben', 'acepto', 'lo acepto', 'conforme', 'correcto', 'muy bien', 'genial', 'estupendo',
   'yes', 'sure', 'of course', 'that is fine', "that's fine", 'go ahead', 'no problem', 'fine by me', 'alright', 'all right', 'yeah', 'yep',
 ]
 const CONSENT_NO = [
-  'no quiero', 'no me parece', 'prefiero que no', 'no lo permito', 'no grabes', 'no graben', 'sin grabar',
+  'no quiero', 'no me parece', 'prefiero que no', 'no lo permito', 'no grabes', 'no graben', 'no grabe', 'no grabeis', 'sin grabar',
+  'no me grabes', 'no me graben', 'no me grabe', 'no me grabeis', 'no lo grabes', 'no lo graben', 'no lo grabe', 'no lo grabeis', 'no quiero que graben', 'no quiero que grabes', 'no quiero que me grabes',
+  'no quiero que me graben', 'no quiero que se grabe', 'no lo autorizo', 'no autorizo', 'no doy permiso', 'no doy mi permiso',
+  'sin grabacion', 'no acepto', 'no estoy de acuerdo', 'me niego', 'ni hablar', 'de ninguna manera', 'no me gusta que graben',
   'do not record', "don't record", 'no recording', 'i do not consent', "i don't consent", 'rather not', 'prefer not', 'not okay', 'not ok',
 ]
 
 /** Classifies the prospect's reply to the recording-consent question. */
 export function detectRecordingConsentResponse(text: string): 'granted' | 'denied' | null {
-  const t = text.toLowerCase().trim()
+  const t = foldText(text ?? '')
+  if (!t) return null
   const padded = ` ${t} `
-  if (CONSENT_NO.some(p => padded.includes(p))) return 'denied'
+  if (CONSENT_NO.some(p => padded.includes(` ${p}`))) return 'denied'
   // A reply that opens with a bare "no" is a denial unless it is an
-  // affirmative idiom ("no problem" / "no hay problema").
-  if (/^no\b/.test(t) && !/^no problem/.test(t) && !/^no hay problema/.test(t)) return 'denied'
+  // affirmative idiom ("no problem" / "no hay problema" / "no pasa nada").
+  if (/^no\b/.test(t) && !/^no problem/.test(t) && !/^no hay problema/.test(t) && !/^no pasa nada/.test(t) && !/^no me importa/.test(t)) return 'denied'
   if (CONSENT_YES.some(p => padded.includes(` ${p} `))) return 'granted'
   return null
 }
