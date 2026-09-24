@@ -1,61 +1,269 @@
 import { Job, Queue, Worker } from 'bullmq'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { connectOptionalRedis, reportQueueError } from '../lib/optionalRedis'
-import { enqueueDatabaseJob, startDatabaseQueueWorker } from '../lib/databaseQueue'
+import { enqueueDatabaseJob, isQueueRetryError, QueueRetryError, startDatabaseQueueWorker } from '../lib/databaseQueue'
 import { isPostgresQueueBackend } from '../lib/queueBackend'
-import { canCall } from '../voice/compliance'
-import { startOutboundCall } from '../voice/telephony/outbound'
+import { writeAuditLog } from '../lib/audit'
+import { logSalesActivity } from '../lib/salesActivity'
+import { canCall, nextCallWindow, normalizeE164 } from '../voice/compliance'
+import { isZadarmaGatewayCallError, stableRequestId, startOutboundCall } from '../voice/telephony/outbound'
+import { findActiveVoiceConsent } from '../services/voiceConsent.service'
 import { canStartWhiteLabelVoice } from '../services/whiteLabel.service'
+import { checkAgentOperationalLimits } from '../voice/agentLimits'
 
 export interface LeadCallJob {
   orgId: string
   leadId: string
+  /** Campaña con la que se encoló; si el lead cambió de campaña, el trabajo caduca. */
+  campaignId?: string
+  /** Clave de idempotencia fijada al encolar (BullMQ la necesita al reencolar). */
+  requestId?: string
 }
+
+/** Identidad del trabajo reclamado, para que los reintentos repitan el mismo `requestId`. */
+export interface LeadCallJobContext { jobId?: string }
 
 const QUEUE_NAME = 'lead-call-dispatch'
 export const MAX_CALL_ATTEMPTS = 3
 const RETRY_BACKOFF_MS = 15 * 60 * 1000
+const CAPACITY_RETRY_MIN_MS = 20_000
+const CAPACITY_RETRY_JITTER_MS = 10_000
 const reportLeadCallError = reportQueueError('LeadCallDispatch')
 
 let leadCallQueue: Queue<LeadCallJob> | null = null
 let leadCallDispatchWorker: Worker<LeadCallJob> | null = null
 let stopDatabaseWorker: (() => void) | null = null
 
-export async function processLeadCallJob({ orgId, leadId }: LeadCallJob): Promise<void> {
+/**
+ * Motivos por los que el despacho no marca. Se persisten en
+ * `lead.customFields.lastCallBlock`, en `AuditLog` y en el timeline
+ * (`SalesActivity`), sin tocar `lead.status` ni `lead.attempts`: un bloqueo no
+ * es un intento. Los de cumplimiento reutilizan el `reason` de `canCall`.
+ */
+export type CallBlockReason =
+  | 'lead_without_phone' | 'max_attempts' | 'no_campaign' | 'campaign_changed' | 'campaign_inactive'
+  | 'agent_missing' | 'agent_not_active' | 'agent_incomplete' | 'agent_voice_consent_missing' | 'agent_limits'
+  | 'white_label_quota' | 'invalid_phone' | 'quota_exceeded' | 'optout' | 'outside_hours' | 'missing_voice_consent'
+  | 'gateway_rejected'
+
+export const CALL_BLOCK_LABELS: Record<CallBlockReason, string> = {
+  lead_without_phone: 'El contacto no tiene teléfono.',
+  max_attempts: `Se alcanzó el máximo de ${MAX_CALL_ATTEMPTS} intentos de llamada.`,
+  no_campaign: 'El contacto no pertenece a ninguna campaña.',
+  campaign_changed: 'El contacto cambió de campaña después de programar la llamada.',
+  campaign_inactive: 'La campaña no está activa.',
+  agent_missing: 'La campaña no tiene agente asignado.',
+  agent_not_active: 'El agente no está publicado y activo.',
+  agent_incomplete: 'Al agente le falta voz, instrucciones o número de salida.',
+  agent_voice_consent_missing: 'El consentimiento de voz del agente no está vigente.',
+  agent_limits: 'El agente ha alcanzado sus límites operativos.',
+  white_label_quota: 'La cuota de voz del plan está agotada.',
+  invalid_phone: 'El teléfono del contacto no es válido.',
+  quota_exceeded: 'La cuota de minutos de llamada está agotada.',
+  optout: 'El contacto pidió no recibir llamadas.',
+  outside_hours: 'Fuera del horario permitido para llamar; se reprograma a la siguiente ventana.',
+  missing_voice_consent: 'El contacto no tiene consentimiento de voz registrado.',
+  gateway_rejected: 'La pasarela de voz rechazó la llamada antes de marcar.',
+}
+
+export interface CallBlockRecord { reason: CallBlockReason; at: string; detail?: string }
+
+function jsonRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function startOfDay(now: Date) {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
+
+/**
+ * Deja constancia de un rechazo previo al marcado. Antes el despacho salía con
+ * `return` y el usuario veía «en cola» para siempre; ahora el motivo queda en
+ * el lead (`customFields.lastCallBlock`), en la auditoría y en el timeline.
+ * Nunca bloquea: si falla la escritura se registra y se sigue.
+ */
+export async function recordCallBlock(input: {
+  orgId: string; lead: { id: string; customFields: unknown; campaignId?: string | null }
+  reason: CallBlockReason; detail?: string; agentId?: string | null; jobId?: string
+}): Promise<CallBlockRecord> {
+  const at = new Date().toISOString()
+  const block: CallBlockRecord = { reason: input.reason, at, ...(input.detail ? { detail: input.detail.slice(0, 200) } : {}) }
+  const customFields = { ...jsonRecord(input.lead.customFields), lastCallBlock: { ...block } } as unknown as Prisma.InputJsonObject
+  try {
+    await prisma.lead.update({ where: { id: input.lead.id }, data: { customFields } })
+  } catch (error) {
+    console.error(`[LeadCallDispatch] lead ${input.lead.id}: no se pudo guardar lastCallBlock`, error instanceof Error ? error.message : error)
+  }
+  await writeAuditLog({
+    orgId: input.orgId, actorType: 'system', action: 'lead.call_blocked', entityType: 'Lead', entityId: input.lead.id,
+    after: { ...block, campaignId: input.lead.campaignId ?? null, agentId: input.agentId ?? null },
+    correlationId: input.jobId,
+  })
+  await logSalesActivity({
+    orgId: input.orgId, type: 'note', leadId: input.lead.id, source: 'call-dispatch',
+    sourceId: `${input.lead.id}:${input.reason}:${input.jobId ?? at}`,
+    subject: 'Llamada no realizada', body: CALL_BLOCK_LABELS[input.reason],
+    metadata: { ...block, campaignId: input.lead.campaignId ?? null, agentId: input.agentId ?? null },
+  })
+  console.warn(`[LeadCallDispatch] lead ${input.lead.id} bloqueado: ${input.reason}${input.detail ? ` (${input.detail})` : ''}`)
+  return block
+}
+
+/**
+ * Límites operativos del agente (`voice/agentLimits.ts`: llamadas al día,
+ * días activos, franja horaria). `callsToday` cuenta todas las llamadas no de
+ * prueba del agente hoy, contestadas o no: un intento que sonó también gasta
+ * línea. Si el agente tiene tope mensual de minutos, se suma el consumo.
+ */
+async function checkAgentLimits(orgId: string, agent: { id: string; settings?: unknown; monthlyMinuteLimit?: number | null }, now: Date) {
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const [callsToday, month] = await Promise.all([
+    prisma.call.count({ where: { orgId, agentId: agent.id, isTest: false, createdAt: { gte: startOfDay(now) } } }),
+    agent.monthlyMinuteLimit != null
+      ? prisma.call.aggregate({ _sum: { durationSeconds: true }, where: { orgId, agentId: agent.id, createdAt: { gte: monthStart } } })
+      : Promise.resolve(null),
+  ])
+  const minutesThisMonth = month ? Math.ceil((month._sum.durationSeconds ?? 0) / 60) : undefined
+  return checkAgentOperationalLimits(agent, { now, callsToday, minutesThisMonth })
+}
+
+function capacityDelayMs(hint?: number) {
+  return hint && hint > 0 ? hint : CAPACITY_RETRY_MIN_MS + Math.floor(Math.random() * CAPACITY_RETRY_JITTER_MS)
+}
+
+/**
+ * La centralita marcó y el destino no contestó, comunicaba o rechazó. Es un
+ * intento real: se crea la fila `Call` mínima con su estado (`no_answer`,
+ * `busy` o `failed`), se suma el intento y se reprograma a 15-30 minutos
+ * hasta `MAX_CALL_ATTEMPTS`, como hace Twilio en `routes/voice.ts`. No pasa
+ * por `ingestCall` a propósito: esa ruta marca el lead como contactado,
+ * suma `campaign.contacted` y dispara `call.completed`, y aquí nadie habló.
+ */
+async function registerUnansweredAttempt(input: {
+  orgId: string; lead: { id: string; attempts: number; campaignId: string | null }
+  agentId: string; requestId: string; code: string; cause?: string; jobId?: string
+}) {
+  const now = new Date()
+  const status = input.cause === 'busy' ? 'busy'
+    : input.cause === 'no_answer' || input.code === 'ORIGINATE_TIMEOUT' ? 'no_answer' : 'failed'
+  const externalCallId = `zadarma:attempt:${input.requestId}`
+  const data = {
+    orgId: input.orgId, agentId: input.agentId, leadId: input.lead.id, campaignId: input.lead.campaignId ?? undefined,
+    externalCallId, status, outcome: 'none', durationSeconds: 0, startedAt: now, endedAt: now,
+    summary: status === 'busy' ? 'Comunicaba' : status === 'no_answer' ? 'No contestó' : 'La centralita no pudo completar el marcado',
+    amdResult: { provider: 'zadarma', code: input.code, cause: input.cause ?? 'unknown', requestId: input.requestId } as Prisma.InputJsonObject,
+  } as const
+  let call: { id: string; status: string }
+  try {
+    call = await prisma.call.create({ data, select: { id: true, status: true } })
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'P2002') throw error
+    call = await prisma.call.findUniqueOrThrow({ where: { orgId_externalCallId: { orgId: input.orgId, externalCallId } }, select: { id: true, status: true } })
+  }
+  const attempts = input.lead.attempts + 1
+  await prisma.lead.update({ where: { id: input.lead.id }, data: { attempts: { increment: 1 }, lastAttemptAt: now } })
+  await logSalesActivity({
+    orgId: input.orgId, type: 'call', leadId: input.lead.id, source: 'call', sourceId: call.id,
+    metadata: { status, outcome: 'none', durationSeconds: 0, code: input.code, cause: input.cause ?? 'unknown', attempts },
+  })
+  await writeAuditLog({
+    orgId: input.orgId, actorType: 'system', action: 'lead.call_unanswered', entityType: 'Call', entityId: call.id,
+    after: { leadId: input.lead.id, status, code: input.code, cause: input.cause ?? 'unknown', attempts }, correlationId: input.jobId,
+  })
+  const retried = await scheduleRetry(input.orgId, input.lead.id, attempts)
+  console.warn(`[LeadCallDispatch] lead ${input.lead.id} → ${status} (${input.code}); intento ${attempts}/${MAX_CALL_ATTEMPTS}${retried ? ', reprogramada' : ''}`)
+  return { call, attempts, retried }
+}
+
+export async function processLeadCallJob(job: LeadCallJob, context: LeadCallJobContext = {}): Promise<void> {
+  const { orgId, leadId } = job
   console.log(`[LeadCallDispatch] job — lead ${leadId}`)
 
   const lead = await prisma.lead.findFirst({
     where: { id: leadId, orgId },
     include: { campaign: { include: { agent: true } } },
   })
-  if (!lead || !lead.phone || lead.attempts >= MAX_CALL_ATTEMPTS) return
-  if (!lead.campaignId) {
-    console.warn(`[LeadCallDispatch] lead ${leadId} sin campaña — llamada omitida`)
-    return
+  if (!lead) { console.warn(`[LeadCallDispatch] lead ${leadId} no existe en la organización`); return }
+  const block = async (reason: CallBlockReason, detail?: string) => {
+    await recordCallBlock({ orgId, lead, reason, detail, agentId: lead.campaign?.agent?.id ?? null, jobId: context.jobId })
   }
 
-  if (lead.campaign?.status !== 'active') return
+  if (!lead.phone) return block('lead_without_phone')
+  if (lead.attempts >= MAX_CALL_ATTEMPTS) return block('max_attempts', `${lead.attempts}/${MAX_CALL_ATTEMPTS}`)
+  if (!lead.campaignId || !lead.campaign) return block('no_campaign')
+  if (job.campaignId && job.campaignId !== lead.campaignId) return block('campaign_changed')
+  if (lead.campaign.status !== 'active') return block('campaign_inactive', lead.campaign.status)
   const agent = lead.campaign.agent
-  if (!agent || agent.orgId !== orgId || !agent.isActive || agent.lifecycleStatus !== 'active' || !agent.voiceId || !agent.systemPrompt || !agent.phoneNumber) return
-  if (!await canStartWhiteLabelVoice(orgId)) {
-    console.warn(`[LeadCallDispatch] lead ${leadId} bloqueado por cuota de voz white-label`)
+  if (!agent || agent.orgId !== orgId) return block('agent_missing')
+  if (!agent.isActive || agent.lifecycleStatus !== 'active') return block('agent_not_active', agent.lifecycleStatus)
+  const missing = [!agent.voiceId && 'voice', !agent.systemPrompt && 'instructions', !agent.phoneNumber && 'phone'].filter(Boolean)
+  if (missing.length) return block('agent_incomplete', missing.join(','))
+
+  const now = new Date()
+  // El consentimiento de voz del agente caduca o se revoca sin que el agente
+  // cambie de estado. Se comprueba en cada marcado, igual que en la prueba.
+  if (!await findActiveVoiceConsent(orgId, agent.id, agent.voiceId, now)) return block('agent_voice_consent_missing')
+
+  const limits = await checkAgentLimits(orgId, agent, now)
+  if (!limits.allowed) {
+    await block('agent_limits', limits.reason)
+    // Día inactivo, fuera de franja o tope diario: el trabajo espera a la
+    // siguiente ventana del agente sin gastar intento. Sin ventana (minutos
+    // del mes agotados) se queda bloqueado hasta que alguien actúe.
+    if (limits.nextWindow && limits.nextWindow.getTime() > now.getTime()) {
+      throw new QueueRetryError('CALL_AGENT_LIMITS', { delayMs: limits.nextWindow.getTime() - now.getTime(), countAttempt: false })
+    }
     return
   }
+  if (!await canStartWhiteLabelVoice(orgId)) return block('white_label_quota')
+
   const compliance = await canCall(orgId, lead.phone, lead.id)
   if (!compliance.allowed) {
-    console.warn(`[LeadCallDispatch] lead ${leadId} bloqueado por compliance: ${compliance.reason}`)
+    const reason = (compliance.reason in CALL_BLOCK_LABELS ? compliance.reason : 'gateway_rejected') as CallBlockReason
+    await block(reason, reason === 'gateway_rejected' ? compliance.reason : undefined)
+    if (compliance.reason === 'outside_hours') {
+      const fields = jsonRecord(lead.customFields)
+      const timeZone = typeof fields.callTimeZone === 'string' ? fields.callTimeZone : undefined
+      const availableAt = nextCallWindow(normalizeE164(lead.phone) ?? lead.phone, now, timeZone)
+      if (availableAt) throw new QueueRetryError('CALL_OUTSIDE_HOURS', { delayMs: availableAt.getTime() - now.getTime(), countAttempt: false })
+    }
     return
   }
 
-  await prisma.lead.update({ where: { id: lead.id }, data: { attempts: { increment: 1 }, lastAttemptAt: new Date() } })
-  const result = await startOutboundCall({
-    toNumber: lead.phone,
-    orgId,
-    campaignId: lead.campaignId,
-    agentId: agent.id,
-    leadId: lead.id,
-    businessName: lead.company ?? undefined,
-  })
+  // Mismo trabajo, mismo `requestId`: un reintento tras un timeout ambiguo no
+  // vuelve a marcar, la pasarela devuelve lo que ya tenía.
+  const requestId = job.requestId ?? stableRequestId('lead-call', orgId, lead.id, lead.campaignId, context.jobId ?? `attempt:${lead.attempts}`)
+  let result: Awaited<ReturnType<typeof startOutboundCall>>
+  try {
+    result = await startOutboundCall({
+      toNumber: lead.phone, orgId, campaignId: lead.campaignId, agentId: agent.id, leadId: lead.id,
+      businessName: lead.company ?? undefined, requestId,
+    })
+  } catch (error) {
+    if (isZadarmaGatewayCallError(error)) {
+      if (error.retryable && !error.dialed) {
+        // Línea ocupada o pasarela sin AMI: no ha sonado nada, no se gasta
+        // intento. Se vuelve en 20-30 s (o lo que pida la pasarela).
+        throw new QueueRetryError(error.code, { delayMs: capacityDelayMs(error.retryAfterMs), countAttempt: false })
+      }
+      if (error.code === 'ORIGINATE_TIMEOUT' || error.code === 'ORIGINATE_REJECTED') {
+        await registerUnansweredAttempt({ orgId, lead, agentId: agent.id, requestId, code: error.code, cause: error.cause, jobId: context.jobId })
+        return
+      }
+      return block('gateway_rejected', error.code)
+    }
+    // Fallo de red o timeout del fetch: no se sabe si la pasarela marcó. No se
+    // gasta intento; la cola reintenta con el mismo requestId.
+    throw error
+  }
+  if (result.status === 'invalid_phone') return block('invalid_phone')
+  if (result.status === 'offline') throw new QueueRetryError('TELEPHONY_OFFLINE', { delayMs: 60_000 })
+
+  // Solo ahora la pasarela ha confirmado el marcado: el intento cuenta.
+  await prisma.lead.update({ where: { id: lead.id }, data: { attempts: { increment: 1 }, lastAttemptAt: now } })
   console.log(`[LeadCallDispatch] lead ${leadId} → call ${result.status} (${result.sid ?? 'n/a'})`)
 }
 
@@ -66,15 +274,19 @@ export async function processLeadCallJob({ orgId, leadId }: LeadCallJob): Promis
  * siempre (una llamada por invocación), que es lo que quieren las fuentes de
  * leads: dos formularios son dos llamadas.
  */
-export async function enqueueLeadCall(orgId: string, leadId: string, dedupeKey?: string, delayMs = 0): Promise<boolean> {
+export async function enqueueLeadCall(
+  orgId: string, leadId: string, dedupeKey?: string, delayMs = 0,
+  options: { campaignId?: string; onFinished?: 'ignore' | 'requeue' } = {},
+): Promise<boolean> {
+  const payload = { orgId, leadId, ...(options.campaignId ? { campaignId: options.campaignId } : {}) }
   if (isPostgresQueueBackend()) {
-    return enqueueDatabaseJob({ queue: QUEUE_NAME, kind: 'call', payload: { orgId, leadId }, dedupeKey, delayMs })
+    return enqueueDatabaseJob({ queue: QUEUE_NAME, kind: 'call', payload, dedupeKey, delayMs, onFinished: options.onFinished })
   }
   if (!leadCallQueue) return false
   try {
     await leadCallQueue.add(
       'call',
-      { orgId, leadId },
+      payload,
       { delay: Math.max(0, delayMs), priority: 1, removeOnComplete: 1000, removeOnFail: 1000, ...(dedupeKey ? { jobId: dedupeKey } : {}) }
     )
     return true
@@ -114,7 +326,7 @@ void (async () => {
     if (process.env.BACKGROUND_WORKERS_ENABLED === 'true') {
       stopDatabaseWorker = startDatabaseQueueWorker({
         queue: QUEUE_NAME,
-        handler: payload => processLeadCallJob(payload as unknown as LeadCallJob),
+        handler: (payload, meta) => processLeadCallJob(payload as unknown as LeadCallJob, { jobId: meta.jobId }),
         pollMs: Number(process.env.WORKER_QUEUE_POLL_MS ?? 5_000),
       })
     }
@@ -132,7 +344,16 @@ void (async () => {
 
     const worker = new Worker<LeadCallJob>(
       QUEUE_NAME,
-      async (job: Job<LeadCallJob>) => processLeadCallJob(job.data),
+      async (job: Job<LeadCallJob>) => {
+        // BullMQ no reencola con retraso por sí solo: se añade un trabajo
+        // nuevo que conserva el `requestId` para que la pasarela lo reconozca.
+        const requestId = job.data.requestId ?? stableRequestId('lead-call', job.data.orgId, job.data.leadId, job.data.campaignId ?? '', String(job.id ?? ''))
+        try { await processLeadCallJob({ ...job.data, requestId }, { jobId: String(job.id ?? '') }) }
+        catch (error) {
+          if (!isQueueRetryError(error) || !leadCallQueue) throw error
+          await leadCallQueue.add('call', { ...job.data, requestId }, { delay: error.delayMs, priority: 1, removeOnComplete: 1000, removeOnFail: 1000 })
+        }
+      },
       {
         connection: connection as any,
         concurrency: 10,

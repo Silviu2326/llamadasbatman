@@ -25,9 +25,14 @@ async function main() {
   }
   const stopQueue = startDatabaseQueueWorker({
     queue: 'lead-call-dispatch', orgId, pollMs: 5000,
-    handler: async payload => {
+    // Una línea, un trabajo en vuelo: el sondeo no reclama otro hasta que la
+    // pasarela conteste al anterior (ver `concurrency` en databaseQueue).
+    concurrency: Math.max(1, Number(process.env.ZADARMA_MAX_CONCURRENT ?? 1) || 1),
+    handler: async (payload, meta) => {
       if (payload.orgId !== orgId || typeof payload.leadId !== 'string') throw new Error('CALL_JOB_SCOPE_INVALID')
-      await processLeadCallJob({ orgId, leadId: payload.leadId })
+      const campaignId = typeof payload.campaignId === 'string' ? payload.campaignId : undefined
+      const requestId = typeof payload.requestId === 'string' ? payload.requestId : undefined
+      await processLeadCallJob({ orgId, leadId: payload.leadId, campaignId, requestId }, { jobId: meta.jobId })
     },
   })
   const timer = setInterval(() => void tick(), 10000)
