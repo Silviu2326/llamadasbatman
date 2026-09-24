@@ -147,6 +147,66 @@ test('ingestCall sin fecha de reunión no inventa ninguna; la petición de llama
   assert.equal(state.tasks.length, 1)
 })
 
+test('pedir una persona cualifica al lead y abre una tarea prioritaria; "llámame después" solo lo marca contactado', async t => {
+  const { state, ready } = ingestState(t)
+  const prisma = await ready
+  const favorites: any[] = []
+  ;(prisma as any).call.updateMany = async (q: any) => { favorites.push(q); return { count: 1 } }
+  const { ingestCall } = await import('../services/calls.service')
+  const later = new Date(Date.now() + 3600_000).toISOString()
+  await ingestCall(ORG, { externalCallId: 'zadarma:cb', telephonyProvider: 'zadarma', leadId: 'lead-1', agentId: 'agent-1', campaignId: 'camp-1', duration: 30, transcriptTurns: TURNS, outcome: 'callback_requested', callbackAt: later })
+  assert.equal(state.lead.status, 'contacted')
+  assert.equal(favorites.length, 0)
+  const human = await ingestCall(ORG, { externalCallId: 'zadarma:hr', telephonyProvider: 'zadarma', leadId: 'lead-1', agentId: 'agent-1', campaignId: 'camp-1', duration: 45, transcriptTurns: TURNS, outcome: 'transferido' })
+  assert.equal(human.outcome, 'human_requested', 'el alias del motor se normaliza')
+  assert.equal(state.lead.status, 'qualified')
+  const task = state.tasks.find(item => item.callId === human.id)
+  assert.equal(task?.title, 'Devolver llamada (pide persona)')
+  assert.ok(task?.dueAt instanceof Date && task.dueAt.getTime() <= Date.now(), 'se devuelve cuanto antes')
+  assert.deepEqual(favorites[0].data, { isFavorite: true })
+  assert.equal(favorites[0].where.id, human.id)
+})
+
+test('corregir una llamada antigua reaplica reunión y tarea pero no revierte el estado actual del lead', async t => {
+  const { state, ready } = ingestState(t, { ...LEAD, status: 'qualified' })
+  const prisma = await ready
+  ;(prisma as any).auditLog.create = async (q: any) => q.data
+  // findFirst sin `id` es la búsqueda de la llamada más reciente del lead.
+  ;(prisma as any).call.findFirst = async (q: any) => {
+    if (q.where.id) { const row = state.calls.find(call => call.id === q.where.id); return row ? { ...row } : null }
+    const rows = state.calls.filter(call => call.leadId === q.where.leadId).sort((a, b) => b.startedAt - a.startedAt)
+    return rows[0] ? { id: rows[0].id } : null
+  }
+  const { updateCallResult } = await import('../services/calls.service')
+  const old = { id: 'call-old', orgId: ORG, leadId: 'lead-1', campaignId: 'camp-1', outcome: 'none', status: 'completed', summary: null, callbackAt: null, meetingAt: null, durationSeconds: 40, startedAt: new Date('2026-09-20T10:00:00Z') }
+  const latest = { ...old, id: 'call-new', outcome: 'interested', startedAt: new Date('2026-09-23T10:00:00Z') }
+  state.calls.push(old, latest)
+  // La llamada antigua pasa a "no interesado": el lead sigue cualificado por la posterior.
+  const corrected = await updateCallResult(ORG, 'call-old', { outcome: 'not_interested' }, { userId: 'u1' })
+  assert.equal(corrected?.call.outcome, 'not_interested')
+  assert.equal(corrected?.effects.leadStatus, null)
+  assert.equal(state.lead.status, 'qualified')
+  // Y a "pide persona": la tarea sí se crea aunque el estado del lead no cambie.
+  const human = await updateCallResult(ORG, 'call-old', { outcome: 'human_requested' }, { userId: 'u1' })
+  assert.equal(human?.effects.taskCreated, true)
+  assert.equal(human?.effects.leadStatus, null)
+  // Corregir la más reciente sí mueve el lead.
+  const recent = await updateCallResult(ORG, 'call-new', { outcome: 'not_interested' }, { userId: 'u1' })
+  assert.equal(recent?.effects.leadStatus, 'unqualified')
+  assert.equal(state.lead.status, 'unqualified')
+})
+
+test('listLiveCalls solo devuelve llamadas sin endedAt: los intentos no_answer|busy|failed del despacho no están "en curso"', async t => {
+  const prisma = await stubPrisma(t, {})
+  let where: any
+  ;(prisma as any).call.findMany = async (q: any) => { where = q.where; return [] }
+  const { listLiveCalls } = await import('../services/calls.service')
+  await listLiveCalls(ORG)
+  assert.equal(where.orgId, ORG)
+  assert.equal(where.endedAt, null)
+  assert.deepEqual(where.status, { not: 'completed' })
+})
+
 test('buzón o no contesta: el lead sigue en new y la campaña no suma contactados', async t => {
   const { state, ready } = ingestState(t)
   await ready

@@ -37,8 +37,11 @@ export function classifyGatewayError(error: unknown): { status: number; body: Ga
     return { status: capacity ? 429 : 409, body: { error: error.code, code: error.code, retryable: true, dialed: false, retryAfterMs: error.retryAfterMs } }
   }
   if (error instanceof OriginateError) {
+    // Solo se reintenta lo que no llegó a marcar por un fallo transitorio
+    // (AMI caído, parámetros). Un rechazo de dialplan/permisos tampoco marcó
+    // (`dialed:false`), pero repetirlo no lo arregla: no es reintentable.
     const preDial = error.code === 'AMI_UNAVAILABLE' || error.code === 'INVALID_ORIGINATE_PARAMETERS'
-    return { status: preDial ? 503 : 409, body: { error: error.code, code: error.code, retryable: preDial, dialed: error.dialed, cause: error.cause } }
+    return { status: preDial ? 503 : 409, body: { error: error.code, code: error.code, retryable: preDial && !error.dialed, dialed: error.dialed, cause: error.cause } }
   }
   const message = error instanceof Error ? error.message : ''
   // Los bloqueos de `prepareSipCall`/`prepareSipTestCall` lanzan su código

@@ -47,11 +47,12 @@ test('startCampaign con agente publicado activa y encola solo los llamables con 
     [prisma.contactConsent, 'findMany', async () => [{ leadId: 'l-ok', status: 'granted', expiresAt: null, occurredAt: new Date(), id: 'x' }]],
     [prisma.workerQueueJob, 'create', async (args: any) => { jobs.push(args.data); return args.data }],
     [prisma.workerQueueJob, 'updateMany', async () => ({ count: 0 })],
+    [prisma.workerQueueJob, 'findMany', async () => []],
   ])
 
   const result = await startCampaign('org', 'c1')
   assert.equal(result.queued, 1)
-  assert.deepEqual(result.breakdown, { eligible: 1, withoutPhone: 1, invalidPhone: 0, optOut: 1, missingConsent: 1, maxAttempts: 0 })
+  assert.deepEqual(result.breakdown, { eligible: 1, withoutPhone: 1, invalidPhone: 0, optOut: 1, missingConsent: 1, maxAttempts: 0, alreadyQueued: 0 })
   assert.deepEqual(updates[0], { where: { id: 'c1', orgId: 'org' }, data: { status: 'active' } })
   assert.equal(jobs.length, 1)
   assert.equal(jobs[0].queue, 'lead-call-dispatch')
@@ -60,9 +61,48 @@ test('startCampaign con agente publicado activa y encola solo los llamables con 
   assert.deepEqual(jobs[0].payload, { orgId: 'org', leadId: 'l-ok', campaignId: 'c1' })
 
   // Reactivar tras pausar: la clave repetida (P2002) no crea un segundo trabajo ni falla.
+  // Si el trabajo sigue pendiente/en curso, `updateMany` no reactiva nada y no cuenta como encolado.
   prisma.workerQueueJob.create = (async () => { throw Object.assign(new Error('dup'), { code: 'P2002' }) }) as any
   const again = await startCampaign('org', 'c1')
-  assert.equal(again.queued, 1)
+  assert.equal(again.queued, 0)
+  // Un trabajo terminado sí se reactiva y cuenta.
+  prisma.workerQueueJob.updateMany = (async () => ({ count: 1 })) as any
+  const reactivated = await startCampaign('org', 'c1')
+  assert.equal(reactivated.queued, 1)
+})
+
+test('startCampaign no reencola un lead con un trabajo de llamada pendiente o en curso (reintento retry:<org>:<lead>:<n>)', async t => {
+  const jobs: any[] = []
+  const queries: any[] = []
+  patchAll(t, [
+    [prisma.campaign, 'findFirst', async () => ({ id: 'c1', agent: { id: 'a1', orgId: 'org', isActive: true, lifecycleStatus: 'active', name: 'Carlos' } })],
+    [prisma.campaign, 'updateMany', async () => ({ count: 1 })],
+    [prisma.lead, 'findMany', async () => [
+      { id: 'l-retry', phone: '+525511111111', tags: [], attempts: 1 },
+      { id: 'l-fresh', phone: '+525522222222', tags: [], attempts: 0 },
+    ]],
+    [prisma.optOut, 'findMany', async () => []],
+    [prisma.contactConsent, 'findMany', async () => []],
+    [prisma.workerQueueJob, 'findMany', async (args: any) => {
+      queries.push(args)
+      return [
+        { payload: { orgId: 'org', leadId: 'l-retry' } },
+        { payload: { orgId: 'org', leadId: 'l-otra-campana' } },
+      ]
+    }],
+    [prisma.workerQueueJob, 'create', async (args: any) => { jobs.push(args.data); return args.data }],
+    [prisma.workerQueueJob, 'updateMany', async () => ({ count: 0 })],
+  ])
+
+  const result = await startCampaign('org', 'c1')
+  assert.equal(queries.length, 1, 'una sola consulta para todos los elegibles')
+  assert.deepEqual(queries[0].where.status, { in: ['pending', 'processing'] })
+  assert.equal(queries[0].where.queue, 'lead-call-dispatch')
+  assert.deepEqual(queries[0].where.payload, { path: ['orgId'], equals: 'org' })
+  assert.equal(result.breakdown.alreadyQueued, 1)
+  assert.equal(result.breakdown.eligible, 2)
+  assert.equal(result.queued, 1)
+  assert.deepEqual(jobs.map(job => job.payload.leadId), ['l-fresh'])
 })
 
 test('createCampaign/updateCampaign rechazan un agentId de otra organización', async t => {

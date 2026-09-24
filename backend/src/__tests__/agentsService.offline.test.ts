@@ -282,3 +282,16 @@ test('límites operativos: horario, días activos, máximo diario y minutos mens
   assert.equal(agentOperationalLimitsSchema.safeParse({ schedule: { start: '18:00', end: '09:00' } }).success, false)
   assert.equal(agentOperationalLimitsSchema.safeParse({ timezone: 'Marte/Olympus' }).success, false)
 })
+
+test('guardar la ficha del agente no pisa settings.knowledgeIds', async t => {
+  const memory = makeMemory({ settings: { strategyId: 'permission_diagnosis', knowledgeIds: ['doc-1', 'doc-2'] } })
+  await wire(t, memory)
+  const service = await import('../services/agents.service')
+  // La ficha manda `settings` sin knowledgeIds: se conservan los que había.
+  await service.updateAgent(ORG, 'agent-1', { settings: { strategyId: 'permission_diagnosis', keyMessages: 'Nuevo' } }, 'user-1')
+  assert.deepEqual(memory.agent.settings.knowledgeIds, ['doc-1', 'doc-2'])
+  assert.equal(memory.agent.settings.keyMessages, 'Nuevo')
+  // Knowledge sí puede cambiarlos explícitamente, incluso vaciarlos.
+  await service.updateAgent(ORG, 'agent-1', { settings: { ...memory.agent.settings, knowledgeIds: [] } }, 'user-1')
+  assert.deepEqual(memory.agent.settings.knowledgeIds, [])
+})

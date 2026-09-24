@@ -165,6 +165,8 @@ export const START_LEAD_WHERE = {
 export interface CampaignStartBreakdown {
   /** Leads `new` con teléfono E.164, sin opt-out, con consentimiento si aplica y con intentos disponibles. */
   eligible: number
+  /** Solo en `startCampaign`: elegibles con un trabajo de llamada ya pendiente o en curso (reintento), no se reencolan. */
+  alreadyQueued?: number
   withoutPhone: number
   invalidPhone: number
   optOut: number
@@ -267,6 +269,21 @@ export async function getStartPreview(orgId: string, id: string) {
   }
 }
 
+/** Leads (de la lista dada) con un trabajo `lead-call-dispatch` pendiente o en curso. */
+async function findLeadsWithPendingCallJobs(orgId: string, leadIds: string[]): Promise<Set<string>> {
+  const wanted = new Set(leadIds)
+  const jobs = await prisma.workerQueueJob.findMany({
+    where: { queue: 'lead-call-dispatch', status: { in: ['pending', 'processing'] }, payload: { path: ['orgId'], equals: orgId } },
+    select: { payload: true },
+  })
+  const found = new Set<string>()
+  for (const job of jobs) {
+    const leadId = (job.payload as { leadId?: unknown } | null)?.leadId
+    if (typeof leadId === 'string' && wanted.has(leadId)) found.add(leadId)
+  }
+  return found
+}
+
 /** Clave idempotente del trabajo de llamada de campaña: reactivar no duplica. */
 export function campaignCallDedupeKey(leadId: string, campaignId: string) {
   return `lead-call:${leadId}:${campaignId}`
@@ -300,8 +317,15 @@ export async function startCampaign(orgId: string, id: string) {
     data: { status: 'active' },
   })
 
+  // Un lead con un reintento (`retry:<org>:<lead>:<n>`) u otro trabajo de
+  // llamada pendiente o en curso ya va a ser llamado: reencolarlo con `requeue`
+  // duplicaría la llamada. Se localizan con una sola consulta por organización.
+  const alreadyQueued = eligible.length ? await findLeadsWithPendingCallJobs(orgId, eligible.map(lead => lead.id)) : new Set<string>()
+  breakdown.alreadyQueued = alreadyQueued.size
+
   let queued = 0
   for (const lead of eligible) {
+    if (alreadyQueued.has(lead.id)) continue
     // Al reactivar una campaña, un lead que sigue en `new` (p. ej. bloqueado
     // por horario o consentimiento en el intento anterior) debe volver a
     // encolarse aunque su dedupeKey ya se completara: de ahí `requeue`.

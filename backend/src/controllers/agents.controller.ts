@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import * as agentsService from '../services/agents.service'
 import * as voiceTestCallService from '../services/voiceTestCall.service'
+import { describeGatewayCode } from '../voice/telephony/gatewayCodes'
 import { parseRequest } from '../lib/validation'
 import { CALL_STRATEGY_IDS, publicCallStrategies } from '../voice/callStrategies'
 import { evaluateVoiceCall } from '../voice/evaluation/callJudgeService'
@@ -89,35 +90,20 @@ const updateAgentSchema = createAgentSchema.partial().extend({
 }).strict()
 
 /**
- * Códigos que devuelve la pasarela telefónica (runtime.ts/gateway.ts) o la
- * capa de salida, traducidos para la ficha del agente. Antes todo se
- * colapsaba en «la pasarela rechazó la llamada» sin causa.
+ * Traduce el fallo de una prueba telefónica: primero los bloqueos propios
+ * de la prueba (TEST_CALL_BLOCKED_*), después los códigos de la pasarela
+ * (`voice/telephony/gatewayCodes.ts`, compartidos con la ficha del lead).
+ * `cause` matiza ORIGINATE_REJECTED: comunicaba, no contestó o rechazado.
  */
-const GATEWAY_CODE_MESSAGES: Array<[RegExp, string]> = [
-  [/ZADARMA_PHONE_MISMATCH/, 'El número del agente no coincide con la línea configurada en la pasarela. Cambia el número de salida del agente por el de la línea.'],
-  [/ZADARMA_LANGUAGE_UNSUPPORTED/, 'La pasarela solo admite agentes en español o inglés. Cambia el idioma del agente.'],
-  [/ZADARMA_VOICE_RUNTIME_UNAVAILABLE/, 'Faltan credenciales o el proveedor de voz/IA elegido no está disponible en el servidor. Revisa el pipeline del agente.'],
-  [/MISSING_VOICE_CONSENT|TEST_CALL_BLOCKED_CONSENT_MISSING/, voiceTestCallService.TEST_CALL_BLOCK_LABELS.consent_missing],
-  [/ZADARMA_CAPACITY_REACHED|ZADARMA_GATEWAY_CALL_FAILED_409/, 'La pasarela ya tiene una llamada en curso. Espera a que termine y vuelve a intentarlo.'],
-  [/ORIGINATE_TIMEOUT/, 'La centralita no consiguió establecer la llamada a tiempo. Comprueba que la línea SIP sigue registrada y vuelve a intentarlo.'],
-  [/TEST_CALL_REQUIRES_ZADARMA_GATEWAY/, 'La prueba telefónica solo está disponible con la pasarela propia. Este entorno no la tiene activada.'],
-  [/ZADARMA_GATEWAY_CALL_FAILED_401|ZADARMA_GATEWAY_CALL_FAILED_403/, 'La pasarela rechazó la autenticación del servidor. Revisa el token de la pasarela.'],
-  [/ZADARMA_GATEWAY_CALL_FAILED_5\d\d|ZADARMA_GATEWAY_INVALID_RESPONSE/, 'La pasarela telefónica no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.'],
-  [/ZADARMA_CALL_BLOCKED_OR_FAILED/, 'La pasarela bloqueó la llamada sin detallar el motivo. Revisa número de salida, idioma y consentimiento.'],
-]
-
-export function describeGatewayFailure(raw: string | undefined, code?: string | null) {
+export function describeGatewayFailure(raw: string | undefined, code?: string | null, cause?: string | null) {
   const source = [code, raw].filter(Boolean).join(' ')
   const testBlock = source.match(/TEST_CALL_BLOCKED_([A-Z_]+)/)
   if (testBlock) {
     const reason = testBlock[1].toLowerCase() as voiceTestCallService.TestCallBlock
     if (voiceTestCallService.TEST_CALL_BLOCK_LABELS[reason]) return { code: `TEST_CALL_BLOCKED_${testBlock[1]}`, message: voiceTestCallService.TEST_CALL_BLOCK_LABELS[reason] }
   }
-  for (const [pattern, message] of GATEWAY_CODE_MESSAGES) {
-    const match = source.match(pattern)
-    if (match) return { code: match[0], message }
-  }
-  return { code: code ?? null, message: 'La pasarela telefónica rechazó la llamada de prueba.' }
+  if (/MISSING_VOICE_CONSENT/.test(source)) return { code: 'MISSING_VOICE_CONSENT', message: voiceTestCallService.TEST_CALL_BLOCK_LABELS.consent_missing }
+  return describeGatewayCode(source, cause) ?? { code: code ?? null, message: 'La pasarela telefónica rechazó la llamada de prueba.' }
 }
 
 function sendValidationError(reply: FastifyReply, error: unknown) {
@@ -232,6 +218,10 @@ export async function update(
   const { orgId, userId } = request.user as JWTUser
   const data = parseRequest(reply, updateAgentSchema, request.body)
   if (!data) return
+  // Los documentos vinculados (`settings.knowledgeIds`) solo se gestionan por
+  // PUT /api/knowledge/agent-links, que valida que pertenecen a la organización.
+  // El catchall del esquema los dejaría pasar sin comprobar nada.
+  if (data.settings && 'knowledgeIds' in data.settings) delete (data.settings as Record<string, unknown>).knowledgeIds
   try {
     // `phoneNumber` solo se toca si viene en el cuerpo: un PUT parcial no
     // borra el número de salida (antes lo hacía y las campañas dejaban de marcar).
@@ -359,7 +349,7 @@ export async function testCall(request: FastifyRequest<{ Params: { id: string };
   if (result.status === 'failed') {
     // La pasarela puede devolver el motivo en `code`; mientras no lo haga, el
     // código viaja dentro del mensaje de error (ZADARMA_..., ORIGINATE_TIMEOUT).
-    const described = describeGatewayFailure(result.message, (result as { code?: string | null }).code)
+    const described = describeGatewayFailure(result.message, result.code, result.cause)
     return reply.status(502).send({ error: described.message, reason: result.message, code: described.code })
   }
   return reply.send(result)

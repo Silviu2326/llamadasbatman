@@ -141,19 +141,26 @@ function capacityDelayMs(hint?: number) {
  * hasta `MAX_CALL_ATTEMPTS`, como hace Twilio en `routes/voice.ts`. No pasa
  * por `ingestCall` a propósito: esa ruta marca el lead como contactado,
  * suma `campaign.contacted` y dispara `call.completed`, y aquí nadie habló.
+ *
+ * `ORIGINATE_TIMEOUT` es ambiguo: la centralita no confirmó, pero puede que
+ * la llamada sí se cursara y llegue su fila real por AudioSocket o por el
+ * reconciliador. Se registra como `failed` con ese aviso y se cuenta el
+ * intento, pero NO se reprograma un reintento automático: si no, una llamada
+ * contestada tarde acabaría con dos filas y dos intentos.
  */
 async function registerUnansweredAttempt(input: {
   orgId: string; lead: { id: string; attempts: number; campaignId: string | null }
   agentId: string; requestId: string; code: string; cause?: string; jobId?: string
 }) {
   const now = new Date()
-  const status = input.cause === 'busy' ? 'busy'
-    : input.cause === 'no_answer' || input.code === 'ORIGINATE_TIMEOUT' ? 'no_answer' : 'failed'
+  const ambiguous = input.code === 'ORIGINATE_TIMEOUT'
+  const status = ambiguous ? 'failed' : input.cause === 'busy' ? 'busy' : input.cause === 'no_answer' ? 'no_answer' : 'failed'
   const externalCallId = `zadarma:attempt:${input.requestId}`
   const data = {
     orgId: input.orgId, agentId: input.agentId, leadId: input.lead.id, campaignId: input.lead.campaignId ?? undefined,
     externalCallId, status, outcome: 'none', durationSeconds: 0, startedAt: now, endedAt: now,
-    summary: status === 'busy' ? 'Comunicaba' : status === 'no_answer' ? 'No contestó' : 'La centralita no pudo completar el marcado',
+    summary: ambiguous ? 'Resultado ambiguo: la centralita no confirmó el marcado'
+      : status === 'busy' ? 'Comunicaba' : status === 'no_answer' ? 'No contestó' : 'La centralita no pudo completar el marcado',
     amdResult: { provider: 'zadarma', code: input.code, cause: input.cause ?? 'unknown', requestId: input.requestId } as Prisma.InputJsonObject,
   } as const
   let call: { id: string; status: string }
@@ -173,8 +180,8 @@ async function registerUnansweredAttempt(input: {
     orgId: input.orgId, actorType: 'system', action: 'lead.call_unanswered', entityType: 'Call', entityId: call.id,
     after: { leadId: input.lead.id, status, code: input.code, cause: input.cause ?? 'unknown', attempts }, correlationId: input.jobId,
   })
-  const retried = await scheduleRetry(input.orgId, input.lead.id, attempts)
-  console.warn(`[LeadCallDispatch] lead ${input.lead.id} → ${status} (${input.code}); intento ${attempts}/${MAX_CALL_ATTEMPTS}${retried ? ', reprogramada' : ''}`)
+  const retried = ambiguous ? false : await scheduleRetry(input.orgId, input.lead.id, attempts)
+  console.warn(`[LeadCallDispatch] lead ${input.lead.id} → ${status} (${input.code}); intento ${attempts}/${MAX_CALL_ATTEMPTS}${retried ? ', reprogramada' : ambiguous ? ', sin reintento automático (resultado ambiguo)' : ''}`)
   return { call, attempts, retried }
 }
 
@@ -249,7 +256,10 @@ export async function processLeadCallJob(job: LeadCallJob, context: LeadCallJobC
         // intento. Se vuelve en 20-30 s (o lo que pida la pasarela).
         throw new QueueRetryError(error.code, { delayMs: capacityDelayMs(error.retryAfterMs), countAttempt: false })
       }
-      if (error.code === 'ORIGINATE_TIMEOUT' || error.code === 'ORIGINATE_REJECTED') {
+      // Solo cuenta como intento lo que la centralita llegó a marcar. Un
+      // Error de AMI por dialplan/permisos (ORIGINATE_INVALID) o cualquier
+      // código con `dialed:false` es un bloqueo previo, no una llamada fallida.
+      if (error.dialed && (error.code === 'ORIGINATE_TIMEOUT' || error.code === 'ORIGINATE_REJECTED')) {
         await registerUnansweredAttempt({ orgId, lead, agentId: agent.id, requestId, code: error.code, cause: error.cause, jobId: context.jobId })
         return
       }
@@ -321,15 +331,35 @@ export async function scheduleRetry(orgId: string, leadId: string, attemptsSoFar
   }
 }
 
+/**
+ * Decide si el worker genérico (`worker.ts`, BACKGROUND_WORKERS_ENABLED=true)
+ * debe consumir `lead-call-dispatch`. Por defecto no: las llamadas las
+ * atiende el call-worker dedicado (`callWorker.ts`, aislado por
+ * ZADARMA_ORG_ID) y un consumidor sin filtro competiría con él por los
+ * mismos trabajos. Solo arranca con LEAD_CALL_DISPATCH_IN_WORKER=true y, si
+ * hay ZADARMA_ORG_ID, excluyendo esa organización.
+ */
+export function leadCallDispatchWorkerPlan(env: NodeJS.ProcessEnv = process.env): { start: false; reason: string } | { start: true; excludeOrgId?: string } {
+  if (env.BACKGROUND_WORKERS_ENABLED !== 'true') return { start: false, reason: 'BACKGROUND_WORKERS_ENABLED no es true' }
+  if (env.LEAD_CALL_DISPATCH_IN_WORKER !== 'true') return { start: false, reason: 'LEAD_CALL_DISPATCH_IN_WORKER no es true: las llamadas las consume solo el call-worker dedicado' }
+  const excludeOrgId = env.ZADARMA_ORG_ID?.trim()
+  return excludeOrgId ? { start: true, excludeOrgId } : { start: true }
+}
+
 void (async () => {
   if (isPostgresQueueBackend()) {
-    if (process.env.BACKGROUND_WORKERS_ENABLED === 'true') {
-      stopDatabaseWorker = startDatabaseQueueWorker({
-        queue: QUEUE_NAME,
-        handler: (payload, meta) => processLeadCallJob(payload as unknown as LeadCallJob, { jobId: meta.jobId }),
-        pollMs: Number(process.env.WORKER_QUEUE_POLL_MS ?? 5_000),
-      })
+    const plan = leadCallDispatchWorkerPlan()
+    if (!plan.start) {
+      if (process.env.BACKGROUND_WORKERS_ENABLED === 'true') console.warn(`[LeadCallDispatch] consumidor genérico de ${QUEUE_NAME} no arranca: ${plan.reason}`)
+      return
     }
+    if (plan.excludeOrgId) console.warn(`[LeadCallDispatch] consumidor genérico de ${QUEUE_NAME} activo excluyendo ZADARMA_ORG_ID (la atiende el call-worker dedicado)`)
+    stopDatabaseWorker = startDatabaseQueueWorker({
+      queue: QUEUE_NAME,
+      excludeOrgId: plan.excludeOrgId,
+      handler: (payload, meta) => processLeadCallJob(payload as unknown as LeadCallJob, { jobId: meta.jobId }),
+      pollMs: Number(process.env.WORKER_QUEUE_POLL_MS ?? 5_000),
+    })
     return
   }
   const connection = await connectOptionalRedis('LeadCallDispatch')

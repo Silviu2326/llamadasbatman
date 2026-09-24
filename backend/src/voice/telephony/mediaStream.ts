@@ -29,7 +29,7 @@ const SENTIMENT_MAP: Record<string, { sentiment: string; score: number }> = {
 
 const OUTCOME_MAP: Record<string, string> = {
   demo_agendada: 'meeting_scheduled',
-  transferido: 'callback_requested',
+  transferido: 'human_requested',
   rechazado: 'not_interested',
   optout: 'not_interested',
   en_curso: 'none',

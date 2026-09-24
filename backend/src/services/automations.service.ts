@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { createNativeEmailDelivery, resolveNativeEmailDraft, sendNativeMarketingDelivery } from './nativeMarketingEmail.service'
 import { assertEmailSendAllowed, type EmailSendBlockReason } from '../lib/emailCompliance'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
+import { leadCampaignCallDedupeKey } from './leadCallGate'
 import { sendWhatsApp } from './whatsapp.service'
 import { suggestConversationReply } from './conversationAi.service'
 import * as tasksService from './tasks.service'
@@ -181,7 +182,11 @@ async function executeAutomationAction(
       if (!lead) return { status: 'skipped', errorCode: 'LEAD_NOT_FOUND', errorDetail: 'Lead no encontrado' }
       if (!lead.phone) return { status: 'blocked', errorCode: 'ADDRESS_MISSING', errorDetail: 'El lead no tiene teléfono' }
       if (!(await hasConsent(orgId, leadId, 'voice'))) return { status: 'blocked', errorCode: 'CONSENT_MISSING', errorDetail: 'Sin consentimiento de voz' }
-      const queued = await enqueueLeadCall(orgId, leadId)
+      // Con campaña, la misma clave que startCampaign/importación para no
+      // marcar dos veces al mismo lead; sin campaña, una llamada por evento.
+      const queued = lead.campaignId
+        ? await enqueueLeadCall(orgId, leadId, leadCampaignCallDedupeKey(leadId, lead.campaignId), 0, { campaignId: lead.campaignId, onFinished: 'ignore' })
+        : await enqueueLeadCall(orgId, leadId)
       if (!queued) return { status: 'blocked', errorCode: 'PROVIDER_UNAVAILABLE', errorDetail: 'La cola de llamadas no está disponible' }
       if (conversationId) {
         await prisma.message.create({ data: { orgId, conversationId, leadId, channel: 'voice', provider: 'twilio', address: lead.phone, direction: 'outbound', contentType: 'call', body: 'Llamada automática solicitada', status: 'queued', metadata: { automationId: automation.id, automationRunId: run.id, automationStepIdempotencyKey: idempotencyKey } } })

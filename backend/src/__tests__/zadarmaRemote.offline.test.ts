@@ -105,6 +105,13 @@ test('gateway returns the real preparation block code and typed originate failur
     assert.deepEqual({ code: busy.json().code, cause: busy.json().cause, dialed: busy.json().dialed, retryable: busy.json().retryable },
       { code: 'ORIGINATE_REJECTED', cause: 'busy', dialed: true, retryable: false })
 
+    // Dialplan/permisos: la centralita no marcó. No cuenta como intento ni se reintenta.
+    originateError = new OriginateError('ORIGINATE_INVALID', 'rejected', false, 'Extension does not exist')
+    const invalid = await app.inject({ method: 'POST', url: '/calls', headers, payload: callBody(randomUUID()) })
+    assert.equal(invalid.statusCode, 409)
+    assert.deepEqual({ code: invalid.json().code, cause: invalid.json().cause, dialed: invalid.json().dialed, retryable: invalid.json().retryable },
+      { code: 'ORIGINATE_INVALID', cause: 'rejected', dialed: false, retryable: false })
+
     originateError = new OriginateError('ORIGINATE_TIMEOUT', 'unknown', true, 'AMI_TIMEOUT')
     const requestId = randomUUID()
     const timeout = await app.inject({ method: 'POST', url: '/calls', headers, payload: callBody(requestId) })
@@ -131,4 +138,16 @@ test('originate cause is inferred from the ring timeout when Asterisk gives no r
   assert.equal(inferOriginateCause(1_500), 'rejected')
   assert.equal(inferOriginateCause(1_500, '5'), 'busy')
   assert.equal(inferOriginateCause(60_000, '1'), 'no_answer')
+})
+
+test('gateway codes are translated for the UI, with the originate cause when the switch gave one', async () => {
+  const { describeGatewayCode } = await import('../voice/telephony/gatewayCodes')
+  assert.equal(describeGatewayCode('ORIGINATE_REJECTED', 'busy')?.message, 'La centralita marcó y el destino comunicaba.')
+  assert.equal(describeGatewayCode('ORIGINATE_REJECTED', 'no_answer')?.message, 'La centralita marcó y el destino no contestó.')
+  assert.equal(describeGatewayCode('ORIGINATE_REJECTED', 'rejected')?.message, 'La centralita rechazó el marcado.')
+  assert.match(describeGatewayCode('ORIGINATE_REJECTED')?.message ?? '', /no se estableció/)
+  for (const code of ['ORIGINATE_INVALID', 'ZADARMA_LEAD_ALREADY_CALLING', 'AMI_UNAVAILABLE', 'ZADARMA_CALL_NOT_READY', 'ZADARMA_AGENT_CONFIG_UNAVAILABLE', 'ZADARMA_VOICE_QUOTA', 'ZADARMA_CALL_NOT_ALLOWED']) {
+    assert.equal(describeGatewayCode(`${code}: detalle`)?.code, code)
+  }
+  assert.equal(describeGatewayCode('OTRA_COSA'), null)
 })

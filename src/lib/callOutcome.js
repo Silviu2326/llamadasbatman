@@ -7,8 +7,10 @@
 
 export const CALL_OUTCOME = {
   MEETING_SCHEDULED: 'meeting_scheduled',
-  // Heredado: significa "transferido a una persona", no "llámame luego".
-  TRANSFERRED_TO_HUMAN: 'callback_requested',
+  // El lead pidió hablar con una persona del equipo (cualifica).
+  HUMAN_REQUESTED: 'human_requested',
+  // El lead pidió que le llamen en otro momento concreto (con callbackAt).
+  CALLBACK_REQUESTED: 'callback_requested',
   NOT_INTERESTED: 'not_interested',
   INTERESTED: 'interested',
   NONE: 'none',
@@ -24,13 +26,14 @@ export const CALL_OUTCOME = {
 /** Resultados que cualifican un lead (docs/vendrava/ads.md §4.4). */
 export const QUALIFYING_CALL_OUTCOMES = [
   CALL_OUTCOME.MEETING_SCHEDULED,
-  CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  CALL_OUTCOME.HUMAN_REQUESTED,
   CALL_OUTCOME.INTERESTED,
 ]
 
 const LABELS_ES = {
   [CALL_OUTCOME.MEETING_SCHEDULED]: 'Reunión agendada',
-  [CALL_OUTCOME.TRANSFERRED_TO_HUMAN]: 'Transferida a una persona',
+  [CALL_OUTCOME.HUMAN_REQUESTED]: 'Pidió hablar con una persona',
+  [CALL_OUTCOME.CALLBACK_REQUESTED]: 'Pidió que le llamen después',
   [CALL_OUTCOME.INTERESTED]: 'Interesado',
   [CALL_OUTCOME.NOT_INTERESTED]: 'No interesado',
   [CALL_OUTCOME.NONE]: 'Sin resultado',
@@ -46,7 +49,8 @@ const LABELS_ES = {
 
 const LABELS_EN = {
   [CALL_OUTCOME.MEETING_SCHEDULED]: 'Meeting booked',
-  [CALL_OUTCOME.TRANSFERRED_TO_HUMAN]: 'Transferred to a person',
+  [CALL_OUTCOME.HUMAN_REQUESTED]: 'Asked for a person',
+  [CALL_OUTCOME.CALLBACK_REQUESTED]: 'Asked to be called back',
   [CALL_OUTCOME.INTERESTED]: 'Interested',
   [CALL_OUTCOME.NOT_INTERESTED]: 'Not interested',
   [CALL_OUTCOME.NONE]: 'No outcome',
@@ -63,7 +67,8 @@ const LABELS_EN = {
 /** Color por resultado; una sola fuente para listas, detalles y desgloses. */
 export const OUTCOME_COLOR = {
   [CALL_OUTCOME.MEETING_SCHEDULED]: 'var(--success)',
-  [CALL_OUTCOME.TRANSFERRED_TO_HUMAN]: 'var(--violet)',
+  [CALL_OUTCOME.HUMAN_REQUESTED]: 'var(--violet)',
+  [CALL_OUTCOME.CALLBACK_REQUESTED]: 'var(--info)',
   [CALL_OUTCOME.INTERESTED]: 'var(--info)',
   [CALL_OUTCOME.NOT_INTERESTED]: 'var(--danger-soft)',
   [CALL_OUTCOME.NONE]: 'var(--muted)',
@@ -79,7 +84,8 @@ export const OUTCOME_COLOR = {
 /** Icono por resultado, usado en el desglose de la lista de llamadas. */
 export const OUTCOME_ICON = {
   [CALL_OUTCOME.MEETING_SCHEDULED]: '●',
-  [CALL_OUTCOME.TRANSFERRED_TO_HUMAN]: '↗',
+  [CALL_OUTCOME.HUMAN_REQUESTED]: '↗',
+  [CALL_OUTCOME.CALLBACK_REQUESTED]: '↻',
   [CALL_OUTCOME.INTERESTED]: '◆',
   [CALL_OUTCOME.NOT_INTERESTED]: '×',
   [CALL_OUTCOME.NONE]: '—',
@@ -99,7 +105,8 @@ export const OUTCOME_ICON = {
  */
 export const FILTERABLE_OUTCOMES = [
   CALL_OUTCOME.MEETING_SCHEDULED,
-  CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  CALL_OUTCOME.HUMAN_REQUESTED,
+  CALL_OUTCOME.CALLBACK_REQUESTED,
   CALL_OUTCOME.INTERESTED,
   CALL_OUTCOME.NOT_INTERESTED,
 ]
@@ -112,7 +119,8 @@ export const FILTERABLE_OUTCOMES = [
 export const EDITABLE_OUTCOMES = [
   CALL_OUTCOME.MEETING_SCHEDULED,
   CALL_OUTCOME.INTERESTED,
-  CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  CALL_OUTCOME.HUMAN_REQUESTED,
+  CALL_OUTCOME.CALLBACK_REQUESTED,
   CALL_OUTCOME.NOT_INTERESTED,
   CALL_OUTCOME.WRONG_NUMBER,
   CALL_OUTCOME.NO_ANSWER,

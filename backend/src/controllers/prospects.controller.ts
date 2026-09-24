@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 import { searchProspects, ProspectingUnavailable, Prospect, stateFromAddress } from '../services/prospecting.service'
 import { createLead, getExistingProspectKeys, auditLead } from '../services/leads.service'
 import { enrichFromWebsite } from '../services/digitalAudit.service'
-import { enqueueLeadCall } from '../services/leadIngestion.service'
+import { enqueueCampaignLeadCall } from '../services/leadCallGate'
 import { sendOutboundEmail } from '../services/outboundEmail.service'
 import { enrollSalesSequence } from '../services/salesSequence.service'
 import { prisma } from '../lib/prisma'
@@ -159,7 +159,9 @@ export async function importProspects(
       await auditLead(orgId, lead.id, { website: item.website, sector, city }).catch(() => null)
     }
     if (autoCall) {
-      await enqueueLeadCall(orgId, lead.id)
+      // Misma puerta y clave que la importación: solo campaña activa con
+      // agente publicado, un único trabajo por lead y campaña.
+      await enqueueCampaignLeadCall(orgId, lead.id)
     }
     if (autoEmail && !sequenceId) emailLeadIds.push({ id: lead.id, name: lead.name })
     if (sequenceId) {

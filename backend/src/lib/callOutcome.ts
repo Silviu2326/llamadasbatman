@@ -10,7 +10,9 @@
  * Quién escribe realmente en esta columna:
  *
  * - `voice/telephony/mediaStream.ts` (OUTCOME_MAP) tras una conversación real:
- *   `meeting_scheduled`, `callback_requested`, `not_interested`, `none`.
+ *   `meeting_scheduled`, `human_requested`, `not_interested`, `none`.
+ * - `voice/intelligence/callOutcomeClassifier.ts` al colgar en Zadarma, con
+ *   además `interested`, `callback_requested` y `wrong_number`.
  * - `voice/telephony/amdService.ts` cuando contesta una máquina, con
  *   `status: 'no_answer'`: `voicemail`, `ivr`, `fax_or_noise`, `unknown`.
  * - `services/calls.service.ts` usa `none` como valor por defecto.
@@ -24,11 +26,16 @@ export const CALL_OUTCOME = {
   /** Se agendó una reunión durante la llamada (`demo_agendada` en el motor). */
   MEETING_SCHEDULED: 'meeting_scheduled',
   /**
-   * La llamada se transfirió a una persona (`transferido` en el motor). El
-   * nombre es heredado y engañoso: no es "que me llamen luego", es que el lead
-   * pidió hablar con alguien del equipo. Cuenta como cualificación.
+   * El lead pidió hablar con una persona del equipo (`transferido` en el
+   * motor). Cuenta como cualificación y abre una tarea prioritaria de
+   * devolver la llamada.
    */
-  TRANSFERRED_TO_HUMAN: 'callback_requested',
+  HUMAN_REQUESTED: 'human_requested',
+  /**
+   * El lead pidió que le llamen en otro momento concreto ("llámame después").
+   * Solo tiene sentido con `callbackAt`; no cualifica por sí solo.
+   */
+  CALLBACK_REQUESTED: 'callback_requested',
   /** El lead habló y rechazó, o pidió no ser contactado (`rechazado`/`optout`). */
   NOT_INTERESTED: 'not_interested',
   /**
@@ -70,7 +77,7 @@ export const CALL_OUTCOMES = Object.values(CALL_OUTCOME) as readonly CallOutcome
  */
 export const QUALIFYING_CALL_OUTCOMES = [
   CALL_OUTCOME.MEETING_SCHEDULED,
-  CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  CALL_OUTCOME.HUMAN_REQUESTED,
   CALL_OUTCOME.INTERESTED,
 ] as const
 
@@ -110,7 +117,8 @@ export const UNREACHED_CALL_OUTCOMES = [
 export const CLASSIFIABLE_CALL_OUTCOMES = [
   CALL_OUTCOME.MEETING_SCHEDULED,
   CALL_OUTCOME.INTERESTED,
-  CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  CALL_OUTCOME.HUMAN_REQUESTED,
+  CALL_OUTCOME.CALLBACK_REQUESTED,
   CALL_OUTCOME.NOT_INTERESTED,
   CALL_OUTCOME.WRONG_NUMBER,
   CALL_OUTCOME.VOICEMAIL,
@@ -128,8 +136,10 @@ export const CLASSIFIABLE_CALL_OUTCOMES = [
 const LEGACY_OUTCOME_ALIASES: Record<string, CallOutcome> = {
   // Estados internos del motor, por si un cliente los envía sin mapear.
   demo_agendada: CALL_OUTCOME.MEETING_SCHEDULED,
-  transferido: CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
-  callback: CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  transferido: CALL_OUTCOME.HUMAN_REQUESTED,
+  transfer_requested: CALL_OUTCOME.HUMAN_REQUESTED,
+  transferred_to_human: CALL_OUTCOME.HUMAN_REQUESTED,
+  callback: CALL_OUTCOME.CALLBACK_REQUESTED,
   rechazado: CALL_OUTCOME.NOT_INTERESTED,
   rejected: CALL_OUTCOME.NOT_INTERESTED,
   optout: CALL_OUTCOME.NOT_INTERESTED,

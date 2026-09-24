@@ -263,3 +263,45 @@ test('agent operational limits block the dial, persist the reason and wait for t
   assert.equal(state.leadUpdates[0].customFields.lastCallBlock.detail, 'daily_limit')
   assert.equal(state.leadUpdates[0].attempts, undefined)
 })
+
+test('an AMI rejection that never dialed (ORIGINATE_INVALID / dialed:false) is a gateway block, not an attempt', async t => {
+  for (const body of [
+    { error: 'ORIGINATE_INVALID', code: 'ORIGINATE_INVALID', retryable: false, dialed: false, cause: 'rejected' },
+    { error: 'ORIGINATE_REJECTED', code: 'ORIGINATE_REJECTED', retryable: false, dialed: false, cause: 'rejected' },
+  ]) {
+    const { state, ready } = dialReadyState(t)
+    await ready
+    mockGateway(t, () => gatewayResponse(409, body))
+    const { processLeadCallJob } = await import('../jobs/leadCallDispatch')
+    await processLeadCallJob({ orgId: ORG, leadId: 'lead-1' }, { jobId: `job-${body.code}` })
+    assert.equal(state.calls.length, 0, `${body.code}: no Call row`)
+    assert.equal(state.queued.length, 0, `${body.code}: no retry`)
+    assert.equal(state.leadUpdates.length, 1)
+    assert.equal(state.leadUpdates[0].attempts, undefined, `${body.code}: no attempt spent`)
+    assert.equal(state.leadUpdates[0].customFields.lastCallBlock.reason, 'gateway_rejected')
+    assert.equal(state.leadUpdates[0].customFields.lastCallBlock.detail, body.code)
+  }
+})
+
+test('an ambiguous ORIGINATE_TIMEOUT counts the attempt as failed but is not rescheduled automatically', async t => {
+  const { state, ready } = dialReadyState(t, { lead: { attempts: 0 } })
+  await ready
+  mockGateway(t, () => gatewayResponse(409, { error: 'ORIGINATE_TIMEOUT', code: 'ORIGINATE_TIMEOUT', retryable: false, dialed: true, cause: 'unknown' }))
+  const { processLeadCallJob } = await import('../jobs/leadCallDispatch')
+  await processLeadCallJob({ orgId: ORG, leadId: 'lead-1' }, { jobId: 'job-16' })
+  assert.equal(state.calls.length, 1)
+  assert.equal(state.calls[0].status, 'failed')
+  assert.match(state.calls[0].summary, /ambiguo/i)
+  assert.deepEqual(state.leadUpdates[0].attempts, { increment: 1 })
+  assert.equal(state.queued.length, 0, 'ambiguous result: the reconciler or the real Call row decides, never a second automatic dial')
+})
+
+test('the generic worker only consumes lead-call-dispatch when asked to, and never the dedicated call-worker organisation', async () => {
+  const { leadCallDispatchWorkerPlan } = await import('../jobs/leadCallDispatch')
+  assert.equal(leadCallDispatchWorkerPlan({ BACKGROUND_WORKERS_ENABLED: 'false' }).start, false)
+  const off = leadCallDispatchWorkerPlan({ BACKGROUND_WORKERS_ENABLED: 'true' })
+  assert.equal(off.start, false)
+  assert.match((off as any).reason, /LEAD_CALL_DISPATCH_IN_WORKER/)
+  assert.deepEqual(leadCallDispatchWorkerPlan({ BACKGROUND_WORKERS_ENABLED: 'true', LEAD_CALL_DISPATCH_IN_WORKER: 'true' }), { start: true })
+  assert.deepEqual(leadCallDispatchWorkerPlan({ BACKGROUND_WORKERS_ENABLED: 'true', LEAD_CALL_DISPATCH_IN_WORKER: 'true', ZADARMA_ORG_ID: 'org-calls' }), { start: true, excludeOrgId: 'org-calls' })
+})

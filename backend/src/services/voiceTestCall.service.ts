@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { canCall, normalizeE164 } from '../voice/compliance'
-import { startOutboundCall } from '../voice/telephony/outbound'
+import { isZadarmaGatewayCallError, startOutboundCall } from '../voice/telephony/outbound'
 import { findActiveVoiceConsent } from './voiceConsent.service'
 import { requestedInternalVoiceTest, isLicensedFishOfficialVoice } from './internalVoiceTestRequest.service'
 
@@ -215,7 +215,7 @@ export async function revokeVoiceTestNumber(orgId: string, id: string, actorUser
 export type StartTestCallResult =
   | { status: 'started'; sid?: string; to: string; callDescription: string }
   | { status: 'blocked'; reason: TestCallBlock; message: string }
-  | { status: 'failed'; message: string }
+  | { status: 'failed'; message: string; code?: string | null; cause?: string }
 
 export async function startVoiceTestCall(orgId: string, agentId: string, testNumberId: string, actorUserId?: string): Promise<StartTestCallResult> {
   const testNumber = await prisma.voiceTestNumber.findFirst({ where: { id: testNumberId, orgId }, select: { leadId: true } })
@@ -239,6 +239,9 @@ export async function startVoiceTestCall(orgId: string, agentId: string, testNum
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown'
     console.warn(`[VoiceTestCall] agente ${agentId} — la pasarela rechazó la prueba: ${message}`)
+    // Código y causa tipados de la pasarela (busy/no_answer/rejected) para que
+    // la ficha explique el fallo en vez de mostrar el código crudo.
+    if (isZadarmaGatewayCallError(error)) return { status: 'failed', message, code: error.code, cause: error.cause }
     return { status: 'failed', message }
   }
 }

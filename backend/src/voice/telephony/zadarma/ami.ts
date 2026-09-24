@@ -8,7 +8,8 @@ export type OriginateCause = 'no_answer' | 'busy' | 'congestion' | 'rejected' | 
 
 export type OriginateErrorCode =
   | 'ORIGINATE_TIMEOUT'    // la acción no obtuvo respuesta a tiempo: resultado ambiguo
-  | 'ORIGINATE_REJECTED'   // la centralita respondió Error a Originate
+  | 'ORIGINATE_REJECTED'   // la centralita marcó y el destino no contestó, comunicaba o rechazó
+  | 'ORIGINATE_INVALID'    // la centralita rechazó la acción (dialplan, permisos, canal): no se marcó
   | 'AMI_UNAVAILABLE'      // no se pudo conectar/autenticar con AMI: no se marcó
   | 'INVALID_ORIGINATE_PARAMETERS'
 
@@ -117,8 +118,10 @@ export async function originate(config: AmiConfig, uuid: string, phone: string, 
             .find(value => (fields.Message ?? '').toLowerCase().includes(value.toLowerCase())) ?? 'unspecified'
           // "Originate failed" es el destino que no contesta, comunica o rechaza;
           // el resto son errores de configuración que no dependen del destino.
-          const cause = reason === 'Originate failed' ? inferOriginateCause(Date.now() - dialedAt, eventReason) : 'rejected'
-          done(new OriginateError('ORIGINATE_REJECTED', cause, true, reason))
+          const dialed = /originate failed/i.test(reason)
+          done(dialed
+            ? new OriginateError('ORIGINATE_REJECTED', inferOriginateCause(Date.now() - dialedAt, eventReason), true, reason)
+            : new OriginateError('ORIGINATE_INVALID', 'rejected', false, reason))
         }
       }
     })

@@ -90,3 +90,24 @@ test('a QueueRetryError without attempt cost requeues at the requested delay and
     assert.ok(delay >= 24_000 && delay <= 26_500, `expected ~25 s, got ${delay}`)
   } finally { stop() }
 })
+
+test('a generic consumer with excludeOrgId leaves the dedicated organisation jobs alone when selecting and claiming', async t => {
+  const { prisma } = await import('../lib/prisma')
+  const { startDatabaseQueueWorker } = await import('../lib/databaseQueue')
+  let selection: any, claim: any
+  let complete!: () => void
+  const completed = new Promise<void>(resolve => { complete = resolve })
+  const delegate = prisma.workerQueueJob as any
+  const originalFind = delegate.findMany, originalUpdate = delegate.updateMany
+  delegate.findMany = async (query: any) => { selection = query; return [{ id: 'job-b' }] }
+  delegate.updateMany = async (query: any) => { claim = query; complete(); return { count: 0 } }
+  t.after(() => { delegate.findMany = originalFind; delegate.updateMany = originalUpdate })
+  const stop = startDatabaseQueueWorker({ queue: 'lead-call-dispatch', excludeOrgId: 'org-calls', handler: async () => { assert.fail('must not run') } })
+  try {
+    await completed
+    for (const query of [selection, claim]) {
+      assert.equal(query.where.payload, undefined)
+      assert.deepEqual(query.where.NOT, { payload: { path: ['orgId'], equals: 'org-calls' } })
+    }
+  } finally { stop() }
+})

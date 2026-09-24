@@ -57,8 +57,9 @@ test('los alias del vocabulario antiguo se normalizan y las fechas imposibles se
 test('fallbackOutcome reproduce el mapeo antiguo', () => {
   const base = { turns: CONVERSATION, now: NOW, durationSeconds: 12 }
   assert.equal(fallbackOutcome({ ...base, ctxOutcome: 'optout' }).outcome, 'not_interested')
+  assert.equal(fallbackOutcome({ ...base, ctxOutcome: 'human_requested' }).outcome, 'human_requested')
   assert.equal(fallbackOutcome({ ...base, ctxOutcome: 'callback_requested' }).outcome, 'callback_requested')
-  assert.equal(fallbackOutcome({ ...base, ctxOutcome: 'en_curso', transferRequested: true }).outcome, 'callback_requested')
+  assert.equal(fallbackOutcome({ ...base, ctxOutcome: 'en_curso', transferRequested: true }).outcome, 'human_requested')
   assert.equal(fallbackOutcome({ ...base, ctxOutcome: 'voicemail' }).outcome, 'voicemail')
   assert.equal(fallbackOutcome({ ...base, ctxOutcome: 'en_curso' }).outcome, 'none')
   const silent = fallbackOutcome({ turns: [CONVERSATION[0]], ctxOutcome: 'en_curso', durationSeconds: 8 })
@@ -78,7 +79,26 @@ test('los guardarraíles: opt-out gana al modelo y sin turnos del prospecto no h
   const voicemail = applyOutcomeGuardrails({ ...optimistic, outcome: 'voicemail' }, { turns: [], ctxOutcome: 'en_curso' })
   assert.equal(voicemail.outcome, 'voicemail', 'buzón sin turnos se conserva')
   const transfer = applyOutcomeGuardrails(optimistic, { turns: CONVERSATION, ctxOutcome: 'en_curso', transferRequested: true })
-  assert.equal(transfer.outcome, 'callback_requested')
+  assert.equal(transfer.outcome, 'human_requested')
+})
+
+test('el buzón o la centralita detectados por el AMD ganan al modelo aunque el saludo parezca una persona', async () => {
+  // El saludo del contestador se transcribió como turno del prospecto antes
+  // de reconocer la máquina: el LLM leería "una conversación" y diría interés.
+  const machineTurns: TranscriptTurn[] = [
+    { role: 'agente', text: 'Hola, soy Carlos de Vendrava.', atMs: 0 },
+    { role: 'prospecto', text: 'Hola, has llamado a Bar Pepe, ahora no podemos atenderte.', atMs: 1800 },
+  ]
+  const optimistic = { outcome: 'interested', summary: 'Parece interesado.', sentiment: 'positive', callbackAt: null, meetingAt: null, highIntent: true, source: 'llm' } as const
+  assert.equal(applyOutcomeGuardrails(optimistic, { turns: machineTurns, ctxOutcome: 'voicemail' }).outcome, 'voicemail')
+  assert.equal(applyOutcomeGuardrails(optimistic, { turns: machineTurns, ctxOutcome: 'ivr' }).outcome, 'ivr')
+  assert.equal(applyOutcomeGuardrails(optimistic, { turns: machineTurns, ctxOutcome: 'voicemail' }).highIntent, false)
+  let called = 0
+  const result = await classifyCallOutcome({ turns: machineTurns, ctxOutcome: 'voicemail', now: NOW, durationSeconds: 6 }, { complete: async () => { called++; return JSON.stringify(optimistic) } })
+  assert.equal(called, 0, 'con máquina detectada no se llama al modelo')
+  assert.equal(result.outcome, 'voicemail')
+  assert.equal(result.source, 'fallback')
+  assert.match(result.summary, /buzón o una centralita/)
 })
 
 test('classifyCallOutcome usa el modelo cuando responde y cae al respaldo si tarda, falla o divaga', async () => {
@@ -124,7 +144,7 @@ test('el prompt fija fecha, zona horaria y el vocabulario cerrado', () => {
   const [system, user] = buildClassifierMessages({ turns: CONVERSATION, ctxOutcome: 'en_curso', now: NOW, timeZone: 'Europe/Madrid', endReason: 'remote_hangup', businessName: 'Bar Pepe' })
   assert.match(system.content, /2026-09-24 11:00/)
   assert.match(system.content, /Europe\/Madrid/)
-  for (const outcome of ['meeting_scheduled', 'interested', 'callback_requested', 'not_interested', 'wrong_number', 'voicemail', 'ivr', 'none']) {
+  for (const outcome of ['meeting_scheduled', 'interested', 'human_requested', 'callback_requested', 'not_interested', 'wrong_number', 'voicemail', 'ivr', 'none']) {
     assert.match(system.content, new RegExp(`"${outcome}"`))
   }
   assert.match(user.content, /Bar Pepe/)

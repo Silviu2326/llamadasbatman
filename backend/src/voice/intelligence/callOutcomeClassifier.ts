@@ -49,7 +49,7 @@ export interface ClassifiedOutcome {
 
 export interface ClassifyInput {
   turns: TranscriptTurn[]
-  /** Estado interno del contexto de llamada (`optout`, `callback_requested`, `voicemail`, `en_curso`...). */
+  /** Estado interno del contexto de llamada (`optout`, `human_requested`, `voicemail`, `ivr`, `en_curso`...). */
   ctxOutcome: string
   transferRequested?: boolean
   /** Motivo de fin que dio la telefonía (`remote_hangup`, `silence_timeout`...). */
@@ -164,7 +164,7 @@ export function fallbackOutcome(input: ClassifyInput): ClassifiedOutcome {
   const ctx = input.ctxOutcome
   let outcome: CallOutcome = CALL_OUTCOME.NONE
   if (ctx === 'optout') outcome = CALL_OUTCOME.NOT_INTERESTED
-  else if (input.transferRequested || ctx === 'callback_requested' || ctx === 'transferido') outcome = CALL_OUTCOME.TRANSFERRED_TO_HUMAN
+  else if (input.transferRequested || ctx === 'human_requested' || ctx === 'transferido') outcome = CALL_OUTCOME.HUMAN_REQUESTED
   else {
     const normalized = normalizeCallOutcome(ctx)
     if (normalized && normalized !== CALL_OUTCOME.INTERESTED && normalized !== CALL_OUTCOME.MEETING_SCHEDULED) outcome = normalized
@@ -172,8 +172,10 @@ export function fallbackOutcome(input: ClassifyInput): ClassifiedOutcome {
   const seconds = input.durationSeconds ?? 0
   const summary = outcome === CALL_OUTCOME.NOT_INTERESTED && ctx === 'optout'
     ? 'El contacto pidió no recibir más llamadas. Se registró el opt-out y se colgó.'
-    : outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN
+    : outcome === CALL_OUTCOME.HUMAN_REQUESTED
       ? 'El contacto pidió hablar con una persona del equipo. Queda pendiente el seguimiento humano.'
+      : outcome === CALL_OUTCOME.CALLBACK_REQUESTED
+        ? 'El contacto pidió que le llamen en otro momento. Queda pendiente volver a llamar.'
       : outcome === CALL_OUTCOME.VOICEMAIL || outcome === CALL_OUTCOME.IVR
         ? 'Contestó un buzón o una centralita automática. No hubo conversación.'
         : spoken === 0
@@ -182,16 +184,26 @@ export function fallbackOutcome(input: ClassifyInput): ClassifiedOutcome {
   return { outcome, summary, sentiment: 'neutral', callbackAt: null, meetingAt: null, highIntent: false, source: 'fallback' }
 }
 
+/** Buzón o centralita detectados por el AMD durante la llamada. */
+export function machineOutcome(ctxOutcome: string): CallOutcome | null {
+  if (ctxOutcome === 'voicemail') return CALL_OUTCOME.VOICEMAIL
+  if (ctxOutcome === 'ivr') return CALL_OUTCOME.IVR
+  return null
+}
+
 /**
  * Lo que la llamada ya sabe con certeza gana al modelo: un opt-out detectado
- * por reglas es `not_interested` aunque el LLM oiga entusiasmo, y sin ningún
- * turno del prospecto no puede haber interés ni reunión.
+ * por reglas es `not_interested` aunque el LLM oiga entusiasmo, un buzón
+ * detectado por el AMD sigue siendo buzón aunque su saludo parezca una persona,
+ * y sin ningún turno del prospecto no puede haber interés ni reunión.
  */
 export function applyOutcomeGuardrails(result: ClassifiedOutcome, input: ClassifyInput): ClassifiedOutcome {
   const spoken = prospectTurns(input.turns)
+  const machine = machineOutcome(input.ctxOutcome)
   let outcome = result.outcome
-  if (input.ctxOutcome === 'optout') outcome = CALL_OUTCOME.NOT_INTERESTED
-  else if (input.transferRequested || input.ctxOutcome === 'callback_requested') outcome = CALL_OUTCOME.TRANSFERRED_TO_HUMAN
+  if (machine) outcome = machine
+  else if (input.ctxOutcome === 'optout') outcome = CALL_OUTCOME.NOT_INTERESTED
+  else if (input.transferRequested || input.ctxOutcome === 'human_requested') outcome = CALL_OUTCOME.HUMAN_REQUESTED
   else if (spoken === 0 && ![CALL_OUTCOME.VOICEMAIL, CALL_OUTCOME.IVR, CALL_OUTCOME.NO_ANSWER, CALL_OUTCOME.BUSY].includes(outcome as never)) {
     outcome = CALL_OUTCOME.NONE
   }
@@ -200,7 +212,7 @@ export function applyOutcomeGuardrails(result: ClassifiedOutcome, input: Classif
     ...result,
     outcome,
     meetingAt: outcome === CALL_OUTCOME.MEETING_SCHEDULED ? result.meetingAt : null,
-    callbackAt: outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN || outcome === CALL_OUTCOME.INTERESTED ? result.callbackAt : null,
+    callbackAt: outcome === CALL_OUTCOME.HUMAN_REQUESTED || outcome === CALL_OUTCOME.CALLBACK_REQUESTED || outcome === CALL_OUTCOME.INTERESTED ? result.callbackAt : null,
     highIntent: qualifying && result.highIntent,
   }
 }
@@ -229,7 +241,8 @@ export function buildClassifierMessages(input: ClassifyInput): ChatMessage[] {
   const definitions = [
     `- "meeting_scheduled": el contacto aceptó una reunión o demo con fecha u hora concretas.`,
     `- "interested": el contacto mostró interés real (pidió información, precios, una llamada posterior) sin cerrar fecha.`,
-    `- "callback_requested": el contacto pidió que le llame una persona del equipo o que le llamen en otro momento concreto.`,
+    `- "human_requested": el contacto pidió hablar con una persona del equipo (que le llame un comercial, un responsable...).`,
+    `- "callback_requested": el contacto pidió que le llamen en otro momento concreto; indica ese momento en callbackAt.`,
     `- "not_interested": el contacto rechazó la propuesta o pidió no ser contactado.`,
     `- "wrong_number": quien contestó no es el contacto ni conoce a la empresa.`,
     `- "voicemail": contestó un buzón de voz o contestador.`,
@@ -296,7 +309,7 @@ export async function classifyCallOutcome(input: ClassifyInput, options: Classif
   // Buzón, centralita o cero turnos del prospecto: no hay nada que leer y
   // llamar al modelo solo añadiría latencia y coste al colgar.
   const spoken = prospectTurns(input.turns)
-  if (spoken === 0 || input.ctxOutcome === 'optout') return fallback
+  if (spoken === 0 || input.ctxOutcome === 'optout' || machineOutcome(input.ctxOutcome)) return fallback
   const timeoutMs = Math.min(8000, Math.max(500, options.timeoutMs ?? 8000))
   const complete = options.complete ?? defaultComplete(options.runtime, options.env ?? process.env)
   const controller = new AbortController()

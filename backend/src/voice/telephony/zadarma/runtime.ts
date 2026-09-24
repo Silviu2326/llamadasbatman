@@ -9,7 +9,8 @@ import { loadAgentConfig } from '../../agentConfig'
 import { canCall, detectOptout, detectTransferRequest, normalizeE164, registerOptout } from '../../compliance'
 import { createVoiceSession } from '../../engine/factory'
 import { evaluateVoiceCall } from '../../evaluation/callJudgeService'
-import { classifyCallOutcome, type TranscriptTurn } from '../../intelligence/callOutcomeClassifier'
+import { classifyCallOutcome, machineOutcome, type TranscriptTurn } from '../../intelligence/callOutcomeClassifier'
+import { MAX_CALL_ATTEMPTS, scheduleRetry } from '../../../jobs/leadCallDispatch'
 import { createCallContext } from '../../intelligence/conversation/callContext'
 import { buildIntelligentPrompt } from '../../intelligence/promptContext'
 import { buildVoiceRuntimeSnapshot, VoiceTrace } from '../../observability/voiceTrace'
@@ -50,10 +51,40 @@ export async function writePendingCall(uuid: string, orgId: string, data: Ingest
     version: 1, uuid, orgId, isTest: data.isTest === true, failedAt: new Date().toISOString(), attempts: 1,
     lastError: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500), data,
   }
-  const target = pendingCallPath(uuid, directory)
-  // Escritura atómica: nadie reconcilia un JSON a medias.
+  await writePendingFile(pendingCallPath(uuid, directory), file)
+}
+
+/** Escritura atómica (tmp + rename): nadie reconcilia un JSON a medias. */
+async function writePendingFile(target: string, file: PendingCallFile): Promise<void> {
   await writeFile(`${target}.tmp`, JSON.stringify(file), { mode: 0o640 })
   await rename(`${target}.tmp`, target)
+}
+
+/**
+ * Tras un buzón o una centralita se vuelve a intentar más tarde, con el mismo
+ * respaldo (`RETRY_BACKOFF_MS` × intentos) y tope (`MAX_CALL_ATTEMPTS`) que
+ * un marcado sin respuesta. Las pruebas no se reintentan. Nunca lanza.
+ */
+export async function scheduleMachineRetry(
+  input: { orgId: string; leadId: string; outcome: string; isTest: boolean },
+  deps: { retry?: typeof scheduleRetry; attempts?: (orgId: string, leadId: string) => Promise<number | null> } = {},
+): Promise<{ scheduled: boolean; attempts: number | null; reason: string }> {
+  if (input.isTest) return { scheduled: false, attempts: null, reason: 'test_call' }
+  if (!machineOutcome(input.outcome)) return { scheduled: false, attempts: null, reason: 'not_machine' }
+  const readAttempts = deps.attempts ?? (async (orgId: string, leadId: string) => {
+    const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { attempts: true } })
+    return lead ? lead.attempts : null
+  })
+  try {
+    const attempts = await readAttempts(input.orgId, input.leadId)
+    if (attempts == null) return { scheduled: false, attempts: null, reason: 'lead_not_found' }
+    if (attempts >= MAX_CALL_ATTEMPTS) return { scheduled: false, attempts, reason: 'max_attempts' }
+    const scheduled = await (deps.retry ?? scheduleRetry)(input.orgId, input.leadId, Math.max(1, attempts))
+    return { scheduled, attempts, reason: scheduled ? 'scheduled' : 'queue_unavailable' }
+  } catch (error) {
+    console.warn('[ZADARMA] no se pudo programar el reintento tras buzón del lead %s:', input.leadId, error instanceof Error ? error.message : 'unknown')
+    return { scheduled: false, attempts: null, reason: 'error' }
+  }
 }
 
 export interface SipCallRequest { orgId: string; leadId: string; campaignId: string; agentId: string }
@@ -158,6 +189,10 @@ async function prepareCall(input: PreparedCallInput, callerId: string) {
         if (amd.classification !== 'VOICEMAIL' && amd.classification !== 'IVR') return false
         machineDetected = true
         ctx.outcome = amd.classification === 'VOICEMAIL' ? 'voicemail' : 'ivr'
+        // Lo que dijo la máquina antes de reconocerla no son turnos del
+        // prospecto: el clasificador y el juez no deben leerlos como persona.
+        for (let i = turns.length - 1; i >= 0; i--) if (turns[i].role === 'prospecto') { turns.splice(i, 1); ctx.turns-- }
+        for (const turn of ctx.transcript) if (turn.role === 'prospecto') turn.role = 'machine'
         ctx.metadata.amdResult = { classification: amd.classification, confidence: amd.confidence, reason: amd.reason, atMs: elapsed(), speech: openingSpeech.slice(0, 300) }
         trace.record({ type: 'amd.detected', role: 'system', provider: 'zadarma', payload: ctx.metadata.amdResult as Record<string, unknown> })
         try { await session.stopResponding('machine_detected') } finally { hangup() }
@@ -181,6 +216,12 @@ async function prepareCall(input: PreparedCallInput, callerId: string) {
           onTranscript: async (role, text, meta) => {
             if (role === 'partial') { await checkOpeningSpeech(text); return }
             if (role !== 'prospecto' && role !== 'agente') return
+            // El saludo de un buzón o una centralita no es un turno del prospecto.
+            if (role === 'prospecto' && await checkOpeningSpeech(text)) {
+              ctx.transcript.push({ role: 'machine', text })
+              trace.record({ type: 'transcript.final', role: 'user', payload: { text, role: 'machine', ...meta } })
+              return
+            }
             ctx.turns++
             ctx.transcript.push({ role, text })
             turns.push({ role, text, atMs: elapsed() })
@@ -188,7 +229,6 @@ async function prepareCall(input: PreparedCallInput, callerId: string) {
             // del evento sigue el vocabulario user/assistant de la traza.
             trace.record({ type: 'transcript.final', role: role === 'prospecto' ? 'user' : 'assistant', payload: { text, role, ...meta } })
             if (role !== 'prospecto') return
-            if (await checkOpeningSpeech(text)) return
             if (detectOptout(text)) {
               ctx.outcome = 'optout'
               trace.record({ type: 'compliance.opt_out', role: 'system', payload: { text } })
@@ -201,7 +241,7 @@ async function prepareCall(input: PreparedCallInput, callerId: string) {
               finally { hangup() }
             } else if (!ctx.transferRequested && detectTransferRequest(text)) {
               ctx.transferRequested = true
-              ctx.outcome = 'callback_requested'
+              ctx.outcome = 'human_requested'
               trace.record({ type: 'compliance.transfer_requested', role: 'system', payload: { text } })
               try { await session.stopResponding('human_requested') }
               catch (error) { console.warn('[ZADARMA] stopResponding tras transferencia falló:', error instanceof Error ? error.message : 'unknown') }
@@ -266,6 +306,8 @@ async function prepareCall(input: PreparedCallInput, callerId: string) {
             .catch(error => console.warn(`[ZADARMA] evaluación de la llamada ${call.id} fallida:`, error instanceof Error ? error.message : 'unknown'))
           if (isTest) await evaluation
           emitToOrg(ctx.orgId, 'call:completed', call)
+          const retry = await scheduleMachineRetry({ orgId: ctx.orgId, leadId: lead.id, outcome: classified.outcome, isTest })
+          if (retry.reason !== 'not_machine') trace.record({ type: 'call.retry_scheduled', role: 'system', provider: 'zadarma', payload: { ...retry } })
         },
       }
     },
@@ -302,6 +344,10 @@ export async function reconcilePendingCalls(options: {
   try { entries = await readdir(directory) } catch { return result }
   const pending = new Set(entries.filter(name => name.endsWith('.pending.json')).map(name => name.slice(0, -'.pending.json'.length)).filter(uuid => RECORDING_UUID.test(uuid)))
   const ready = entries.filter(name => name.endsWith('.ready')).map(name => name.slice(0, -'.ready'.length)).filter(uuid => RECORDING_UUID.test(uuid))
+  /** Organización de cada pendiente leído: la búsqueda de su `Call` no cruza inquilinos. */
+  const pendingOrg = new Map<string, string>()
+  /** Pendientes que siguen sin ingerir tras esta pasada: su WAV no se enlaza todavía. */
+  const unresolved = new Set<string>()
 
   for (const uuid of pending) {
     const file = pendingCallPath(uuid, directory)
@@ -309,8 +355,10 @@ export async function reconcilePendingCalls(options: {
     try {
       parsed = JSON.parse(await readFile(file, 'utf8')) as PendingCallFile
       if (parsed?.version !== 1 || !parsed.orgId || !parsed.data?.leadId) throw new Error('PENDING_FILE_INVALID')
+      pendingOrg.set(uuid, parsed.orgId)
     } catch (error) {
       result.failed.push({ uuid, error: error instanceof Error ? error.message : 'unknown' })
+      unresolved.add(uuid)
       continue
     }
     try {
@@ -322,17 +370,19 @@ export async function reconcilePendingCalls(options: {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
       result.failed.push({ uuid, error: message })
+      unresolved.add(uuid)
       const attempts = (parsed.attempts ?? 0) + 1
       if (attempts >= maxAttempts) console.error('[ZADARMA] la llamada pendiente %s lleva %d intentos fallidos: %s', uuid, attempts, message)
-      try { await writeFile(file, JSON.stringify({ ...parsed, attempts, lastError: message.slice(0, 500) })) } catch {}
+      try { await writePendingFile(file, { ...parsed, attempts, lastError: message.slice(0, 500) }) } catch {}
     }
   }
 
   for (const uuid of ready) {
-    if (pending.has(uuid)) continue
+    if (unresolved.has(uuid)) continue
     const externalCallId = `zadarma:${uuid}`
     try {
-      const call = await prisma.call.findFirst({ where: { externalCallId }, select: { id: true, recordingUrl: true } })
+      const orgId = pendingOrg.get(uuid)
+      const call = await prisma.call.findFirst({ where: { externalCallId, ...(orgId ? { orgId } : {}) }, select: { id: true, recordingUrl: true } })
       if (!call) { result.orphans.push(uuid); continue }
       if (!call.recordingUrl) {
         await prisma.call.update({ where: { id: call.id }, data: { recordingUrl: recordingUrl(uuid) } })

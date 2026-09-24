@@ -168,3 +168,35 @@ test('el runtime de cada agente se normaliza y conserva su pipeline', () => {
   assert.equal(unsupportedRuntimeProviders(runtime).length, 0)
   assert.match(runtimePipelineLabel(runtime), /Cartesia ink-2.*Groq llama-3.3.*MiniMax speech-2.8-hd/)
 })
+
+test('la entrega de audio espera al drenaje del transporte y un rechazo cancela sin promesas huérfanas', async () => {
+  const agentConfig = defaultAgentConfig()
+  agentConfig.identity = { agentName: 'Carlos', agentGender: 'neutral', agentAccent: 'es' }
+  const ctx = createCallContext({ callSid: 'offline', phone: '+34600000000', agentConfig, direction: 'outbound' })
+  const session = new VendravaVoiceSession(ctx, 'Asistente comercial') as any
+  const delivered: number[] = []
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  // Transporte con límite blando: el primer chunk no drena hasta que se libere.
+  session.onAudio = async (chunk: Buffer) => { delivered.push(chunk.length); if (delivered.length === 1) await gate }
+  let rejected = 0
+  session.deliverAudio(Buffer.alloc(10), () => rejected++)
+  session.deliverAudio(Buffer.alloc(20), () => rejected++)
+  session.deliverAudio(Buffer.alloc(30), () => rejected++)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(delivered, [10], 'el productor espera al drenaje del chunk anterior')
+  release()
+  await session.audioChain
+  assert.deepEqual(delivered, [10, 20, 30])
+  // Rechazo (límite duro): se cancela una vez y no se entrega más audio.
+  session.onAudio = async () => { throw new Error('OUTPUT_BACKLOG') }
+  session.deliverAudio(Buffer.alloc(5), () => rejected++)
+  session.deliverAudio(Buffer.alloc(5), () => rejected++)
+  await session.audioChain
+  assert.equal(rejected, 1)
+  assert.equal(session.audioRejected, true)
+  delivered.length = 0
+  session.onAudio = async (chunk: Buffer) => { delivered.push(chunk.length) }
+  await session.deliverAudio(Buffer.alloc(7), () => rejected++)
+  assert.deepEqual(delivered, [], 'tras el rechazo no se intenta entregar más')
+})

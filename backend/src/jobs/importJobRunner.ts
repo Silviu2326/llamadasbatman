@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { writeAuditLog } from '../lib/audit'
 import { createLead, ImportConsentDeclaration, ImportJobError, ImportJobRow, ImportJobRowsPayload, InvalidPhoneError, LeadDuplicateError } from '../services/leads.service'
-import { enqueueLeadCall } from '../services/leadIngestion.service'
+import { enqueueCampaignLeadCall } from '../services/leadCallGate'
 import { recordQueueEvent } from '../observability/metrics'
 import { classifyOperationalError, logOperational } from '../observability/operationalLog'
 
@@ -193,8 +193,9 @@ export async function importOneRow(
   }
   // Queue an automatic call only for the worker that created this exact lead.
   // A replay sees the same deterministic externalLeadId and never enqueues a
-  // second call.
-  if (autoCall) await enqueueLeadCall(job.orgId, lead.id).catch(() => {})
+  // second call. Same gate and dedupeKey as the voice-consent path in
+  // orchestrateNewLead: consent + autoCall on one row is still one job.
+  if (autoCall) await enqueueCampaignLeadCall(job.orgId, lead.id).catch(() => {})
   return 'created'
 }
 

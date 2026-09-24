@@ -80,7 +80,7 @@ export async function enqueueDatabaseJob(input: {
     if (input.onFinished !== 'requeue') return true
     // Solo se reactiva un trabajo terminado: uno pendiente o en curso ya
     // representa esta misma intención y no debe duplicarse.
-    await prisma.workerQueueJob.updateMany({
+    const reactivated = await prisma.workerQueueJob.updateMany({
       where: { queue: input.queue, dedupeKey, status: { in: ['completed', 'failed'] } },
       data: {
         kind: input.kind, payload: input.payload, status: 'pending', attempts: 0, availableAt,
@@ -88,16 +88,21 @@ export async function enqueueDatabaseJob(input: {
         lockedAt: null, leaseExpiresAt: null, workerId: null, lastError: null, processedAt: null,
       },
     })
-    return true
+    // Cero filas: el trabajo sigue pendiente o en curso; no se ha encolado nada nuevo.
+    return reactivated.count > 0
   }
 }
 
-async function claimDatabaseJob(queue: string, workerId: string, orgId?: string) {
+async function claimDatabaseJob(queue: string, workerId: string, orgId?: string, excludeOrgId?: string) {
   const now = new Date()
+  // `excludeOrgId`: un consumidor genérico deja en paz los trabajos de la
+  // organización que atiende un worker dedicado (p. ej. el call-worker del VPS).
+  const scope = orgId ? { payload: { path: ['orgId'], equals: orgId } }
+    : excludeOrgId ? { NOT: { payload: { path: ['orgId'], equals: excludeOrgId } } } : {}
   const candidates = await prisma.workerQueueJob.findMany({
     where: {
       queue,
-      ...(orgId ? { payload: { path: ['orgId'], equals: orgId } } : {}),
+      ...scope,
       OR: [
         { status: 'pending', availableAt: { lte: now } },
         { status: 'processing', leaseExpiresAt: { lte: now } },
@@ -111,7 +116,7 @@ async function claimDatabaseJob(queue: string, workerId: string, orgId?: string)
     const claimed = await prisma.workerQueueJob.updateMany({
       where: {
         id: candidate.id,
-        ...(orgId ? { payload: { path: ['orgId'], equals: orgId } } : {}),
+        ...scope,
         OR: [
           { status: 'pending', availableAt: { lte: now } },
           { status: 'processing', leaseExpiresAt: { lte: now } },
@@ -190,6 +195,8 @@ export function startDatabaseQueueWorker(input: {
   pollMs?: number
   workerId?: string
   orgId?: string
+  /** Sin `orgId`: no reclamar trabajos de esta organización (los atiende otro worker). */
+  excludeOrgId?: string
   concurrency?: number
 }): () => void {
   const workerId = input.workerId ?? `postgres-${input.queue}-${process.pid}`
@@ -213,7 +220,7 @@ export function startDatabaseQueueWorker(input: {
     claiming = true
     try {
       while (!stopped && inFlight < concurrency) {
-        const job = await claimDatabaseJob(input.queue, workerId, input.orgId)
+        const job = await claimDatabaseJob(input.queue, workerId, input.orgId, input.excludeOrgId)
         if (!job) return
         inFlight++
         void run(job).catch(error => console.error(`[PostgresQueue:${input.queue}] job ${job.id} no pudo cerrarse:`, error instanceof Error ? error.message : error))

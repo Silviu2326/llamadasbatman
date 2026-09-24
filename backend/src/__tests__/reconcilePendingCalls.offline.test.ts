@@ -19,7 +19,9 @@ async function stubCall(t: test.TestContext, rows: Record<string, { id: string; 
   const delegate = (prisma as any).call
   const originals = { findFirst: delegate.findFirst, update: delegate.update }
   const updates: any[] = []
-  delegate.findFirst = async (q: any) => rows[q.where.externalCallId] ?? null
+  const queries: any[] = []
+  ;(updates as any).queries = queries
+  delegate.findFirst = async (q: any) => { queries.push(q.where); return rows[q.where.externalCallId] ?? null }
   delegate.update = async (q: any) => { updates.push(q); return { id: q.where.id, ...q.data } }
   t.after(() => { delegate.findFirst = originals.findFirst; delegate.update = originals.update })
   return updates
@@ -53,6 +55,7 @@ test('writePendingCall + reconcilePendingCalls: reintenta la ingesta, enlaza WAV
   assert.deepEqual(failed.orphans, [READY_ORPHAN])
   assert.equal(updates[0].data.recordingUrl, `/api/calls/recordings/${READY_LINKED}`)
   assert.equal(JSON.parse(await readFile(pendingCallPath(PENDING, dir), 'utf8')).attempts, 2)
+  assert.ok(!(await readdir(dir)).some(name => name.endsWith('.tmp')), 'la reescritura del pendiente es atómica')
 
   // Segundo intento: la ingesta funciona, el fichero desaparece y se evalúa en segundo plano.
   const ok = await reconcilePendingCalls({
@@ -62,6 +65,8 @@ test('writePendingCall + reconcilePendingCalls: reintenta la ingesta, enlaza WAV
   })
   assert.deepEqual(ok.ingested, [PENDING])
   assert.equal(ingested[0][0], 'org-1')
+  // El pendiente reescrito tras el fallo se escribió con tmp + rename: no queda .tmp.
+  assert.ok(!(await readdir(dir)).some(name => name.endsWith('.tmp')))
   assert.equal(ingested[0][1].externalCallId, `zadarma:${PENDING}`)
   assert.equal(ingested[0][1].isTest, false)
   await new Promise(resolve => setImmediate(resolve))
@@ -75,4 +80,36 @@ test('reconcilePendingCalls no lanza si el directorio no existe', async () => {
   const { reconcilePendingCalls } = await import('../voice/telephony/zadarma/runtime')
   const result = await reconcilePendingCalls({ directory: path.join(tmpdir(), 'vendrava-no-existe-' + Date.now()) })
   assert.deepEqual(result, { ingested: [], failed: [], linked: [], orphans: [] })
+})
+
+test('un WAV cerrado cuyo pendiente acaba de ingerirse se busca con el orgId del pendiente', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'vendrava-pending-org-'))
+  const { writePendingCall, reconcilePendingCalls } = await import('../voice/telephony/zadarma/runtime')
+  const payload = { externalCallId: `zadarma:${PENDING}`, telephonyProvider: 'zadarma', leadId: 'lead-1', agentId: 'agent-1', duration: 30, outcome: 'interested', isTest: false }
+  await writePendingCall(PENDING, 'org-7', payload as any, new Error('down'), dir)
+  await writeFile(path.join(dir, `${PENDING}.ready`), '')
+  const updates = await stubCall(t, { [`zadarma:${PENDING}`]: { id: 'call-p', recordingUrl: null } })
+  const result = await reconcilePendingCalls({ directory: dir, ingest: async () => ({ id: 'call-p' } as any), evaluate: async () => null as any })
+  assert.deepEqual(result.ingested, [PENDING])
+  assert.deepEqual(result.linked, [PENDING])
+  const query = (updates as any).queries.find((where: any) => where.externalCallId === `zadarma:${PENDING}`)
+  assert.equal(query.orgId, 'org-7', 'la búsqueda de la Call no cruza organizaciones')
+})
+
+test('scheduleMachineRetry reintenta tras buzón o centralita hasta el tope y nunca en pruebas', async () => {
+  const { scheduleMachineRetry } = await import('../voice/telephony/zadarma/runtime')
+  const calls: any[] = []
+  const retry = async (orgId: string, leadId: string, attempts: number) => { calls.push([orgId, leadId, attempts]); return true }
+  const attempts = (value: number | null) => async () => value
+  assert.equal((await scheduleMachineRetry({ orgId: 'org-1', leadId: 'lead-1', outcome: 'voicemail', isTest: false }, { retry, attempts: attempts(1) })).scheduled, true)
+  assert.equal((await scheduleMachineRetry({ orgId: 'org-1', leadId: 'lead-1', outcome: 'ivr', isTest: false }, { retry, attempts: attempts(2) })).scheduled, true)
+  assert.deepEqual(calls, [['org-1', 'lead-1', 1], ['org-1', 'lead-1', 2]])
+  assert.equal((await scheduleMachineRetry({ orgId: 'org-1', leadId: 'lead-1', outcome: 'voicemail', isTest: false }, { retry, attempts: attempts(3) })).reason, 'max_attempts')
+  assert.equal((await scheduleMachineRetry({ orgId: 'org-1', leadId: 'lead-1', outcome: 'voicemail', isTest: true }, { retry, attempts: attempts(1) })).reason, 'test_call')
+  assert.equal((await scheduleMachineRetry({ orgId: 'org-1', leadId: 'lead-1', outcome: 'interested', isTest: false }, { retry, attempts: attempts(1) })).reason, 'not_machine')
+  assert.equal((await scheduleMachineRetry({ orgId: 'org-1', leadId: 'lead-1', outcome: 'voicemail', isTest: false }, { retry, attempts: attempts(null) })).reason, 'lead_not_found')
+  assert.equal(calls.length, 2)
+  // Un fallo de la cola no rompe el cierre de la llamada.
+  const failed = await scheduleMachineRetry({ orgId: 'org-1', leadId: 'lead-1', outcome: 'voicemail', isTest: false }, { retry: async () => { throw new Error('queue down') }, attempts: attempts(1) })
+  assert.equal(failed.reason, 'error')
 })

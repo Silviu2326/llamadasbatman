@@ -138,6 +138,12 @@ export async function updateAgent(orgId: string, id: string, input: AgentUpdateI
   if ('phoneNumber' in data && !data.phoneNumber) data.phoneNumber = null
   const before = await prisma.agent.findFirst({ where: { id, orgId } })
   if (!before) return { count: 0 }
+  // La ficha del agente no conoce `knowledgeIds` (lo gestiona Knowledge): si el
+  // `settings` que llega no lo trae, se conserva el que ya había.
+  if (data.settings && typeof data.settings === 'object' && !Array.isArray(data.settings) && !('knowledgeIds' in (data.settings as Record<string, unknown>))) {
+    const previous = (before.settings as Record<string, unknown> | null)?.knowledgeIds
+    if (previous !== undefined) data.settings = { ...(data.settings as Record<string, unknown>), knowledgeIds: previous }
+  }
   const changedFields = Object.keys(data).filter(key => JSON.stringify((before as any)[key]) !== JSON.stringify(data[key]))
   if (!changedFields.length) return { count: 1 }
   if (changedFields.includes('voiceId') && typeof data.voiceId === 'string' && data.voiceId) await assertVoiceAssignable(orgId, data.voiceId)

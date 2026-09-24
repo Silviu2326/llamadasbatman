@@ -54,7 +54,9 @@ const HEADER_ALIASES: Record<ImportField, string[]> = {
   phone: ['phone', 'telefono', 'tel', 'tlf', 'movil', 'mobile', 'celular', 'phone_number', 'numero', 'numero_de_telefono', 'telephone', 'whatsapp'],
   email: ['email', 'correo', 'e_mail', 'mail', 'correo_electronico', 'email_address'],
   company: ['company', 'empresa', 'compania', 'organizacion', 'organization', 'negocio', 'business', 'razon_social', 'account'],
-  consentVoice: ['consent_voice', 'consentimiento_voz', 'consentimiento', 'consent', 'voice_consent', 'consiente_llamada', 'acepta_llamadas'],
+  // Solo cabeceras que nombran expresamente la voz/llamadas: «consent» o
+  // «consentimiento» a secas pueden referirse a email, RGPD o cualquier cosa.
+  consentVoice: ['consent_voice', 'consentimiento_voz', 'voice_consent', 'consiente_llamada', 'acepta_llamadas'],
   consentSource: ['consent_source', 'fuente_consentimiento', 'origen_consentimiento', 'consent_origin'],
   consentEvidence: ['consent_evidence', 'evidencia_consentimiento', 'prueba_consentimiento', 'consent_proof'],
 }
@@ -94,7 +96,9 @@ export function mapImportHeaders(headers: string[]): { mapping: Partial<Record<I
   return { mapping, unmapped }
 }
 
-const TRUE_VALUES = new Set(['true', 'si', 'sí', 's', 'yes', 'y', '1', 'x', 'ok', 'verdadero', 'granted', 'concedido'])
+// Solo afirmaciones inequívocas: una «x» o un «ok» en una columna no es
+// una declaración de consentimiento de voz.
+const TRUE_VALUES = new Set(['true', 'si', 'sí', 'yes', '1', 'granted', 'concedido'])
 const FALSE_VALUES = new Set(['false', 'no', 'n', '0', 'falso', 'revoked', 'revocado', 'denied'])
 
 /** true/sí/1 → true; no/false/0 → false; vacío u otra cosa → undefined. */

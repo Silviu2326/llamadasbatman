@@ -73,3 +73,22 @@ test('acumula todos los motivos y muestra lastCallBlock del dispatch', () => {
   assert.equal(readLastCallBlock({ lastCallBlock: { reason: '' } }), null)
   assert.equal(readLastCallBlock(null), null)
 })
+
+test('consentimiento de voz del agente caducado y límites operativos, como en el dispatch', () => {
+  assert.deepEqual(codes(evaluateLeadCallability(lead(), campaign(), agent(), ctx({ agentVoiceConsentActive: false }))), ['agent_voice_consent_missing'])
+  assert.equal(evaluateLeadCallability(lead(), campaign(), agent(), ctx({ agentVoiceConsentActive: true })).eligible, true)
+  // Sin comprobar (undefined) no se inventa un bloqueo.
+  assert.equal(evaluateLeadCallability(lead(), campaign(), agent(), ctx()).eligible, true)
+  const limited = agent({ settings: { operationalLimits: { maxCallsPerDay: 1, timezone: 'Europe/Madrid' } } })
+  const warned = evaluateLeadCallability(lead(), campaign(), limited, ctx({ agentCallsToday: 1 }))
+  assert.equal(warned.eligible, true, 'los límites del agente no bloquean: el trabajo espera a la siguiente ventana')
+  assert.deepEqual(warned.warnings.map(w => w.code), ['agent_limits'])
+  assert.match(warned.warnings[0].message, /daily_limit/)
+  assert.deepEqual(evaluateLeadCallability(lead(), campaign(), limited, ctx({ agentCallsToday: 0 })).warnings, [])
+})
+
+test('lastCallBlock conserva el detalle (código de pasarela) cuando existe', () => {
+  assert.deepEqual(readLastCallBlock({ lastCallBlock: { reason: 'gateway_rejected', at: '2026-09-22T07:00:00Z', detail: 'ZADARMA_PHONE_MISMATCH' } }),
+    { reason: 'gateway_rejected', at: '2026-09-22T07:00:00Z', detail: 'ZADARMA_PHONE_MISMATCH' })
+  assert.deepEqual(readLastCallBlock({ lastCallBlock: { reason: 'optout', at: null, detail: '' } }), { reason: 'optout', at: null })
+})

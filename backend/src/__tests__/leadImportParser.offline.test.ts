@@ -32,6 +32,18 @@ test('parseConsentFlag entiende true/sí/1 y no/false/0; lo demás es indefinido
   assert.equal(parseConsentFlag('0'), false)
   assert.equal(parseConsentFlag(''), undefined)
   assert.equal(parseConsentFlag('quizás'), undefined)
+  // Una marca genérica no es una declaración de consentimiento de voz.
+  assert.equal(parseConsentFlag('x'), undefined)
+  assert.equal(parseConsentFlag('ok'), undefined)
+  assert.equal(parseConsentFlag('s'), undefined)
+  assert.equal(parseConsentFlag('granted'), true)
+})
+
+test('mapImportHeaders no toma «consent»/«consentimiento» a secas como consentimiento de voz', () => {
+  const { mapping, unmapped } = mapImportHeaders(['Nombre', 'consent', 'Consentimiento', 'consentimiento voz'])
+  assert.equal(mapping.consentVoice, 'consentimiento voz')
+  assert.deepEqual(unmapped, ['consent', 'Consentimiento'])
+  assert.equal(mapImportHeaders(['Nombre', 'Consentimiento']).mapping.consentVoice, undefined)
 })
 
 test('detectDelimiter reconoce ; , y tabulador', () => {
@@ -79,7 +91,7 @@ test('parseImportXlsx lee la primera hoja con las mismas cabeceras flexibles', a
   const ExcelJS = mod.default ?? mod
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('Leads')
-  sheet.addRow(['Nombre', 'Teléfono', 'Email', 'Empresa', 'Consentimiento'])
+  sheet.addRow(['Nombre', 'Teléfono', 'Email', 'Empresa', 'Consentimiento voz'])
   sheet.addRow(['Ana', 600111222, 'ana@x.es', 'Panadería', 'sí'])
   sheet.addRow([])
   sheet.addRow(['Luis', '+34 600 333 444', '', 'Bar Luis', ''])

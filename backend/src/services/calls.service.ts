@@ -45,6 +45,7 @@ function parseIsoDate(value: unknown): Date | null {
 }
 
 const CALLBACK_TASK_TITLE = 'Volver a llamar'
+const HUMAN_REQUESTED_TASK_TITLE = 'Devolver llamada (pide persona)'
 
 /**
  * Coste de voz para Vendrava en céntimos por minuto (IA + telefonía).
@@ -146,7 +147,7 @@ export async function listCalls(orgId: string, filters: CallFilters = {}) {
   const where: Prisma.CallWhereInput = { orgId }
   if (leadId) where.leadId = leadId
   if (search) where.lead = { OR: ['name', 'company', 'phone', 'email'].map(field => ({ [field]: { contains: search, mode: 'insensitive' } })) }
-  if (highIntent) where.AND = [{ outcome: { in: ['interested', 'meeting_scheduled'] } }]
+  if (highIntent) where.AND = [{ outcome: { in: ['interested', 'meeting_scheduled', 'human_requested'] } }]
   if (agentId) where.agentId = agentId
   if (campaignId) where.campaignId = campaignId
   if (status) where.status = status
@@ -629,11 +630,19 @@ export async function ingestCall(
  * Efectos del resultado de una llamada sobre el CRM. Se aplican al ingerir y
  * se reaplican cuando alguien corrige el resultado desde la ficha:
  *
- * - `interested` / `meeting_scheduled` → lead `qualified` (desde new/contacted).
+ * - `interested` / `meeting_scheduled` / `human_requested` → lead `qualified`
+ *   (desde new/contacted/unqualified).
  * - `not_interested` / `wrong_number` → lead `unqualified` (nunca desde `converted`).
  * - `meeting_scheduled` con fecha → Meeting; sin fecha, nada que inventar.
- * - `callback_requested` → tarea "Volver a llamar" con `dueAt` = callbackAt.
+ * - `human_requested` → tarea prioritaria "Devolver llamada (pide persona)" y la
+ *   llamada marcada como prioritaria (`isFavorite`).
+ * - `callback_requested` → lead `contacted` y tarea "Volver a llamar" con
+ *   `dueAt` = callbackAt.
  * - no contesta / buzón / ocupado → sin cambios.
+ *
+ * `applyLeadStatus: false` reaplica reunión y tarea sin tocar el estado del
+ * lead: corregir una llamada antigua no debe revertir lo que decidió una
+ * llamada posterior.
  */
 export async function applyCallOutcomeEffects(orgId: string, input: {
   callId: string
@@ -642,10 +651,14 @@ export async function applyCallOutcomeEffects(orgId: string, input: {
   outcome: string
   callbackAt?: Date | null
   meetingAt?: Date | null
+  applyLeadStatus?: boolean
 }): Promise<{ leadStatus: string | null; meetingCreated: boolean; taskCreated: boolean }> {
   const outcome = normalizeCallOutcome(input.outcome) ?? CALL_OUTCOME.NONE
   let leadStatus: string | null = null
-  if (outcome === CALL_OUTCOME.INTERESTED || outcome === CALL_OUTCOME.MEETING_SCHEDULED) {
+  const applyLeadStatus = input.applyLeadStatus !== false
+  if (!applyLeadStatus) {
+    // Sin cambio de estado: la llamada corregida no es la última del lead.
+  } else if (outcome === CALL_OUTCOME.INTERESTED || outcome === CALL_OUTCOME.MEETING_SCHEDULED || outcome === CALL_OUTCOME.HUMAN_REQUESTED) {
     const updated = await prisma.lead.updateMany({
       where: { id: input.leadId, orgId, status: { in: ['new', 'contacted', 'unqualified'] } },
       data: { status: 'qualified' },
@@ -657,7 +670,7 @@ export async function applyCallOutcomeEffects(orgId: string, input: {
       data: { status: 'unqualified' },
     })
     if (updated.count > 0) leadStatus = 'unqualified'
-  } else if (outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN) {
+  } else if (outcome === CALL_OUTCOME.CALLBACK_REQUESTED) {
     const updated = await prisma.lead.updateMany({
       where: { id: input.leadId, orgId, status: 'new' },
       data: { status: 'contacted' },
@@ -678,15 +691,20 @@ export async function applyCallOutcomeEffects(orgId: string, input: {
   }
 
   let taskCreated = false
-  if (outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN) {
-    const existing = await prisma.callTask.findFirst({ where: { orgId, callId: input.callId, title: CALLBACK_TASK_TITLE }, select: { id: true } })
+  if (outcome === CALL_OUTCOME.CALLBACK_REQUESTED || outcome === CALL_OUTCOME.HUMAN_REQUESTED) {
+    const title = outcome === CALL_OUTCOME.HUMAN_REQUESTED ? HUMAN_REQUESTED_TASK_TITLE : CALLBACK_TASK_TITLE
+    // Pide persona: se devuelve la llamada cuanto antes, no cuando el lead diga.
+    const dueAt = outcome === CALL_OUTCOME.HUMAN_REQUESTED ? input.callbackAt ?? new Date() : input.callbackAt ?? undefined
+    const existing = await prisma.callTask.findFirst({ where: { orgId, callId: input.callId, title }, select: { id: true } })
     if (!existing) {
-      await prisma.callTask.create({
-        data: { orgId, callId: input.callId, title: CALLBACK_TASK_TITLE, dueAt: input.callbackAt ?? undefined },
-      })
+      await prisma.callTask.create({ data: { orgId, callId: input.callId, title, dueAt } })
       taskCreated = true
     } else if (input.callbackAt) {
       await prisma.callTask.updateMany({ where: { id: existing.id, orgId }, data: { dueAt: input.callbackAt } })
+    }
+    if (outcome === CALL_OUTCOME.HUMAN_REQUESTED) {
+      // Prioridad alta: el mismo marcador que "marcar como prioritaria" en la lista.
+      await prisma.call.updateMany({ where: { id: input.callId, orgId }, data: { isFavorite: true } })
     }
   }
   return { leadStatus, meetingCreated, taskCreated }
@@ -733,12 +751,18 @@ export async function updateCallResult(orgId: string, callId: string, patch: Cal
   }
 
   const outcomeChanged = outcome !== undefined && outcome !== call.outcome
-  const effects = outcomeChanged || (patch.meetingAt !== undefined && updated.outcome === CALL_OUTCOME.MEETING_SCHEDULED) || (patch.callbackAt !== undefined && updated.outcome === CALL_OUTCOME.TRANSFERRED_TO_HUMAN)
-    ? await applyCallOutcomeEffects(orgId, {
-        callId: call.id, leadId: call.leadId, campaignId: call.campaignId,
-        outcome: updated.outcome, callbackAt: updated.callbackAt, meetingAt: updated.meetingAt,
-      })
-    : { leadStatus: null, meetingCreated: false, taskCreated: false }
+  const callbackOutcome = updated.outcome === CALL_OUTCOME.CALLBACK_REQUESTED || updated.outcome === CALL_OUTCOME.HUMAN_REQUESTED
+  let effects = { leadStatus: null as string | null, meetingCreated: false, taskCreated: false }
+  if (outcomeChanged || (patch.meetingAt !== undefined && updated.outcome === CALL_OUTCOME.MEETING_SCHEDULED) || (patch.callbackAt !== undefined && callbackOutcome)) {
+    // El estado del lead solo lo decide su llamada más reciente: corregir una
+    // antigua reaplica reunión y tarea, pero no revierte lo que pasó después.
+    const latest = await prisma.call.findFirst({ where: { orgId, leadId: call.leadId }, orderBy: [{ startedAt: 'desc' }, { createdAt: 'desc' }], select: { id: true } })
+    effects = await applyCallOutcomeEffects(orgId, {
+      callId: call.id, leadId: call.leadId, campaignId: call.campaignId,
+      outcome: updated.outcome, callbackAt: updated.callbackAt, meetingAt: updated.meetingAt,
+      applyLeadStatus: !latest || latest.id === call.id,
+    })
+  }
 
   await writeAuditLog({
     orgId, actorUserId: actor.userId, action: 'call.result.update', entityType: 'Call', entityId: call.id,
@@ -795,9 +819,14 @@ async function ensureAutoMeeting(orgId: string, leadId: string, callId: string, 
   }
 }
 
+/**
+ * Llamadas en curso: sin `endedAt`. El despacho crea filas `no_answer|busy|failed`
+ * ya cerradas (con `endedAt`) que no son "en curso" aunque su estado no sea
+ * `completed`.
+ */
 export async function listLiveCalls(orgId: string) {
   return prisma.call.findMany({
-    where: { orgId, status: { not: 'completed' } },
+    where: { orgId, endedAt: null, status: { not: 'completed' } },
     include: { lead: true, agent: true },
     orderBy: { createdAt: 'desc' },
     take: 50,

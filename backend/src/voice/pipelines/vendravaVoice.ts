@@ -233,6 +233,14 @@ export class VendravaVoiceSession implements VoiceSession {
   private lastAudio?: { bytes: number; firstAt: number }
 
   private onAudio?: VoiceSessionCallbacks['onAudio']
+  /**
+   * Cadena de entrega de audio: cada chunk espera a que el anterior haya
+   * drenado en el transporte, así el límite blando de la telefonía frena de
+   * verdad al productor y un rechazo (límite duro) no queda como promesa sin
+   * manejar.
+   */
+  private audioChain: Promise<void> = Promise.resolve()
+  private audioRejected = false
   private onInterrupt?: VoiceSessionCallbacks['onInterrupt']
   private onTranscript?: VoiceSessionCallbacks['onTranscript']
   private onEvent?: VoiceSessionCallbacks['onEvent']
@@ -751,7 +759,26 @@ export class VendravaVoiceSession implements VoiceSession {
     this.startGenerationAudio(generation)
     generation.audioBytes += chunk.length
     this.noteAudio(chunk.length)
-    void this.onAudio?.(chunk)
+    this.deliverAudio(chunk, () => this.cancelGeneration(generation, 'audio_rejected'))
+  }
+
+  /**
+   * Encola el chunk detrás del anterior y espera su drenaje. Si el transporte
+   * lo rechaza (límite duro), se cancela limpiamente lo que lo produjo y no se
+   * intenta entregar más audio en esta sesión.
+   */
+  private deliverAudio(chunk: Buffer, onRejected: () => void): Promise<void> {
+    if (!this.onAudio || this.audioRejected) return this.audioChain
+    const deliver = this.onAudio
+    this.audioChain = this.audioChain
+      .then(() => this.audioRejected ? undefined : deliver(chunk))
+      .catch(error => {
+        if (this.audioRejected) return
+        this.audioRejected = true
+        this.trace(`Audio delivery rejected: ${error instanceof Error ? error.message : 'unknown'}`, 'system')
+        try { onRejected() } catch {}
+      })
+    return this.audioChain
   }
 
   private startGenerationAudio(generation: GenerationState): void {
@@ -816,7 +843,7 @@ export class VendravaVoiceSession implements VoiceSession {
       for (const chunk of generation.bufferedAudio) {
         generation.audioBytes += chunk.length
         this.noteAudio(chunk.length)
-        void this.onAudio?.(chunk)
+        this.deliverAudio(chunk, () => this.cancelGeneration(generation, 'audio_rejected'))
       }
       generation.bufferedAudio = []
     }
@@ -1070,7 +1097,7 @@ export class VendravaVoiceSession implements VoiceSession {
       }
       state.audioBytes += chunk.length
       this.noteAudio(chunk.length)
-      void this.onAudio?.(chunk)
+      this.deliverAudio(chunk, () => { state.cancelled = true; state.speech.task.cancel() })
     }
 
     try {
