@@ -23,7 +23,17 @@ export interface AgentConfig {
 const _cache = new Map<string, { ts: number; config: AgentConfig }>()
 const CACHE_TTL = 5 * 60 * 1000
 
-export function invalidateAgentConfigCache(orgId: string): void {
+/**
+ * Vacía la caché de una organización entera o, si se pasa `agentId`, solo la
+ * de ese agente. Lo llaman las ediciones de agente, de playbook y de la
+ * selección de conocimiento: sin esto, un guion corregido tardaba cinco
+ * minutos en llegar a las llamadas.
+ */
+export function invalidateAgentConfigCache(orgId: string, agentId?: string): void {
+  if (agentId) {
+    _cache.delete(`${orgId}:${agentId}`)
+    return
+  }
   for (const key of _cache.keys()) {
     if (key.startsWith(`${orgId}:`)) _cache.delete(key)
   }
@@ -52,8 +62,27 @@ function stringSetting(settings: Record<string, unknown>, key: string): string {
   return typeof settings[key] === 'string' ? String(settings[key]).trim() : ''
 }
 
-function compactPlaybookSteps(value: unknown): string {
+/**
+ * Pasos del playbook tal y como los ve el LLM. Los pasos estructurados que
+ * edita PlaybookDetailPage ({ title, instruction, goal }) se renderizan como
+ * una lista numerada legible; cualquier otro JSON histórico se serializa.
+ */
+export function renderPlaybookSteps(value: unknown): string {
   if (value == null) return ''
+  if (Array.isArray(value) && value.length && value.every(step => step && typeof step === 'object' && !Array.isArray(step))) {
+    const lines = value.map((step, index) => {
+      const record = step as Record<string, unknown>
+      const title = typeof record.title === 'string' ? record.title.trim() : ''
+      const instruction = typeof record.instruction === 'string' ? record.instruction.trim() : ''
+      const goal = typeof record.goal === 'string' ? record.goal.trim() : ''
+      const parts = [title || `Step ${index + 1}`]
+      if (instruction) parts.push(instruction)
+      if (goal) parts.push(`(goal: ${goal})`)
+      return `${index + 1}. ${parts.join(' — ')}`
+    })
+    const text = lines.join('\n')
+    return text.length <= 4_000 ? text : `${text.slice(0, 3_999)}…`
+  }
   const serialized = typeof value === 'string' ? value : JSON.stringify(value)
   return serialized.length <= 4_000 ? serialized : `${serialized.slice(0, 3_999)}…`
 }
@@ -108,7 +137,7 @@ export async function loadAgentConfig(agentId: string, orgId: string): Promise<A
         `Name: ${customPlaybook.name}`,
         customPlaybook.description ? `Purpose: ${customPlaybook.description}` : '',
         customPlaybook.tags.length ? `Tags: ${customPlaybook.tags.join(', ')}` : '',
-        customPlaybook.steps ? `Steps: ${compactPlaybookSteps(customPlaybook.steps)}` : '',
+        customPlaybook.steps ? `Steps (follow them in order):\n${renderPlaybookSteps(customPlaybook.steps)}` : '',
       ].filter(Boolean).join('\n')
     }
 

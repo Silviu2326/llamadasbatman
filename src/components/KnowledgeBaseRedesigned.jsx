@@ -16,13 +16,25 @@ import './knowledge-base.css'
 
 const MAX_DATA_RETRIES = 3
 
-function fileToDataUrl(file) {
+function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''))
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+function formatChars(value) {
+  return `${Number(value || 0).toLocaleString('es-ES')} caracteres`
+}
+
+const UPLOAD_STATUS = {
+  ready: 'Preparado',
+  uploading: 'Subiendo…',
+  extracting: 'Extrayendo texto…',
+  done: 'Listo',
+  error: 'No se pudo importar',
 }
 
 function formatBytes(bytes) {
@@ -39,12 +51,14 @@ function UploadKnowledgeDialog({ onClose, onComplete }) {
 
   const addFiles = fileList => {
     const incoming = Array.from(fileList ?? [])
-    const accepted = incoming.filter(file => /\.(pdf|docx?|txt|md|csv|json)$/i.test(file.name) && file.size <= 10 * 1024 * 1024)
-    setError(accepted.length === incoming.length ? '' : 'Solo se admiten PDF, DOC, DOCX, TXT, MD, CSV o JSON de hasta 10 MB.')
+    const accepted = incoming.filter(file => /\.(pdf|docx|txt|md|csv|json)$/i.test(file.name) && file.size <= 10 * 1024 * 1024)
+    setError(accepted.length === incoming.length ? '' : 'Solo se admiten PDF, DOCX, TXT, MD, CSV o JSON de hasta 10 MB. El .doc antiguo hay que guardarlo como DOCX o PDF.')
     setFiles(current => [...current, ...accepted
       .filter(file => !current.some(item => item.file.name === file.name && item.file.size === file.size))
       .map(file => ({ file, status: 'ready' }))])
   }
+
+  const setFileState = (file, patch) => setFiles(current => current.map(entry => entry.file === file ? { ...entry, ...patch } : entry))
 
   const uploadFiles = async () => {
     if (!files.length || uploading) return
@@ -52,20 +66,24 @@ function UploadKnowledgeDialog({ onClose, onComplete }) {
     let completed = 0
     for (const item of files) {
       if (item.status === 'done') continue
-      setFiles(current => current.map(entry => entry.file === item.file ? { ...entry, status: 'uploading' } : entry))
+      setFileState(item.file, { status: 'uploading', message: '' })
       try {
-        const isText = /\.(txt|md|csv|json)$/i.test(item.file.name) || item.file.type.startsWith('text/')
-        const content = isText ? await item.file.text() : `Archivo importado: ${item.file.name} (${formatBytes(item.file.size)}).`
-        const fileUrl = isText ? undefined : await fileToDataUrl(item.file)
-        const response = await apiFetch('/api/knowledge', {
+        // El servidor extrae el texto (PDF/DOCX en un proceso aislado) y
+        // archiva el original como asset; aquí solo viaja el binario en base64.
+        const contentBase64 = await fileToBase64(item.file)
+        setFileState(item.file, { status: 'extracting' })
+        const response = await apiFetch('/api/knowledge/upload', {
           method: 'POST',
-          body: JSON.stringify({ name: item.file.name.replace(/\.[^.]+$/, ''), type: 'document', content, fileUrl }),
+          body: JSON.stringify({ name: item.file.name.replace(/\.[^.]+$/, ''), type: 'document', file: { name: item.file.name, contentBase64 } }),
         })
-        if (!response.ok) throw new Error('upload_failed')
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(body?.error || 'No se pudo importar el archivo.')
         completed += 1
-        setFiles(current => current.map(entry => entry.file === item.file ? { ...entry, status: 'done' } : entry))
-      } catch {
-        setFiles(current => current.map(entry => entry.file === item.file ? { ...entry, status: 'error' } : entry))
+        const extraction = body?.extraction
+        const warnings = Array.isArray(extraction?.warnings) ? extraction.warnings : []
+        setFileState(item.file, { status: 'done', message: `${formatChars(extraction?.chars ?? body?.content?.length ?? 0)} extraídos${warnings.length ? ` · ${warnings[0]}` : ''}` })
+      } catch (uploadError) {
+        setFileState(item.file, { status: 'error', message: uploadError?.message || 'No se pudo importar el archivo.' })
       }
     }
     setUploading(false)
@@ -76,11 +94,11 @@ function UploadKnowledgeDialog({ onClose, onComplete }) {
     <section className="kb-upload-panel" role="dialog" aria-modal="true" aria-labelledby="kb-upload-title">
       <div className="kb-upload-header"><div><h2 id="kb-upload-title">Subir conocimiento</h2><p>Añade documentos que tus agentes puedan consultar durante las llamadas.</p></div><button className="kb-upload-close" onClick={onClose} disabled={uploading} aria-label="Cerrar"><RiCloseLine /></button></div>
       <div className={`kb-dropzone ${dragging ? 'is-dragging' : ''}`} onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); addFiles(event.dataTransfer.files) }} onClick={() => inputRef.current?.click()}>
-        <input ref={inputRef} type="file" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.json" onChange={event => addFiles(event.target.files)} />
+        <input ref={inputRef} type="file" multiple accept=".pdf,.docx,.txt,.md,.csv,.json" onChange={event => addFiles(event.target.files)} />
         <span className="kb-dropzone-icon"><RiUploadCloud2Line /></span><strong>Arrastra archivos aquí</strong><small>o haz clic para elegirlos</small><em>PDF · DOCX · TXT · MD · CSV · JSON · máximo 10 MB</em>
       </div>
       {error ? <p className="kb-upload-error"><RiErrorWarningLine /> {error}</p> : null}
-      {files.length ? <div className="kb-upload-files" aria-live="polite">{files.map(item => <div className="kb-upload-file" key={`${item.file.name}-${item.file.size}`}><span className="kb-upload-file-icon"><RiFileTextLine /></span><span className="kb-upload-file-copy"><b>{item.file.name}</b><small>{formatBytes(item.file.size)} · {item.status === 'done' ? 'Listo' : item.status === 'uploading' ? 'Procesando…' : item.status === 'error' ? 'No se pudo importar' : 'Preparado'}</small></span>{item.status === 'uploading' ? <RiLoader4Line className="kb-upload-spinner" /> : item.status === 'done' ? <RiCheckLine className="kb-upload-success" /> : item.status === 'error' ? <RiErrorWarningLine className="kb-upload-fail" /> : <button onClick={() => setFiles(current => current.filter(entry => entry.file !== item.file))} aria-label={`Quitar ${item.file.name}`}><RiCloseLine /></button>}</div>)}</div> : null}
+      {files.length ? <div className="kb-upload-files" aria-live="polite">{files.map(item => <div className="kb-upload-file" key={`${item.file.name}-${item.file.size}`}><span className="kb-upload-file-icon"><RiFileTextLine /></span><span className="kb-upload-file-copy"><b>{item.file.name}</b><small>{formatBytes(item.file.size)} · {UPLOAD_STATUS[item.status] || UPLOAD_STATUS.ready}{item.message ? ` · ${item.message}` : ''}</small></span>{item.status === 'uploading' || item.status === 'extracting' ? <RiLoader4Line className="kb-upload-spinner" /> : item.status === 'done' ? <RiCheckLine className="kb-upload-success" /> : item.status === 'error' ? <RiErrorWarningLine className="kb-upload-fail" /> : <button onClick={() => setFiles(current => current.filter(entry => entry.file !== item.file))} aria-label={`Quitar ${item.file.name}`}><RiCloseLine /></button>}</div>)}</div> : null}
       <div className="kb-upload-footer"><span>{files.length ? `${files.length} archivo${files.length === 1 ? '' : 's'}` : 'Selecciona uno o varios archivos'}</span><div><button className="kb-upload-cancel" onClick={onClose} disabled={uploading}>Cancelar</button><button className="kb-upload-submit" onClick={uploadFiles} disabled={!files.length || uploading}>{uploading ? <><RiLoader4Line className="kb-upload-spinner" /> Procesando</> : <><RiUploadCloud2Line /> Subir archivos</>}</button></div></div>
     </section>
   </div>
@@ -99,7 +117,7 @@ function KnowledgeArticle({ article, onOpen, onDelete }) {
 
   return <article className="knowledge-article-row" onClick={onOpen}>
     <span className="knowledge-article-icon"><RiFileTextLine /></span>
-    <div className="knowledge-article-copy"><strong>{article.name}</strong><p>{article.content?.slice(0, 170) || 'Contenido disponible para tus agentes.'}</p><small>{article.type || 'Documento'} · {new Date(article.createdAt).toLocaleDateString(localeCode(getLocale()))}</small></div>
+    <div className="knowledge-article-copy"><strong>{article.name}</strong><p>{article.content?.slice(0, 170) || 'Sin texto extraído: el agente no puede usarlo.'}</p><small>{article.type || 'Documento'} · {article.sourceType === 'url' && article.sourceUrl ? `${article.sourceUrl} · ` : ''}{typeof article.contentChars === 'number' ? `${formatChars(article.contentChars)} · ` : ''}{new Date(article.createdAt).toLocaleDateString(localeCode(getLocale()))}</small></div>
     <div className="knowledge-article-menu" ref={menuRef} onClick={event => event.stopPropagation()}><button aria-label={`Acciones para ${article.name}`} onClick={() => setMenuOpen(open => !open)}><RiMoreLine /></button>{menuOpen ? <div className="knowledge-article-popover"><button onClick={() => onDelete(article.id)}><RiDeleteBin6Line /> Eliminar</button></div> : null}</div>
   </article>
 }
