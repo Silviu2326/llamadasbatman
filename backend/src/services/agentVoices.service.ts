@@ -17,6 +17,31 @@ export function publicVoice(model: any) {
   }
 }
 
+/**
+ * Voz pública del catálogo por identificador. Devuelve `null` si no existe o
+ * no es pública/reproducible; lanza `VoiceCatalogError` si el catálogo no
+ * está conectado o no responde, para que quien valida no confunda "no existe"
+ * con "no se pudo comprobar".
+ */
+export async function getPublicCatalogVoice(voiceId: string) {
+  if (!/^[a-f0-9]{32}$/i.test(voiceId)) return null
+  const key = process.env.FISH_API_KEY?.trim()
+  if (!key) throw new VoiceCatalogError('El catálogo de voces aún no está conectado. Revisa la conexión con Fish Audio en el servidor.', 503)
+  let response: Response
+  try {
+    response = await fetch(`https://api.fish.audio/model/${voiceId}`, {
+      headers: { Authorization: `Bearer ${key}` }, redirect: 'error', signal: AbortSignal.timeout(10_000),
+    })
+  } catch {
+    throw new VoiceCatalogError('No se pudo conectar con el catálogo de voces. Vuelve a intentarlo.', 502)
+  }
+  if (response.status === 404) return null
+  if (!response.ok) throw new VoiceCatalogError('No se pudo consultar el catálogo de voces. Inténtalo de nuevo en unos momentos.', 502)
+  const model = await response.json().catch(() => null)
+  const voice = publicVoice(model)
+  return voice && voice.id === voiceId ? voice : null
+}
+
 export async function listAgentVoices(query: { language?: string; search?: string; page: number }) {
   const key = process.env.FISH_API_KEY?.trim()
   if (!key) throw new VoiceCatalogError('El catálogo de voces aún no está conectado. Revisa la conexión con Fish Audio en el servidor.', 503)

@@ -7,6 +7,8 @@ import { CALL_STRATEGY_IDS, publicCallStrategies } from '../voice/callStrategies
 import { evaluateVoiceCall } from '../voice/evaluation/callJudgeService'
 import { prisma } from '../lib/prisma'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
+import { agentOperationalLimitsSchema } from '../voice/agentLimits'
+import { AgentValidationError } from '../services/agents.service'
 
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
@@ -57,6 +59,10 @@ const agentSettingsSchema = z.object({
     structure: z.string().trim().max(2_000).optional(),
     doNotSay: z.string().trim().max(1_000).optional(),
   }).optional(),
+  // Límites operativos reales (voice/agentLimits.ts): los aplica el worker
+  // antes de marcar. Los campos antiguos sin efecto (tiempo máximo, reintentos)
+  // se descartan aquí en vez de guardarse como si hicieran algo.
+  operationalLimits: agentOperationalLimitsSchema.optional(),
 }).catchall(z.unknown())
 
 const createAgentSchema = z.object({
@@ -74,12 +80,50 @@ const createAgentSchema = z.object({
   monthlyMinuteLimit: z.number().int().min(1).max(1_000_000).nullable().optional(),
 }).strict()
 
+// El estado (`lifecycleStatus`, `isActive`) no se edita por PUT: solo cambia
+// con publish/pause/resume/archive, que aplican consentimiento y evaluación.
+// `phoneNumber` ausente se conserva; `''` o `null` lo borran a propósito.
 const updateAgentSchema = createAgentSchema.partial().extend({
-  isActive: z.boolean().optional(),
   settings: agentSettingsSchema.optional(),
-  lifecycleStatus: z.enum(['draft', 'active', 'paused', 'archived']).optional(),
-  phoneNumber: z.union([z.string().trim().regex(/^\+[1-9]\d{7,14}$/), z.literal(''), z.null()]).optional(),
+  phoneNumber: z.union([z.string().trim().regex(/^\+[1-9]\d{7,14}$/, 'El número debe usar formato internacional, por ejemplo +34910000000'), z.literal(''), z.null()]).optional(),
 }).strict()
+
+/**
+ * Códigos que devuelve la pasarela telefónica (runtime.ts/gateway.ts) o la
+ * capa de salida, traducidos para la ficha del agente. Antes todo se
+ * colapsaba en «la pasarela rechazó la llamada» sin causa.
+ */
+const GATEWAY_CODE_MESSAGES: Array<[RegExp, string]> = [
+  [/ZADARMA_PHONE_MISMATCH/, 'El número del agente no coincide con la línea configurada en la pasarela. Cambia el número de salida del agente por el de la línea.'],
+  [/ZADARMA_LANGUAGE_UNSUPPORTED/, 'La pasarela solo admite agentes en español o inglés. Cambia el idioma del agente.'],
+  [/ZADARMA_VOICE_RUNTIME_UNAVAILABLE/, 'Faltan credenciales o el proveedor de voz/IA elegido no está disponible en el servidor. Revisa el pipeline del agente.'],
+  [/MISSING_VOICE_CONSENT|TEST_CALL_BLOCKED_CONSENT_MISSING/, voiceTestCallService.TEST_CALL_BLOCK_LABELS.consent_missing],
+  [/ZADARMA_CAPACITY_REACHED|ZADARMA_GATEWAY_CALL_FAILED_409/, 'La pasarela ya tiene una llamada en curso. Espera a que termine y vuelve a intentarlo.'],
+  [/ORIGINATE_TIMEOUT/, 'La centralita no consiguió establecer la llamada a tiempo. Comprueba que la línea SIP sigue registrada y vuelve a intentarlo.'],
+  [/TEST_CALL_REQUIRES_ZADARMA_GATEWAY/, 'La prueba telefónica solo está disponible con la pasarela propia. Este entorno no la tiene activada.'],
+  [/ZADARMA_GATEWAY_CALL_FAILED_401|ZADARMA_GATEWAY_CALL_FAILED_403/, 'La pasarela rechazó la autenticación del servidor. Revisa el token de la pasarela.'],
+  [/ZADARMA_GATEWAY_CALL_FAILED_5\d\d|ZADARMA_GATEWAY_INVALID_RESPONSE/, 'La pasarela telefónica no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.'],
+  [/ZADARMA_CALL_BLOCKED_OR_FAILED/, 'La pasarela bloqueó la llamada sin detallar el motivo. Revisa número de salida, idioma y consentimiento.'],
+]
+
+export function describeGatewayFailure(raw: string | undefined, code?: string | null) {
+  const source = [code, raw].filter(Boolean).join(' ')
+  const testBlock = source.match(/TEST_CALL_BLOCKED_([A-Z_]+)/)
+  if (testBlock) {
+    const reason = testBlock[1].toLowerCase() as voiceTestCallService.TestCallBlock
+    if (voiceTestCallService.TEST_CALL_BLOCK_LABELS[reason]) return { code: `TEST_CALL_BLOCKED_${testBlock[1]}`, message: voiceTestCallService.TEST_CALL_BLOCK_LABELS[reason] }
+  }
+  for (const [pattern, message] of GATEWAY_CODE_MESSAGES) {
+    const match = source.match(pattern)
+    if (match) return { code: match[0], message }
+  }
+  return { code: code ?? null, message: 'La pasarela telefónica rechazó la llamada de prueba.' }
+}
+
+function sendValidationError(reply: FastifyReply, error: unknown) {
+  if (error instanceof AgentValidationError) return reply.status(error.statusCode).send({ error: error.message, code: error.code })
+  throw error
+}
 
 export async function strategies(_request: FastifyRequest, reply: FastifyReply) {
   return reply.send(publicCallStrategies())
@@ -148,8 +192,14 @@ export async function create(
   const { orgId, userId } = request.user as JWTUser
   const data = parseRequest(reply, createAgentSchema, request.body)
   if (!data) return
-  const agent = await agentsService.createAgent(orgId, data, userId)
-  return reply.status(201).send(agent)
+  try {
+    const agent = await agentsService.createAgent(orgId, data, userId)
+    return reply.status(201).send(agent)
+  } catch (error) { return sendValidationError(reply, error) }
+}
+
+export async function outboundNumbers(_request: FastifyRequest, reply: FastifyReply) {
+  return reply.send(agentsService.listOutboundNumbers())
 }
 
 export async function get(
@@ -174,7 +224,6 @@ export async function update(
       voiceId?: string
       systemPrompt?: string
       language?: string
-      isActive?: boolean
       settings?: Record<string, unknown>
     }
   }>,
@@ -183,8 +232,29 @@ export async function update(
   const { orgId, userId } = request.user as JWTUser
   const data = parseRequest(reply, updateAgentSchema, request.body)
   if (!data) return
-  await agentsService.updateAgent(orgId, request.params.id, { ...data, phoneNumber: data.phoneNumber || null }, userId)
-  return reply.send({ ok: true })
+  try {
+    // `phoneNumber` solo se toca si viene en el cuerpo: un PUT parcial no
+    // borra el número de salida (antes lo hacía y las campañas dejaban de marcar).
+    const result = await agentsService.updateAgent(orgId, request.params.id, data, userId)
+    if (!result.count) return reply.status(404).send({ error: 'Not found' })
+    return reply.send({ ok: true })
+  } catch (error) { return sendValidationError(reply, error) }
+}
+
+export async function pause(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  const { orgId, userId } = request.user as JWTUser
+  const result = await agentsService.pauseAgent(orgId, request.params.id, userId)
+  if (result.status === 'not_found') return reply.status(404).send({ error: 'Not found' })
+  if (result.status === 'invalid_state') return reply.status(409).send({ error: 'Solo se puede pausar un agente publicado.', lifecycleStatus: result.lifecycleStatus })
+  return reply.send(result)
+}
+
+export async function resume(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  const { orgId, userId } = request.user as JWTUser
+  const result = await agentsService.resumeAgent(orgId, request.params.id, userId)
+  if (result.status === 'not_found') return reply.status(404).send({ error: 'Not found' })
+  if (result.status === 'invalid_state') return reply.status(409).send({ error: 'Solo se puede reanudar un agente pausado.', lifecycleStatus: result.lifecycleStatus })
+  return reply.send(result)
 }
 
 export async function workspace(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
@@ -197,6 +267,7 @@ export async function publish(request: FastifyRequest<{ Params: { id: string } }
   const { orgId, userId } = request.user as JWTUser
   const result = await agentsService.publishAgent(orgId, request.params.id, userId)
   if (result.status === 'not_found') return reply.status(404).send({ error: 'Not found' })
+  if (result.status === 'invalid_state') return reply.status(409).send({ error: 'Un agente archivado no se puede publicar.', lifecycleStatus: result.lifecycleStatus })
   if (result.status === 'blocked') return reply.status(422).send({ error: 'El agente aún no se puede publicar.', blockers: result.blockers })
   return reply.send(result)
 }
@@ -218,7 +289,9 @@ export async function evaluate(request: FastifyRequest<{ Params: { id: string; c
 
 export async function restore(request: FastifyRequest<{ Params: { id: string; versionId: string } }>, reply: FastifyReply) {
   const { orgId, userId } = request.user as JWTUser
-  return await agentsService.restoreAgentVersion(orgId, request.params.id, request.params.versionId, userId) ? reply.send({ ok: true }) : reply.status(404).send({ error: 'Versión no encontrada' })
+  try {
+    return await agentsService.restoreAgentVersion(orgId, request.params.id, request.params.versionId, userId) ? reply.send({ ok: true }) : reply.status(404).send({ error: 'Versión no encontrada' })
+  } catch (error) { return sendValidationError(reply, error) }
 }
 
 export async function revokeConsent(request: FastifyRequest<{ Params: { id: string; consentId: string } }>, reply: FastifyReply) {
@@ -236,8 +309,10 @@ export async function createConsent(request: FastifyRequest<{ Params: { id: stri
     confirmed: z.literal(true),
   }).strict(), request.body)
   if (!body) return
-  const consent = await agentsService.createAgentConsent(orgId, request.params.id, userId, { ...body, expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined })
-  return consent ? reply.status(201).send(consent) : reply.status(422).send({ error: 'Selecciona y guarda una voz antes de registrar su autorización.' })
+  try {
+    const consent = await agentsService.createAgentConsent(orgId, request.params.id, userId, { ...body, expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined })
+    return consent ? reply.status(201).send(consent) : reply.status(422).send({ error: 'Selecciona y guarda una voz antes de registrar su autorización.' })
+  } catch (error) { return sendValidationError(reply, error) }
 }
 
 export async function testNumbers(request: FastifyRequest, reply: FastifyReply) {
@@ -280,8 +355,13 @@ export async function testCall(request: FastifyRequest<{ Params: { id: string };
   const body = parseRequest(reply, z.object({ testNumberId: z.string().trim().min(1).max(100) }).strict(), request.body)
   if (!body) return
   const result = await voiceTestCallService.startVoiceTestCall(orgId, request.params.id, body.testNumberId, userId)
-  if (result.status === 'blocked') return reply.status(422).send({ error: result.message, reason: result.reason })
-  if (result.status === 'failed') return reply.status(502).send({ error: 'La pasarela telefónica rechazó la llamada de prueba.', reason: result.message })
+  if (result.status === 'blocked') return reply.status(422).send({ error: result.message, reason: result.reason, code: `TEST_CALL_BLOCKED_${result.reason.toUpperCase()}` })
+  if (result.status === 'failed') {
+    // La pasarela puede devolver el motivo en `code`; mientras no lo haga, el
+    // código viaja dentro del mensaje de error (ZADARMA_..., ORIGINATE_TIMEOUT).
+    const described = describeGatewayFailure(result.message, (result as { code?: string | null }).code)
+    return reply.status(502).send({ error: described.message, reason: result.message, code: described.code })
+  }
   return reply.send(result)
 }
 
@@ -308,8 +388,9 @@ export async function deactivate(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply
 ) {
-  const { orgId } = request.user as JWTUser
-  await agentsService.deactivateAgent(orgId, request.params.id)
+  const { orgId, userId } = request.user as JWTUser
+  const result = await agentsService.deactivateAgent(orgId, request.params.id, userId)
+  if (!result.count) return reply.status(404).send({ error: 'Not found' })
   return reply.send({ ok: true })
 }
 

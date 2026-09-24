@@ -24,6 +24,8 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.post('/', canCreate, ctrl.create as any)
   app.get('/strategies', canRead, ctrl.strategies)
   app.get('/voices', canRead, voices)
+  // Números desde los que la pasarela puede marcar de verdad (readiness `outboundNumber`).
+  app.get('/outbound-numbers', canRead, ctrl.outboundNumbers)
   app.get('/:id/schedule-options', { preHandler: [...canRead.preHandler, requirePermission('leads.read', { scope: 'org' })] }, ctrl.scheduleOptions as any)
   app.post('/:id/schedule-call', { preHandler: [...canMutate.preHandler, requirePermission('calls.write', { scope: 'org' }), requirePermission('costs.request', { scope: 'org' }), requirePermission('leads.read', { scope: 'org' })] }, ctrl.scheduleCall as any)
   app.get('/:id/voices', canRead, voiceUpload.mine)
@@ -31,7 +33,10 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.post('/:id/voices', { ...canMutate, bodyLimit: 15 * 1024 * 1024 }, voiceUpload.upload)
   app.get('/:id', canRead, ctrl.get as any)
   app.get('/:id/workspace', canRead, ctrl.workspace as any)
+  // El estado solo cambia por estas rutas: PUT /:id ya no acepta lifecycleStatus ni isActive.
   app.post('/:id/publish', canMutate, ctrl.publish as any)
+  app.post('/:id/pause', canMutate, ctrl.pause as any)
+  app.post('/:id/resume', canMutate, ctrl.resume as any)
   app.put('/:id/campaigns', canMutate, ctrl.campaigns as any)
   app.post('/:id/evaluations/:callId', canMutate, ctrl.evaluate as any)
   // Prueba telefónica de un agente en borrador: el destino solo puede ser un

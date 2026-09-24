@@ -1,8 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  RiArrowLeftLine, RiPlayLine, RiEditLine, RiBookOpenLine, RiPhoneLine,
-  RiCalendarLine, RiBarChartLine, RiSettings3Line, RiExternalLinkLine,
+  RiArrowLeftLine, RiPlayLine, RiBookOpenLine, RiPhoneLine,
+  RiCalendarLine, RiBarChartLine, RiSettings3Line,
   RiBrainLine, RiMicLine, RiVolumeUpLine, RiShieldCheckLine, RiSave3Line,
   RiFlowChart, RiLockLine, RiTimeLine, RiArrowRightLine,
   RiCheckLine, RiMessage2Line, RiPulseLine, RiCpuLine, RiSparkling2Line, RiLoader4Line, RiMagicLine,
@@ -13,24 +13,28 @@ import { useI18n } from '../i18n'
 import AgentStrategyPanel from '../components/agents/AgentStrategyPanel'
 import AgentDetailNav from '../components/agents/AgentDetailNav'
 import AgentReadinessChecklist from '../components/agents/AgentReadinessChecklist'
-import AgentSimulatorPanel from '../components/agents/AgentSimulatorPanel'
-import AgentPromptDebugger from '../components/agents/AgentPromptDebugger'
 import AgentSafetyPanel from '../components/agents/AgentSafetyPanel'
+import { LIFECYCLE, lifecycleOf, apiErrorMessage, readBody } from '../components/agents/agentLifecycle'
+import { WEEKDAYS, TIME_ZONES, limitsFromSettings, limitsToSettings } from '../components/agents/operationalLimits'
 import AgentGovernancePanel from '../components/agents/AgentGovernancePanel'
 import AgentSimpleSetup from '../components/agents/AgentSimpleSetup'
+import AgentKnowledgePanel from '../components/agents/AgentKnowledgePanel'
 import PageLoadingState from '../components/ui/PageLoadingState'
 import '../dashboard.css'
 import '../components/agents.css'
 import './agent-detail.css'
 import './sales-detail-standard.css'
 
+// Colores por `lifecycleStatus` (Agent.lifecycleStatus): el estado real del
+// agente, el que cambian publish/pause/resume/archive.
 const STATUS = {
-  Activo:    { color: 'var(--success)', bg: '#10b98112', border: '#10b98130' },
-  Inactivo:  { color: 'var(--dim)', bg: '#6b728012', border: '#6b728030' },
-  Pausado:   { color: 'var(--warn)', bg: '#f59e0b12', border: '#f59e0b30' },
-  Borrador:  { color: 'var(--muted)', bg: '#94a3b812', border: '#94a3b830' },
-  Archivado: { color: 'var(--dim)', bg: '#6b728012', border: '#6b728030' },
+  active:   { color: 'var(--success)', bg: '#10b98112', border: '#10b98130' },
+  paused:   { color: 'var(--warn)', bg: '#f59e0b12', border: '#f59e0b30' },
+  draft:    { color: 'var(--muted)', bg: '#94a3b812', border: '#94a3b830' },
+  archived: { color: 'var(--dim)', bg: '#6b728012', border: '#6b728030' },
 }
+
+const AGENT_TYPE_LABELS = { sales: 'Ventas', receptionist: 'Recepción', qualification: 'Cualificación', appointment: 'Citas', support: 'Soporte', collections: 'Cobros', handoff: 'Transferencias' }
 
 const TABS = ['Conversaciones', 'Rendimiento', 'Configuración', 'Playbooks']
 
@@ -288,7 +292,7 @@ function AgentRuntimePanel({ draft, agentId, onChange, onNavigate, playbooks = [
         </div>
         <div className="agent-voice-actions">
           <button type="button" className="agent-voice-preview-button" onClick={previewVoice} disabled={previewBusy}><RiVolumeUpLine /> {previewBusy ? <><RiLoader4Line className="is-spinning" /> Generando muestra…</> : 'Escuchar muestra'}</button>
-          <button type="button" className="agent-voice-test-button" onClick={() => onNavigate(`/voz/cabina?agentId=${encodeURIComponent(agentId)}`)}><RiPlayLine /> Probar con este agente</button>
+          <button type="button" className="agent-voice-test-button" onClick={() => onNavigate(`/voz/cabina?agentId=${encodeURIComponent(agentId)}`)} title="La cabina del navegador no crea ninguna llamada en el CRM y no cuenta como prueba para publicar."><RiPlayLine /> Cabina del navegador (demo)</button>
           {previewUrl && <audio className="agent-preview-audio" controls src={previewUrl}>Tu navegador no puede reproducir esta muestra.</audio>}
         </div>
         {previewError && <p className="agent-preview-error" role="alert">{previewError}</p>}
@@ -308,40 +312,34 @@ function AgentRuntimePanel({ draft, agentId, onChange, onNavigate, playbooks = [
 // Etiquetas y colores salen de src/lib/callOutcome.js — antes este mapa
 // etiquetaba `rejected` y `callback`, que el backend no escribe nunca.
 
-// Ítems del tab "Configuración". Los que corresponden a columnas propias de
-// Agent (voiceId, personality) se guardan ahí; el resto (límites operativos,
-// horario) no tiene columna propia y se guarda en Agent.settings (JSON).
-const CFG_SECTIONS = [
-  { section: 'Voz y personalidad', items: [
-    { label: 'Voz del agente' },
-    { label: 'Velocidad de habla' },
-    { label: 'Tono de voz' },
-  ] },
-  { section: 'Límites operativos', items: [
-    { label: 'Máx. llamadas/día' },
-    { label: 'Tiempo máx. por llamada' },
-    { label: 'Reintentos automáticos' },
-  ] },
-  { section: 'Horario activo', items: [
-    { label: 'Días activos' },
-    { label: 'Horario de llamadas' },
-    { label: 'Zona horaria' },
-  ] },
-]
+// Tab "Configuración": límites operativos reales (Agent.settings.operationalLimits,
+// aplicados por el worker antes de marcar). Los campos sin efecto que había
+// aquí (tono de voz, tiempo máximo por llamada, reintentos) se retiraron.
+function OperationalLimitsForm({ value, onChange, accent }) {
+  const toggleDay = code => onChange({ ...value, activeDays: value.activeDays.includes(code) ? value.activeDays.filter(day => day !== code) : [...value.activeDays, code] })
+  const fieldStyle = { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 12.5, fontFamily: 'inherit', minWidth: 0 }
+  const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 0', borderBottom: '1px solid var(--line)' }
+  return <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: 'clamp(14px,3vw,18px)' }}>
+    <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: 'var(--text-strong)' }}>Límites operativos</p>
+    <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--dim)' }}>Se aplican en cada llamada de campaña. Un contacto fuera de ventana se reprograma, no se descarta.</p>
+    <div style={rowStyle}><label htmlFor="agent-limit-max" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Máx. llamadas/día</label><input id="agent-limit-max" type="number" min="1" max="10000" value={value.maxCallsPerDay} onChange={event => onChange({ ...value, maxCallsPerDay: event.target.value })} placeholder="Sin límite" style={{ ...fieldStyle, width: 120, textAlign: 'right' }} /></div>
+    <div style={rowStyle}><span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Días activos</span><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{WEEKDAYS.map(([code, label]) => { const on = value.activeDays.includes(code); return <button type="button" key={code} aria-pressed={on} onClick={() => toggleDay(code)} style={{ ...fieldStyle, cursor: 'pointer', padding: '5px 9px', fontWeight: 600, color: on ? accent : 'var(--dim)', borderColor: on ? accent : 'var(--line)' }}>{label}</button> })}</div></div>
+    <div style={rowStyle}><label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--dim)', cursor: 'pointer' }}><input type="checkbox" checked={value.scheduleEnabled} onChange={event => onChange({ ...value, scheduleEnabled: event.target.checked })} /> Horario de llamadas</label><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="time" value={value.start} disabled={!value.scheduleEnabled} onChange={event => onChange({ ...value, start: event.target.value })} style={fieldStyle} /><span style={{ color: 'var(--dim)' }}>–</span><input type="time" value={value.end} disabled={!value.scheduleEnabled} onChange={event => onChange({ ...value, end: event.target.value })} style={fieldStyle} /></div></div>
+    <div style={{ ...rowStyle, borderBottom: 'none' }}><label htmlFor="agent-limit-tz" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Zona horaria</label><select id="agent-limit-tz" value={value.timezone} onChange={event => onChange({ ...value, timezone: event.target.value })} style={fieldStyle}><option value="">Europe/Madrid (por defecto)</option>{TIME_ZONES.map(zone => <option key={zone} value={zone}>{zone}</option>)}</select></div>
+    {value.scheduleEnabled && value.start >= value.end ? <p role="alert" style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--danger-soft)' }}>La hora de inicio debe ser anterior a la de fin.</p> : null}
+  </div>
+}
 
 function toAgent(d, stats) {
   return {
-    id: d.id, name: d.name, role: d.role, subrole: d.role,
-    desc: d.systemPrompt || d.personality || '',
+    id: d.id, name: d.name, role: d.role, agentType: d.agentType || 'sales',
+    desc: d.description || d.systemPrompt || '',
     systemPrompt: d.systemPrompt || '',
     color: 'var(--accent)', bg: '#6366f120', verified: false,
-    status: d.isActive ? 'Activo' : 'Pausado',
-    personality: d.personality || '', tag: d.personality || 'Profesional amigable',
-    tags: d.personality ? d.personality.split(',').map(s => s.trim()) : [],
+    lifecycleStatus: lifecycleOf(d),
     objetivo: d.systemPrompt || '',
     agentType: d.agentType || 'sales', callDirection: d.callDirection || 'both', language: d.language || 'en',
     voiceId: d.voiceId || '', settings: d.settings || {},
-    docs: [], extraDocs: 0,
     calls: stats?.calls ?? 0, conv: stats ? Math.round((stats.meetingsScheduled / (stats.calls || 1)) * 100) : 0,
     stats: [
       { label: 'Llamadas totales', value: stats?.calls ?? 0, pct: '—', hint: stats?.calls ? 'Registradas en el agente' : 'Aún no hay llamadas', Icon: RiPhoneLine },
@@ -358,13 +356,15 @@ export default function AgentDetailPage() {
   const navigate = useNavigate()
   const [agent, setAgent] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [searchParams] = useSearchParams()
   const [tab, setTab] = useState('Conversaciones')
-  const [isActive, setIsActive] = useState(false)
+  const [lifecycle, setLifecycle] = useState('draft')
+  const [workspace, setWorkspace] = useState(null)
   const [savedConfig, setSavedConfig] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [toggleError, setToggleError] = useState('')
-  const [editKey, setEditKey] = useState(null)
-  const [cfgVals, setCfgVals] = useState({})
+  const [toggleBusy, setToggleBusy] = useState(false)
+  const [limits, setLimits] = useState(limitsFromSettings({}))
   const [agentSettings, setAgentSettings] = useState({})
   const [draft, setDraft] = useState({ settings: { behavior: DEFAULT_BEHAVIOR } })
   const [savedDraftSnapshot, setSavedDraftSnapshot] = useState('')
@@ -389,99 +389,105 @@ export default function AgentDetailPage() {
       apiFetch('/api/playbooks').then(r => r.ok ? r.json() : []).catch(() => null),
       apiFetch(`/api/calls?agentId=${id}&limit=20`).then(r => r.ok ? r.json() : null).catch(() => null),
       apiFetch(`/api/agents/${id}/timeseries?days=30`).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([data, stats, pbList, callsData, series]) => {
+      apiFetch(`/api/agents/${id}/workspace`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([data, stats, pbList, callsData, series, ws]) => {
       setRecentCalls(Array.isArray(callsData?.data) ? callsData.data : [])
       setTimeseries(series)
+      if (ws) setWorkspace(ws)
       if (data) {
         const a = toAgent(data, stats)
         setAgent(a)
-        setIsActive(data.isActive)
+        setLifecycle(lifecycleOf(data))
         const settings = data.settings || {}
         setAgentSettings(settings)
         const nextDraft = {
           name: data.name || '', role: data.role || '', agentType: data.agentType || 'sales', callDirection: data.callDirection || 'both',
-          description: data.description || '', phoneNumber: data.phoneNumber || '', monthlyMinuteLimit: data.monthlyMinuteLimit || null, lifecycleStatus: data.lifecycleStatus || 'draft',
-          language: data.language || 'es', voiceId: data.voiceId || '', personality: data.personality || '', systemPrompt: data.systemPrompt || '',
+          description: data.description || '', phoneNumber: data.phoneNumber || '', monthlyMinuteLimit: data.monthlyMinuteLimit || null,
+          language: data.language || 'es', voiceId: data.voiceId || '', systemPrompt: data.systemPrompt || '',
           settings: updateNestedSettings(settings, {}),
         }
         setDraft(nextDraft)
         setSavedDraftSnapshot(JSON.stringify(nextDraft))
-        setCfgVals({
-          'Voz del agente': data.voiceId || '',
-          'Velocidad de habla': settings.speechSpeed || '',
-          'Tono de voz': data.personality || '',
-          'Máx. llamadas/día': settings.operationalLimits?.maxCallsPerDay || '',
-          'Tiempo máx. por llamada': settings.operationalLimits?.maxCallDuration || '',
-          'Reintentos automáticos': settings.operationalLimits?.autoRetries || '',
-          'Días activos': settings.schedule?.activeDays || '',
-          'Horario de llamadas': settings.schedule?.callHours || '',
-          'Zona horaria': settings.schedule?.timezone || '',
-        })
+        setLimits(limitsFromSettings(settings))
       }
       setPlaybooks(Array.isArray(pbList) ? pbList : [])
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
 
-  const toggleActive = async () => {
-    const next = !isActive
-    setToggleError('')
+  // `?section=quality` (desde la lista de agentes) abre directamente la prueba real.
+  useEffect(() => {
+    const section = searchParams.get('section')
+    if (!loading && agent && section) {
+      changeViewMode('professional')
+      setGovernanceRequest(current => ({ section, nonce: current.nonce + 1 }))
+      setTimeout(() => document.getElementById('agent-governance')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+    }
+  }, [loading, agent?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refreshWorkspace = async () => {
+    const response = await apiFetch(`/api/agents/${id}/workspace`)
+    if (!response.ok) return null
+    const next = await response.json()
+    setWorkspace(next)
+    setLifecycle(lifecycleOf(next.agent))
+    return next
+  }
+
+  // El estado solo cambia por publish/pause/resume (nunca por PUT). Publicar
+  // exige readiness completo; reanudar vuelve a borrador si algo caducó.
+  const changeLifecycle = async () => {
+    const action = lifecycle === 'active' ? 'pause' : lifecycle === 'paused' ? 'resume' : lifecycle === 'draft' ? 'publish' : null
+    if (!action || toggleBusy) return
+    setToggleError(''); setToggleBusy(true)
     try {
-      const response = await apiFetch(next ? `/api/agents/${id}/publish` : `/api/agents/${id}`, next ? { method: 'POST' } : { method: 'PUT', body: JSON.stringify({ isActive: false, lifecycleStatus: 'paused' }) })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.blockers?.map(item => item.label).join(', ') || body.error)
-      setIsActive(next)
-    } catch (error) { setToggleError(error.message || 'No se pudo cambiar el estado del agente.') }
+      const response = await apiFetch(`/api/agents/${id}/${action}`, { method: 'POST' })
+      const body = await readBody(response)
+      if (!response.ok) throw new Error(apiErrorMessage(body, 'No se pudo cambiar el estado del agente.'))
+      if (body.lifecycleStatus) setLifecycle(body.lifecycleStatus)
+      if (action === 'resume' && body.lifecycleStatus === 'draft') setToggleError(`Reanudado como borrador: ${apiErrorMessage({ blockers: body.blockers }, 'vuelve a publicar cuando esté listo.')}`)
+      await refreshWorkspace()
+    } catch (error) { setToggleError(error.message || 'No se pudo cambiar el estado del agente.') } finally { setToggleBusy(false) }
   }
 
   const saveConfig = async () => {
     setSaving(true)
-    const settings = {
-      ...draft.settings,
-      speechSpeed: draft.settings.speechSpeed || cfgVals['Velocidad de habla'],
-      operationalLimits: {
-        maxCallsPerDay: cfgVals['Máx. llamadas/día'],
-        maxCallDuration: cfgVals['Tiempo máx. por llamada'],
-        autoRetries: cfgVals['Reintentos automáticos'],
-      },
-      schedule: {
-        activeDays: cfgVals['Días activos'],
-        callHours: cfgVals['Horario de llamadas'],
-        timezone: cfgVals['Zona horaria'],
-      },
-    }
+    const { schedule: _legacySchedule, speechSpeed, ...rest } = draft.settings || {}
+    const settings = { ...rest, operationalLimits: limitsToSettings(limits) }
+    // Un agente sin velocidad guardada (p. ej. clonado) no puede enviar '' : zod lo rechaza.
+    if (speechSpeed) settings.speechSpeed = speechSpeed
     const nextDraft = { ...draft, settings }
     try {
       const response = await apiFetch(`/api/agents/${id}`, {
         method: 'PUT',
         body: JSON.stringify({
-        name: draft.name,
-        role: draft.role,
-        description: draft.description,
-        agentType: draft.agentType,
-        callDirection: draft.callDirection,
-        language: draft.language,
-        systemPrompt: draft.systemPrompt,
-        personality: draft.personality ?? cfgVals['Tono de voz'],
-        voiceId: draft.voiceId ?? cfgVals['Voz del agente'],
-        phoneNumber: draft.phoneNumber || null,
-        monthlyMinuteLimit: draft.monthlyMinuteLimit || null,
+          name: draft.name,
+          role: draft.role,
+          description: draft.description,
+          agentType: draft.agentType,
+          callDirection: draft.callDirection,
+          language: draft.language,
+          systemPrompt: draft.systemPrompt,
+          voiceId: draft.voiceId || undefined,
+          phoneNumber: (draft.phoneNumber || '').trim(),
+          monthlyMinuteLimit: draft.monthlyMinuteLimit || null,
           settings,
         }),
       })
+      const body = await readBody(response)
       if (response.ok) {
         setAgentSettings(settings)
-        setDraft(current => ({ ...current, settings, personality: current.personality ?? cfgVals['Tono de voz'], voiceId: current.voiceId ?? cfgVals['Voz del agente'] }))
+        setDraft(current => ({ ...current, settings }))
         setSavedDraftSnapshot(JSON.stringify(nextDraft))
-        setAgent(current => ({ ...current, name: draft.name || current.name, role: draft.role || current.role, subrole: draft.role || current.subrole, language: draft.language, voiceId: draft.voiceId, personality: draft.personality, systemPrompt: draft.systemPrompt, desc: draft.systemPrompt || draft.personality || current.desc, objetivo: draft.systemPrompt || current.objetivo, tags: draft.personality ? draft.personality.split(',').map(value => value.trim()).filter(Boolean) : current.tags }))
+        setAgent(current => ({ ...current, name: draft.name || current.name, role: draft.role || current.role, agentType: draft.agentType || current.agentType, language: draft.language, voiceId: draft.voiceId, systemPrompt: draft.systemPrompt, desc: draft.description || draft.systemPrompt || current.desc, objetivo: draft.systemPrompt || current.objetivo }))
         setSaveError('')
         setSavedConfig(true)
         setTimeout(() => setSavedConfig(false), 2000)
+        refreshWorkspace()
         return true
-      } else {
-        setSaveError('No se pudieron guardar los cambios. Inténtalo de nuevo.')
-        return false
       }
+      setSaveError(apiErrorMessage(body, 'No se pudieron guardar los cambios. Inténtalo de nuevo.'))
+      return false
     } catch {
       setSaveError('No se pudieron guardar los cambios. Comprueba tu conexión.')
       return false
@@ -500,28 +506,27 @@ export default function AgentDetailPage() {
     const settings = data.settings || {}
     const nextDraft = {
       name: data.name || '', role: data.role || '', agentType: data.agentType || 'sales', callDirection: data.callDirection || 'both',
-      description: data.description || '', phoneNumber: data.phoneNumber || '', monthlyMinuteLimit: data.monthlyMinuteLimit || null, lifecycleStatus: data.lifecycleStatus || 'draft',
-      language: data.language || 'es', voiceId: data.voiceId || '', personality: data.personality || '', systemPrompt: data.systemPrompt || '',
+      description: data.description || '', phoneNumber: data.phoneNumber || '', monthlyMinuteLimit: data.monthlyMinuteLimit || null,
+      language: data.language || 'es', voiceId: data.voiceId || '', systemPrompt: data.systemPrompt || '',
       settings: updateNestedSettings(settings, {}),
     }
     setDraft(nextDraft)
     setSavedDraftSnapshot(JSON.stringify(nextDraft))
     setAgentSettings(settings)
-    setIsActive(Boolean(data.isActive))
+    setLimits(limitsFromSettings(settings))
+    setLifecycle(lifecycleOf(data))
     setAgent(current => current ? {
       ...current,
       name: nextDraft.name,
       role: nextDraft.role,
-      subrole: nextDraft.role,
       agentType: nextDraft.agentType,
       callDirection: nextDraft.callDirection,
       language: nextDraft.language,
       voiceId: nextDraft.voiceId,
-      personality: nextDraft.personality,
       systemPrompt: nextDraft.systemPrompt,
-      desc: nextDraft.description || nextDraft.systemPrompt || nextDraft.personality,
+      desc: nextDraft.description || nextDraft.systemPrompt,
       objetivo: nextDraft.systemPrompt,
-      tags: nextDraft.personality ? nextDraft.personality.split(',').map(value => value.trim()).filter(Boolean) : [],
+      lifecycleStatus: lifecycleOf(data),
     } : current)
   }
 
@@ -530,38 +535,14 @@ export default function AgentDetailPage() {
     document.getElementById('agent-governance')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const hasUnsavedChanges = Boolean(savedDraftSnapshot && JSON.stringify(draft) !== savedDraftSnapshot)
+  const hasUnsavedChanges = Boolean(savedDraftSnapshot && (JSON.stringify(draft) !== savedDraftSnapshot || JSON.stringify(limitsToSettings(limits)) !== JSON.stringify(limitsToSettings(limitsFromSettings(agentSettings)))))
   const handleSectionChange = sectionId => {
     if (sectionId === 'agent-playbook') setTab('Playbooks')
     if (sectionId === 'agent-performance') setTab('Rendimiento')
   }
 
-  const [cloning, setCloning] = useState(false)
-  const cloneAgent = async () => {
-    if (!agent) return
-    setCloning(true)
-    try {
-      const response = await apiFetch('/api/agents', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: `${agent.name} (copia)`,
-          role: agent.role,
-          agentType: agent.agentType,
-          callDirection: agent.callDirection,
-          language: agent.language,
-          personality: agent.personality || undefined,
-          voiceId: cfgVals['Voz del agente'] || agent.voiceId || undefined,
-          systemPrompt: agent.objetivo || undefined,
-          settings: agentSettings,
-        }),
-      })
-      if (!response.ok) throw new Error()
-      const created = await response.json()
-      navigate(`/agentes/${created.id}`)
-    } catch {
-      setCloning(false)
-    }
-  }
+  // Duplicar vive en AgentGovernancePanel (POST /agents/:id/clone), que copia
+  // solo lo que se elige y valida la voz en el servidor.
 
   const activatePlaybook = pb => {
     const settings = { ...agentSettings, activePlaybookId: pb.id, activePlaybookVersion: 1 }
@@ -577,7 +558,9 @@ export default function AgentDetailPage() {
     </div>
   )
 
-  const s = STATUS[isActive ? 'Activo' : 'Inactivo']
+  const s = STATUS[lifecycle] || STATUS.draft
+  const lifecycleAction = lifecycle === 'active' ? 'Pausar' : lifecycle === 'paused' ? 'Reanudar' : lifecycle === 'draft' ? 'Publicar' : null
+  const lifecycleActionDisabled = toggleBusy || !lifecycleAction || (lifecycle === 'draft' && workspace && !workspace.readiness?.ready)
 
   return (
     <div className={`agent-detail-page dark-scroll ${viewMode === 'simple' ? 'is-simple-view' : 'is-professional-view'}`} style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: 'var(--bg)', padding: '26px clamp(12px,4vw,32px) 40px' }}>
@@ -613,27 +596,27 @@ export default function AgentDetailPage() {
               <span style={{ width: 20, height: 20, borderRadius: '50%', background: agent.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff', fontWeight: 800, flexShrink: 0 }}>✓</span>
             )}
             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: s.bg, border: `1px solid ${s.border}`, color: s.color, display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              {isActive && <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color, display: 'inline-block', boxShadow: `0 0 4px ${s.color}` }} />}
-              {isActive ? 'Activo' : 'Inactivo'}
+              {lifecycle === 'active' && <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color, display: 'inline-block', boxShadow: `0 0 4px ${s.color}` }} />}
+              {LIFECYCLE[lifecycle]?.label || 'Borrador'}
             </span>
           </div>
-          <p style={{ margin: '0 0 6px', fontSize: 13.5, color: agent.color, fontWeight: 600 }}>{agent.role} · {agent.subrole}</p>
+          <p style={{ margin: '0 0 6px', fontSize: 13.5, color: agent.color, fontWeight: 600 }}>{agent.role} · {AGENT_TYPE_LABELS[agent.agentType] || agent.agentType}</p>
           <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6, maxWidth: 520, overflowWrap: 'break-word' }}>{agent.desc}</p>
         </div>
 
         {/* Actions */}
         <div className="agent-detail-actions" style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <div onClick={toggleActive} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 13px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, cursor: 'pointer' }}>
-            <div style={{ width: 32, height: 17, borderRadius: 99, background: isActive ? 'var(--success)' : 'var(--line-2)', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', top: 2, left: isActive ? 15 : 2, width: 13, height: 13, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+          {lifecycleAction ? <button type="button" onClick={changeLifecycle} disabled={lifecycleActionDisabled} title={lifecycle === 'draft' && workspace && !workspace.readiness?.ready ? 'Completa los requisitos de publicación primero.' : LIFECYCLE[lifecycle]?.description} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 13px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, cursor: lifecycleActionDisabled ? 'not-allowed' : 'pointer', opacity: lifecycleActionDisabled ? 0.6 : 1, fontFamily: 'inherit' }}>
+            <div style={{ width: 32, height: 17, borderRadius: 99, background: lifecycle === 'active' ? 'var(--success)' : 'var(--line-2)', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: 2, left: lifecycle === 'active' ? 15 : 2, width: 13, height: 13, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
             </div>
-            <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{isActive ? 'Activo' : 'Pausado'}</span>
-          </div>
+            <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{toggleBusy ? 'Cambiando…' : lifecycleAction}</span>
+          </button> : null}
           <button onClick={() => setTab('Playbooks')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 13px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 9, color: 'var(--muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
             <RiBookOpenLine style={{ width: 14, height: 14 }} /> Entrenar
           </button>
-          <button onClick={() => navigate(`/voz/cabina?agentId=${encodeURIComponent(agent.id)}`)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: `linear-gradient(90deg, var(--accent-deep), ${agent.color})`, border: 'none', borderRadius: 9, color: 'var(--on-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: `0 0 18px color-mix(in srgb, ${agent.color} 15%, transparent)`, fontFamily: 'inherit' }}>
-            <RiPlayLine style={{ width: 13, height: 13 }} /> Probar
+          <button onClick={() => { changeViewMode('professional'); openGovernanceSection('quality') }} title="Llamada real a un número propio autorizado, grabada y evaluada." style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: `linear-gradient(90deg, var(--accent-deep), ${agent.color})`, border: 'none', borderRadius: 9, color: 'var(--on-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: `0 0 18px color-mix(in srgb, ${agent.color} 15%, transparent)`, fontFamily: 'inherit' }}>
+            <RiPlayLine style={{ width: 13, height: 13 }} /> Prueba real
           </button>
           {toggleError && <p role="alert" style={{ margin: 0, flexBasis: '100%', textAlign: 'right', fontSize: 11.5, color: 'var(--danger-soft)' }}>{toggleError}</p>}
         </div>
@@ -648,7 +631,7 @@ export default function AgentDetailPage() {
         </button>
       </div>
 
-      {viewMode === 'simple' ? <AgentSimpleSetup agentId={agent.id} draft={draft} onChange={updateDraft} onSave={saveConfig} saving={saving} saved={savedConfig} onNavigate={navigate} onPublished={() => setIsActive(true)} onOpenGovernance={section => { changeViewMode('professional'); openGovernanceSection(section) }} /> : null}
+      {viewMode === 'simple' ? <AgentSimpleSetup agentId={agent.id} draft={draft} onChange={updateDraft} onSave={saveConfig} saving={saving} saved={savedConfig} onNavigate={navigate} onPublished={refreshWorkspace} onWorkspaceLoaded={ws => { setWorkspace(ws); setLifecycle(lifecycleOf(ws.agent)) }} onOpenGovernance={section => { changeViewMode('professional'); openGovernanceSection(section) }} /> : null}
 
       {/* Stat cards */}
       <div className="agent-detail-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12, marginBottom: 22 }}>
@@ -669,7 +652,7 @@ export default function AgentDetailPage() {
         onSectionChange={handleSectionChange}
         actions={[
           { id: 'save', label: 'Guardar cambios', hint: 'Aplicar al siguiente contacto', icon: RiSave3Line, onSelect: saveConfig, disabled: saving },
-          { id: 'test', label: 'Probar agente', hint: 'Abrir cabina de voz', icon: RiPlayLine, onSelect: () => navigate(`/voz/cabina?agentId=${encodeURIComponent(agent.id)}`) },
+          { id: 'test', label: 'Prueba real', hint: 'Llamada evaluada a tu número', icon: RiPlayLine, onSelect: () => { changeViewMode('professional'); openGovernanceSection('quality') } },
           { id: 'sources', label: 'Gestionar fuentes', hint: 'Abrir base de conocimiento', icon: RiBookOpenLine, onSelect: () => navigate('/knowledge-base') },
         ]}
       />
@@ -690,6 +673,7 @@ export default function AgentDetailPage() {
         onNavigate={navigate}
         requestedSection={governanceRequest}
         onAgentReload={reloadDraftFromAgent}
+        onWorkspaceLoaded={ws => { setWorkspace(ws); setLifecycle(lifecycleOf(ws.agent)) }}
       />
 
       <div id="agent-stack">
@@ -697,18 +681,16 @@ export default function AgentDetailPage() {
       </div>
 
       <div className="agent-detail-enhancement-grid">
-        <AgentSimulatorPanel
-          agent={{ ...agent, ...draft }}
-          onTestInCabin={({ agent: currentAgent }) => navigate(`/voz/cabina?agentId=${encodeURIComponent(currentAgent.id)}`)}
-        />
+        {/* El simulador escrito y el inspector de prompt enlatados se retiraron:
+            no usaban el prompt real ni creaban llamadas, y confundían con la prueba. */}
         <AgentReadinessChecklist
-          agent={agent}
-          draft={{ ...draft, isActive }}
+          workspace={workspace}
           onNavigate={targetId => {
             if (targetId === 'language-voice') return document.getElementById('agent-stack')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            if (targetId === 'call-test') return navigate(`/voz/cabina?agentId=${encodeURIComponent(agent.id)}`)
-            if (targetId === 'sources-playbook') return navigate('/knowledge-base')
-            if (targetId === 'publication') return toggleActive()
+            if (targetId === 'instructions') return document.getElementById('agent-playbook')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            if (targetId === 'call-test' || targetId === 'consent') return openGovernanceSection('quality')
+            if (targetId === 'basic') return openGovernanceSection('basic')
+            if (targetId === 'publication') return changeLifecycle()
             document.getElementById('agent-behavior')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }}
         />
@@ -729,7 +711,6 @@ export default function AgentDetailPage() {
 
       <div className="agent-detail-enhancement-grid agent-detail-enhancement-grid-secondary">
         <AgentSafetyPanel draft={draft} onChange={updateDraft} />
-        <AgentPromptDebugger agent={agent} draft={draft} playbooks={playbooks} />
       </div>
 
       {/* Body 2-col */}
@@ -738,14 +719,12 @@ export default function AgentDetailPage() {
         {/* Left: persona */}
         <div className="agent-detail-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
-          {/* Personality */}
+          {/* Estado */}
           <div className="agent-detail-card" style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 10.5, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Personalidad</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-              {agent.tags.map(t => (
-                <span key={t} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99, background: agent.bg + '20', border: `1px solid color-mix(in srgb, ${agent.color} 25%, transparent)`, color: agent.color, fontWeight: 600 }}>{t}</span>
-              ))}
-            </div>
+            <p style={{ margin: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Estado</p>
+            <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: s.color }}>{LIFECYCLE[lifecycle]?.label}</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>{LIFECYCLE[lifecycle]?.description}</p>
+            {workspace?.readiness ? <p style={{ margin: '8px 0 0', fontSize: 11.5, color: workspace.readiness.ready ? 'var(--success)' : 'var(--muted)' }}>{workspace.readiness.checks.filter(item => item.ready).length} de {workspace.readiness.checks.length} requisitos de publicación listos</p> : null}
           </div>
 
           {/* Objetivo */}
@@ -754,25 +733,8 @@ export default function AgentDetailPage() {
             <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, overflowWrap: 'break-word' }}>{agent.objetivo}</p>
           </div>
 
-          {/* Docs */}
-          <div className="agent-detail-card" style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 10.5, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Documentos de entrenamiento</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {agent.docs.map(d => (
-                <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8 }}>
-                  <span aria-hidden="true" style={{ fontSize: 15 }}>📄</span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{d}</span>
-                </div>
-              ))}
-              {agent.extraDocs > 0 && (
-                <button onClick={() => navigate('/knowledge-base')} style={{ fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '4px 10px', fontWeight: 600, fontFamily: 'inherit' }}>
-                  +{agent.extraDocs} más
-                </button>
-              )}
-              {agent.docs.length === 0 && agent.extraDocs === 0 && <p className="agent-detail-card-empty">Sin fuentes añadidas todavía.</p>}
-            </div>
-            <button className="agent-detail-card-action" onClick={() => navigate('/knowledge-base')}><RiBookOpenLine /> Gestionar fuentes <RiExternalLinkLine /></button>
-          </div>
+          {/* Docs: panel real de conocimiento (settings.knowledgeIds + vista previa del prompt) */}
+          <AgentKnowledgePanel agentId={agent.id} onNavigate={navigate} />
 
           {/* Quick actions */}
           <div className="agent-detail-card agent-detail-quick-actions" style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px' }}>
@@ -806,7 +768,7 @@ export default function AgentDetailPage() {
                   <button onClick={() => navigate('/llamadas')} style={{ background: 'transparent', border: `1px solid color-mix(in srgb, ${agent.color} 31%, transparent)`, borderRadius: 8, padding: '6px 12px', color: agent.color, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Ver todas</button>
                 </div>
                 {recentCalls.length === 0
-                  ? <div className="agent-detail-empty-calls"><RiPhoneLine /><p>Este agente todavía no tiene llamadas registradas.</p><span>La primera conversación aparecerá aquí.</span><button onClick={() => navigate(`/voz/cabina?agentId=${encodeURIComponent(agent.id)}`)}><RiPlayLine /> Probar agente</button></div>
+                  ? <div className="agent-detail-empty-calls"><RiPhoneLine /><p>Este agente todavía no tiene llamadas registradas.</p><span>La primera conversación aparecerá aquí.</span><button onClick={() => { changeViewMode('professional'); openGovernanceSection('quality') }}><RiPlayLine /> Hacer una prueba real</button></div>
                   : <div className="scroll-x" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12 }}>
                     {recentCalls.map((c, i) => {
                       const name = c.lead?.name ?? 'Sin contacto'
@@ -866,30 +828,23 @@ export default function AgentDetailPage() {
 
             {tab === 'Configuración' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                {CFG_SECTIONS.map(({ section, items }) => (
-                  <div key={section} style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: 'clamp(14px,3vw,18px)' }}>
-                    <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: 'var(--text-strong)' }}>{section}</p>
-                    {items.map(({ label }) => (
-                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
-                        <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{label}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, maxWidth: '100%' }}>
-                          {editKey === label
-                            ? <input autoFocus defaultValue={cfgVals[label] ?? ''}
-                                onBlur={e => { setCfgVals(v => ({ ...v, [label]: e.target.value })); setEditKey(null) }}
-                                onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
-                                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid ' + agent.color, color: 'var(--muted)', fontSize: 12.5, fontWeight: 600, outline: 'none', width: 'min(180px, 100%)', minWidth: 0, textAlign: 'right', fontFamily: 'inherit' }}
-                              />
-                            : <span style={{ fontSize: 12.5, fontWeight: 600, minWidth: 0, overflowWrap: 'anywhere', color: cfgVals[label] ? 'var(--muted)' : 'var(--faint)' }}>{cfgVals[label] || 'Sin definir'}</span>
-                          }
-                          <RiEditLine style={{ width: 13, height: 13, color: 'var(--dim)', cursor: 'pointer' }} onClick={() => setEditKey(label)} />
-                        </div>
-                      </div>
-                    ))}
+                <div style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 12, padding: 'clamp(14px,3vw,18px)' }}>
+                  <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: 'var(--text-strong)' }}>Voz</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Voz del agente</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: draft.voiceId ? 'var(--muted)' : 'var(--faint)', overflowWrap: 'anywhere' }}>{draft.settings?.voiceSelection?.id === draft.voiceId && draft.settings?.voiceSelection?.name ? draft.settings.voiceSelection.name : draft.voiceId || 'Sin definir'}</span>
                   </div>
-                ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 0' }}>
+                    <label htmlFor="agent-cfg-speed" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Velocidad de habla</label>
+                    <select id="agent-cfg-speed" value={draft.settings?.speechSpeed || '1.0'} onChange={event => updateDraft({ settings: { ...draft.settings, speechSpeed: event.target.value } })} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 12.5, fontFamily: 'inherit' }}>
+                      <option value="0.8">0.8 · pausada</option><option value="0.9">0.9 · calmada</option><option value="1.0">1.0 · natural</option><option value="1.1">1.1 · ágil</option><option value="1.2">1.2 · rápida</option>
+                    </select>
+                  </div>
+                </div>
+                <OperationalLimitsForm value={limits} onChange={setLimits} accent={agent.color} />
                 {saveError && <p role="alert" style={{ margin: 0, color: 'var(--danger-soft)', fontSize: 12.5 }}>{saveError}</p>}
-                <button onClick={saveConfig} style={{ alignSelf: 'flex-start', background: savedConfig ? 'var(--success-bg)' : `linear-gradient(90deg, var(--accent-deep), ${agent.color})`, border: 'none', borderRadius: 9, padding: '10px 20px', color: savedConfig ? 'var(--success)' : 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .3s' }}>
-                  {savedConfig ? '✓ Guardado' : 'Guardar cambios'}
+                <button onClick={saveConfig} disabled={saving} style={{ alignSelf: 'flex-start', background: savedConfig ? 'var(--success-bg)' : `linear-gradient(90deg, var(--accent-deep), ${agent.color})`, border: 'none', borderRadius: 9, padding: '10px 20px', color: savedConfig ? 'var(--success)' : 'var(--on-accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background .3s', fontFamily: 'inherit' }}>
+                  {savedConfig ? '✓ Guardado' : saving ? 'Guardando…' : 'Guardar cambios'}
                 </button>
               </div>
             )}

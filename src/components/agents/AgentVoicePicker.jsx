@@ -63,8 +63,10 @@ export default function AgentVoicePicker({ agentId, onVoiceCreated, value = '', 
     {value ? <div className="voice-picker-selected" role="status"><RiCheckLine /><span><small>Voz seleccionada</small><strong>{chosenName}</strong></span><span className="voice-picker-wave" aria-hidden="true"><i /><i /><i /><i /><i /></span></div> : null}
     <div className="voice-picker-modes" aria-label="Origen de la voz">
       <button type="button" aria-pressed={mode === 'catalog'} onClick={() => { setMode('catalog'); setPreview(null) }}><RiSoundModuleLine />Explorar voces</button>
-      <button type="button" aria-pressed={mode === 'custom'} onClick={() => { setMode('custom'); setPreview(null) }}><RiMicLine />Mi propia voz</button>
+      {/* Subir una voz propia necesita un agente ya creado (POST /agents/:id/voices). */}
+      {agentId ? <button type="button" aria-pressed={mode === 'custom'} onClick={() => { setMode('custom'); setPreview(null) }}><RiMicLine />Mi propia voz</button> : null}
     </div>
+    {!agentId ? <p className="voice-picker-footnote">Podrás subir una voz propia desde la ficha del agente una vez creado.</p> : null}
     {mode === 'catalog' ? <>
       <div className="voice-picker-filters">
         <label className="voice-picker-search"><span>Buscar voz</span><div><RiSearchLine /><input type="search" value={search} maxLength={80} onChange={event => setSearch(event.target.value)} placeholder="Nombre de la voz…" /></div></label>
