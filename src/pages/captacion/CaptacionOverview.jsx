@@ -6,7 +6,7 @@ import {
 } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
 import { fetchOrganicOverview } from '../../lib/organic/organicApi'
-import { getLocale, localeCode, useI18n } from '../../i18n'
+import { formatLocaleNumber, useI18n } from '../../i18n'
 import PageLoadingState from '../../components/ui/PageLoadingState'
 import ProductPageHeader from '../../components/ui/ProductPageHeader'
 import '../growth/growth-surface.css'
@@ -20,16 +20,6 @@ import '../growth-visual-standard.css'
  * lectura es independiente y tolerante: si una falla, su tarjeta dice «sin
  * medición» y las demás siguen; nunca se rellena con ceros.
  */
-
-function money(cents) {
-  if (cents === null || cents === undefined) return null
-  return new Intl.NumberFormat(localeCode(getLocale()), { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(cents / 100)
-}
-
-function number(value) {
-  if (value === null || value === undefined) return null
-  return new Intl.NumberFormat(localeCode(getLocale())).format(value)
-}
 
 async function readJson(path) {
   try {
@@ -63,7 +53,11 @@ async function loadOverview() {
   return { campaigns, ads, organic, landings, seo, funnels }
 }
 
-function buildStages(data) {
+// Etapas con sus cifras y siguiente acción. Todo el texto sale de `t`
+// (captacion.*); los formatos de número siguen el idioma de la sesión.
+function buildStages(data, t, locale) {
+  const money = cents => (cents === null || cents === undefined ? null : formatLocaleNumber(cents / 100, locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }))
+  const number = value => (value === null || value === undefined ? null : formatLocaleNumber(value, locale))
   const campaignItems = Array.isArray(data.campaigns?.items) ? data.campaigns.items : Array.isArray(data.campaigns) ? data.campaigns : null
   const activeCampaigns = campaignItems ? campaignItems.filter(item => item.status === 'active').length : null
   const campaignLeads = campaignItems ? campaignItems.reduce((total, item) => total + (Number(item.totalLeads) || 0), 0) : null
@@ -85,77 +79,77 @@ function buildStages(data) {
 
   return [
     {
-      id: 'plan', number: '01', label: 'Planificar', detail: 'Campañas y objetivos', Icon: RiShareForwardLine, color: 'var(--capt-plan)', to: '/captacion/planificar',
+      id: 'plan', number: '01', label: t('captacion.stages.plan.label'), detail: t('captacion.stages.plan.detail'), Icon: RiShareForwardLine, color: 'var(--capt-plan)', to: '/captacion/planificar',
       figures: [
-        { label: 'Campañas activas', value: number(activeCampaigns) },
-        { label: 'Leads acumulados', value: number(campaignLeads) },
-        { label: 'Reuniones', value: number(campaignMeetings) },
+        { label: t('captacion.figures.activeCampaigns'), value: number(activeCampaigns) },
+        { label: t('captacion.figures.accumulatedLeads'), value: number(campaignLeads) },
+        { label: t('captacion.figures.meetings'), value: number(campaignMeetings) },
       ],
       next: campaignItems === null
-        ? { label: 'Abrir campañas', to: '/captacion/planificar' }
+        ? { label: t('captacion.next.openCampaigns'), to: '/captacion/planificar' }
         : !campaignItems.length
-          ? { label: 'Crea tu primera campaña', to: '/captacion/planificar', tone: 'primary' }
+          ? { label: t('captacion.next.createFirstCampaign'), to: '/captacion/planificar', tone: 'primary' }
           : !activeCampaigns
-            ? { label: 'Activa una campaña', to: '/captacion/planificar', tone: 'primary' }
-            : { label: 'Revisar campañas', to: '/captacion/planificar' },
+            ? { label: t('captacion.next.activateCampaign'), to: '/captacion/planificar', tone: 'primary' }
+            : { label: t('captacion.next.reviewCampaigns'), to: '/captacion/planificar' },
     },
     {
-      id: 'attract', number: '02', label: 'Atraer', detail: 'Ads · Orgánico y social · Prospectos', Icon: RiBarChartLine, color: 'var(--capt-attract)', to: '/captacion/atraer/ads',
+      id: 'attract', number: '02', label: t('captacion.stages.attract.label'), detail: t('captacion.stages.attract.detail'), Icon: RiBarChartLine, color: 'var(--capt-attract)', to: '/captacion/atraer/ads',
       figures: [
-        { label: 'Gasto en Ads (período)', value: adsMeasured ? money(adsSummary.fast.spendCents) : null },
-        { label: 'Leads de Ads', value: adsMeasured ? number(adsSummary.fast.leads) : null },
-        { label: 'Leads orgánicos (30 días)', value: number(organicLeads) },
+        { label: t('captacion.figures.adsSpend'), value: adsMeasured ? money(adsSummary.fast.spendCents) : null },
+        { label: t('captacion.figures.adsLeads'), value: adsMeasured ? number(adsSummary.fast.leads) : null },
+        { label: t('captacion.figures.organicLeads'), value: number(organicLeads) },
       ],
       next: data.ads === null
-        ? { label: 'Conecta Meta y mide Ads', to: '/captacion/atraer/ads', tone: 'primary' }
+        ? { label: t('captacion.next.connectMeta'), to: '/captacion/atraer/ads', tone: 'primary' }
         : !organicReady
-          ? { label: 'Configura el orgánico', to: '/captacion/atraer/organico', tone: 'primary' }
+          ? { label: t('captacion.next.setupOrganic'), to: '/captacion/atraer/organico', tone: 'primary' }
           : !adsMeasured
-            ? { label: 'Mide tus anuncios', to: '/captacion/atraer/ads' }
-            : { label: 'Ver qué recomienda Vendrava', to: '/captacion/atraer/organico?tab=acciones' },
+            ? { label: t('captacion.next.measureAds'), to: '/captacion/atraer/ads' }
+            : { label: t('captacion.next.seeRecommendations'), to: '/captacion/atraer/organico?tab=acciones' },
       links: [
-        { label: 'Ads', to: '/captacion/atraer/ads' },
-        { label: 'Orgánico y social', to: '/captacion/atraer/organico' },
-        { label: 'Prospectos', to: '/captacion/atraer/prospectos' },
+        { label: t('captacion.links.ads'), to: '/captacion/atraer/ads' },
+        { label: t('captacion.links.organic'), to: '/captacion/atraer/organico' },
+        { label: t('captacion.links.prospects'), to: '/captacion/atraer/prospectos' },
       ],
     },
     {
-      id: 'convert', number: '03', label: 'Convertir', detail: 'Landings, webs y SEO', Icon: RiGlobalLine, color: 'var(--capt-convert)', to: '/captacion/convertir',
+      id: 'convert', number: '03', label: t('captacion.stages.convert.label'), detail: t('captacion.stages.convert.detail'), Icon: RiGlobalLine, color: 'var(--capt-convert)', to: '/captacion/convertir',
       figures: [
-        { label: 'Landings midiendo', value: measuredLandings != null && landingCount != null ? `${measuredLandings} de ${landingCount}` : number(landingCount) },
-        { label: 'Score SEO', value: report ? `${report.score} / 100` : null },
-        { label: 'Hallazgos abiertos', value: data.landings ? number(attention) : null },
+        { label: t('captacion.figures.landingsMeasuring'), value: measuredLandings != null && landingCount != null ? t('captacion.figures.landingsMeasuringOf', { measured: number(measuredLandings), total: number(landingCount) }) : number(landingCount) },
+        { label: t('captacion.figures.seoScore'), value: report ? t('captacion.figures.seoScoreValue', { score: report.score }) : null },
+        { label: t('captacion.figures.openFindings'), value: data.landings ? number(attention) : null },
       ],
       next: !report
-        ? { label: 'Audita tu web', to: '/captacion/convertir?tab=seo', tone: 'primary' }
+        ? { label: t('captacion.next.auditWeb'), to: '/captacion/convertir?tab=seo', tone: 'primary' }
         : attention
-          ? { label: `Atender ${attention} ${attention === 1 ? 'hallazgo' : 'hallazgos'}`, to: '/captacion/convertir', tone: 'primary' }
+          ? { label: t(`captacion.next.attendFindings.${attention === 1 ? 'one' : 'other'}`, { count: attention }), to: '/captacion/convertir', tone: 'primary' }
           : integrity && integrity.state !== 'ready'
-            ? { label: 'Revisar el tracking de landings', to: '/captacion/convertir?tab=landings' }
-            : { label: 'Ver landings y SEO', to: '/captacion/convertir' },
+            ? { label: t('captacion.next.reviewLandingTracking'), to: '/captacion/convertir?tab=landings' }
+            : { label: t('captacion.next.seeLandingsSeo'), to: '/captacion/convertir' },
     },
     {
-      id: 'close', number: '04', label: 'Cerrar', detail: 'Funnels, llamadas y reuniones', Icon: RiFlowChart, color: 'var(--capt-close)', to: '/captacion/cerrar',
+      id: 'close', number: '04', label: t('captacion.stages.close.label'), detail: t('captacion.stages.close.detail'), Icon: RiFlowChart, color: 'var(--capt-close)', to: '/captacion/cerrar',
       figures: [
-        { label: 'Funnels activos', value: number(funnelSummary?.active ?? null) },
-        { label: 'Visita → lead', value: funnelSummary?.visitToLead != null ? `${funnelSummary.visitToLead}%` : null },
-        { label: 'Reuniones', value: number(funnelSummary?.meetings ?? null) },
+        { label: t('captacion.figures.activeFunnels'), value: number(funnelSummary?.active ?? null) },
+        { label: t('captacion.figures.visitToLead'), value: funnelSummary?.visitToLead != null ? `${funnelSummary.visitToLead}%` : null },
+        { label: t('captacion.figures.meetings'), value: number(funnelSummary?.meetings ?? null) },
       ],
       next: funnelRecommendation
         ? { label: funnelRecommendation.title, to: '/captacion/cerrar', tone: 'primary' }
         : funnelSummary && !funnelSummary.active
-          ? { label: 'Crea un funnel', to: '/captacion/cerrar', tone: 'primary' }
-          : { label: 'Ver funnels', to: '/captacion/cerrar' },
+          ? { label: t('captacion.next.createFunnel'), to: '/captacion/cerrar', tone: 'primary' }
+          : { label: t('captacion.next.seeFunnels'), to: '/captacion/cerrar' },
       links: [
-        { label: 'Llamadas', to: '/llamadas' },
-        { label: 'Reuniones', to: '/reuniones' },
+        { label: t('captacion.links.calls'), to: '/llamadas' },
+        { label: t('captacion.links.meetings'), to: '/reuniones' },
       ],
     },
   ]
 }
 
 export default function CaptacionOverview() {
-  const { locale } = useI18n()
+  const { t, locale } = useI18n()
   const [state, setState] = useState({ loading: true, data: null })
 
   async function load() {
@@ -164,17 +158,17 @@ export default function CaptacionOverview() {
   }
   useEffect(() => { load() }, [])
 
-  if (state.loading) return <PageLoadingState label={locale === 'en' ? 'Loading acquisition overview' : 'Cargando resumen de captación'} />
+  if (state.loading) return <PageLoadingState label={t('captacion.loadingOverview')} />
 
-  const stages = state.data ? buildStages(state.data) : null
+  const stages = state.data ? buildStages(state.data, t, locale) : null
 
   return (
     <main className="gs-page captacion-home">
       <div className="gs-shell">
-        <ProductPageHeader Icon={RiCompass3Line} title={locale === 'en' ? 'Acquisition' : 'Captación'} description="Un recorrido claro para convertir interés en oportunidades: planifica, atrae, convierte y cierra." />
+        <ProductPageHeader Icon={RiCompass3Line} title={t('captacion.title')} description={t('captacion.description')} />
 
-        <section className="captacion-stage-cards" aria-label="Estado de las etapas">
-          {(stages ?? buildStages({})).map(stage => {
+        <section className="captacion-stage-cards" aria-label={t('captacion.stageStateAria')}>
+          {(stages ?? buildStages({}, t, locale)).map(stage => {
             const Icon = stage.Icon
             return (
               <article key={stage.id} className={`captacion-card${state.loading ? ' is-loading' : ''}`} style={{ '--card-color': stage.color }}>
@@ -187,7 +181,7 @@ export default function CaptacionOverview() {
                   {stage.figures.map(figure => (
                     <div key={figure.label} className={`gs-mini${figure.value == null && !state.loading ? ' is-missing' : ''}`}>
                       <span>{figure.label}</span>
-                      <strong>{state.loading ? '…' : figure.value ?? 'Sin medición'}</strong>
+                      <strong>{state.loading ? '…' : figure.value ?? t('captacion.noMeasurement')}</strong>
                     </div>
                   ))}
                 </div>
@@ -203,7 +197,7 @@ export default function CaptacionOverview() {
         <section className="gs-panel is-dashed captacion-note">
           <div className="gs-panel-body">
             <RiLeafLine aria-hidden="true" />
-            <p>Las cifras salen de lo que cada etapa ya mide: campañas del CRM, snapshots de Meta, circuito orgánico, telemetría de landings, último informe SEO y funnels. Una etapa sin conectar dice «sin medición», nunca cero. Llamadas y reuniones siguen viviendo en Ventas: desde «Cerrar» se enlazan, no se duplican.</p>
+            <p>{t('captacion.note')}</p>
           </div>
         </section>
       </div>

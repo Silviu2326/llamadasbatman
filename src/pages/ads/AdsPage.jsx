@@ -27,30 +27,18 @@ import '../growth-visual-standard.css'
 // enlazables (?tab=) como el resto de Growth, y la campaña en la que se
 // trabaja viaja en ?campaign= para que un enlace abra exactamente ese contexto.
 
-const TABS = [
-  { id: 'resumen', label: 'Resumen', labelEn: 'Overview' },
-  { id: 'estructura', label: 'Estructura', labelEn: 'Structure' },
-  { id: 'creatividades', label: 'Creatividades', labelEn: 'Creatives' },
-  { id: 'experimentos', label: 'Experimentos', labelEn: 'Experiments' },
-  { id: 'medicion', label: 'Medición', labelEn: 'Measurement' },
-  { id: 'decisiones', label: 'Decisiones', labelEn: 'Decisions' },
-]
-const TAB_IDS = new Set(TABS.map(t => t.id))
-
-const ADS_COPY = {
-  es: { title: 'Publicidad', loading: 'Cargando operación de Ads…', subtitle: 'Ejecuta tu campaña global en Meta y Google: activaciones, audiencias, creatividades y resultados en un mismo centro.' },
-  en: { title: 'Advertising', loading: 'Loading Ads operation…', subtitle: 'Run your global campaign on Meta and Google: activations, audiences, creatives and results in one hub.' },
-}
+// Las etiquetas de pestaña viven en ads.page.tabs.<id>.
+const TAB_IDS_LIST = ['resumen', 'estructura', 'creatividades', 'experimentos', 'medicion', 'decisiones']
+const TAB_IDS = new Set(TAB_IDS_LIST)
 
 export default function AdsPage() {
-  const { locale } = useI18n()
+  const { t, locale } = useI18n()
   const colors = useThemeColors()
-  const copy = ADS_COPY[locale]
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const overviewState = useAdsOverview({ locale })
-  const planState = useAdsPlan({ enabled: overviewState.dataStatus !== 'plan', notify: overviewState.showNotice })
+  const overviewState = useAdsOverview({ locale, t })
+  const planState = useAdsPlan({ enabled: overviewState.dataStatus !== 'plan', notify: overviewState.showNotice, t })
   const { overview, loading, dataStatus, dataError, notice, showNotice, pendingActions, loadOverview } = overviewState
 
   const [tab, setTab] = useState(() => {
@@ -118,19 +106,19 @@ export default function AdsPage() {
   const deliverFromStudio = useCallback(async payload => {
     const campaignId = studioBrief?.campaignId ?? planState.selectedId
     if (!campaignId) {
-      showNotice('Selecciona una campaña global antes de entregar la creatividad.')
+      showNotice(t('ads.page.studioNeedsCampaign'))
       return false
     }
     // El backend valida los campos como opcionales, no como nulables: un campo
     // sin valor se omite en vez de viajar como null.
     const clean = Object.fromEntries(Object.entries({ briefId: studioBrief?.id, ...payload }).filter(([, v]) => v != null))
     const created = await planState.createCreative({ campaignId, ...clean })
-    if (created) showNotice('Creatividad entregada a la campaña. Revísala y apruébala en Creatividades.')
+    if (created) showNotice(t('ads.page.studioDelivered'))
     return Boolean(created)
-  }, [studioBrief, planState, showNotice])
+  }, [studioBrief, planState, showNotice, t])
 
-  const ui = useMemo(() => ({ locale, colors, selectTab, openStudio, showNotice, navigate }),
-    [locale, colors, selectTab, openStudio, showNotice, navigate])
+  const ui = useMemo(() => ({ t, locale, colors, selectTab, openStudio, showNotice, navigate }),
+    [t, locale, colors, selectTab, openStudio, showNotice, navigate])
 
   const inReviewCount = (planState.plan?.creatives ?? []).filter(c => c.approvalStatus === 'in_review').length
   const decisionsCount = (overview?.decisions?.length ?? 0) + pendingActions.length
@@ -142,12 +130,12 @@ export default function AdsPage() {
   }
 
   if (loading && !overview) {
-    return <PageLoadingState label={copy.loading} />
+    return <PageLoadingState label={t('ads.page.loading')} />
   }
 
   return <main className="gs-page ads-hub dark-scroll">
     <div className="gs-shell">
-      <ProductPageHeader Icon={RiMegaphoneLine} title={copy.title} description={copy.subtitle} />
+      <ProductPageHeader Icon={RiMegaphoneLine} title={t('ads.page.title')} description={t('ads.page.subtitle')} />
 
       {overview && dataStatus !== 'empty' && <DataStatusBanner
         status={dataStatus}
@@ -155,16 +143,16 @@ export default function AdsPage() {
         onRetry={dataStatus === 'disconnected' || dataStatus === 'error' ? loadOverview : undefined}
       />}
 
-      {!overview ? <section className="ads-error" role="alert"><RiAlertLine /><div><strong>No se pudo cargar Ads</strong><span>{dataError || 'Revisa la conexión y vuelve a intentarlo.'}</span></div><button type="button" className="ads-action secondary" onClick={loadOverview}><RiRefreshLine /> Reintentar</button></section> : <>
+      {!overview ? <section className="ads-error" role="alert"><RiAlertLine /><div><strong>{t('ads.page.loadErrorTitle')}</strong><span>{dataError || t('ads.page.loadErrorHint')}</span></div><button type="button" className="ads-action secondary" onClick={loadOverview}><RiRefreshLine /> {t('ads.page.retry')}</button></section> : <>
         <CampaignContextBar overview={overviewState} plan={planState} ui={ui} />
 
-        <nav className="gs-tabs" aria-label="Secciones de Publicidad">
-          {TABS.map(t => <button
-            key={t.id}
+        <nav className="gs-tabs" aria-label={t('ads.page.sectionsAria')}>
+          {TAB_IDS_LIST.map(id => <button
+            key={id}
             type="button"
-            className={`${tab === t.id ? 'active' : ''}${t.id === 'medicion' && qualityIssue ? ' has-issue' : ''}`}
-            onClick={() => selectTab(t.id)}
-          >{locale === 'en' ? t.labelEn : t.label}{tabCounts[t.id] ? <b>{tabCounts[t.id]}</b> : null}</button>)}
+            className={`${tab === id ? 'active' : ''}${id === 'medicion' && qualityIssue ? ' has-issue' : ''}`}
+            onClick={() => selectTab(id)}
+          >{t(`ads.page.tabs.${id}`)}{tabCounts[id] ? <b>{tabCounts[id]}</b> : null}</button>)}
         </nav>
 
         {tab === 'resumen' ? <ResumenPanel overview={overviewState} plan={planState} ui={ui} /> : null}

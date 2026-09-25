@@ -315,12 +315,20 @@ export async function createActivation(orgId: string, input: ActivationCreateInp
 
   let status = 'draft'
   let adAccountRef: string | null = null
+  // La campaña es la fuente de verdad del canal Meta (adStatus etc.). Una
+  // activación meta persistida sin ningún rastro legacy dejaría remote=null
+  // y el resto del sistema (overview, operación en Meta) no la vería: al
+  // formalizarla se marca el borrador en la campaña para que la señal exista.
+  let campaignState: LegacyMetaFields = campaign
   if (input.platform === 'meta') {
     const derived = deriveMetaStatus(campaign)
     if (derived !== 'unconfigured') {
       status = derived
-      adAccountRef = await findConnectedMetaAccountId(orgId)
+    } else {
+      await prisma.campaign.update({ where: { id: campaign.id }, data: { adStatus: 'draft' } })
+      campaignState = { ...campaign, adStatus: 'draft' }
     }
+    adAccountRef = await findConnectedMetaAccountId(orgId)
   }
 
   const row = await prisma.adActivation.create({
@@ -337,7 +345,7 @@ export async function createActivation(orgId: string, input: ActivationCreateInp
       adAccountRef,
     },
   })
-  return persistedActivationView(row, campaign)
+  return persistedActivationView(row, campaignState)
 }
 
 export interface ActivationPatchInput {

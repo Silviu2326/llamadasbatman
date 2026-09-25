@@ -1,5 +1,6 @@
 import { RiAlertLine, RiCheckboxCircleLine, RiErrorWarningLine, RiPlugLine, RiShieldCheckLine, RiTimeLine } from 'react-icons/ri'
 import './organic-components.css'
+import { useI18n } from '../../i18n'
 
 // Banda de integridad de organico.md §5.1. Va antes que cualquier número, por
 // el mismo motivo que en Ads: la página no puede pedir confianza en una cifra
@@ -10,72 +11,55 @@ import './organic-components.css'
 // un cero. Callarlo hace creer que el negocio no tiene tráfico cuando lo que
 // falta es la lectura.
 
-const STATUS_COPY = {
-  ready: { label: 'Midiendo', tone: 'ok', Icon: RiCheckboxCircleLine },
-  connected_no_ingest: { label: 'Conectada, sin ingesta', tone: 'warn', Icon: RiTimeLine },
-  not_connected: { label: 'Sin conectar', tone: 'idle', Icon: RiPlugLine },
-  not_configured: { label: 'Sin configurar', tone: 'idle', Icon: RiPlugLine },
-  error: { label: 'Con errores', tone: 'bad', Icon: RiErrorWarningLine },
+const STATUS_META = {
+  ready: { tone: 'ok', Icon: RiCheckboxCircleLine },
+  connected_no_ingest: { tone: 'warn', Icon: RiTimeLine },
+  not_connected: { tone: 'idle', Icon: RiPlugLine },
+  not_configured: { tone: 'idle', Icon: RiPlugLine },
+  error: { tone: 'bad', Icon: RiErrorWarningLine },
 }
 
-const OVERALL = {
-  ready: {
-    label: 'Fuentes listas',
-    detail: 'Todas las fuentes conectadas están entregando datos.',
-    tone: 'ok',
-    Icon: RiShieldCheckLine,
-  },
-  partial: {
-    label: 'Medición parcial',
-    detail: 'Parte del circuito orgánico se mide; el resto todavía no entrega datos.',
-    tone: 'warn',
-    Icon: RiAlertLine,
-  },
-  stale: {
-    label: 'Datos desfasados',
-    detail: 'Las fuentes conectadas llevan tiempo sin sincronizar.',
-    tone: 'warn',
-    Icon: RiTimeLine,
-  },
-  unreliable: {
-    label: 'Sin medición fiable',
-    detail: 'No hay ninguna fuente entregando datos: los canales no se pueden comparar.',
-    tone: 'bad',
-    Icon: RiErrorWarningLine,
-  },
+const OVERALL_META = {
+  ready: { tone: 'ok', Icon: RiShieldCheckLine },
+  partial: { tone: 'warn', Icon: RiAlertLine },
+  stale: { tone: 'warn', Icon: RiTimeLine },
+  unreliable: { tone: 'bad', Icon: RiErrorWarningLine },
 }
 
 export default function OrganicDataIntegrity({ dataQuality, onConnect }) {
+  const { t } = useI18n()
   if (!dataQuality) return null
-  const overall = OVERALL[dataQuality.status] ?? OVERALL.partial
+  const overallKey = OVERALL_META[dataQuality.status] ? dataQuality.status : 'partial'
+  const overall = OVERALL_META[overallKey]
   const { Icon } = overall
 
   return (
-    <section className={`organic-integrity is-${overall.tone}`} aria-label="Integridad de las fuentes orgánicas">
+    <section className={`organic-integrity is-${overall.tone}`} aria-label={t('organic.integrity.aria')}>
       <header>
         <span className="organic-integrity-icon"><Icon /></span>
         <div>
-          <h2>{overall.label}</h2>
-          <p>{overall.detail}</p>
+          <h2>{t(`organic.integrity.overall.${overallKey}`)}</h2>
+          <p>{t(`organic.integrity.overall.${overallKey}Detail`)}</p>
         </div>
       </header>
 
       <ul className="organic-integrity-sources">
         {dataQuality.sources.map(source => {
-          const status = STATUS_COPY[source.status] ?? STATUS_COPY.not_connected
+          const statusKey = STATUS_META[source.status] ? source.status : 'not_connected'
+          const status = STATUS_META[statusKey]
           const SourceIcon = status.Icon
           return (
             <li key={source.key} className={`is-${status.tone}`}>
               <div className="organic-integrity-source-head">
                 <SourceIcon />
                 <strong>{source.label}</strong>
-                <span>{status.label}</span>
+                <span>{t(`organic.integrity.status.${statusKey}`)}</span>
               </div>
               <p>{source.detail}</p>
               {/* Decir qué desbloquea cada fuente es lo que convierte la banda
                   en una razón para conectarla, no en una lista de reproches. */}
               {source.unlocks && source.status !== 'ready' && (
-                <em>Desbloquea: {source.unlocks}</em>
+                <em>{t('organic.integrity.unlocks', { what: source.unlocks })}</em>
               )}
               {source.action && onConnect && (
                 <button type="button" className="organic-link" onClick={() => onConnect(source.key)}>

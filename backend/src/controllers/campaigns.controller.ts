@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import * as campaignsService from '../services/campaigns.service'
+import { CampaignAgentError, CampaignStartError } from '../services/campaigns.service'
 import * as leadsService from '../services/leads.service'
 import { CampaignStatus } from '@prisma/client'
 import { z } from 'zod'
@@ -27,8 +28,12 @@ const createCampaignSchema = campaignInputSchema.extend({
   landingSlug: z.string().trim().min(1).max(160).optional(),
   adAssets: z.record(z.unknown()).optional(),
 }).strict()
+// Activar encola llamadas reales y pasa por el gate de agente publicado:
+// solo POST /:id/start puede poner 'active'. El PUT lo rechaza con 400.
 const updateCampaignSchema = campaignInputSchema.extend({
-  status: z.enum(VALID_STATUSES).optional(),
+  status: z.enum(VALID_STATUSES.filter(status => status !== 'active') as ['draft', 'paused', 'done'], {
+    errorMap: () => ({ message: "status 'active' solo se establece con POST /api/campaigns/:id/start" }),
+  }).optional(),
 }).strict().refine(value => Object.values(value).some(item => item !== undefined), 'Incluye al menos un campo para actualizar')
 const landingSchema = z.object({
   landingSlug: z.string().trim().min(1).max(160).nullable().optional(),
@@ -80,8 +85,13 @@ export async function create(
   const { orgId } = request.user as JWTUser
   const body = parseRequest(reply, createCampaignSchema, request.body)
   if (!body) return
-  const campaign = await campaignsService.createCampaign(orgId, body)
-  return reply.status(201).send(campaign)
+  try {
+    const campaign = await campaignsService.createCampaign(orgId, body)
+    return reply.status(201).send(campaign)
+  } catch (err) {
+    if (err instanceof CampaignAgentError) return reply.status(404).send({ error: 'agentId no encontrado', code: 'AGENT_NOT_FOUND' })
+    throw err
+  }
 }
 
 export async function get(
@@ -120,9 +130,15 @@ export async function update(
     parseRequest(reply, updateCampaignSchema, request.body),
   ]
   if (!params || !body) return
-  const result = await campaignsService.updateCampaign(orgId, params.id, body)
-  if (!result.count) return reply.status(404).send({ error: 'Not found' })
-  return reply.send({ ok: true })
+  try {
+    const result = await campaignsService.updateCampaign(orgId, params.id, body)
+    if (!result.count) return reply.status(404).send({ error: 'Not found' })
+    return reply.send({ ok: true })
+  } catch (err) {
+    if (err instanceof CampaignAgentError) return reply.status(404).send({ error: 'agentId no encontrado', code: 'AGENT_NOT_FOUND' })
+    if (err instanceof CampaignStartError) return reply.status(err.status).send({ error: err.message, code: err.code })
+    throw err
+  }
 }
 
 export async function updateLanding(
@@ -157,7 +173,10 @@ export async function start(
     const result = await campaignsService.startCampaign(orgId, params.id)
     return reply.send(result)
   } catch (err) {
-    return reply.status(404).send({ error: (err as Error).message })
+    // 409 con código estable cuando el agente no está publicado o falta; 404
+    // si la campaña no es de la organización. Cualquier otro fallo es un 500 real.
+    if (err instanceof CampaignStartError) return reply.status(err.status).send({ error: err.message, code: err.code })
+    throw err
   }
 }
 
@@ -183,6 +202,7 @@ export async function pause(
   const params = parseRequest(reply, idParamsSchema, request.params)
   if (!params) return
   const result = await campaignsService.pauseCampaign(orgId, params.id)
+  if (!result) return reply.status(404).send({ error: 'Not found', code: 'CAMPAIGN_NOT_FOUND' })
   return reply.send(result)
 }
 

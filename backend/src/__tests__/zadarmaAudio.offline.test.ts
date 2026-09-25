@@ -58,17 +58,55 @@ test('PCM8↔engine resampling keeps duration, amplitude and state across odd TT
   assert.ok(rms(alias.subarray(160)) < rms(expected.subarray(160)) * 0.03)
 })
 
-test('playback pads final PCM frame, bounds backlog and discards audio on interruption', () => {
-  const queue = new PcmPlaybackQueue(640)
-  queue.push(Buffer.alloc(322, 1))
+test('playback pads final PCM frame, applies backpressure above the soft limit and only rejects at the hard limit', async () => {
+  // 40 ms blandos (640 B), 100 ms duros (1600 B).
+  const queue = new PcmPlaybackQueue(40, 100)
+  void queue.push(Buffer.alloc(322, 1))
   assert.equal(queue.nextFrame()!.length, 320)
   const tail = queue.nextFrame()!
   assert.equal(tail.readUInt16LE(0), 257)
   assert.equal(tail.readUInt16LE(2), 0)
-  queue.push(Buffer.alloc(640))
-  assert.throws(() => queue.push(Buffer.alloc(2)), /BACKLOG/)
-  queue.clear()
   assert.equal(queue.nextFrame(), null)
+
+  // Por encima del límite blando no se cuelga: la promesa espera a que drene.
+  let drained = false
+  const waiting = queue.push(Buffer.alloc(960)).then(() => { drained = true })
+  await delay(5)
+  assert.equal(drained, false, 'debe esperar mientras la cola supera el límite blando')
+  assert.equal(queue.queuedMs, 60)
+  queue.nextFrame()
+  await waiting
+  assert.equal(drained, true, 'se libera al bajar del límite blando')
+
+  // Solo el límite duro (respuesta desbocada) sigue lanzando.
+  assert.throws(() => queue.push(Buffer.alloc(1600)), /BACKLOG/)
+  assert.throws(() => queue.push(Buffer.alloc(3)), /ODD/)
+
+  // La interrupción vacía la cola y libera a quien esperaba.
+  let released = false
+  void queue.push(Buffer.alloc(640)).then(() => { released = true })
+  await delay(5)
+  assert.equal(released, false)
+  queue.clear()
+  await delay(0)
+  assert.equal(released, true)
+  assert.equal(queue.nextFrame(), null)
+})
+
+test('a 20 s response no longer hangs up: the queue holds it and drains at real time', async () => {
+  const queue = new PcmPlaybackQueue()
+  assert.equal(queue.softBytes, 16000 * 15)
+  assert.equal(queue.hardBytes, 16000 * 60)
+  const twentySeconds = Buffer.alloc(16000 * 20)
+  let settled = false
+  const pending = queue.push(twentySeconds).then(() => { settled = true })
+  assert.equal(queue.queuedMs, 20_000)
+  // 5 s de drenado (250 tramas) bastan para bajar del límite blando.
+  for (let i = 0; i < 250; i++) queue.nextFrame()
+  await pending
+  assert.equal(settled, true)
+  assert.equal(queue.queuedMs, 15_000)
+  assert.throws(() => queue.push(Buffer.alloc(16000 * 46)), /BACKLOG/)
 })
 
 test('one-use registry refuses replay, concurrent lead duplication, excess capacity and expired reservations', async () => {

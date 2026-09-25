@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  adsTranslator,
   applyRecommendationEffect,
   buildCreativeVariants,
   buildWizardPayload,
@@ -91,8 +92,29 @@ test('el borrador guarda margen y % dentro de strategy.brief', () => {
 test('pronóstico y proveedor se etiquetan con honestidad', () => {
   assert.equal(describeForecast({ forecastSource: 'sector_benchmark' }).badge, 'Referencia orientativa del sector')
   assert.match(describeForecast(null).note, /No es una predicción/)
+  assert.equal(describeForecast({ forecastSource: 'account', forecastNote: 'nota propia' }).note, 'nota propia')
   assert.match(describeStrategyProvider('heuristic'), /sin IA/)
   assert.match(describeStrategyProvider('deepseek'), /IA/)
+
+  // Con el traductor inglés cambian los textos, no la lógica.
+  const en = adsTranslator('en')
+  assert.equal(describeForecast(null, en).badge, 'Indicative sector reference')
+  assert.match(describeStrategyProvider('heuristic', en), /no AI/)
+})
+
+test('las funciones de texto respetan el idioma y no traducen datos del usuario', () => {
+  const en = adsTranslator('en')
+  const variants = buildCreativeVariants({ campaignFocus: 'Clases de pádel', objetivo: 'Conseguir reservas', audience: 'Pymes' }, en)
+  assert.equal(variants[0].label, 'Result')
+  assert.match(variants[0].title, /^Clases de pádel: results/)
+  assert.match(variants[0].body, /Designed for pymes\./)
+  assert.equal(variants[1].cta, 'Contact us')
+  assert.equal(applyRecommendationEffect({ action: 'objective' }, { objetivo: '' }, en).patch.objetivo, 'Get qualified contact requests')
+  const failed = describeWizardOutcome({ published: false, publishError: { code: 'X', message: 'Falta la página' } }, en)
+  assert.match(failed.text, /could not be published .*Falta la página/)
+  // Una clave inexistente en en cae al español y una desconocida devuelve undefined.
+  assert.equal(adsTranslator('fr')('adsWizard.lib.estimate'), 'Estimación')
+  assert.equal(en('adsWizard.lib.nope'), undefined)
 })
 
 test('el resultado de crear la campaña explica si se publicó', () => {

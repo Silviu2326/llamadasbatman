@@ -14,11 +14,7 @@ import ProductPageHeader from '../components/ui/ProductPageHeader'
 import './prospect.css'
 import './growth-visual-standard.css'
 
-const SORT_OPTIONS = [
-  { value: 'quickScore', label: 'Oportunidad' },
-  { value: 'rating', label: 'Rating' },
-  { value: 'userRatingCount', label: 'Reseñas' },
-]
+const SORT_OPTIONS = ['quickScore', 'rating', 'userRatingCount']
 
 function scoreTone(score = 0) {
   return score >= 60 ? 'hot' : score >= 30 ? 'warm' : 'cool'
@@ -31,13 +27,14 @@ function getApiError(body, fallback) {
 }
 
 function ProspectRow({ result, checked, onToggle }) {
+  const { t } = useI18n()
   return (
     <article className={`prospect-row ${checked ? 'selected' : ''}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={() => onToggle(result.placeId)}
-        aria-label={`Seleccionar ${result.name}`}
+        aria-label={t('prospects.row.select', { name: result.name })}
       />
       <div className="prospect-business">
         <strong>{result.name}</strong>
@@ -45,22 +42,22 @@ function ProspectRow({ result, checked, onToggle }) {
       </div>
       <div className={`prospect-score ${scoreTone(result.quickScore)}`}>
         <strong>{result.quickScore ?? '—'}</strong>
-        <span>{result.quickScore >= 60 ? 'Alta' : result.quickScore >= 30 ? 'Media' : 'Por explorar'}</span>
+        <span>{result.quickScore >= 60 ? t('prospects.row.high') : result.quickScore >= 30 ? t('prospects.row.medium') : t('prospects.row.explore')}</span>
       </div>
       <div className="prospect-rating">
         {result.rating != null
-          ? <><span><RiStarFill /> {result.rating}</span><small>{result.userRatingCount ?? 0} reseñas</small></>
-          : <small>Sin datos</small>}
+          ? <><span><RiStarFill /> {result.rating}</span><small>{t('prospects.row.reviews', { n: result.userRatingCount ?? 0 })}</small></>
+          : <small>{t('prospects.row.noData')}</small>}
       </div>
       <div className="prospect-contact">
-        {result.phone ? <span><RiPhoneLine /> {result.phone}</span> : <span className="muted">Sin teléfono</span>}
+        {result.phone ? <span><RiPhoneLine /> {result.phone}</span> : <span className="muted">{t('prospects.row.noPhone')}</span>}
         {result.website
-          ? <a href={result.website} target="_blank" rel="noreferrer"><RiGlobalLine /> Web <RiExternalLinkLine /></a>
-          : <span className="muted">Sin web</span>}
+          ? <a href={result.website} target="_blank" rel="noreferrer"><RiGlobalLine /> {t('prospects.row.web')} <RiExternalLinkLine /></a>
+          : <span className="muted">{t('prospects.row.noWeb')}</span>}
       </div>
       <div className="prospect-row-actions">
         {result.mapsUri
-          ? <a href={result.mapsUri} target="_blank" rel="noreferrer" aria-label={`Abrir ${result.name} en Maps`}><RiMapPin2Line /></a>
+          ? <a href={result.mapsUri} target="_blank" rel="noreferrer" aria-label={t('prospects.row.openMaps', { name: result.name })}><RiMapPin2Line /></a>
           : null}
       </div>
     </article>
@@ -68,8 +65,10 @@ function ProspectRow({ result, checked, onToggle }) {
 }
 
 export default function ProspectFinderPage() {
-  const { locale } = useI18n()
+  const { t } = useI18n()
   const [sector, setSector] = useState('')
+  const [sequenceId, setSequenceId] = useState('')
+  const [sequences, setSequences] = useState([])
   const [city, setCity] = useState('')
   const [campaignId, setCampaignId] = useState('')
   const [campaigns, setCampaigns] = useState([])
@@ -106,7 +105,7 @@ export default function ProspectFinderPage() {
       try {
         const response = await apiFetch('/api/campaigns?page=1&limit=100', { signal: controller.signal })
         const body = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(getApiError(body, 'No se pudieron cargar las campañas'))
+        if (!response.ok) throw new Error(getApiError(body, t('prospects.campaignsLoadFailed')))
         const items = Array.isArray(body) ? body : body.items
         setCampaigns(Array.isArray(items) ? items : [])
       } catch (loadError) {
@@ -118,7 +117,23 @@ export default function ProspectFinderPage() {
 
     loadCampaigns()
     return () => controller.abort()
+    // `t` solo cambia con el idioma; recargar campañas por eso sería ruido.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignReloadKey])
+
+  // Secuencias opcionales: el backend admite `sequenceId` en la importación. Si
+  // el listado no existe o falla, el selector simplemente no se muestra.
+  useEffect(() => {
+    const controller = new AbortController()
+    apiFetch('/api/growth-programs?type=sales_sequence', { signal: controller.signal })
+      .then(response => (response.ok ? response.json() : null))
+      .then(body => {
+        const items = Array.isArray(body) ? body : Array.isArray(body?.programs) ? body.programs : Array.isArray(body?.items) ? body.items : Array.isArray(body?.data) ? body.data : []
+        setSequences(items.filter(item => item && item.id && item.name))
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [])
 
   const visible = useMemo(() => {
     const filtered = results.filter(result => {
@@ -152,15 +167,15 @@ export default function ProspectFinderPage() {
         body: JSON.stringify({ sector: sector.trim(), city: city.trim() }),
       })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(getApiError(body, 'La búsqueda no está disponible ahora'))
+      if (!response.ok) throw new Error(getApiError(body, t('prospects.searchUnavailable')))
       const nextResults = Array.isArray(body.data) ? body.data : []
       setResults(nextResults)
       setSearchStatus(nextResults.length ? 'live' : 'empty')
-      if (!nextResults.length) setNotice({ type: 'empty', title: 'Búsqueda completada', detail: 'No encontramos negocios con esos criterios. Prueba una zona más amplia.' })
+      if (!nextResults.length) setNotice({ type: 'empty', title: t('prospects.searchDoneTitle'), detail: t('prospects.searchDoneEmpty') })
     } catch (searchError) {
       setSearchStatus('error')
       setError(DEMO_MODE
-        ? 'El modo demo está habilitado, pero Prospect Finder no usa resultados simulados. Conecta el buscador real e inténtalo de nuevo.'
+        ? t('prospects.demoNoResults')
         : searchError.message)
       setResults([])
     } finally {
@@ -189,8 +204,8 @@ export default function ProspectFinderPage() {
   function openCampaignCreator() {
     const suggestedName = [sector.trim(), city.trim()].filter(Boolean).join(' · ')
     setNewCampaign(previous => ({
-      name: previous.name || `Outbound${suggestedName ? ` · ${suggestedName}` : ''}`,
-      objective: previous.objective || `Captar nuevos clientes mediante prospección outbound${suggestedName ? ` en ${suggestedName}` : ''}.`,
+      name: previous.name || `${t('prospects.outboundName')}${suggestedName ? ` · ${suggestedName}` : ''}`,
+      objective: previous.objective || t('prospects.outboundObjective', { where: suggestedName ? t('prospects.outboundWhere', { place: suggestedName }) : '' }),
     }))
     setCampaignsError('')
     setCampaignCreatorOpen(true)
@@ -200,7 +215,7 @@ export default function ProspectFinderPage() {
     event.preventDefault()
     const name = newCampaign.name.trim()
     if (!name) {
-      setCampaignsError('Escribe un nombre para la campaña outbound')
+      setCampaignsError(t('prospects.campaignNameRequired'))
       return
     }
 
@@ -212,18 +227,18 @@ export default function ProspectFinderPage() {
         method: 'POST',
         body: JSON.stringify({
           name,
-          objective: newCampaign.objective.trim() || 'Captar nuevos clientes mediante prospección outbound.',
-          goal: 'Generar oportunidades comerciales cualificadas',
+          objective: newCampaign.objective.trim() || t('prospects.defaultObjective'),
+          goal: t('prospects.defaultGoal'),
           settings: { source: 'outbound_prospecting', channel: 'prospecting' },
         }),
       })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(getApiError(body, 'No se pudo crear la campaña'))
+      if (!response.ok) throw new Error(getApiError(body, t('prospects.campaignCreateFailed')))
       setCampaigns(previous => [body, ...previous.filter(campaign => campaign.id !== body.id)])
       setCampaignId(body.id)
       setCampaignCreatorOpen(false)
       setNewCampaign({ name: '', objective: '' })
-      setNotice({ type: 'campaign', title: 'Campaña outbound creada', detail: `${body.name} ya está seleccionada como destino de la importación.` })
+      setNotice({ type: 'campaign', title: t('prospects.campaignCreatedTitle'), detail: t('prospects.campaignCreatedDetail', { name: body.name }) })
     } catch (createError) {
       setCampaignsError(createError.message)
     } finally {
@@ -237,11 +252,11 @@ export default function ProspectFinderPage() {
     setNotice(null)
 
     if (!items.length) {
-      setError('Selecciona al menos un prospecto para importar')
+      setError(t('prospects.selectAtLeastOne'))
       return
     }
     if (!campaignId) {
-      setError('Selecciona o crea una campaña para continuar con la importación')
+      setError(t('prospects.selectCampaignFirst'))
       campaignSelectRef.current?.focus()
       return
     }
@@ -259,22 +274,34 @@ export default function ProspectFinderPage() {
           // El email frío necesita hallazgos: sin auditar no hay nada cierto
           // que escribir, así que activarlo activa también la auditoría.
           autoEmail: autoEmail && autoAudit,
+          sequenceId: sequenceId || undefined,
           items,
         }),
       })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(getApiError(body, 'No se pudieron importar los prospectos seleccionados'))
+      if (!response.ok) throw new Error(getApiError(body, t('prospects.importFailed')))
+      // Desglose de la importación: quién se omitió y por qué, emails y llamadas.
+      const names = list => [...new Set((list ?? []).map(item => item.name).filter(Boolean))].slice(0, 3).join(', ')
+      const duplicates = Array.isArray(body.duplicates) ? body.duplicates : []
+      const invalid = Array.isArray(body.invalid) ? body.invalid : []
+      const emailsSent = body.emailsSent ?? body.emailed ?? 0
       const detail = [
-        body.skipped ? `${body.skipped} ya estaban en tu CRM y se omitieron.` : '',
-        body.emailed ? `${body.emailed} recibieron email frío escrito desde su auditoría.` : '',
+        duplicates.length ? t('prospects.import.duplicates', { n: duplicates.length, names: names(duplicates) }) : '',
+        invalid.length ? t('prospects.import.invalid', { n: invalid.length, names: names(invalid) }) : '',
+        emailsSent ? t('prospects.import.emails', { n: emailsSent }) : '',
         // Los fallos se dicen con motivo: "3 sin email" no deja hacer nada.
-        body.emailFailures?.length ? `${body.emailFailures.length} sin email: ${[...new Set(body.emailFailures.map(item => item.reason))].slice(0, 2).join(' · ')}` : '',
+        body.emailFailures?.length ? t('prospects.import.emailFailures', { n: body.emailFailures.length, reasons: [...new Set(body.emailFailures.map(item => item.reason))].slice(0, 2).join(' · ') }) : '',
+        body.callsQueued ? t('prospects.import.callsQueued', { n: body.callsQueued }) : '',
       ].filter(Boolean).join(' ')
+      const skippedCalls = body.callsSkipped?.count || 0
       setNotice({
         type: 'import',
-        title: `${body.imported || 0} prospectos importados en ${selectedCampaign?.name || 'la campaña'}`,
-        detail: detail || 'La lista ya está disponible para seguimiento comercial.',
+        title: t('prospects.import.title', { n: body.imported || 0, campaign: selectedCampaign?.name || t('prospects.import.theCampaign') }),
+        detail: detail || t('prospects.import.ready'),
         campaignId,
+        warning: skippedCalls
+          ? t(body.callsSkipped.reason === 'campaign_not_active' ? 'prospects.import.callsSkippedCampaign' : body.callsSkipped.reason === 'agent_not_published' ? 'prospects.import.callsSkippedAgent' : 'prospects.import.callsSkippedGeneric', { n: skippedCalls })
+          : '',
       })
       const processedIds = new Set(items.map(item => item.placeId))
       setResults(previous => previous.filter(result => !processedIds.has(result.placeId)))
@@ -287,15 +314,15 @@ export default function ProspectFinderPage() {
   }
 
   function handleExportCsv() {
-    downloadCsv(`prospectos-${sector}-${city}.csv`, visible.map(result => ({
-      nombre: result.name,
-      direccion: result.address ?? '',
-      telefono: result.phone ?? '',
-      web: result.website ?? '',
-      rating: result.rating ?? '',
-      resenas: result.userRatingCount ?? '',
-      oportunidad: result.quickScore,
-      maps: result.mapsUri ?? '',
+    downloadCsv(t('prospects.csvFile', { sector, city }), visible.map(result => ({
+      [t('prospects.csv.name')]: result.name,
+      [t('prospects.csv.address')]: result.address ?? '',
+      [t('prospects.csv.phone')]: result.phone ?? '',
+      [t('prospects.csv.web')]: result.website ?? '',
+      [t('prospects.csv.rating')]: result.rating ?? '',
+      [t('prospects.csv.reviews')]: result.userRatingCount ?? '',
+      [t('prospects.csv.opportunity')]: result.quickScore,
+      [t('prospects.csv.maps')]: result.mapsUri ?? '',
     })))
   }
 
@@ -303,30 +330,30 @@ export default function ProspectFinderPage() {
 
   return (
     <div className="prospect-page dark-scroll">
-      <ProductPageHeader Icon={RiCompass3Line} title="Prospect Finder" description={locale === 'en' ? 'Find opportunities and activate them within a campaign.' : 'Encuentra oportunidades y actívalas dentro de una campaña.'} />
+      <ProductPageHeader Icon={RiCompass3Line} title={t('prospects.title')} description={t('prospects.description')} />
 
 
       <section className="prospect-search-card" aria-labelledby="prospect-search-title">
         <div className="search-card-copy">
-          <span className="prospect-step">01 / Descubre</span>
-          <h2 id="prospect-search-title">Construye tu próxima lista de oportunidades.</h2>
-          <p>Combina sector y ciudad para encontrar negocios con señales claras de crecimiento.</p>
+          <span className="prospect-step">{t('prospects.step1')}</span>
+          <h2 id="prospect-search-title">{t('prospects.searchTitle')}</h2>
+          <p>{t('prospects.searchText')}</p>
         </div>
         <form className="prospect-search-form" onSubmit={handleSearch}>
-          <label htmlFor="prospect-sector"><span>Sector</span><div className="prospect-input"><RiSearchLine /><input id="prospect-sector" value={sector} onChange={event => setSector(event.target.value)} placeholder="Clínicas dentales" required /></div></label>
-          <label htmlFor="prospect-city"><span>Ciudad o zona</span><div className="prospect-input"><RiMapPin2Line /><input id="prospect-city" value={city} onChange={event => setCity(event.target.value)} placeholder="Valencia" required /></div></label>
+          <label htmlFor="prospect-sector"><span>{t('prospects.sector')}</span><div className="prospect-input"><RiSearchLine /><input id="prospect-sector" value={sector} onChange={event => setSector(event.target.value)} placeholder={t('prospects.sectorPlaceholder')} required /></div></label>
+          <label htmlFor="prospect-city"><span>{t('prospects.city')}</span><div className="prospect-input"><RiMapPin2Line /><input id="prospect-city" value={city} onChange={event => setCity(event.target.value)} placeholder={t('prospects.cityPlaceholder')} required /></div></label>
           <button className="prospect-primary-button" type="submit" disabled={loading} aria-busy={loading}>
-            {loading ? <RiLoader4Line className="prospect-spin" /> : <RiSparkling2Line />}{loading ? 'Buscando…' : 'Buscar prospectos'}
+            {loading ? <RiLoader4Line className="prospect-spin" /> : <RiSparkling2Line />}{loading ? t('prospects.searching') : t('prospects.search')}
           </button>
         </form>
-        <div className="search-card-hint"><RiCheckLine /> Datos de negocio enriquecidos automáticamente</div>
+        <div className="search-card-hint"><RiCheckLine /> {t('prospects.enrichedHint')}</div>
       </section>
 
       <DataStatusBanner
         status={searchStatus === 'idle' ? (campaignsLoading ? 'loading' : campaignsError ? 'error' : campaigns.length ? 'live' : 'empty') : searchStatus}
         message={searchStatus === 'idle'
-          ? campaignsLoading ? 'Consultando campañas disponibles para importar prospectos.' : campaignsError || (campaigns.length ? undefined : 'Todavía no hay campañas de destino; crea una para poder importar.')
-          : searchStatus === 'empty' ? 'La búsqueda respondió correctamente, pero no devolvió negocios con esos criterios.' : undefined}
+          ? campaignsLoading ? t('prospects.loadingCampaignsBanner') : campaignsError || (campaigns.length ? undefined : t('prospects.noCampaignsBanner'))
+          : searchStatus === 'empty' ? t('prospects.emptyBanner') : undefined}
         onRetry={searchStatus === 'error'
           ? () => handleSearch({ preventDefault() {} })
           : searchStatus === 'idle' && (campaignsError || !campaigns.length) ? () => setCampaignReloadKey(key => key + 1) : undefined}
@@ -337,41 +364,42 @@ export default function ProspectFinderPage() {
         {notice ? (
           <div className="prospect-alert success" role="status">
             <RiCheckLine />
-            <span><strong>{notice.title}.</strong> {notice.detail} {notice.campaignId ? <a href={`/campanas/${notice.campaignId}`}>Abrir campaña <RiExternalLinkLine /></a> : null}</span>
+            <span><strong>{notice.title}.</strong> {notice.detail} {notice.campaignId ? <a href={`/campanas/${notice.campaignId}`}>{t('prospects.openCampaign')} <RiExternalLinkLine /></a> : null}</span>
           </div>
         ) : null}
+        {notice?.warning ? <div className="prospect-alert warning" role="alert"><RiPhoneLine /><span>{notice.warning}</span></div> : null}
       </div>
 
       {results.length > 0 ? (
         <>
           <div className="prospect-results-head">
-            <div><span className="prospect-overline">02 / Califica y activa</span><h2>Resultados de búsqueda <em>{visible.length}</em></h2></div>
+            <div><span className="prospect-overline">{t('prospects.step2')}</span><h2>{t('prospects.results')} <em>{visible.length}</em></h2></div>
             <div className="prospect-tools">
-              <button className={`prospect-ghost-button${filtersOpen ? ' active' : ''}`} type="button" onClick={() => setFiltersOpen(value => !value)} aria-expanded={filtersOpen} aria-controls="prospect-filters"><RiFilter3Line /> Filtros <RiArrowDownSLine /></button>
-              <button className="prospect-ghost-button" type="button" onClick={handleExportCsv}><RiFileDownloadLine /> Exportar CSV</button>
+              <button className={`prospect-ghost-button${filtersOpen ? ' active' : ''}`} type="button" onClick={() => setFiltersOpen(value => !value)} aria-expanded={filtersOpen} aria-controls="prospect-filters"><RiFilter3Line /> {t('prospects.filters')} <RiArrowDownSLine /></button>
+              <button className="prospect-ghost-button" type="button" onClick={handleExportCsv}><RiFileDownloadLine /> {t('prospects.exportCsv')}</button>
             </div>
           </div>
 
           {filtersOpen ? (
             <div className="prospect-filter-bar" id="prospect-filters">
-              <label>Ordenar por<select value={sortBy} onChange={event => setSortBy(event.target.value)}>{SORT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-              <label>Rating mínimo<input value={minRating} onChange={event => setMinRating(event.target.value)} type="number" step="0.1" min="0" max="5" placeholder="—" /></label>
-              <label>Reseñas mínimas<input value={minReviews} onChange={event => setMinReviews(event.target.value)} type="number" min="0" placeholder="—" /></label>
-              <label className="prospect-check"><input type="checkbox" checked={onlyNoWebsite} onChange={event => setOnlyNoWebsite(event.target.checked)} /> Sin web</label>
-              <label className="prospect-check"><input type="checkbox" checked={onlyWithPhone} onChange={event => setOnlyWithPhone(event.target.checked)} /> Con teléfono</label>
+              <label>{t('prospects.sortBy')}<select value={sortBy} onChange={event => setSortBy(event.target.value)}>{SORT_OPTIONS.map(option => <option key={option} value={option}>{t(`prospects.sort.${option}`)}</option>)}</select></label>
+              <label>{t('prospects.minRating')}<input value={minRating} onChange={event => setMinRating(event.target.value)} type="number" step="0.1" min="0" max="5" placeholder="—" /></label>
+              <label>{t('prospects.minReviews')}<input value={minReviews} onChange={event => setMinReviews(event.target.value)} type="number" min="0" placeholder="—" /></label>
+              <label className="prospect-check"><input type="checkbox" checked={onlyNoWebsite} onChange={event => setOnlyNoWebsite(event.target.checked)} /> {t('prospects.noWebsite')}</label>
+              <label className="prospect-check"><input type="checkbox" checked={onlyWithPhone} onChange={event => setOnlyWithPhone(event.target.checked)} /> {t('prospects.withPhone')}</label>
             </div>
           ) : null}
 
-          <section className="prospect-table-card" aria-label="Resultados de prospección">
+          <section className="prospect-table-card" aria-label={t('prospects.resultsAria')}>
             <div className="prospect-table-toolbar">
               <label className="select-all">
                 <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} disabled={!visible.length} />
-                <span>{selected.size ? `${selected.size} seleccionados` : 'Seleccionar resultados'}</span>
+                <span>{selected.size ? t('prospects.selectedCount', { n: selected.size }) : t('prospects.selectResults')}</span>
               </label>
 
               <div className="prospect-import-workflow">
                 <div className="prospect-campaign-selector">
-                  <label htmlFor="prospect-campaign"><RiMegaphoneLine /><span>Campaña de destino <em>Obligatoria</em></span></label>
+                  <label htmlFor="prospect-campaign"><RiMegaphoneLine /><span>{t('prospects.targetCampaign')} <em>{t('prospects.required')}</em></span></label>
                   <div className="prospect-campaign-controls">
                     <select
                       id="prospect-campaign"
@@ -383,24 +411,32 @@ export default function ProspectFinderPage() {
                       aria-invalid={!campaignId && selected.size > 0}
                       aria-describedby="prospect-campaign-help"
                     >
-                      <option value="">{campaignsLoading ? 'Cargando campañas…' : 'Selecciona una campaña'}</option>
+                      <option value="">{campaignsLoading ? t('prospects.loadingCampaigns') : t('prospects.selectCampaign')}</option>
                       {campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
                     </select>
-                    <button className="prospect-new-campaign-button" type="button" onClick={openCampaignCreator} aria-expanded={campaignCreatorOpen} aria-controls="prospect-campaign-creator"><RiAddLine /> Nueva outbound</button>
+                    <button className="prospect-new-campaign-button" type="button" onClick={openCampaignCreator} aria-expanded={campaignCreatorOpen} aria-controls="prospect-campaign-creator"><RiAddLine /> {t('prospects.newOutbound')}</button>
                   </div>
-                  <small id="prospect-campaign-help">Todos los prospectos se atribuirán a esta campaña.</small>
+                  <small id="prospect-campaign-help">{t('prospects.campaignHelp')}</small>
+                  {sequences.length ? (
+                    <label htmlFor="prospect-sequence" className="prospect-sequence"><span>{t('prospects.sequenceLabel')}</span>
+                      <select id="prospect-sequence" value={sequenceId} onChange={event => setSequenceId(event.target.value)}>
+                        <option value="">{t('prospects.noSequence')}</option>
+                        {sequences.map(sequence => <option key={sequence.id} value={sequence.id}>{sequence.name}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
                   {campaignsError && !campaignCreatorOpen ? <span className="prospect-inline-error" role="alert">{campaignsError}</span> : null}
                 </div>
 
                 <div className="prospect-import-actions">
-                  <label><input type="checkbox" checked={autoAudit} onChange={event => setAutoAudit(event.target.checked)} /> Auditar al importar</label>
-                  <label><input type="checkbox" checked={autoCall} onChange={event => setAutoCall(event.target.checked)} /> Activar llamada</label>
-                  <label title={autoAudit ? 'Escribe a cada prospecto con los hallazgos de su propia auditoría.' : 'Necesita "Auditar al importar": sin hallazgos no hay email que escribir.'}>
-                    <input type="checkbox" checked={autoEmail && autoAudit} disabled={!autoAudit} onChange={event => setAutoEmail(event.target.checked)} /> Email frío desde la auditoría
+                  <label><input type="checkbox" checked={autoAudit} onChange={event => setAutoAudit(event.target.checked)} /> {t('prospects.autoAudit')}</label>
+                  <label><input type="checkbox" checked={autoCall} onChange={event => setAutoCall(event.target.checked)} /> {t('prospects.autoCall')}</label>
+                  <label title={autoAudit ? t('prospects.autoEmailOn') : t('prospects.autoEmailOff')}>
+                    <input type="checkbox" checked={autoEmail && autoAudit} disabled={!autoAudit} onChange={event => setAutoEmail(event.target.checked)} /> {t('prospects.autoEmail')}
                   </label>
                   <button className="prospect-import-button" type="button" disabled={!selected.size || importing} onClick={handleImport} aria-busy={importing}>
                     {importing ? <RiLoader4Line className="prospect-spin" /> : <RiUploadCloud2Line />}
-                    {importing ? 'Importando…' : !campaignId && selected.size ? 'Selecciona campaña' : 'Importar seleccionados'}
+                    {importing ? t('prospects.importing') : !campaignId && selected.size ? t('prospects.selectCampaignButton') : t('prospects.importSelected')}
                   </button>
                 </div>
               </div>
@@ -410,30 +446,30 @@ export default function ProspectFinderPage() {
               <form className="prospect-campaign-creator" id="prospect-campaign-creator" onSubmit={handleCreateCampaign} aria-labelledby="prospect-campaign-creator-title">
                 <div className="prospect-campaign-creator-copy">
                   <span className="prospect-creator-icon"><RiMegaphoneLine /></span>
-                  <div><strong id="prospect-campaign-creator-title">Nueva campaña outbound</strong><p>Créala aquí y quedará seleccionada para importar esta lista.</p></div>
+                  <div><strong id="prospect-campaign-creator-title">{t('prospects.newCampaignTitle')}</strong><p>{t('prospects.newCampaignText')}</p></div>
                 </div>
-                <label htmlFor="new-outbound-name">Nombre<input id="new-outbound-name" value={newCampaign.name} onChange={event => setNewCampaign(previous => ({ ...previous, name: event.target.value }))} maxLength={140} required autoFocus /></label>
-                <label htmlFor="new-outbound-objective">Objetivo<input id="new-outbound-objective" value={newCampaign.objective} onChange={event => setNewCampaign(previous => ({ ...previous, objective: event.target.value }))} maxLength={2000} /></label>
+                <label htmlFor="new-outbound-name">{t('prospects.name')}<input id="new-outbound-name" value={newCampaign.name} onChange={event => setNewCampaign(previous => ({ ...previous, name: event.target.value }))} maxLength={140} required autoFocus /></label>
+                <label htmlFor="new-outbound-objective">{t('prospects.objective')}<input id="new-outbound-objective" value={newCampaign.objective} onChange={event => setNewCampaign(previous => ({ ...previous, objective: event.target.value }))} maxLength={2000} /></label>
                 <div className="prospect-creator-actions">
-                  <button className="prospect-creator-cancel" type="button" onClick={() => { setCampaignCreatorOpen(false); setCampaignsError('') }}><RiCloseLine /> Cancelar</button>
-                  <button className="prospect-import-button" type="submit" disabled={creatingCampaign} aria-busy={creatingCampaign}>{creatingCampaign ? <RiLoader4Line className="prospect-spin" /> : <RiAddLine />}{creatingCampaign ? 'Creando…' : 'Crear y seleccionar'}</button>
+                  <button className="prospect-creator-cancel" type="button" onClick={() => { setCampaignCreatorOpen(false); setCampaignsError('') }}><RiCloseLine /> {t('prospects.cancel')}</button>
+                  <button className="prospect-import-button" type="submit" disabled={creatingCampaign} aria-busy={creatingCampaign}>{creatingCampaign ? <RiLoader4Line className="prospect-spin" /> : <RiAddLine />}{creatingCampaign ? t('prospects.creating') : t('prospects.createAndSelect')}</button>
                 </div>
                 {campaignsError ? <div className="prospect-inline-error creator-error" role="alert">{campaignsError}</div> : null}
               </form>
             ) : null}
 
-            <div className="prospect-table-head" aria-hidden="true"><span /><span>Negocio</span><span>Oportunidad</span><span>Reputación</span><span>Contacto</span><span>Acciones</span></div>
+            <div className="prospect-table-head" aria-hidden="true"><span /><span>{t('prospects.colBusiness')}</span><span>{t('prospects.colOpportunity')}</span><span>{t('prospects.colReputation')}</span><span>{t('prospects.colContact')}</span><span>{t('prospects.colActions')}</span></div>
             <div className="prospect-table-body">
               {visible.map(result => <ProspectRow key={result.placeId} result={result} checked={selected.has(result.placeId)} onToggle={toggle} />)}
-              {visible.length === 0 ? <div className="prospect-empty-filter">No hay resultados con estos filtros. Ajusta la búsqueda para ampliar tu lista.</div> : null}
+              {visible.length === 0 ? <div className="prospect-empty-filter">{t('prospects.noResultsFilters')}</div> : null}
             </div>
-            <footer className="prospect-table-footer">Mostrando <strong>{visible.length}</strong> de {results.length} resultados <span>·</span> Los resultados se ordenan por oportunidad.</footer>
+            <footer className="prospect-table-footer">{t('prospects.showing', { shown: visible.length, total: results.length })} <span>·</span> {t('prospects.sortedNote')}</footer>
           </section>
         </>
       ) : (
         <section className="prospect-empty-state">
           <div className="empty-orbit"><RiCompass3Line /></div>
-          <div><span className="prospect-overline">Tu radar comercial</span><h2>Empieza con una búsqueda inteligente.</h2><p>Introduce un sector y una ciudad para descubrir negocios, revisar sus señales y convertir los mejores en leads accionables.</p><div className="empty-features"><span><RiCheckLine /> Score de oportunidad</span><span><RiCheckLine /> Web y teléfono</span><span><RiCheckLine /> Rating y reseñas</span></div></div>
+          <div><span className="prospect-overline">{t('prospects.emptyOverline')}</span><h2>{t('prospects.emptyTitle')}</h2><p>{t('prospects.emptyText')}</p><div className="empty-features"><span><RiCheckLine /> {t('prospects.featureScore')}</span><span><RiCheckLine /> {t('prospects.featureContact')}</span><span><RiCheckLine /> {t('prospects.featureRating')}</span></div></div>
         </section>
       )}
     </div>

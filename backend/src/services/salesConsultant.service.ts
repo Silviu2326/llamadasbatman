@@ -371,7 +371,8 @@ export interface CallOperations {
 
 const OUTCOME_LABEL: Record<string, string> = {
   [CALL_OUTCOME.MEETING_SCHEDULED]: 'Reunión agendada',
-  [CALL_OUTCOME.TRANSFERRED_TO_HUMAN]: 'Pidió hablar con una persona',
+  [CALL_OUTCOME.HUMAN_REQUESTED]: 'Pidió hablar con una persona',
+  [CALL_OUTCOME.CALLBACK_REQUESTED]: 'Pidió que le llamen después',
   [CALL_OUTCOME.INTERESTED]: 'Interesado sin agendar',
   [CALL_OUTCOME.NOT_INTERESTED]: 'Dijo que no',
   [CALL_OUTCOME.NONE]: 'Sin resultado registrado',

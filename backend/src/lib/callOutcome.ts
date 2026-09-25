@@ -10,7 +10,9 @@
  * Quién escribe realmente en esta columna:
  *
  * - `voice/telephony/mediaStream.ts` (OUTCOME_MAP) tras una conversación real:
- *   `meeting_scheduled`, `callback_requested`, `not_interested`, `none`.
+ *   `meeting_scheduled`, `human_requested`, `not_interested`, `none`.
+ * - `voice/intelligence/callOutcomeClassifier.ts` al colgar en Zadarma, con
+ *   además `interested`, `callback_requested` y `wrong_number`.
  * - `voice/telephony/amdService.ts` cuando contesta una máquina, con
  *   `status: 'no_answer'`: `voicemail`, `ivr`, `fax_or_noise`, `unknown`.
  * - `services/calls.service.ts` usa `none` como valor por defecto.
@@ -24,11 +26,16 @@ export const CALL_OUTCOME = {
   /** Se agendó una reunión durante la llamada (`demo_agendada` en el motor). */
   MEETING_SCHEDULED: 'meeting_scheduled',
   /**
-   * La llamada se transfirió a una persona (`transferido` en el motor). El
-   * nombre es heredado y engañoso: no es "que me llamen luego", es que el lead
-   * pidió hablar con alguien del equipo. Cuenta como cualificación.
+   * El lead pidió hablar con una persona del equipo (`transferido` en el
+   * motor). Cuenta como cualificación y abre una tarea prioritaria de
+   * devolver la llamada.
    */
-  TRANSFERRED_TO_HUMAN: 'callback_requested',
+  HUMAN_REQUESTED: 'human_requested',
+  /**
+   * El lead pidió que le llamen en otro momento concreto ("llámame después").
+   * Solo tiene sentido con `callbackAt`; no cualifica por sí solo.
+   */
+  CALLBACK_REQUESTED: 'callback_requested',
   /** El lead habló y rechazó, o pidió no ser contactado (`rechazado`/`optout`). */
   NOT_INTERESTED: 'not_interested',
   /**
@@ -48,6 +55,12 @@ export const CALL_OUTCOME = {
   FAX_OR_NOISE: 'fax_or_noise',
   /** La detección de máquina no pudo clasificar la respuesta. */
   UNKNOWN: 'unknown',
+  /** Nadie descolgó (timeout de marcación o cancelación sin respuesta). */
+  NO_ANSWER: 'no_answer',
+  /** Línea ocupada o rechazo inmediato de la red. */
+  BUSY: 'busy',
+  /** Contestó una persona que no es el contacto ni conoce a la empresa. */
+  WRONG_NUMBER: 'wrong_number',
 } as const
 
 export type CallOutcome = (typeof CALL_OUTCOME)[keyof typeof CALL_OUTCOME]
@@ -64,7 +77,7 @@ export const CALL_OUTCOMES = Object.values(CALL_OUTCOME) as readonly CallOutcome
  */
 export const QUALIFYING_CALL_OUTCOMES = [
   CALL_OUTCOME.MEETING_SCHEDULED,
-  CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  CALL_OUTCOME.HUMAN_REQUESTED,
   CALL_OUTCOME.INTERESTED,
 ] as const
 
@@ -82,6 +95,37 @@ export const NO_CONTACT_CALL_OUTCOMES = [
   CALL_OUTCOME.IVR,
   CALL_OUTCOME.FAX_OR_NOISE,
   CALL_OUTCOME.UNKNOWN,
+  CALL_OUTCOME.NO_ANSWER,
+  CALL_OUTCOME.BUSY,
+  CALL_OUTCOME.WRONG_NUMBER,
+] as const
+
+/**
+ * Nadie del negocio atendió: el lead no se considera contactado, no cambia de
+ * estado y la campaña no suma `contacted`. `none` y `unknown` quedan fuera a
+ * propósito: pudo haber conversación aunque el clasificador no la resolviera.
+ */
+export const UNREACHED_CALL_OUTCOMES = [
+  CALL_OUTCOME.NO_ANSWER,
+  CALL_OUTCOME.BUSY,
+  CALL_OUTCOME.VOICEMAIL,
+  CALL_OUTCOME.IVR,
+  CALL_OUTCOME.FAX_OR_NOISE,
+] as const
+
+/** Resultados que puede producir el clasificador LLM al colgar (callOutcomeClassifier.ts). */
+export const CLASSIFIABLE_CALL_OUTCOMES = [
+  CALL_OUTCOME.MEETING_SCHEDULED,
+  CALL_OUTCOME.INTERESTED,
+  CALL_OUTCOME.HUMAN_REQUESTED,
+  CALL_OUTCOME.CALLBACK_REQUESTED,
+  CALL_OUTCOME.NOT_INTERESTED,
+  CALL_OUTCOME.WRONG_NUMBER,
+  CALL_OUTCOME.VOICEMAIL,
+  CALL_OUTCOME.IVR,
+  CALL_OUTCOME.NO_ANSWER,
+  CALL_OUTCOME.BUSY,
+  CALL_OUTCOME.NONE,
 ] as const
 
 /**
@@ -92,8 +136,10 @@ export const NO_CONTACT_CALL_OUTCOMES = [
 const LEGACY_OUTCOME_ALIASES: Record<string, CallOutcome> = {
   // Estados internos del motor, por si un cliente los envía sin mapear.
   demo_agendada: CALL_OUTCOME.MEETING_SCHEDULED,
-  transferido: CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
-  callback: CALL_OUTCOME.TRANSFERRED_TO_HUMAN,
+  transferido: CALL_OUTCOME.HUMAN_REQUESTED,
+  transfer_requested: CALL_OUTCOME.HUMAN_REQUESTED,
+  transferred_to_human: CALL_OUTCOME.HUMAN_REQUESTED,
+  callback: CALL_OUTCOME.CALLBACK_REQUESTED,
   rechazado: CALL_OUTCOME.NOT_INTERESTED,
   rejected: CALL_OUTCOME.NOT_INTERESTED,
   optout: CALL_OUTCOME.NOT_INTERESTED,
@@ -101,6 +147,20 @@ const LEGACY_OUTCOME_ALIASES: Record<string, CallOutcome> = {
   en_curso: CALL_OUTCOME.NONE,
   // `qualified` era el valor que leía voiceExperiment.ts; nunca se escribió.
   qualified: CALL_OUTCOME.INTERESTED,
+  no_contesta: CALL_OUTCOME.NO_ANSWER,
+  'no-answer': CALL_OUTCOME.NO_ANSWER,
+  noanswer: CALL_OUTCOME.NO_ANSWER,
+  ocupado: CALL_OUTCOME.BUSY,
+  numero_equivocado: CALL_OUTCOME.WRONG_NUMBER,
+  'wrong-number': CALL_OUTCOME.WRONG_NUMBER,
+  wrongnumber: CALL_OUTCOME.WRONG_NUMBER,
+  buzon: CALL_OUTCOME.VOICEMAIL,
+  buzón: CALL_OUTCOME.VOICEMAIL,
+  contestador: CALL_OUTCOME.VOICEMAIL,
+  interesado: CALL_OUTCOME.INTERESTED,
+  no_interesado: CALL_OUTCOME.NOT_INTERESTED,
+  reunion_agendada: CALL_OUTCOME.MEETING_SCHEDULED,
+  reunión_agendada: CALL_OUTCOME.MEETING_SCHEDULED,
 }
 
 export function isValidCallOutcome(value: unknown): value is CallOutcome {
@@ -124,6 +184,12 @@ export function normalizeCallOutcome(value: unknown): CallOutcome | null {
 export function isQualifyingOutcome(value: unknown): boolean {
   const outcome = normalizeCallOutcome(value)
   return outcome != null && (QUALIFYING_CALL_OUTCOMES as readonly string[]).includes(outcome)
+}
+
+/** ¿Nadie del negocio atendió? Entonces el lead no cuenta como contactado. */
+export function isUnreachedOutcome(value: unknown): boolean {
+  const outcome = normalizeCallOutcome(value)
+  return outcome != null && (UNREACHED_CALL_OUTCOMES as readonly string[]).includes(outcome)
 }
 
 /** ¿Hubo conversación con una persona, sea cual sea el desenlace? */

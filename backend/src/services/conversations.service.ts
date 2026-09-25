@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client'
 import { hasContactConsent } from './contactConsent.service'
 import { prisma } from '../lib/prisma'
 import { enqueueLeadCall } from '../jobs/leadCallDispatch'
+import { enqueueCampaignLeadCall } from './leadCallGate'
 import { enqueueAutomationEvent } from '../jobs/automationRunner'
 import { createNativeEmailDeliverySnapshot, resolveNativeEmailDraft, sendNativeMarketingDelivery } from './nativeMarketingEmail.service'
 import { sendWhatsApp } from './whatsapp.service'
@@ -208,7 +209,11 @@ export async function orchestrateNewLead(orgId: string, leadId: string, consent?
     await sendWhatsApp({ orgId, leadId: lead.id, conversationId: conversation.id, to: lead.phone, contentSid: whatsappContentSid, contentVariables: { 1: lead.name } }).then(() => queued.push('whatsapp')).catch(() => {})
   }
   if (lead.phone && await consentGranted(orgId, lead.id, 'voice')) {
-    if (await enqueueLeadCall(orgId, lead.id)) queued.push('voice')
+    // Solo si la campaña del lead está activa con agente publicado, y con la
+    // clave `lead-call:<leadId>:<campaignId>`: sin campaña marcable no se
+    // encola nada (el arranque de campaña ya encola a los `new` elegibles) y
+    // con ella no se duplica frente a `autoCall` ni a `startCampaign`.
+    if (await enqueueCampaignLeadCall(orgId, lead.id)) queued.push('voice')
   }
   const welcomeEmailDraftId = process.env.RESEND_WELCOME_EMAIL_DRAFT_ID?.trim()
   if (lead.email && welcomeEmailDraftId && await consentGranted(orgId, lead.id, 'email')) {

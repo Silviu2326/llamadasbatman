@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '../../lib/api'
+import { useI18n } from '../../i18n'
 
 async function readJson(response, fallbackError) {
   const body = await response.json().catch(() => ({}))
@@ -34,6 +35,7 @@ function daysSince(iso) {
  * las carga para el listado de landings y no tiene sentido pedirlas dos veces.
  */
 export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({ url: '', business: '', sector: '', city: '' })
   const [competitorUrls, setCompetitorUrls] = useState(['', '', ''])
   const [loading, setLoading] = useState(false)
@@ -82,7 +84,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
   }, [])
 
   const loadProjects = useCallback((signal) => apiFetch('/api/seo/projects', signal ? { signal } : undefined)
-    .then(response => readJson(response, 'No se pudieron cargar los proyectos'))
+    .then(response => readJson(response, t('webSeo.seoHook.projectsFailed')))
     .then(body => setProjects(Array.isArray(body.data) ? body.data : []))
     .catch(() => {}), [])
 
@@ -91,7 +93,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     const controller = new AbortController()
     if (targetUrl !== undefined) { setReportLoading(false); return () => controller.abort() }
     apiFetch('/api/seo/reports/latest', { signal: controller.signal })
-      .then(response => readJson(response, 'No se pudo cargar el último informe'))
+      .then(response => readJson(response, t('webSeo.seoHook.latestReportFailed')))
       .then(body => { if (body?.data) applyReport(body.data, body.data.reportId) })
       .catch(() => {})
       .finally(() => setReportLoading(false))
@@ -146,7 +148,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     }
     const controller = new AbortController()
     apiFetch(`/api/seo/history?url=${encodeURIComponent(reportUrl)}`, { signal: controller.signal })
-      .then(response => readJson(response, 'No se pudo cargar el historial'))
+      .then(response => readJson(response, t('webSeo.seoHook.historyFailed')))
       .then(body => {
         setHistory(Array.isArray(body.data) ? body.data : [])
         setAlerts(Array.isArray(body.alerts) ? body.alerts : [])
@@ -158,7 +160,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
   useEffect(() => {
     const controller = new AbortController()
     apiFetch('/api/seo/content/stale', { signal: controller.signal })
-      .then(response => readJson(response, 'No se pudo cargar el contenido caducado'))
+      .then(response => readJson(response, t('webSeo.seoHook.staleFailed')))
       .then(body => setStale(Array.isArray(body.data) ? body.data : []))
       .catch(() => {})
     return () => controller.abort()
@@ -169,7 +171,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     const controller = new AbortController()
     const keywords = (report.keywords || []).map(k => k.keyword).join(',')
     apiFetch(`/api/seo/search-console?keywords=${encodeURIComponent(keywords)}${targetUrl ? `&url=${encodeURIComponent(targetUrl)}` : ''}`, { signal: controller.signal })
-      .then(response => readJson(response, 'No se pudo consultar Search Console'))
+      .then(response => readJson(response, t('webSeo.seoHook.scFailed')))
       .then(body => setSearchConsole(body.data))
       .catch(() => {})
     return () => controller.abort()
@@ -182,7 +184,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     }
     const controller = new AbortController()
     apiFetch(`/api/seo/rank-history?url=${encodeURIComponent(reportUrl)}`, { signal: controller.signal })
-      .then(response => readJson(response, 'No se pudo cargar la evolución de posiciones'))
+      .then(response => readJson(response, t('webSeo.seoHook.ranksFailed')))
       .then(body => setRanks(Array.isArray(body.data) ? body.data : []))
       .catch(() => setRanks([]))
     return () => controller.abort()
@@ -198,7 +200,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     setError('')
     try {
       const response = await apiFetch(`/api/seo/reports/${encodeURIComponent(id)}`)
-      const body = await readJson(response, 'No se pudo abrir ese informe.')
+      const body = await readJson(response, t('webSeo.seoHook.openReportFailed'))
       // El id se guarda aparte: compartir debe apuntar al informe que se ve.
       applyReport(body.data, id)
     } catch (openError) {
@@ -218,7 +220,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     setCompetitors(null)
     try {
       const response = await apiFetch(`/api/seo/reports/latest?url=${encodeURIComponent(url)}`)
-      const body = await readJson(response, 'No se pudo abrir ese proyecto.')
+      const body = await readJson(response, t('webSeo.seoHook.openProjectFailed'))
       if (body?.data) applyReport(body.data, body.data.reportId)
       else {
         setReport(null)
@@ -237,7 +239,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
   async function analyze(overrides = {}) {
     const auditForm = { ...form, ...overrides }
     if (!auditForm.url.trim()) {
-      setError('Indica la URL de la web a analizar.')
+      setError(t('webSeo.seoHook.urlRequired'))
       return false
     }
     setLoading(true)
@@ -248,7 +250,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
         method: 'POST',
         body: JSON.stringify({ ...auditForm, competitors: competitorUrls.map(u => u.trim()).filter(Boolean) }),
       })
-      const body = await readJson(response, 'No se pudo generar el informe SEO.')
+      const body = await readJson(response, t('webSeo.seoHook.reportFailed'))
       applyReport(body.data, body.data?.reportId)
       loadProjects()
       return true
@@ -263,14 +265,14 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
   async function runCompare() {
     const urls = competitorUrls.map(u => u.trim()).filter(Boolean)
     if (!urls.length) {
-      setCompetitorsError('Añade al menos una web de la competencia.')
+      setCompetitorsError(t('webSeo.seoHook.competitorRequired'))
       return
     }
     setCompetitorsLoading(true)
     setCompetitorsError('')
     try {
       const response = await apiFetch('/api/seo/compare', { method: 'POST', body: JSON.stringify({ urls }) })
-      const body = await readJson(response, 'No se pudo comparar con la competencia.')
+      const body = await readJson(response, t('webSeo.seoHook.compareFailed'))
       setCompetitors(body.data)
     } catch (compareError) {
       setCompetitorsError(compareError.message)
@@ -290,7 +292,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
         method: 'POST',
         body: JSON.stringify({ title: item.title, keyword: item.keyword, format: item.format, business: form.business, sector: form.sector, city: form.city }),
       })
-      const body = await readJson(response, 'No se pudo redactar el artículo.')
+      const body = await readJson(response, t('webSeo.seoHook.writeFailed'))
       patchContent(index, { loading: false, articleId: body.data.articleId })
     } catch (writeError) {
       patchContent(index, { loading: false, error: writeError.message })
@@ -304,7 +306,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     patchContent(index, { publishing: true, error: '' })
     try {
       const response = await apiFetch(`/api/seo/content/${encodeURIComponent(state.articleId)}/publish`, { method: 'POST' })
-      const body = await readJson(response, 'No se pudo publicar el artículo.')
+      const body = await readJson(response, t('webSeo.seoHook.publishFailed'))
       patchContent(index, { publishing: false, publishedSlug: body.data.slug })
     } catch (publishError) {
       patchContent(index, { publishing: false, error: publishError.message })
@@ -315,13 +317,13 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     const state = contentState[index] ?? {}
     const platforms = state.platforms ?? []
     if (!state.articleId || !state.shareCampaignId || !platforms.length) {
-      patchContent(index, { shareError: 'Elige campaña con landing y al menos una red.' })
+      patchContent(index, { shareError: t('webSeo.seoHook.shareRequires') })
       return
     }
     patchContent(index, { sharing: true, shareError: '' })
     try {
       const response = await apiFetch('/api/seo/social', { method: 'POST', body: JSON.stringify({ articleId: state.articleId, campaignId: state.shareCampaignId, platforms }) })
-      await readJson(response, 'No se pudo programar la publicación.')
+      await readJson(response, t('webSeo.seoHook.scheduleFailed'))
       patchContent(index, { sharing: false, shared: true, shareOpen: false })
     } catch (shareError) {
       patchContent(index, { sharing: false, shareError: shareError.message })
@@ -371,7 +373,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     let cancelled = false
     setWordpress(prev => ({ ...prev, pagesLoading: true, pages: [], pageId: '' }))
     apiFetch(`/api/web-connections/${wordpress.connectionId}/wordpress/pages?type=pages`)
-      .then(response => readJson(response, 'No se pudieron cargar las páginas de WordPress.'))
+      .then(response => readJson(response, t('webSeo.seoHook.wpPagesFailed')))
       .then(body => {
         if (cancelled) return
         const pages = Array.isArray(body.items) ? body.items : []
@@ -391,8 +393,8 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
         method: 'PUT',
         body: JSON.stringify({ type: 'pages', seoTitle: snippets.title, metaDescription: snippets.metaDescription }),
       })
-      const page = await readJson(response, 'WordPress no aceptó el cambio.')
-      setWordpress(prev => ({ ...prev, saving: false, done: `Aplicado en ${page.link || 'la página'}`, pages: prev.pages.map(item => item.id === page.id ? { ...item, ...page } : item) }))
+      const page = await readJson(response, t('webSeo.seoHook.wpRejected'))
+      setWordpress(prev => ({ ...prev, saving: false, done: t('webSeo.seoHook.wpApplied', { page: page.link || t('webSeo.seoHook.wpThePage') }), pages: prev.pages.map(item => item.id === page.id ? { ...item, ...page } : item) }))
     } catch (applyError) {
       setWordpress(prev => ({ ...prev, saving: false, error: applyError.message }))
     }
@@ -402,18 +404,13 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     if (!git.connectionId || !snippets) return
     setGit(prev => ({ ...prev, saving: true, error: '', done: '' }))
     try {
-      const instructions = [
-        `Actualiza el SEO de la página de inicio de la web.`,
-        `Título (<title>): "${snippets.title}".`,
-        `Meta description: "${snippets.metaDescription}".`,
-        'Si el proyecto genera estas etiquetas desde un archivo de configuración, layout o componente de cabecera compartido, cámbialo ahí. No modifiques nada más.',
-      ].join('\n')
+      const instructions = t('webSeo.seoHook.gitInstructions', { title: snippets.title, meta: snippets.metaDescription })
       const response = await apiFetch(`/api/web-connections/${git.connectionId}/git/proposals`, {
         method: 'POST',
-        body: JSON.stringify({ instructions, title: 'SEO: título y meta description de la portada', source: 'seo' }),
+        body: JSON.stringify({ instructions, title: t('webSeo.seoHook.gitTitle'), source: 'seo' }),
       })
-      await readJson(response, 'No se pudo crear el pull request.')
-      setGit(prev => ({ ...prev, saving: false, done: 'Propuesta encolada: el agente abrirá un pull request en unos minutos. Síguelo en Conexiones → Web.' }))
+      await readJson(response, t('webSeo.seoHook.prFailed'))
+      setGit(prev => ({ ...prev, saving: false, done: t('webSeo.seoHook.prQueued') }))
     } catch (applyError) {
       setGit(prev => ({ ...prev, saving: false, error: applyError.message }))
     }
@@ -427,8 +424,8 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
         method: 'POST',
         body: JSON.stringify({ campaignId: landingApply.campaignId, title: snippets.title, metaDescription: snippets.metaDescription }),
       })
-      const body = await readJson(response, 'No se pudo aplicar el SEO a la landing.')
-      setLandingApply(prev => ({ ...prev, saving: false, done: `Aplicado a /l/${body.data.landingSlug}` }))
+      const body = await readJson(response, t('webSeo.seoHook.applyLandingFailed'))
+      setLandingApply(prev => ({ ...prev, saving: false, done: t('webSeo.seoHook.landingApplied', { slug: body.data.landingSlug }) }))
     } catch (applyError) {
       setLandingApply(prev => ({ ...prev, saving: false, error: applyError.message }))
     }
@@ -444,11 +441,11 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
         method: 'PUT',
         body: JSON.stringify({
           vertical: form.sector.trim() || hostnameOf(report.url),
-          objetivo: `Captar demanda de búsqueda: ${selected.join(', ')}`,
-          audience: form.city.trim() ? `Personas que buscan estos servicios en ${form.city.trim()}` : '',
+          objetivo: t('webSeo.seoHook.adsObjective', { keywords: selected.join(', ') }),
+          audience: form.city.trim() ? t('webSeo.seoHook.adsAudience', { city: form.city.trim() }) : '',
         }),
       })
-      await readJson(response, 'No se pudo preparar el borrador de la campaña.')
+      await readJson(response, t('webSeo.seoHook.adsDraftFailed'))
       setAdsState({ saving: false, error: '' })
       return true
     } catch (adsError) {
@@ -462,7 +459,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     setShare({ loading: true, url: '', error: '' })
     try {
       const response = await apiFetch(`/api/seo/reports/${reportId}/share`, { method: 'POST' })
-      const body = await readJson(response, 'No se pudo crear el enlace del informe.')
+      const body = await readJson(response, t('webSeo.seoHook.shareLinkFailed'))
       const url = `${window.location.origin}/seo-informe/${body.data.token}`
       await navigator.clipboard.writeText(url).catch(() => {})
       setShare({ loading: false, url, error: '' })
@@ -474,13 +471,13 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
   async function runKeywordGap() {
     const urls = competitorUrls.map(u => u.trim()).filter(Boolean)
     if (!urls.length) {
-      setGap({ loading: false, items: null, error: 'Añade al menos una web de la competencia.' })
+      setGap({ loading: false, items: null, error: t('webSeo.seoHook.competitorRequired') })
       return
     }
     setGap({ loading: true, items: null, error: '' })
     try {
       const response = await apiFetch('/api/seo/keyword-gap', { method: 'POST', body: JSON.stringify({ urls, keywords: (report?.keywords ?? []).map(k => k.keyword) }) })
-      const body = await readJson(response, 'No se pudo analizar el keyword gap.')
+      const body = await readJson(response, t('webSeo.seoHook.gapFailed'))
       setGap({ loading: false, items: body.data.gaps ?? [], error: '' })
     } catch (gapError) {
       setGap({ loading: false, items: null, error: gapError.message })
@@ -491,7 +488,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     setCannibal({ loading: true, items: null, error: '' })
     try {
       const response = await apiFetch('/api/seo/cannibalization')
-      const body = await readJson(response, 'No se pudo consultar la canibalización.')
+      const body = await readJson(response, t('webSeo.seoHook.cannibalFailed'))
       setCannibal({ loading: false, items: body.data ?? [], error: '' })
     } catch (cannibalError) {
       setCannibal({ loading: false, items: null, error: cannibalError.message })
@@ -502,7 +499,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
     setStaleState(prev => ({ ...prev, [id]: { loading: true, error: '' } }))
     try {
       const response = await apiFetch(`/api/seo/content/${id}/refresh`, { method: 'POST' })
-      await readJson(response, 'No se pudo refrescar el artículo.')
+      await readJson(response, t('webSeo.seoHook.refreshFailed'))
       setStaleState(prev => ({ ...prev, [id]: { loading: false, done: true } }))
       setStale(prev => prev.filter(item => item.id !== id))
     } catch (refreshError) {
@@ -538,14 +535,14 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
   const reportAgeDays = report ? daysSince(report.generatedAt) : null
 
   const band = !report
-    ? { state: reportLoading ? 'loading' : 'unknown', label: reportLoading ? 'Buscando tu último informe SEO…' : 'Ninguna web auditada', message: reportLoading ? 'Leyendo el informe guardado en tu cuenta.' : 'Lanza el primer análisis para tener diagnóstico, keywords y plan de contenidos.' }
+    ? { state: reportLoading ? 'loading' : 'unknown', label: reportLoading ? t('webSeo.seoHook.band.searching') : t('webSeo.seoHook.band.none'), message: reportLoading ? t('webSeo.seoHook.band.reading') : t('webSeo.seoHook.band.launch') }
     : !report.webAlive
-      ? { state: 'partial', label: `${hostnameOf(report.url)} · no se pudo leer`, message: 'La web estaba caída o protegida contra bots: el plan se basa solo en los datos del formulario, no en la web real.' }
+      ? { state: 'partial', label: t('webSeo.seoHook.band.unreadable', { host: hostnameOf(report.url) }), message: t('webSeo.seoHook.band.unreadableMsg') }
       : report.provider !== 'deepseek'
-        ? { state: 'partial', label: `${hostnameOf(report.url)} · plan determinista`, message: 'Plan generado sin IA (DeepSeek no disponible): keywords y contenidos son la plantilla por sector.' }
+        ? { state: 'partial', label: t('webSeo.seoHook.band.deterministic', { host: hostnameOf(report.url) }), message: t('webSeo.seoHook.band.deterministicMsg') }
         : reportAgeDays != null && reportAgeDays > 7
-          ? { state: 'stale', label: `${hostnameOf(report.url)} · informe de hace ${reportAgeDays} días`, message: 'La vigilancia diaria sigue midiendo la salud técnica, pero el plan puede haberse quedado corto.' }
-          : { state: 'ready', label: `${hostnameOf(report.url)} · auditada recientemente`, message: 'Auditoría sobre la web real, plan redactado con IA y vigilancia diaria activa.' }
+          ? { state: 'stale', label: t('webSeo.seoHook.band.stale', { host: hostnameOf(report.url), days: reportAgeDays }), message: t('webSeo.seoHook.band.staleMsg') }
+          : { state: 'ready', label: t('webSeo.seoHook.band.ready', { host: hostnameOf(report.url) }), message: t('webSeo.seoHook.band.readyMsg') }
 
   return {
     form, setField, setForm, competitorUrls, setCompetitorUrls, loading, error, setError,

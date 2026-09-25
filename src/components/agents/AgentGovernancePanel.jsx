@@ -1,8 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { RiArchiveLine, RiArrowRightLine, RiBarChartBoxLine, RiCheckLine, RiCloseLine, RiFileCopyLine, RiHistoryLine, RiInformationLine, RiPhoneLine, RiSettings3Line, RiShieldCheckLine, RiTestTubeLine } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
 import { assetUrl } from '../../lib/assetUrls'
+import { LIFECYCLE, lifecycleOf, apiErrorMessage, readBody } from './agentLifecycle'
 import './agent-governance.css'
+
+// Tras «Llamar ahora» la evaluación llega al colgar: se consulta el workspace
+// cada 5 s durante 3 minutos hasta ver la llamada evaluada.
+const TEST_POLL_INTERVAL_MS = 5000
+const TEST_POLL_MAX_MS = 3 * 60 * 1000
 
 const TYPE_OPTIONS = [['sales', 'Ventas'], ['receptionist', 'Recepción'], ['qualification', 'Cualificación'], ['appointment', 'Citas'], ['support', 'Soporte'], ['collections', 'Cobros'], ['handoff', 'Transferencias']]
 const COPY_OPTIONS = [['voice', 'Voz'], ['documents', 'Documentos'], ['strategy', 'Estrategia'], ['limits', 'Límites'], ['playbook', 'Playbook']]
@@ -28,7 +34,7 @@ function consentScopeLabel(scope) {
 
 const EMPTY_TEST_NUMBER = { phone: '', label: '', attestation: '', confirmed: false }
 
-export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsavedChanges, onNavigate, requestedSection, onAgentReload }) {
+export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsavedChanges, onNavigate, requestedSection, onAgentReload, onWorkspaceLoaded }) {
   const [data, setData] = useState(null)
   const [selectedCampaigns, setSelectedCampaigns] = useState([])
   const [selectedCall, setSelectedCall] = useState('')
@@ -41,18 +47,51 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
   const [cloneName, setCloneName] = useState('')
   const [activeSection, setActiveSection] = useState('basic')
   const [copy, setCopy] = useState({ voice: true, documents: true, strategy: true, limits: true, playbook: true })
+  const [testWatch, setTestWatch] = useState(null)
+  const pollTimer = useRef(null)
 
   const load = async () => {
     const response = await apiFetch(`/api/agents/${agentId}/workspace`)
     if (!response.ok) return
     const next = await response.json()
     setData(next)
+    onWorkspaceLoaded?.(next)
     setSelectedCampaigns(next.campaigns.filter(item => item.assigned).map(item => item.id))
     setSelectedCall(next.calls.find(item => item.status === 'completed')?.id || '')
     setCloneName(current => current || `${next.agent.name} (copia)`)
     return next
   }
   useEffect(() => { load() }, [agentId])
+  useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current) }, [])
+
+  const stopWatching = () => { if (pollTimer.current) clearTimeout(pollTimer.current); pollTimer.current = null; setTestWatch(null) }
+
+  const watchTestCall = startedAt => {
+    stopWatching()
+    const knownCalls = new Set((data?.calls || []).map(item => item.id))
+    setTestWatch({ startedAt, status: 'ringing' })
+    const tick = async () => {
+      const elapsed = Date.now() - startedAt
+      const refreshed = await load().catch(() => null)
+      const fresh = refreshed?.calls?.find(item => item.isTest && !knownCalls.has(item.id)) || null
+      if (fresh?.evaluation?.status === 'completed') {
+        const passed = refreshed.readiness?.checks?.find(item => item.key === 'test')?.ready
+        setNotice(passed ? `Prueba evaluada: ${fresh.evaluation.overall}/100. Ya cumple el requisito de publicación.` : `Prueba evaluada: ${fresh.evaluation.overall}/100. ${refreshed.readiness?.checks?.find(item => item.key === 'test')?.detail || ''}`)
+        setTestWatch({ startedAt, status: 'evaluated', callId: fresh.id })
+        pollTimer.current = null
+        return
+      }
+      if (elapsed >= TEST_POLL_MAX_MS) {
+        setNotice(fresh ? 'La llamada terminó pero la evaluación todavía no ha llegado. Recarga en un momento o evalúala a mano desde la lista.' : 'No se ha registrado la llamada de prueba en 3 minutos. Si sonó y colgaste, recarga; si no sonó, revisa el número y vuelve a intentarlo.')
+        setTestWatch({ startedAt, status: 'timeout' })
+        pollTimer.current = null
+        return
+      }
+      setTestWatch({ startedAt, status: fresh ? (fresh.status === 'completed' ? 'evaluating' : 'in_call') : 'ringing', callId: fresh?.id })
+      pollTimer.current = setTimeout(tick, TEST_POLL_INTERVAL_MS)
+    }
+    pollTimer.current = setTimeout(tick, TEST_POLL_INTERVAL_MS)
+  }
   useEffect(() => {
     if (SECTIONS.some(section => section.id === requestedSection?.section)) setActiveSection(requestedSection.section)
   }, [requestedSection])
@@ -61,16 +100,21 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
     setBusy(key); setNotice('')
     try {
       const response = await apiFetch(url, options)
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error || 'No se pudo completar la acción.')
+      const body = await readBody(response)
+      if (!response.ok) throw new Error(apiErrorMessage(body, 'No se pudo completar la acción.') + (body.code && !/^TEST_CALL_BLOCKED/.test(body.code) ? ` (${body.code})` : ''))
       setNotice(body.status === 'published' ? 'Agente publicado correctamente.'
-        : body.status === 'started' ? `Llamando a ${body.to}. Cuando cuelgues, la llamada aparece aquí ya evaluada.`
+        : body.status === 'paused' ? 'Agente pausado: las campañas dejan de usarlo.'
+        : body.status === 'resumed' ? (body.lifecycleStatus === 'active' ? 'Agente reanudado y publicado: seguía cumpliendo todos los requisitos.' : `Agente reanudado como borrador. ${apiErrorMessage({ blockers: body.blockers }, 'Vuelve a publicarlo cuando esté listo.')}`)
+        : body.status === 'started' ? `Llamando a ${body.to}. Cuando cuelgues, la evaluación aparecerá aquí sola.`
         : 'Cambio aplicado correctamente.')
+      if (body.status === 'started') watchTestCall(Date.now())
       const refreshed = await load()
       if (key === 'restore' && refreshed?.agent) onAgentReload?.(refreshed.agent)
       return body
     } catch (error) { setNotice(error.message) } finally { setBusy('') }
   }
+
+  const confirmThen = (message, run) => { if (window.confirm(message)) return run() }
 
   const compare = useMemo(() => {
     if (!data?.agent) return []
@@ -87,21 +131,27 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
   const missingRequirements = data.readiness.checks.filter(item => !item.ready).length
   const testCall = data.testCall || { numbers: [], blockers: [], dailyLimit: 0, callsToday: 0, ready: false }
   const activeTestNumbers = (testCall.numbers || []).filter(item => item.active)
+  const lifecycle = lifecycleOf(data.agent)
+  const testWatchLabel = testWatch ? ({ ringing: 'Marcando… descuelga en tu número de prueba.', in_call: 'Llamada en curso. Al colgar se evaluará sola.', evaluating: 'Llamada terminada: evaluando la conversación…', evaluated: 'Evaluación recibida.', timeout: 'Sin novedades en 3 minutos.' })[testWatch.status] : ''
 
   return <div id="agent-governance" className="agent-gov">
     <section className="agent-gov-overview">
       <div className="agent-gov-overview-copy">
         <h2>Gestión del agente</h2>
         <p>Configura lo esencial, mide su trabajo y controla cada cambio.</p>
-        <span className={data.readiness.ready ? 'is-ready' : 'is-warning'}>{data.readiness.ready ? <RiCheckLine /> : <RiInformationLine />}{data.readiness.ready ? 'Listo para publicar' : `${missingRequirements} ${missingRequirements === 1 ? 'requisito pendiente' : 'requisitos pendientes'}`}</span>
+        <span className={data.readiness.ready ? 'is-ready' : 'is-warning'}>{data.readiness.ready ? <RiCheckLine /> : <RiInformationLine />}{LIFECYCLE[lifecycle].label} · {data.readiness.ready ? 'requisitos completos' : `${missingRequirements} ${missingRequirements === 1 ? 'requisito pendiente' : 'requisitos pendientes'}`}</span>
       </div>
       <div className="agent-gov-overview-stats">
         <div><span>Número de salida</span><strong>{draft.phoneNumber || 'Sin asignar'}</strong></div>
         <div><span>Campañas</span><strong>{assignedCampaigns}</strong></div>
-        <div><span>Última prueba</span><strong>{evaluation?.overall != null ? `${evaluation.overall}/100` : 'Sin evaluar'}</strong></div>
+        <div><span>Prueba válida</span><strong>{evaluation?.overall != null ? `${evaluation.overall}/100` : data.staleEvaluation ? 'Repetir' : 'Sin evaluar'}</strong></div>
         <div><span>Consumo mensual</span><strong>{usage.minutes || 0} min</strong></div>
       </div>
-      <button className="agent-gov-primary agent-gov-publish" disabled={!data.readiness.ready || busy === 'publish'} onClick={() => act('publish', `/api/agents/${agentId}/publish`, { method: 'POST' })}>{busy === 'publish' ? 'Publicando…' : 'Publicar agente'}</button>
+      {lifecycle === 'active'
+        ? <button className="agent-gov-primary agent-gov-publish" disabled={busy === 'pause'} onClick={() => act('pause', `/api/agents/${agentId}/pause`, { method: 'POST' })}>{busy === 'pause' ? 'Pausando…' : 'Pausar agente'}</button>
+        : lifecycle === 'paused'
+          ? <button className="agent-gov-primary agent-gov-publish" disabled={busy === 'resume'} onClick={() => act('resume', `/api/agents/${agentId}/resume`, { method: 'POST' })}>{busy === 'resume' ? 'Reanudando…' : 'Reanudar agente'}</button>
+          : <button className="agent-gov-primary agent-gov-publish" disabled={lifecycle === 'archived' || !data.readiness.ready || busy === 'publish'} onClick={() => act('publish', `/api/agents/${agentId}/publish`, { method: 'POST' })}>{busy === 'publish' ? 'Publicando…' : lifecycle === 'archived' ? 'Agente archivado' : 'Publicar agente'}</button>}
     </section>
 
     {notice ? <p className="agent-gov-notice" role="status">{notice}</p> : null}
@@ -154,7 +204,9 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
               <button disabled={!selectedTestNumber || !testCall.ready || busy === 'test-call'} onClick={() => act('test-call', `/api/agents/${agentId}/test-calls`, { method: 'POST', body: JSON.stringify({ testNumberId: selectedTestNumber }) })}>{busy === 'test-call' ? 'Llamando…' : 'Llamar ahora'}</button>
             </div>
             <p className="agent-gov-testcall-quota">{testCall.callsToday || 0} de {testCall.dailyLimit} pruebas usadas hoy. La llamada se graba entera y queda en el historial marcada como prueba.</p>
+            {testWatch ? <p className="agent-gov-testcall-quota" role="status" aria-live="polite"><RiPhoneLine /> {testWatchLabel}{testWatch.status !== 'evaluated' && testWatch.status !== 'timeout' ? <button type="button" onClick={stopWatching} style={{ marginLeft: 8, background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Dejar de esperar</button> : null}</p> : null}
             {testCall.blockers?.length ? <ul className="agent-gov-testcall-blockers">{testCall.blockers.map(item => <li key={item}><RiCloseLine />{item}</li>)}</ul> : null}
+            {data.staleEvaluation && !evaluation ? <p className="agent-gov-testcall-quota">La prueba anterior ({data.staleEvaluation.overall}/100) es anterior a los últimos cambios de guion, voz, estrategia o playbook: hay que repetirla.</p> : null}
 
             <div className="agent-gov-testcall-numbers">
               {testCall.numbers?.length ? testCall.numbers.map(item => <article className="agent-gov-consent" key={item.id}>
@@ -183,8 +235,8 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
         </Card>
         <div className="agent-gov-aside">
           <Card title="Requisitos para publicar" description={`${data.readiness.checks.filter(item => item.ready).length} de ${data.readiness.checks.length} completados`} icon={<RiShieldCheckLine />}>
-            <div className="agent-gov-checks">{data.readiness.checks.map(item => <div key={item.key} className={item.ready ? 'is-ready' : 'is-blocked'}>{item.ready ? <RiCheckLine /> : <RiCloseLine />}<span>{item.label}</span></div>)}</div>
-            <button className="agent-gov-primary" disabled={!data.readiness.ready || busy === 'publish'} onClick={() => act('publish', `/api/agents/${agentId}/publish`, { method: 'POST' })}>{busy === 'publish' ? 'Publicando…' : 'Publicar agente'}</button>
+            <div className="agent-gov-checks">{data.readiness.checks.map(item => <div key={item.key} className={item.ready ? 'is-ready' : 'is-blocked'} title={item.detail || ''}>{item.ready ? <RiCheckLine /> : <RiCloseLine />}<span>{item.label}{item.detail ? <small style={{ display: 'block', opacity: .75 }}>{item.detail}</small> : null}</span></div>)}</div>
+            <button className="agent-gov-primary" disabled={lifecycle !== 'draft' || !data.readiness.ready || busy === 'publish'} onClick={() => act('publish', `/api/agents/${agentId}/publish`, { method: 'POST' })}>{busy === 'publish' ? 'Publicando…' : lifecycle === 'active' ? 'Ya publicado' : lifecycle === 'paused' ? 'Reanuda para publicar' : 'Publicar agente'}</button>
           </Card>
           <Card title="Consentimiento de voz" description="Autorizaciones vinculadas a esta voz." icon={<RiShieldCheckLine />}>
             {data.consents.length ? data.consents.map(consent => <article className="agent-gov-consent" key={consent.id}><div><strong>{consent.subjectName}</strong><em className={`is-${consent.status}`}>{consent.status}</em></div><span>Concedido: {new Date(consent.grantedAt).toLocaleDateString()}</span><span>Caduca: {consent.expiresAt ? new Date(consent.expiresAt).toLocaleDateString() : 'Sin caducidad'}</span><span className="agent-gov-scope">Alcance: {consentScopeLabel(consent.scope)}</span><div className="agent-gov-consent-actions">{consent.evidenceAssetId ? <button onClick={async () => { const url = await assetUrl(consent.evidenceAssetId); if (url) window.open(url, '_blank', 'noopener,noreferrer') }}>Ver autorización</button> : null}{consent.status === 'active' ? <button className="is-danger" onClick={() => act('consent', `/api/agents/${agentId}/consents/${consent.id}/revoke`, { method: 'POST' })}>Revocar</button> : null}</div></article>) : <p className="agent-gov-empty">No hay una autorización vinculada.</p>}
@@ -203,7 +255,7 @@ export default function AgentGovernancePanel({ agentId, draft, onChange, hasUnsa
           </Card>
           <Card title="Ciclo de vida" description="Las acciones delicadas están separadas del uso diario." icon={<RiArchiveLine />} className="agent-gov-danger-zone">
             <p>Archivar detiene el agente sin borrar su historial. La eliminación solo está disponible cuando ya no tiene llamadas ni campañas.</p>
-            <div className="agent-gov-actions"><button className="is-danger" onClick={() => act('archive', `/api/agents/${agentId}/archive`, { method: 'POST' })}>Archivar agente</button><button className="is-danger" disabled={data.agent.lifecycleStatus !== 'archived'} onClick={async () => { const result = await act('delete', `/api/agents/${agentId}/permanent`, { method: 'DELETE' }); if (result?.ok) onNavigate('/agentes') }}>Eliminar definitivamente</button></div>
+            <div className="agent-gov-actions"><button className="is-danger" disabled={lifecycle === 'archived'} onClick={() => confirmThen(`¿Archivar a ${data.agent.name}? Dejará de estar disponible para campañas y pruebas. Podrás consultar su historial.`, () => act('archive', `/api/agents/${agentId}/archive`, { method: 'POST' }))}>Archivar agente</button><button className="is-danger" disabled={lifecycle !== 'archived'} onClick={() => confirmThen(`¿Eliminar definitivamente a ${data.agent.name}? Esta acción no se puede deshacer.`, async () => { const result = await act('delete', `/api/agents/${agentId}/permanent`, { method: 'DELETE' }); if (result?.ok) onNavigate('/agentes') })}>Eliminar definitivamente</button></div>
           </Card>
         </div>
       </div> : null}

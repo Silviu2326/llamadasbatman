@@ -3,7 +3,10 @@ import {
   RiTiktokFill, RiTwitterXFill, RiYoutubeFill,
 } from 'react-icons/ri'
 import { apiFetch } from '../../lib/api'
-import { getLocale, localeCode } from '../../i18n'
+import { createTranslator, getLocale, localeCode } from '../../i18n'
+
+/** Traductor con el idioma vigente: estas etiquetas se piden desde vista y desde hooks. */
+const tr = (key, vars) => createTranslator(getLocale())(key, vars)
 
 /**
  * Vocabulario y utilidades del estudio de contenido. Son datos, no vista: la
@@ -21,26 +24,21 @@ export const PLATFORM_META = {
 }
 
 export function platformMeta(name) {
-  return PLATFORM_META[String(name ?? '').toLowerCase()] ?? { name: name ?? 'Canal', color: 'var(--accent-soft)', Icon: RiGlobalLine }
+  return PLATFORM_META[String(name ?? '').toLowerCase()] ?? { name: name ?? tr('organic.formats.channelFallback'), color: 'var(--accent-soft)', Icon: RiGlobalLine }
 }
 
-export const OPPORTUNITY_META = {
-  objection: { label: 'Objeción detectada', tone: 'warn' },
-  faq: { label: 'Pregunta frecuente', tone: 'info' },
-  competitor: { label: 'Comparación con competidor', tone: 'warn' },
-  pre_purchase: { label: 'Señal pre-compra', tone: 'success' },
-  emotional: { label: 'Frase emocional', tone: 'info' },
-  success_story: { label: 'Historia de éxito', tone: 'success' },
+const OPPORTUNITY_TONE = { objection: 'warn', faq: 'info', competitor: 'warn', pre_purchase: 'success', emotional: 'info', success_story: 'success' }
+
+/** Etiqueta y tono de un tipo de oportunidad; un tipo desconocido se muestra tal cual. */
+export function opportunityMeta(type, t = tr) {
+  const tone = OPPORTUNITY_TONE[type]
+  return tone ? { label: t(`organic.formats.opportunity.${type}`), tone } : { label: type, tone: 'info' }
 }
 
 /** Modos objetivo: espejo de `PIECE_OBJECTIVES` del backend. Vocabulario cerrado. */
-export const OBJECTIVE_LABEL = {
-  educar: 'Educar',
-  resolver_objecion: 'Resolver la objeción',
-  diferenciar: 'Diferenciarnos',
-  convertir: 'Convertir',
-  conectar: 'Conectar',
-  demostrar: 'Demostrar',
+export const OBJECTIVE_KEYS = ['educar', 'resolver_objecion', 'diferenciar', 'convertir', 'conectar', 'demostrar']
+export function objectiveLabel(key, t = tr) {
+  return OBJECTIVE_KEYS.includes(key) ? t(`organic.formats.objective.${key}`) : key
 }
 
 const OBJECTIVE_BY_TYPE = {
@@ -56,39 +54,24 @@ export function defaultObjectiveFor(type) {
   return OBJECTIVE_BY_TYPE[type] ?? 'educar'
 }
 
-export const FORMAT_LABEL = {
-  post: 'Post',
-  carousel: 'Carrusel',
-  reel_script: 'Guion de Reel',
-  stories: '3 stories',
-  email: 'Email',
-  voiceover: 'Locución',
+const FORMAT_KEYS = ['post', 'carousel', 'reel_script', 'stories', 'email', 'voiceover']
+export function formatLabel(format, t = tr) {
+  return FORMAT_KEYS.includes(format) ? t(`organic.formats.format.${format}`) : format
 }
 
-export const HISTORY_LABEL = {
-  comment: 'comentó',
-  submitted: 'la envió a aprobación',
-  edited: 'la editó',
-  approved: 'la aprobó',
-  rejected: 'la rechazó',
-  published: 'creó el borrador',
+const HISTORY_KEYS = ['comment', 'submitted', 'edited', 'approved', 'rejected', 'published']
+export function historyLabel(kind, t = tr) {
+  return HISTORY_KEYS.includes(kind) ? t(`organic.formats.history.${kind}`) : kind
 }
 
-export const REJECTION_LABEL = {
-  no_suena_a_nosotros: 'No suena a nosotros',
-  dato_incorrecto: 'Hay un dato incorrecto',
-  no_es_prioridad: 'No es prioridad ahora',
-  ya_lo_hemos_contado: 'Ya lo hemos contado',
-  demasiado_generico: 'Demasiado genérico',
+export const REJECTION_KEYS = ['no_suena_a_nosotros', 'dato_incorrecto', 'no_es_prioridad', 'ya_lo_hemos_contado', 'demasiado_generico']
+export function rejectionLabel(key, t = tr) {
+  return REJECTION_KEYS.includes(key) ? t(`organic.formats.rejection.${key}`) : key
 }
 
-export const PIPELINE_LABEL = {
-  new: 'nuevos',
-  contacted: 'contactados',
-  qualified: 'cualificados',
-  unqualified: 'descartados',
-  converted: 'convertidos',
-  desconocido: 'sin estado',
+const PIPELINE_KEYS = ['new', 'contacted', 'qualified', 'unqualified', 'converted', 'desconocido']
+function pipelineLabel(status, t = tr) {
+  return PIPELINE_KEYS.includes(status) ? t(`organic.formats.pipeline.${status}`) : status
 }
 
 export const IMAGE_BUSY_STATES = ['uploading', 'generating', 'removing']
@@ -134,19 +117,19 @@ export async function uploadMedia(file) {
   const data = await new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result)
-    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'))
+    reader.onerror = () => reject(new Error(tr('organic.formats.readFileFailed')))
     reader.readAsDataURL(file)
   })
   const res = await apiFetch('/api/metricool/media', { method: 'POST', body: JSON.stringify({ data }) })
   const payload = await res.json().catch(() => null)
-  if (!res.ok || !payload?.imageUrl) throw new Error(payload?.error || 'No se pudo subir la imagen.')
+  if (!res.ok || !payload?.imageUrl) throw new Error(payload?.error || tr('organic.formats.uploadFailed'))
   return payload.imageUrl
 }
 
 export async function generateMedia(prompt) {
   const res = await apiFetch('/api/metricool/ai/image', { method: 'POST', body: JSON.stringify({ prompt }) })
   const data = await res.json().catch(() => null)
-  if (!res.ok || !data?.imageUrl) throw new Error(data?.error || 'No se pudo generar la imagen.')
+  if (!res.ok || !data?.imageUrl) throw new Error(data?.error || tr('organic.formats.generateFailed'))
   return data.imageUrl
 }
 
@@ -158,14 +141,14 @@ export async function generateMedia(prompt) {
  */
 export async function rasterizeSlide(svgUrl, size = 1080) {
   const response = await fetch(svgUrl)
-  if (!response.ok) throw new Error('No se pudo leer la slide.')
+  if (!response.ok) throw new Error(tr('organic.formats.slideReadFailed'))
   const svg = await response.text()
   const blobUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   try {
     const image = await new Promise((resolve, reject) => {
       const element = new Image()
       element.onload = () => resolve(element)
-      element.onerror = () => reject(new Error('No se pudo dibujar la slide.'))
+      element.onerror = () => reject(new Error(tr('organic.formats.slideDrawFailed')))
       element.src = blobUrl
     })
     const canvas = document.createElement('canvas')
@@ -173,7 +156,7 @@ export async function rasterizeSlide(svgUrl, size = 1080) {
     canvas.height = size
     canvas.getContext('2d').drawImage(image, 0, 0, size, size)
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
-    if (!blob) throw new Error('No se pudo convertir la slide a imagen.')
+    if (!blob) throw new Error(tr('organic.formats.slideConvertFailed'))
     return new File([blob], 'slide.png', { type: 'image/png' })
   } finally {
     URL.revokeObjectURL(blobUrl)
@@ -206,17 +189,17 @@ export function formatNumber(value, options = {}) {
 }
 
 /** "2 cualificados · 1 nuevo", o un guion si esa pieza no trajo a nadie. */
-export function formatPipeline(pipeline) {
+export function formatPipeline(pipeline, t = tr) {
   const entries = Object.entries(pipeline ?? {}).filter(([, count]) => count > 0)
   if (!entries.length) return '—'
-  return entries.map(([status, count]) => `${count} ${PIPELINE_LABEL[status] ?? status}`).join(' · ')
+  return entries.map(([status, count]) => `${count} ${pipelineLabel(status, t)}`).join(' · ')
 }
 
-export function renderAnalyticsValue(value) {
+export function renderAnalyticsValue(value, t = tr) {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'number') return value.toLocaleString(localeCode(getLocale()))
   if (typeof value === 'string') return value
-  if (Array.isArray(value)) return `${value.length} elemento${value.length === 1 ? '' : 's'}`
-  if (typeof value === 'object') return `${Object.keys(value).length} campo${Object.keys(value).length === 1 ? '' : 's'}`
+  if (Array.isArray(value)) return value.length === 1 ? t('organic.formats.element') : t('organic.formats.elements', { n: value.length })
+  if (typeof value === 'object') return Object.keys(value).length === 1 ? t('organic.formats.field') : t('organic.formats.fields', { n: Object.keys(value).length })
   return String(value)
 }

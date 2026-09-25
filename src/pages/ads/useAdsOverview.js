@@ -24,7 +24,7 @@ import { DEMO_MODE } from '../../lib/dataMode'
  * - createExperiment(payload), changeExperiment(experimentId, 'start'|'conclude')
  * - syncCampaign(campaignId)
  */
-export function useAdsOverview({ locale }) {
+export function useAdsOverview({ locale, t }) {
   const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
@@ -80,11 +80,9 @@ export function useAdsOverview({ locale }) {
     } catch {
       setOverview(null)
       setDataStatus('disconnected')
-      setDataError(DEMO_MODE
-        ? 'El modo demo está habilitado, pero Ads no usa datos simulados: conecta Meta para ver información real.'
-        : 'No se pudo conectar con la operación de Ads. Revisa el backend y vuelve a intentarlo.')
+      setDataError(DEMO_MODE ? t('ads.overview.demoDisconnected') : t('ads.overview.disconnected'))
     } finally { setLoading(false) }
-  }, [locale])
+  }, [locale, t])
 
   useEffect(() => { loadOverview() }, [loadOverview])
 
@@ -110,14 +108,14 @@ export function useAdsOverview({ locale }) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body?.error || 'decision-failed')
       }
-      showNotice(verb === 'approve' ? 'Acción aprobada y registrada como pendiente.' : 'Recomendación rechazada con tu motivo.')
+      showNotice(verb === 'approve' ? t('ads.overview.approved') : t('ads.overview.rejected'))
       await loadOverview()
     } catch (error) {
-      showNotice(error?.message || 'No se pudo registrar la decisión.')
+      showNotice(error?.message || t('ads.overview.decisionFailed'))
     } finally {
       setDecidingId('')
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   // Ejecutar revalida los guardarraíles en el servidor: si algo cambió desde
   // la aprobación, devuelve 409 con el motivo concreto y no toca Meta.
@@ -127,14 +125,14 @@ export function useAdsOverview({ locale }) {
       const response = await apiFetch(`/api/ads/actions/${actionId}/${verb}`, { method: 'POST' })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body?.error || 'action-failed')
-      showNotice(verb === 'execute' ? 'Acción ejecutada y estado remoto comprobado.' : 'Acción deshecha.')
+      showNotice(verb === 'execute' ? t('ads.overview.executed') : t('ads.overview.compensated'))
       await loadOverview()
     } catch (error) {
-      showNotice(error?.message || 'No se pudo completar la acción.')
+      showNotice(error?.message || t('ads.overview.actionFailed'))
     } finally {
       setDecidingId('')
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   // Promover amplía lo que el sistema hace solo, así que el servidor vuelve a
   // comprobar que la regla se lo ha ganado y devuelve 409 con lo que falta.
@@ -144,28 +142,28 @@ export function useAdsOverview({ locale }) {
       const response = await apiFetch(`/api/ads/rules/${ruleKey}/${verb}`, { method: 'POST' })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body?.blockers?.join(' ') || body?.error || 'rule-failed')
-      showNotice(verb === 'promote' ? 'Regla promocionada.' : 'Regla devuelta a N1.')
+      showNotice(verb === 'promote' ? t('ads.overview.rulePromoted') : t('ads.overview.ruleDemoted'))
       await loadOverview()
     } catch (error) {
-      showNotice(error?.message || 'No se pudo cambiar la autonomía de la regla.')
+      showNotice(error?.message || t('ads.overview.ruleFailed'))
     } finally {
       setBusyRule('')
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   const toggleAutonomyStop = useCallback(async stop => {
     try {
       const response = await apiFetch('/api/ads/policy/stop', {
         method: 'POST',
-        body: JSON.stringify(stop ? { reason: 'Parada solicitada desde la página de Ads' } : { resume: true }),
+        body: JSON.stringify(stop ? { reason: t('ads.overview.stopReason') } : { resume: true }),
       })
       if (!response.ok) throw new Error('stop-failed')
-      showNotice(stop ? 'Autonomía parada.' : 'Autonomía reanudada.')
+      showNotice(stop ? t('ads.overview.autonomyStopped') : t('ads.overview.autonomyResumed'))
       await loadOverview()
     } catch {
-      showNotice('No se pudo cambiar el estado de la autonomía.')
+      showNotice(t('ads.overview.autonomyFailed'))
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   // Recomprueba permisos, frescura, atribución y consentimiento sin esperar a
   // que caduque la caché del último diagnóstico.
@@ -176,11 +174,11 @@ export function useAdsOverview({ locale }) {
       if (!response.ok) throw new Error('data-quality-failed')
       await loadOverview()
     } catch {
-      showNotice('No se pudo recomprobar la integridad de los datos.')
+      showNotice(t('ads.overview.qualityFailed'))
     } finally {
       setRefreshingQuality(false)
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   // El backend devuelve 4xx con code y mensaje concreto (sin página, sin
   // creatividad aprobada, APP_URL local, consentimiento…) o 502/504 si falla
@@ -191,17 +189,20 @@ export function useAdsOverview({ locale }) {
     try {
       const response = await apiFetch(`/api/ads/campaigns/${campaignId}/${action}`, { method: 'POST' })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body?.error || 'Meta no pudo completar la operación. Revisa la cuenta y vuelve a intentarlo.')
-      const labels = { publish: 'Borrador enviado a Meta en pausa.', activate: 'Campaña activada.', pause: 'Campaña pausada.' }
-      const warnings = action === 'publish' && Array.isArray(body?.warnings) && body.warnings.length ? ` Aviso: ${body.warnings[0]}` : ''
+      if (!response.ok) throw new Error(body?.error || t('ads.overview.metaFailed'))
+      const labels = { publish: t('ads.overview.published'), activate: t('ads.overview.activated'), pause: t('ads.overview.paused') }
+      // Se enseñan todos los avisos de publicación, no solo el primero: cada
+      // uno es una cosa distinta que revisar (píxel, página, presupuesto…).
+      const warningList = action === 'publish' && Array.isArray(body?.warnings) ? body.warnings.filter(Boolean) : []
+      const warnings = warningList.length ? ` ${t('ads.overview.warnings', { list: warningList.join(' · ') })}` : ''
       showNotice(labels[action] + warnings)
       await loadOverview()
     } catch (error) {
-      showNotice(error?.message || 'Meta no pudo completar la operación. Revisa la cuenta y vuelve a intentarlo.')
+      showNotice(error?.message || t('ads.overview.metaFailed'))
     } finally {
       setManagingCampaign(false)
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   // Experimentos: crear (borrador), arrancar y concluir. Concluir puede
   // devolver "sin conclusión", que es un resultado válido y se enseña tal cual.
@@ -211,17 +212,17 @@ export function useAdsOverview({ locale }) {
     try {
       const response = await apiFetch('/api/ads/experiments', { method: 'POST', body: JSON.stringify(payload) })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body?.issues?.[0]?.message || body?.error || 'No se pudo crear el experimento.')
-      showNotice('Experimento creado en borrador.')
+      if (!response.ok) throw new Error(body?.issues?.[0]?.message || body?.error || t('ads.overview.experimentCreateFailed'))
+      showNotice(t('ads.overview.experimentCreated'))
       await loadOverview()
       return body
     } catch (error) {
-      showNotice(error?.message || 'No se pudo crear el experimento.')
+      showNotice(error?.message || t('ads.overview.experimentCreateFailed'))
       return null
     } finally {
       setBusyExperiment('')
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   const changeExperiment = useCallback(async (experimentId, verb) => {
     setBusyExperiment(experimentId)
@@ -229,14 +230,14 @@ export function useAdsOverview({ locale }) {
       const response = await apiFetch(`/api/ads/experiments/${experimentId}/${verb}`, { method: 'POST' })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body?.error || 'experiment-failed')
-      showNotice(verb === 'start' ? 'Experimento en marcha.' : (body?.conclusion || 'Experimento concluido.'))
+      showNotice(verb === 'start' ? t('ads.overview.experimentStarted') : (body?.conclusion || t('ads.overview.experimentConcluded')))
       await loadOverview()
     } catch (error) {
-      showNotice(error?.message === 'experiment-failed' ? 'No se pudo actualizar el experimento.' : error?.message)
+      showNotice(error?.message === 'experiment-failed' ? t('ads.overview.experimentUpdateFailed') : error?.message)
     } finally {
       setBusyExperiment('')
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   const syncCampaign = useCallback(async campaignId => {
     if (!campaignId) return
@@ -244,14 +245,14 @@ export function useAdsOverview({ locale }) {
     try {
       const response = await apiFetch(`/api/ads/campaigns/${campaignId}/remote-status`)
       if (!response.ok) throw new Error('remote-status-failed')
-      showNotice('Estado de Meta actualizado.')
+      showNotice(t('ads.overview.remoteSynced'))
       await loadOverview()
     } catch {
-      showNotice('No se pudo sincronizar el estado con Meta.')
+      showNotice(t('ads.overview.remoteSyncFailed'))
     } finally {
       setManagingCampaign(false)
     }
-  }, [loadOverview, showNotice])
+  }, [loadOverview, showNotice, t])
 
   return {
     overview, loading, dataStatus, dataError,

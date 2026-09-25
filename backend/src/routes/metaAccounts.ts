@@ -23,12 +23,16 @@ export async function metaAccountsRoutes(app: FastifyInstance) {
     ctrl.oauthCallback
   )
   app.get('/', canRead, ctrl.status)
-  app.put<{ Params: { id: string }; Body: { dailyBudgetCapCents: number } }>(
+  // Selector de cuenta publicitaria y página tras el OAuth: las opciones se
+  // piden a Graph con el token conectado; la selección solo admite ids de esa lista.
+  app.get('/options', canRead, ctrl.options)
+  app.post<{ Body: unknown }>('/select', canMutate, ctrl.select)
+  app.put<{ Params: { id: string }; Body: unknown }>(
     '/:id/budget-cap',
     canSetBudgetCap,
     ctrl.budgetCap
   )
-  app.put<{ Params: { id: string }; Body: { metaPixelId: string } }>(
+  app.put<{ Params: { id: string }; Body: unknown }>(
     '/:id/pixel-id',
     canMutate,
     ctrl.pixelId

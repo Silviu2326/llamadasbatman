@@ -387,11 +387,23 @@ function draftReference(draft: unknown): string | null {
  * Aprobar y publicar son pasos separados a propósito: una pieza aprobada cuyo
  * borrador falla sigue aprobada, y se puede reintentar sin volver a decidir.
  */
+/** Fecha válida (ISO, futura o no: Metricool decide) para esa pieza, o nada. */
+function scheduledAtFor(schedule: Record<string, string> | undefined, pieceId: string): string | undefined {
+  const raw = schedule?.[pieceId]
+  if (typeof raw !== 'string' || !raw.trim()) return undefined
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}
+
 export async function approveAndDraft(
   orgId: string,
   actor: PieceActor,
   pieceIds: string[],
-  options: { platforms?: string[] } = {},
+  /**
+   * `scheduledAt` es la fecha elegida pieza a pieza en la sala de aprobación
+   * (ISO 8601). Sin ella Metricool recibe el borrador sin fecha, como antes.
+   */
+  options: { platforms?: string[]; scheduledAt?: Record<string, string> } = {},
 ) {
   const results: { id: string; approved: boolean; drafted: boolean; reason?: string }[] = []
 
@@ -458,6 +470,7 @@ export async function approveAndDraft(
           // El UTM propio de la pieza viaja hasta la URL publicada.
           utmContent: piece.utmContent ?? undefined,
         },
+        scheduledAt: scheduledAtFor(options.scheduledAt, pieceId),
       }, orgId)
 
       if (!draft) {

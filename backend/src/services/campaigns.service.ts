@@ -2,6 +2,33 @@ import { prisma } from '../lib/prisma'
 import { CampaignStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { enqueueLeadCall } from './leadIngestion.service'
+import { normalizeE164 } from '../voice/compliance'
+import { OPT_OUT_TAG } from './leads.service'
+
+/** `agentId` que no existe o no pertenece a la organización (create/update). */
+export class CampaignAgentError extends Error {
+  constructor() {
+    super('agentId no pertenece a la organización')
+    this.name = 'CampaignAgentError'
+  }
+}
+
+/** Activación rechazada con un código estable para el frontend (409) o 404. */
+export class CampaignStartError extends Error {
+  constructor(public code: 'CAMPAIGN_NOT_FOUND' | 'AGENT_MISSING' | 'AGENT_NOT_PUBLISHED' | 'STATUS_NOT_ALLOWED', message: string, public status: 400 | 404 | 409 = 409) {
+    super(message)
+    this.name = 'CampaignStartError'
+  }
+}
+
+async function assertOwnedAgent(orgId: string, agentId?: string | null) {
+  if (!agentId) return
+  const agent = await prisma.agent.findFirst({ where: { id: agentId, orgId }, select: { id: true } })
+  if (!agent) throw new CampaignAgentError()
+}
+
+/** Mismo valor que MAX_CALL_ATTEMPTS en jobs/leadCallDispatch.ts (no se importa: ese módulo arranca la cola). */
+const MAX_CALL_ATTEMPTS = 3
 
 export async function listCampaigns(orgId: string, opts: {
   page?: number
@@ -43,6 +70,7 @@ export async function createCampaign(orgId: string, data: {
   goal?: string | null
   settings?: Record<string, unknown>
 }) {
+  await assertOwnedAgent(orgId, data.agentId)
   return prisma.campaign.create({
     data: {
       orgId,
@@ -86,6 +114,9 @@ export async function updateCampaign(orgId: string, id: string, data: {
   goal?: string | null
   settings?: Record<string, unknown>
 }) {
+  // Defensa en el servicio además del esquema de la ruta: 'active' solo por startCampaign.
+  if (data.status === 'active') throw new CampaignStartError('STATUS_NOT_ALLOWED', "status 'active' solo se establece con POST /api/campaigns/:id/start", 400)
+  await assertOwnedAgent(orgId, data.agentId)
   return prisma.campaign.updateMany({
     where: { id, orgId },
     data: {
@@ -133,10 +164,77 @@ export const START_LEAD_WHERE = {
   NOT: { phone: '' },
 } as const
 
+export interface CampaignStartBreakdown {
+  /** Leads `new` con teléfono E.164, sin opt-out, con consentimiento si aplica y con intentos disponibles. */
+  eligible: number
+  /** Solo en `startCampaign`: elegibles con un trabajo de llamada ya pendiente o en curso (reintento), no se reencolan. */
+  alreadyQueued?: number
+  withoutPhone: number
+  invalidPhone: number
+  optOut: number
+  missingConsent: number
+  maxAttempts: number
+}
+
+/**
+ * Clasifica los leads `new` de la campaña con las mismas reglas que
+ * `canCall()`/el dispatch aplicarán al marcar (salvo horario y cuota, que
+ * dependen del momento). Lo comparten la vista previa y `startCampaign`
+ * para que el número que confirma el usuario sea exactamente el que se
+ * encola, y para que un lead excluido o sin consentimiento no "queme" un
+ * trabajo de cola que el worker descartaría en silencio.
+ */
+export async function classifyCampaignLeads(orgId: string, campaignId: string): Promise<{ eligible: Array<{ id: string; phone: string }>; breakdown: CampaignStartBreakdown }> {
+  const leads = await prisma.lead.findMany({
+    where: { orgId, campaignId, status: 'new' },
+    select: { id: true, phone: true, tags: true, attempts: true },
+  })
+  const breakdown: CampaignStartBreakdown = { eligible: 0, withoutPhone: 0, invalidPhone: 0, optOut: 0, missingConsent: 0, maxAttempts: 0 }
+  const candidates: Array<{ id: string; phone: string; tags: string[]; attempts: number }> = []
+  for (const lead of leads) {
+    if (!lead.phone || !lead.phone.trim()) { breakdown.withoutPhone++; continue }
+    const phone = normalizeE164(lead.phone)
+    if (!phone) { breakdown.invalidPhone++; continue }
+    candidates.push({ id: lead.id, phone, tags: lead.tags ?? [], attempts: lead.attempts })
+  }
+  if (!candidates.length) return { eligible: [], breakdown }
+
+  const requireConsentAll = process.env.REQUIRE_VOICE_CONSENT === 'true'
+  const [optOuts, consents] = await Promise.all([
+    prisma.optOut.findMany({ where: { orgId, phone: { in: candidates.map(c => c.phone) } }, select: { phone: true } }),
+    prisma.contactConsent.findMany({
+      where: { orgId, leadId: { in: candidates.map(c => c.id) }, channel: 'voice', purpose: { in: ['contact', 'marketing'] } },
+      select: { leadId: true, status: true, expiresAt: true, occurredAt: true, id: true },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+    }),
+  ])
+  const optedOut = new Set(optOuts.map(o => o.phone))
+  // La decisión más reciente por lead manda (mismo criterio que hasContactConsent).
+  const latestConsent = new Map<string, { status: string; expiresAt: Date | null }>()
+  for (const consent of consents) {
+    if (consent.leadId && !latestConsent.has(consent.leadId)) latestConsent.set(consent.leadId, { status: consent.status, expiresAt: consent.expiresAt })
+  }
+  const now = Date.now()
+  const eligible: Array<{ id: string; phone: string }> = []
+  for (const lead of candidates) {
+    if (optedOut.has(lead.phone) || lead.tags.includes(OPT_OUT_TAG)) { breakdown.optOut++; continue }
+    if (lead.attempts >= MAX_CALL_ATTEMPTS) { breakdown.maxAttempts++; continue }
+    if (lead.phone.startsWith('+34') || requireConsentAll) {
+      const consent = latestConsent.get(lead.id)
+      const granted = consent?.status === 'granted' && (!consent.expiresAt || consent.expiresAt.getTime() > now)
+      if (!granted) { breakdown.missingConsent++; continue }
+    }
+    eligible.push({ id: lead.id, phone: lead.phone })
+  }
+  breakdown.eligible = eligible.length
+  return { eligible, breakdown }
+}
+
 /**
  * Vista previa de solo lectura de startCampaign: cuántas llamadas se
- * encolarían si se activa ahora. No escribe nada ni toca la cola. Devuelve
- * null si la campaña no pertenece a la organización.
+ * encolarían si se activa ahora y por qué no se llamaría al resto. No
+ * escribe nada ni toca la cola. Devuelve null si la campaña no pertenece a
+ * la organización.
  */
 export async function getStartPreview(orgId: string, id: string) {
   const campaign = await prisma.campaign.findFirst({
@@ -150,12 +248,7 @@ export async function getStartPreview(orgId: string, id: string) {
   })
   if (!campaign) return null
 
-  const [eligibleLeads, newLeadsWithoutPhone] = await Promise.all([
-    prisma.lead.count({ where: { orgId, campaignId: id, ...START_LEAD_WHERE } }),
-    prisma.lead.count({
-      where: { orgId, campaignId: id, status: 'new', OR: [{ phone: null }, { phone: '' }] },
-    }),
-  ])
+  const { breakdown } = await classifyCampaignLeads(orgId, id)
 
   return {
     campaignId: campaign.id,
@@ -169,45 +262,88 @@ export async function getStartPreview(orgId: string, id: string) {
           lifecycleStatus: campaign.agent.lifecycleStatus,
         }
       : null,
-    eligibleLeads,
-    newLeadsWithoutPhone,
+    // Agente publicado = lifecycleStatus 'active' (agents.service). Sin eso
+    // /start responde 409 AGENT_NOT_PUBLISHED.
+    canStart: Boolean(campaign.agent && campaign.agent.isActive && campaign.agent.lifecycleStatus === 'active'),
+    eligibleLeads: breakdown.eligible,
+    newLeadsWithoutPhone: breakdown.withoutPhone,
+    breakdown,
   }
 }
 
+/** Leads (de la lista dada) con un trabajo `lead-call-dispatch` pendiente o en curso. */
+async function findLeadsWithPendingCallJobs(orgId: string, leadIds: string[]): Promise<Set<string>> {
+  const wanted = new Set(leadIds)
+  const jobs = await prisma.workerQueueJob.findMany({
+    where: { queue: 'lead-call-dispatch', status: { in: ['pending', 'processing'] }, payload: { path: ['orgId'], equals: orgId } },
+    select: { payload: true },
+  })
+  const found = new Set<string>()
+  for (const job of jobs) {
+    const leadId = (job.payload as { leadId?: unknown } | null)?.leadId
+    if (typeof leadId === 'string' && wanted.has(leadId)) found.add(leadId)
+  }
+  return found
+}
+
+/** Clave idempotente del trabajo de llamada de campaña: reactivar no duplica. */
+export function campaignCallDedupeKey(leadId: string, campaignId: string) {
+  return `lead-call:${leadId}:${campaignId}`
+}
+
 /**
- * Dispatch masivo: encola una llamada por cada lead "new" de la campaña en la
- * cola real (`lead-call-dispatch`, la misma que usa la llamada individual y
- * el webhook de Meta) — antes esto pegaba a un VOICE_SERVICE_URL externo que
- * ya no existe, así que el botón no disparaba ninguna llamada real.
+ * Dispatch masivo: encola una llamada por cada lead "new" llamable de la
+ * campaña en la cola real (`lead-call-dispatch`, la misma que usa la llamada
+ * individual y el webhook de Meta). Rechaza con 409 si el agente no está
+ * publicado: activar sin agente publicado dejaba la campaña "activa" con
+ * todos los trabajos descartados en silencio por el worker.
  */
 export async function startCampaign(orgId: string, id: string) {
   const campaign = await prisma.campaign.findFirst({
     where: { id, orgId },
-    include: { leads: { where: START_LEAD_WHERE } },
+    select: { id: true, agent: { select: { id: true, orgId: true, isActive: true, lifecycleStatus: true, name: true } } },
   })
 
-  if (!campaign) throw new Error('Campaign not found')
+  if (!campaign) throw new CampaignStartError('CAMPAIGN_NOT_FOUND', 'Campaign not found', 404)
+  if (!campaign.agent || campaign.agent.orgId !== orgId) {
+    throw new CampaignStartError('AGENT_MISSING', 'La campaña no tiene agente asignado. Asigna un agente publicado antes de activarla.')
+  }
+  if (!campaign.agent.isActive || campaign.agent.lifecycleStatus !== 'active') {
+    throw new CampaignStartError('AGENT_NOT_PUBLISHED', `El agente ${campaign.agent.name} no está publicado. Publícalo (prueba real y consentimiento de voz) antes de activar la campaña.`)
+  }
+
+  const { eligible, breakdown } = await classifyCampaignLeads(orgId, id)
 
   await prisma.campaign.updateMany({
     where: { id, orgId },
     data: { status: 'active' },
   })
 
+  // Un lead con un reintento (`retry:<org>:<lead>:<n>`) u otro trabajo de
+  // llamada pendiente o en curso ya va a ser llamado: reencolarlo con `requeue`
+  // duplicaría la llamada. Se localizan con una sola consulta por organización.
+  const alreadyQueued = eligible.length ? await findLeadsWithPendingCallJobs(orgId, eligible.map(lead => lead.id)) : new Set<string>()
+  breakdown.alreadyQueued = alreadyQueued.size
+
   let queued = 0
-  for (const lead of campaign.leads) {
-    if (!lead.phone) continue
-    if (await enqueueLeadCall(orgId, lead.id)) queued++
+  for (const lead of eligible) {
+    if (alreadyQueued.has(lead.id)) continue
+    // Al reactivar una campaña, un lead que sigue en `new` (p. ej. bloqueado
+    // por horario o consentimiento en el intento anterior) debe volver a
+    // encolarse aunque su dedupeKey ya se completara: de ahí `requeue`.
+    if (await enqueueLeadCall(orgId, lead.id, campaignCallDedupeKey(lead.id, id), 0, { campaignId: id, onFinished: 'requeue' })) queued++
   }
 
-  return { ok: true, queued }
+  return { ok: true, queued, breakdown }
 }
 
+/** Devuelve null si la campaña no existe en la organización (404 en la ruta). */
 export async function pauseCampaign(orgId: string, id: string) {
-  await prisma.campaign.updateMany({
+  const result = await prisma.campaign.updateMany({
     where: { id, orgId },
     data: { status: 'paused' },
   })
-
+  if (!result.count) return null
   return { ok: true }
 }
 

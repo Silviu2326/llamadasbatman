@@ -849,6 +849,12 @@ model Call {
   contactClassificationConfidence Float?
   amdResult                       Json?
   callbackAt                      DateTime?
+  // Fecha acordada en la llamada para la reunión (clasificador o corrección
+  // manual). Sin fecha no se crea ninguna Meeting automática.
+  meetingAt                       DateTime?
+  // Transcripción por turnos [{ role: 'agente'|'prospecto', text, atMs }],
+  // además del texto plano `transcript` que siguen leyendo los informes.
+  transcriptTurns                 Json?
   startedAt                       DateTime?
   endedAt                         DateTime?
   isFavorite                      Boolean    @default(false)

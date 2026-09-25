@@ -1,4 +1,7 @@
-import { getLocale, localeCode } from '../../i18n'
+import { createTranslator, getLocale, localeCode } from '../../i18n'
+
+/** Traductor del idioma vigente para etiquetas que se leen fuera de un componente. */
+const tr = (key, vars) => createTranslator(getLocale())(key, vars)
 
 /**
  * Modelo de landings: cómo se leen las campañas con landing, las webs externas
@@ -8,12 +11,15 @@ import { getLocale, localeCode } from '../../i18n'
 
 export const STORAGE_KEY = 'vendrava.external-webs.v1'
 
+// `label` es el nombre comercial de la plantilla (no se traduce); `kindKey`
+// es la clave de su categoría en organic.js.
 export const TEMPLATE_META = {
-  'gym-trial-v1': { label: 'Fitness Boost', kind: 'Fitness', color: 'var(--pink)' },
-  'pet-grooming-v1': { label: 'Pet Care', kind: 'Mascotas', color: 'var(--warn)' },
-  'legal-consult-v1': { label: 'Lex Pro', kind: 'Servicios legales', color: 'var(--warn-soft)' },
-  'generic-v1': { label: 'Clarity Pro', kind: 'General', color: 'var(--cyan)' },
+  'gym-trial-v1': { label: 'Fitness Boost', kindKey: 'gymKind', color: 'var(--pink)' },
+  'pet-grooming-v1': { label: 'Pet Care', kindKey: 'petKind', color: 'var(--warn)' },
+  'legal-consult-v1': { label: 'Lex Pro', kindKey: 'legalKind', color: 'var(--warn-soft)' },
+  'generic-v1': { label: 'Clarity Pro', kindKey: 'genericKind', color: 'var(--cyan)' },
 }
+export const templateKind = (templateId, t = tr) => t(`webSeo.model.template.${(TEMPLATE_META[templateId] || TEMPLATE_META['generic-v1']).kindKey}`)
 
 export const FALLBACK_IMAGES = [
   '/assets/landings/landing-hero.png',
@@ -57,16 +63,16 @@ export function normalizeCampaign(campaign, index) {
   return {
     id: campaign.id,
     sourceId: campaign.id,
-    name: assets.title || campaign.name || 'Landing sin título',
-    campaignName: campaign.name || 'Campaña sin nombre',
+    name: assets.title || campaign.name || tr('webSeo.model.untitledLanding'),
+    campaignName: campaign.name || tr('webSeo.model.unnamedCampaign'),
     slug: campaign.landingSlug || '',
     templateId,
     status: !hasLanding ? 'none' : campaign.status === 'active' ? 'published' : 'draft',
     leads,
     meetings,
     visits,
-    updatedAt: activityDate ? new Date(activityDate).toLocaleDateString(localeCode(getLocale()), { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha',
-    updatedBy: campaign.agent?.name || 'Equipo Vendrava',
+    updatedAt: activityDate ? new Date(activityDate).toLocaleDateString(localeCode(getLocale()), { day: 'numeric', month: 'short', year: 'numeric' }) : tr('webSeo.model.noDate'),
+    updatedBy: campaign.agent?.name || tr('webSeo.model.vendravaTeam'),
     telemetryState: campaign.telemetryState || 'pending',
     landingKey: campaign.landingKey || null,
     image: assets.imageUrl || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
@@ -107,94 +113,54 @@ export function getLink(item) {
   return item.slug ? `${window.location.origin}/l/${item.slug}` : null
 }
 
-export const STATUS_META = {
-  published: { label: 'Publicada', tone: 'ok' },
-  draft: { label: 'Borrador', tone: 'warn' },
-  none: { label: 'Sin landing', tone: '' },
-  external: { label: 'Web externa', tone: 'cyan' },
+// Vocabularios cerrados (mismo que los diagnósticos del backend). Cada uno se
+// traduce por clave en organic.js; un valor desconocido se devuelve tal cual.
+const STATUS_TONE = { published: 'ok', draft: 'warn', none: '', external: 'cyan' }
+export function statusMeta(status, t = tr) {
+  return STATUS_TONE[status] !== undefined ? { label: t(`webSeo.model.status.${status}`), tone: STATUS_TONE[status] } : { label: t('webSeo.model.status.unknown'), tone: '' }
 }
+const labelFor = (group, keys) => (value, t = tr) => (keys.includes(value) ? t(`webSeo.model.${group}.${value}`) : value)
+export const confidenceLabel = labelFor('confidence', ['high', 'medium', 'low', 'none'])
+export const effortLabel = labelFor('effort', ['low', 'medium', 'high'])
+export const fieldLabel = labelFor('field', ['name', 'phone', 'email', 'contactTime', 'consent'])
+export const changeTypeLabel = labelFor('changeType', ['optional_field', 'block_order', 'cta_text', 'hero_variant', 'faq', 'pricing', 'testimonial', 'legal_claim', 'contract_terms', 'consent', 'targeting'])
+export const variantStatusLabel = labelFor('variant', ['generated', 'pending_approval', 'active', 'winner', 'loser', 'inconclusive', 'discarded'])
+export const decisionLabel = labelFor('decision', ['running', 'winner', 'inconclusive', 'insufficient'])
+export const autonomyStatusLabel = labelFor('autonomy', ['shadow', 'proposed', 'approved', 'applied', 'rolled_back', 'blocked', 'expired'])
 
-export const CONFIDENCE_LABEL = { high: 'alta', medium: 'media', low: 'baja', none: 'sin datos' }
-export const EFFORT_LABEL = { low: 'bajo', medium: 'medio', high: 'alto' }
-// Mismo vocabulario que los diagnósticos del backend.
-export const FIELD_LABEL = { name: 'nombre', phone: 'teléfono', email: 'email', contactTime: 'franja horaria', consent: 'consentimiento' }
-
-export const CHANGE_TYPE_LABEL = {
-  optional_field: 'Campo del formulario',
-  block_order: 'Orden de los bloques',
-  cta_text: 'Texto del CTA',
-  hero_variant: 'Variante de hero',
-  faq: 'FAQ',
-  pricing: 'Precios',
-  testimonial: 'Testimonio',
-  legal_claim: 'Afirmación legal',
-  contract_terms: 'Condiciones contractuales',
-  consent: 'Consentimiento',
-  targeting: 'Segmentación',
-}
-
-export const VARIANT_STATUS_LABEL = {
-  generated: 'Generada',
-  pending_approval: 'Pendiente de aprobación',
-  active: 'Activa',
-  winner: 'Ganadora',
-  loser: 'Perdedora',
-  inconclusive: 'Sin conclusión',
-  discarded: 'Descartada',
-}
-
-export const DECISION_LABEL = {
-  running: 'En curso',
-  winner: 'Hay ganadora',
-  inconclusive: 'Sin conclusión',
-  insufficient: 'Sin volumen suficiente',
-}
-
-export const AUTONOMY_STATUS_LABEL = {
-  shadow: 'En sombra',
-  proposed: 'Propuesta',
-  approved: 'Aprobada',
-  applied: 'Aplicada',
-  rolled_back: 'Revertida',
-  blocked: 'Bloqueada',
-  expired: 'Caducada',
-}
-
-const fieldList = fields => (Array.isArray(fields) ? fields : []).map(field => FIELD_LABEL[field] || field).join(', ')
+const fieldList = (fields, t) => (Array.isArray(fields) ? fields : []).map(field => fieldLabel(field, t)).join(', ')
 
 /** Traduce un parche de variante o un cambio de autonomía a lenguaje llano. */
-export function describeChange(payload) {
-  if (!payload || typeof payload !== 'object') return 'sin cambios'
+export function describeChange(payload, t = tr) {
+  if (!payload || typeof payload !== 'object') return t('webSeo.model.change.none')
   const parts = []
-  if (payload.hiddenFields?.length) parts.push(`retira ${fieldList(payload.hiddenFields)} del formulario`)
-  if (payload.optionalFields?.length) parts.push(`deja de exigir ${fieldList(payload.optionalFields)}`)
-  if (payload.fields?.length) parts.push(`afecta a ${fieldList(payload.fields)}`)
-  if (payload.title) parts.push(`nuevo titular: «${payload.title}»`)
-  if (payload.offer) parts.push(`nueva oferta: «${payload.offer}»`)
-  if (payload.leadMagnet) parts.push('nuevo recurso descargable')
-  if (payload.adCopy) parts.push('nuevo texto de captación')
-  if (payload.text) parts.push(`texto: «${payload.text}»`)
-  return parts.length ? parts.join(' · ') : 'sin cambios'
+  if (payload.hiddenFields?.length) parts.push(t('webSeo.model.change.hidden', { fields: fieldList(payload.hiddenFields, t) }))
+  if (payload.optionalFields?.length) parts.push(t('webSeo.model.change.optional', { fields: fieldList(payload.optionalFields, t) }))
+  if (payload.fields?.length) parts.push(t('webSeo.model.change.affects', { fields: fieldList(payload.fields, t) }))
+  if (payload.title) parts.push(t('webSeo.model.change.title', { value: payload.title }))
+  if (payload.offer) parts.push(t('webSeo.model.change.offer', { value: payload.offer }))
+  if (payload.leadMagnet) parts.push(t('webSeo.model.change.leadMagnet'))
+  if (payload.adCopy) parts.push(t('webSeo.model.change.adCopy'))
+  if (payload.text) parts.push(t('webSeo.model.change.text', { value: payload.text }))
+  return parts.length ? parts.join(' · ') : t('webSeo.model.change.none')
 }
 
 /** Copia de la banda de integridad de landings (landings.md §5). */
-export function landingsIntegrityCopy(integrity) {
+export function landingsIntegrityCopy(integrity, t = tr) {
   if (!integrity) {
-    return { state: 'unknown', label: 'Telemetría de landings sin leer', detail: 'Los indicadores que dependen de ella aparecen como «sin medición», nunca como cero.', coverage: '' }
+    return { state: 'unknown', label: t('webSeo.model.integrity.unreadLabel'), detail: t('webSeo.model.integrity.unreadDetail'), coverage: '' }
   }
-  const meta = {
-    ready: { label: 'Landings midiendo', detail: 'Todas las landings publicadas están midiendo.' },
-    partial: { label: 'Landings con datos parciales', detail: `${integrity.measured} de ${integrity.landings} landings están midiendo. Las demás aún no han recibido visitas desde que la telemetría está activa.` },
-    stale: { label: 'Telemetría obsoleta', detail: 'El último cálculo tiene más de dos días. Actualiza antes de tomar decisiones.' },
-    unreliable: { label: 'Sin telemetría fiable', detail: 'Ninguna landing ha registrado comportamiento todavía: no hay base para diagnosticar.' },
-  }[integrity.state] || { label: 'Estado desconocido', detail: '' }
+  const known = ['ready', 'partial', 'stale', 'unreliable'].includes(integrity.state)
+  const meta = known
+    ? { label: t(`webSeo.model.integrity.${integrity.state}`), detail: t(`webSeo.model.integrity.${integrity.state}Detail`, { measured: integrity.measured, total: integrity.landings }) }
+    : { label: t('webSeo.model.integrity.unknown'), detail: '' }
   const coverage = integrity.utmCoverage === null || integrity.utmCoverage === undefined
-    ? 'sin visitas registradas'
-    : `${Math.round(integrity.utmCoverage * 100)}% del tráfico con origen identificado`
+    ? t('webSeo.model.integrity.noVisits')
+    : t('webSeo.model.integrity.coverage', { pct: Math.round(integrity.utmCoverage * 100) })
   return {
     state: integrity.state,
     label: meta.label,
     detail: meta.detail,
-    coverage: `Atribución: ${coverage}${integrity.lastComputedAt ? ` · calculado ${new Date(integrity.lastComputedAt).toLocaleString(localeCode(getLocale()))}` : ' · sin cálculo previo'}`,
+    coverage: t('webSeo.model.integrity.attribution', { coverage }) + (integrity.lastComputedAt ? t('webSeo.model.integrity.computed', { date: new Date(integrity.lastComputedAt).toLocaleString(localeCode(getLocale())) }) : t('webSeo.model.integrity.noComputation')),
   }
 }

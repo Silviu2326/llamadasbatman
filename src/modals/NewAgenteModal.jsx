@@ -10,6 +10,8 @@ import { directionMismatch, playbookFor } from '../lib/agentPlaybooks'
 import { strategiesForAgent, strategyForAgent } from '../lib/callStrategies'
 import { useI18n } from '../i18n'
 import { RiArrowLeftLine, RiArrowRightLine, RiCheckLine } from 'react-icons/ri'
+import AgentVoicePicker from '../components/agents/AgentVoicePicker'
+import { apiErrorMessage, readBody } from '../components/agents/agentLifecycle'
 
 const ROLES = ['Ventas SaaS', 'Recuperación de leads', 'Renovaciones', 'Cierre agresivo', 'Soporte preventa', 'Cross-selling', 'Welcome calls', 'Encuestas NPS']
 
@@ -36,9 +38,6 @@ const LANGUAGES = [
 
 // Los mismos valores que acepta el backend (agentSettingsSchema.speechSpeed).
 const SPEECH_SPEEDS = ['0.8', '0.9', '1.0', '1.1', '1.2']
-
-// Voz por defecto del pipeline (backend/src/voice/pipelines/vendravaProtocol.ts).
-const DEFAULT_VOICE_ID = ''
 
 // Comportamiento en llamada: los valores viajan tal cual a
 // Agent.settings.behavior y el backend los traduce a directivas del prompt
@@ -69,10 +68,12 @@ const STRUCTURE_TEMPLATES = {
 export default function NewAgenteModal({ onClose, onSuccess }) {
   const { t, locale } = useI18n()
   const en = locale === 'en'
+  // Sin `subrole`, `personality`, tiempo máximo ni reintentos: no los consume
+  // nadie en el backend. `maxCallsPerDay` sí (voice/agentLimits.ts).
   const [form, setForm] = useState({
-    name: '', role: 'Ventas SaaS', agentType: 'sales', callDirection: 'both', strategyId: '', subrole: '', description: '', personality: '',
-    language: en ? 'en' : 'es', voiceId: '', phoneNumber: '', speechSpeed: '1.0', keyMessages: '', escalationRules: '',
-    maxCallsPerDay: '', maxCallDuration: '', autoRetries: '',
+    name: '', role: 'Ventas SaaS', agentType: 'sales', callDirection: 'both', strategyId: '', description: '',
+    language: en ? 'en' : 'es', voiceId: '', voiceName: '', phoneNumber: '', speechSpeed: '1.0', keyMessages: '', escalationRules: '',
+    maxCallsPerDay: '',
     formality: 'auto', verbosity: 'balanced', openingLine: '', structure: '', doNotSay: '',
   })
   const [saving, setSaving] = useState(false)
@@ -110,14 +111,9 @@ export default function NewAgenteModal({ onClose, onSuccess }) {
   async function handleSubmit() {
     setSaving(true)
     setError(null)
-    // Mismo esqueleto que lee la ficha del agente (AgentDetailPage): los límites
-    // van bajo `operationalLimits` y solo si el usuario ha rellenado alguno.
-    const limits = {
-      maxCallsPerDay: form.maxCallsPerDay,
-      maxCallDuration: form.maxCallDuration,
-      autoRetries: form.autoRetries,
-    }
-    const hasLimits = Object.values(limits).some(value => String(value).trim() !== '')
+    // Mismo contrato que la ficha del agente y backend/src/voice/agentLimits.ts.
+    const maxCallsPerDay = Number(form.maxCallsPerDay)
+    const hasLimits = Number.isInteger(maxCallsPerDay) && maxCallsPerDay > 0
     try {
       const res = await apiFetch('/api/agents', {
         method: 'POST',
@@ -129,14 +125,14 @@ export default function NewAgenteModal({ onClose, onSuccess }) {
           language: form.language,
           voiceId: form.voiceId.trim() || undefined,
           phoneNumber: form.phoneNumber.trim() || undefined,
-          personality: form.personality || undefined,
           systemPrompt: form.description || undefined,
           settings: {
             strategyId: selectedStrategy.id,
             speechSpeed: form.speechSpeed,
+            ...(form.voiceId.trim() ? { voiceSelection: { id: form.voiceId.trim(), name: form.voiceName || 'Voz elegida' } } : {}),
             ...(form.keyMessages.trim() ? { keyMessages: form.keyMessages.trim() } : {}),
             ...(form.escalationRules.trim() ? { escalationRules: form.escalationRules.trim() } : {}),
-            ...(hasLimits ? { operationalLimits: limits } : {}),
+            ...(hasLimits ? { operationalLimits: { maxCallsPerDay } } : {}),
             behavior: {
               formality: form.formality,
               verbosity: form.verbosity,
@@ -147,7 +143,7 @@ export default function NewAgenteModal({ onClose, onSuccess }) {
           },
         }),
       })
-      if (!res.ok) { setError(t('modal.createError')); return }
+      if (!res.ok) { setError(apiErrorMessage(await readBody(res), t('modal.createError'))); return }
       const item = await res.json()
       onSuccess ? onSuccess(item) : onClose()
     } catch { setError(t('modal.connectionError')) } finally { setSaving(false) }
@@ -214,10 +210,7 @@ export default function NewAgenteModal({ onClose, onSuccess }) {
       <div className="new-agent-step-content" key={step}>
       {step === 0 && <>
         <FormInput label={t('modal.agentName')} value={form.name} onChange={e => update('name', e.target.value)} placeholder={locale === 'en' ? 'e.g. Sofia' : 'Ej. Sofía'} required data-autofocus />
-        <FormRow>
-          <FormSelect label="Rol" value={form.role} onChange={e => update('role', e.target.value)} options={ROLES} required />
-          <FormInput label={t('modal.subrole')} value={form.subrole} onChange={e => update('subrole', e.target.value)} placeholder={locale === 'en' ? 'e.g. Outbound specialist' : 'Ej. Especialista en outbound'} />
-        </FormRow>
+        <FormSelect label="Rol" value={form.role} onChange={e => update('role', e.target.value)} options={ROLES} required />
         <div style={{ padding: '12px 13px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
           <p style={{ margin: 0, color: 'var(--text)', fontSize: 12.5, fontWeight: 700 }}>{en ? 'A focused agent is easier to train' : 'Un agente enfocado es más fácil de entrenar'}</p>
           <p style={{ margin: '4px 0 0', color: 'var(--dim)', fontSize: 12, lineHeight: 1.45 }}>{en ? 'You can refine the details later from the agent page.' : 'Podrás ajustar todos los detalles después desde la ficha del agente.'}</p>
@@ -246,7 +239,6 @@ export default function NewAgenteModal({ onClose, onSuccess }) {
           </div>
         </div>
         <FormTextarea label={t('modal.objective')} value={form.description} onChange={e => update('description', e.target.value)} placeholder={locale === 'en' ? "Describe the agent's primary objective…" : 'Describe el objetivo principal del agente…'} />
-        <FormInput label={t('modal.personality')} value={form.personality} onChange={e => update('personality', e.target.value)} placeholder={locale === 'en' ? 'Empathetic, consultative, professional…' : 'Empática, consultiva, profesional…'} />
       </>}
 
       {step === 2 && <details className="new-agent-section new-agent-section-voice" open style={{ border: '1px solid color-mix(in srgb, var(--accent) 26%, var(--line))', borderRadius: 10, background: 'color-mix(in srgb, var(--accent) 4%, var(--surface-2))' }}>
@@ -257,12 +249,9 @@ export default function NewAgenteModal({ onClose, onSuccess }) {
             <FormInput label={en ? 'Outgoing phone number' : 'Número desde el que llamará'} value={form.phoneNumber} onChange={e => update('phoneNumber', e.target.value)} type="tel" inputMode="tel" pattern="\\+[1-9]\\d{7,14}" placeholder="+34910000000" hint={en ? 'Use international format. You can assign it later.' : 'Usa formato internacional. También puedes asignarlo después.'} />
             <FormSelect label={en ? 'Speech speed' : 'Velocidad de habla'} value={form.speechSpeed} onChange={e => update('speechSpeed', e.target.value)} options={SPEECH_SPEEDS.map(speed => ({ value: speed, label: `${speed}×` }))} />
           </FormRow>
-          <FormInput label={en ? 'Voice ID (optional override)' : 'Voz (identificador opcional)'} value={form.voiceId} onChange={e => update('voiceId', e.target.value)} placeholder={DEFAULT_VOICE_ID} maxLength={128} hint={en ? 'Leave empty to use your organization default. Upload a private voice from the agent detail after creation.' : 'Déjalo vacío para usar la voz predeterminada de tu organización. Las voces privadas se pueden subir desde el detalle después de crear el agente.'} />
-          <FormRow columns={3}>
-            <FormInput label={en ? 'Max calls/day' : 'Máx. llamadas/día'} type="number" min="0" value={form.maxCallsPerDay} onChange={e => update('maxCallsPerDay', e.target.value)} placeholder={en ? 'No limit' : 'Sin límite'} />
-            <FormInput label={en ? 'Max minutes/call' : 'Máx. minutos/llamada'} type="number" min="0" value={form.maxCallDuration} onChange={e => update('maxCallDuration', e.target.value)} placeholder={en ? 'No limit' : 'Sin límite'} />
-            <FormInput label={en ? 'Auto retries' : 'Reintentos'} type="number" min="0" value={form.autoRetries} onChange={e => update('autoRetries', e.target.value)} placeholder="0" />
-          </FormRow>
+          {/* Selector real del catálogo (GET /agents/voices). El backend rechaza un identificador ajeno con 422. */}
+          <AgentVoicePicker agentId={null} value={form.voiceId} selection={form.voiceId ? { id: form.voiceId, name: form.voiceName } : null} language={form.language} onChange={(voiceId, name) => setForm(prev => ({ ...prev, voiceId, voiceName: name || '' }))} />
+          <FormInput label={en ? 'Max calls/day' : 'Máx. llamadas/día'} type="number" min="1" max="10000" value={form.maxCallsPerDay} onChange={e => update('maxCallsPerDay', e.target.value)} placeholder={en ? 'No limit' : 'Sin límite'} hint={en ? 'Applied by the call worker before dialing. Leave empty for no limit.' : 'Lo aplica el worker antes de marcar. Vacío: sin límite.'} />
         </div>
       </details>}
 

@@ -9,6 +9,11 @@ import { logSalesActivity } from '../lib/salesActivity'
 import { orchestrateNewLead, ChannelConsentInput } from './conversations.service'
 import { getLeadOrganicOrigin } from './organicLeadOrigin.service'
 import { scopedOwnerId, type DataActor } from '../lib/dataScope'
+import { grantVoiceConsent, normalizeE164 } from '../voice/compliance'
+import { revokeContactConsent } from './contactConsent.service'
+
+/** Etiqueta que marca un lead cuyo teléfono está en la lista de exclusión (OptOut). */
+export const OPT_OUT_TAG = 'opt_out'
 
 /** LE-101: campos permitidos para ordenar server-side; 'campo:direccion'. */
 const SORTABLE_LEAD_FIELDS = new Set(['createdAt', 'updatedAt', 'name'])
@@ -54,6 +59,64 @@ export class LeadNotFoundError extends Error {
     super('Lead not found')
     this.name = 'LeadNotFoundError'
   }
+}
+
+/** El teléfono no se pudo llevar a E.164 (ver normalizeE164 en voice/compliance). */
+export class InvalidPhoneError extends Error {
+  constructor(public phone: string) {
+    super(`invalid_phone: ${phone}`)
+    this.name = 'InvalidPhoneError'
+  }
+}
+
+/** Ya existe un lead de la organización con el mismo teléfono (E.164) o email. */
+export class LeadDuplicateError extends Error {
+  constructor(public existingLeadId: string, public matchedBy: 'phone' | 'email') {
+    super(`already_exists: ${matchedBy}`)
+    this.name = 'LeadDuplicateError'
+  }
+}
+
+/**
+ * Normaliza un teléfono a E.164 con el país por defecto de la instalación
+ * (`DEFAULT_PHONE_COUNTRY_CODE`, `34` si no se fija). Devuelve `null` si el
+ * valor no es interpretable: es el llamador quien decide si eso es un error
+ * (alta manual, importación) o se conserva tal cual (fuentes externas que no
+ * podemos rechazar, como Prospectos o Meta).
+ */
+export function normalizeLeadPhone(phone?: string | null): string | null {
+  if (!phone || !phone.trim()) return null
+  return normalizeE164(phone)
+}
+
+/**
+ * Busca un lead de la organización con el mismo teléfono normalizado o el
+ * mismo email (insensible a mayúsculas). Se usa para no crear duplicados al
+ * importar o dar de alta a mano; las fuentes automáticas siguen usando
+ * `externalLeadId` como idempotencia.
+ */
+export async function findDuplicateLead(orgId: string, input: { phone?: string | null; email?: string | null }): Promise<{ id: string; campaignId: string | null; matchedBy: 'phone' | 'email' } | null> {
+  const phone = normalizeLeadPhone(input.phone) ?? input.phone?.trim() ?? null
+  const email = input.email?.trim().toLowerCase() || null
+  if (!phone && !email) return null
+  const or: Record<string, unknown>[] = []
+  if (phone) or.push({ phone })
+  if (email) or.push({ email: { equals: email, mode: 'insensitive' } })
+  const existing = await prisma.lead.findFirst({
+    where: { orgId, OR: or },
+    select: { id: true, phone: true, email: true, campaignId: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  if (!existing) return null
+  const matchedBy: 'phone' | 'email' = phone && existing.phone === phone ? 'phone' : 'email'
+  return { id: existing.id, campaignId: existing.campaignId, matchedBy }
+}
+
+/** Teléfono presente en la lista de exclusión de la organización. */
+export async function isPhoneOptedOut(orgId: string, phone?: string | null): Promise<boolean> {
+  if (!phone) return false
+  const optOut = await prisma.optOut.findUnique({ where: { orgId_phone: { orgId, phone } }, select: { id: true } })
+  return Boolean(optOut)
 }
 
 /**
@@ -245,11 +308,41 @@ export async function createLead(orgId: string, actorUserId: string | null | und
   customFields?: Record<string, unknown>
   consent?: ChannelConsentInput
   accountId?: string
-}) {
+}, options: {
+  /**
+   * Alta manual e importación: un teléfono que no se puede llevar a E.164
+   * es un error (InvalidPhoneError) en vez de guardarse tal cual, y un lead
+   * ya existente con el mismo teléfono/email es LeadDuplicateError.
+   * Las fuentes automáticas (Meta, landing, Prospectos) no lo activan.
+   */
+  strict?: boolean
+} = {}) {
   await assertOwnedCampaign(orgId, data.campaignId)
   await assertOwnedAccount(orgId, data.accountId)
 
   const { consent, ...leadData } = data
+  // Normalización a E.164: si el número es interpretable se guarda ya
+  // normalizado (así OptOut, dedupe y canCall comparan lo mismo). Si no lo
+  // es, en modo estricto se rechaza; si no, se conserva el texto original.
+  const rawPhone = leadData.phone?.trim() || undefined
+  const normalizedPhone = normalizeLeadPhone(rawPhone)
+  if (rawPhone && !normalizedPhone && options.strict) throw new InvalidPhoneError(rawPhone)
+  leadData.phone = normalizedPhone ?? rawPhone
+  if (leadData.email) leadData.email = leadData.email.trim().toLowerCase()
+
+  if (options.strict) {
+    const duplicate = await findDuplicateLead(orgId, { phone: leadData.phone, email: leadData.email })
+    if (duplicate) throw new LeadDuplicateError(duplicate.id, duplicate.matchedBy)
+  }
+
+  // Lista de exclusión: el lead se crea (hay que poder verlo y auditar por
+  // qué no se llama) pero queda marcado para que no cuente como llamable.
+  const optedOut = await isPhoneOptedOut(orgId, normalizedPhone)
+  if (optedOut) {
+    leadData.tags = Array.from(new Set([...(leadData.tags ?? []), OPT_OUT_TAG]))
+    leadData.customFields = { ...(leadData.customFields ?? {}), optOut: true }
+  }
+
   const lead = await prisma.lead.create({
     data: { orgId, ...leadData, ownerId: actorUserId ?? undefined } as any,
   })
@@ -285,6 +378,21 @@ export interface ImportCsvRow {
   phone?: string
   email?: string
   company?: string
+  /** Columna opcional `consent_voice` (true/sí/1) por fila. */
+  consentVoice?: boolean
+  consentSource?: string
+  consentEvidence?: string
+}
+
+/**
+ * Base legal declarada para todo el lote (casilla del modal). Solo se
+ * registra consentimiento de voz si el usuario la marcó explícitamente o la
+ * fila trae `consent_voice=true`; nunca por defecto.
+ */
+export interface ImportConsentDeclaration {
+  voice: boolean
+  source?: string
+  evidence?: string
 }
 
 /** Una fila deduplicada conserva su número original (1-based, +1 por cabecera) para poder señalarla en `errors`. */
@@ -301,6 +409,10 @@ export interface ImportJobError {
 export interface ImportJobRowsPayload {
   autoCall: boolean
   items: ImportJobRow[]
+  /** Declaración de base legal del lote; ausente = sin consentimiento por lote. */
+  consent?: ImportConsentDeclaration
+  /** Si un lead ya existía sin campaña, asignarlo a la de la importación. */
+  attachExistingToCampaign?: boolean
 }
 
 /**
@@ -310,7 +422,7 @@ export interface ImportJobRowsPayload {
  * Lead. `row` es 1-based e incluye la cabecera (fila 1), igual que vería el
  * usuario al abrir el CSV en una hoja de cálculo.
  */
-function dedupeImportRows(rows: ImportCsvRow[]): { items: ImportJobRow[]; duplicates: ImportJobError[] } {
+export function dedupeImportRows(rows: ImportCsvRow[]): { items: ImportJobRow[]; duplicates: ImportJobError[] } {
   const seenEmails = new Set<string>()
   const seenPhones = new Set<string>()
   const items: ImportJobRow[] = []
@@ -319,7 +431,10 @@ function dedupeImportRows(rows: ImportCsvRow[]): { items: ImportJobRow[]; duplic
   rows.forEach((raw, index) => {
     const row = index + 2
     const email = raw.email?.trim().toLowerCase() || undefined
-    const phone = raw.phone?.trim() || undefined
+    // Se compara el número normalizado: "+34 600 000 000" y "600000000" son
+    // el mismo teléfono. Si no se puede normalizar se compara el texto crudo
+    // (la fila se rechazará después con `invalid_phone`).
+    const phone = normalizeLeadPhone(raw.phone) ?? raw.phone?.trim() ?? undefined
     const isDuplicate = (email && seenEmails.has(email)) || (phone && seenPhones.has(phone))
     if (isDuplicate) {
       duplicates.push({ row, message: 'duplicate_in_file' })
@@ -327,7 +442,11 @@ function dedupeImportRows(rows: ImportCsvRow[]): { items: ImportJobRow[]; duplic
     }
     if (email) seenEmails.add(email)
     if (phone) seenPhones.add(phone)
-    items.push({ row, name: raw.name, phone: raw.phone, email: raw.email, company: raw.company })
+    const item: ImportJobRow = { row, name: raw.name, phone: raw.phone, email: raw.email, company: raw.company }
+    if (raw.consentVoice !== undefined) item.consentVoice = raw.consentVoice
+    if (raw.consentSource) item.consentSource = raw.consentSource
+    if (raw.consentEvidence) item.consentEvidence = raw.consentEvidence
+    items.push(item)
   })
 
   return { items, duplicates }
@@ -344,12 +463,22 @@ export async function createImportJob(
   actorUserId: string | null | undefined,
   campaignId: string,
   rows: ImportCsvRow[],
-  opts: { autoCall?: boolean; fileName?: string } = {}
+  opts: { autoCall?: boolean; fileName?: string; consent?: ImportConsentDeclaration; attachExistingToCampaign?: boolean } = {}
 ) {
   await assertOwnedCampaign(orgId, campaignId)
 
   const { items, duplicates } = dedupeImportRows(rows)
   const rowsPayload: ImportJobRowsPayload = { autoCall: Boolean(opts.autoCall), items }
+  // La base legal del lote solo viaja si el usuario la declaró: sin casilla
+  // marcada no hay `consent` en el payload y el runner no registra nada.
+  if (opts.consent?.voice) {
+    rowsPayload.consent = {
+      voice: true,
+      source: opts.consent.source?.trim().slice(0, 120) || 'import_declaration',
+      evidence: opts.consent.evidence?.trim().slice(0, 2000) || undefined,
+    }
+  }
+  if (opts.attachExistingToCampaign) rowsPayload.attachExistingToCampaign = true
 
   return prisma.importJob.create({
     data: {
@@ -598,6 +727,52 @@ export async function getLeadConsent(orgId: string, leadId: string) {
   const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { id: true } })
   if (!lead) return null
   return prisma.contactConsent.findMany({ where: { orgId, leadId }, orderBy: { channel: 'asc' } })
+}
+
+/**
+ * Registra o revoca a mano el consentimiento de voz de un lead. Es la única
+ * vía manual: exige una acción explícita del usuario con fuente y evidencia
+ * (qué documento, formulario o conversación lo respalda). Nunca se llama de
+ * forma automática.
+ */
+export async function setLeadVoiceConsent(
+  orgId: string,
+  actorUserId: string,
+  leadId: string,
+  input: { action: 'grant' | 'revoke'; source: string; evidence: string; expiresAt?: Date },
+) {
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId }, select: { id: true, phone: true } })
+  if (!lead) throw new LeadNotFoundError()
+
+  const before = await prisma.contactConsent.findMany({ where: { orgId, leadId, channel: 'voice' } })
+  const metadata = { actorUserId, recordedVia: 'crm_manual', phone: lead.phone ?? null }
+  if (input.action === 'grant') {
+    await grantVoiceConsent(orgId, leadId, { source: input.source, evidence: input.evidence, metadata, expiresAt: input.expiresAt })
+  } else {
+    await revokeContactConsent(orgId, leadId, 'voice', { source: input.source, evidence: input.evidence, metadata })
+  }
+  const after = await prisma.contactConsent.findMany({ where: { orgId, leadId, channel: 'voice' }, orderBy: { purpose: 'asc' } })
+
+  await writeAuditLog({
+    orgId,
+    actorUserId,
+    action: input.action === 'grant' ? 'lead.voice_consent.grant' : 'lead.voice_consent.revoke',
+    entityType: 'Lead',
+    entityId: leadId,
+    before,
+    after,
+  })
+  await logSalesActivity({
+    orgId,
+    type: input.action === 'grant' ? 'consent_granted' : 'consent_revoked',
+    leadId,
+    actorUserId,
+    subject: `Consentimiento de voz ${input.action === 'grant' ? 'registrado' : 'revocado'}`,
+    body: `${input.source}: ${input.evidence}`.slice(0, 2000),
+    metadata: { channel: 'voice', source: input.source },
+  })
+
+  return after
 }
 
 export async function getLeadTimeline(orgId: string, id: string) {

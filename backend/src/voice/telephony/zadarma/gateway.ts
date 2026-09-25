@@ -1,12 +1,54 @@
 import Fastify from 'fastify'
 import { timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
-import { originate } from './ami'
+import { originate, OriginateError } from './ami'
 import { createAudioSocketServer } from './audioServer'
 import type { ZadarmaGatewayConfig } from './config'
-import { SipCallRegistry } from './registry'
+import { RegistryError, SipCallRegistry } from './registry'
 import type { prepareSipCall, prepareSipTestCall } from './runtime'
 import { completedRecording, RECORDING_UUID, recordingUrl } from './recordings'
+
+/**
+ * Respuesta de error de `POST /calls`. `code` es el contrato que lee el
+ * backend (`outbound.ts`) para decidir qué hacer con el trabajo; `error` se
+ * mantiene con el mismo valor por compatibilidad. `retryable` significa que
+ * la pasarela no ha marcado y el mismo `requestId` puede repetirse.
+ */
+export interface GatewayCallError {
+  error: string
+  code: string
+  retryable: boolean
+  dialed: boolean
+  retryAfterMs?: number
+  cause?: string
+}
+
+const PREPARE_CODE = /^[A-Z][A-Z0-9_]{2,80}$/
+
+/**
+ * Traduce el fallo de una petición de llamada a un código y estado HTTP
+ * distintos según la fase: capacidad (429, reintentable con `retryAfterMs`),
+ * bloqueo de preparación con su código real (422, no se ha marcado), y fallo
+ * de marcado (409, con `cause` cuando se conoce; ambiguo si fue timeout).
+ */
+export function classifyGatewayError(error: unknown): { status: number; body: GatewayCallError } {
+  if (error instanceof RegistryError) {
+    const capacity = error.code === 'ZADARMA_CAPACITY_REACHED'
+    return { status: capacity ? 429 : 409, body: { error: error.code, code: error.code, retryable: true, dialed: false, retryAfterMs: error.retryAfterMs } }
+  }
+  if (error instanceof OriginateError) {
+    // Solo se reintenta lo que no llegó a marcar por un fallo transitorio
+    // (AMI caído, parámetros). Un rechazo de dialplan/permisos tampoco marcó
+    // (`dialed:false`), pero repetirlo no lo arregla: no es reintentable.
+    const preDial = error.code === 'AMI_UNAVAILABLE' || error.code === 'INVALID_ORIGINATE_PARAMETERS'
+    return { status: preDial ? 503 : 409, body: { error: error.code, code: error.code, retryable: preDial && !error.dialed, dialed: error.dialed, cause: error.cause } }
+  }
+  const message = error instanceof Error ? error.message : ''
+  // Los bloqueos de `prepareSipCall`/`prepareSipTestCall` lanzan su código
+  // como mensaje (ZADARMA_PHONE_MISMATCH, ZADARMA_TEST_CALL_BLOCKED_*, ...).
+  if (PREPARE_CODE.test(message)) return { status: 422, body: { error: message, code: message, retryable: false, dialed: false } }
+  return { status: 409, body: { error: 'ZADARMA_CALL_BLOCKED_OR_FAILED', code: 'ZADARMA_CALL_BLOCKED_OR_FAILED', retryable: false, dialed: false } }
+}
 
 export function authorizedGateway(header: string | undefined, token: string): boolean {
   const received = Buffer.from(header ?? '')
@@ -34,11 +76,14 @@ export function buildZadarmaControl(config: ZadarmaGatewayConfig, registry: SipC
   const control = Fastify({ logger: false, bodyLimit: 4096 })
   // Retain bounded idempotency entries even after failure. Ambiguous originate
   // failures must not create a second paid call when the same request is retried.
+  // Los fallos previos al marcado (preparación, capacidad, AMI caído) sí se
+  // olvidan: el backend reintenta con el mismo `requestId` y debe volver a
+  // intentarse de verdad, no recibir el rechazo cacheado para siempre.
   const requests = new Map<string, { at: number; fingerprint: string; result: Promise<{ status: string; sid: string; to: string }> }>()
   control.addHook('onRequest', async (req, reply) => {
     if (!authorizedGateway(req.headers.authorization, config.token)) return reply.code(401).send({ error: 'Unauthorized' })
   })
-  control.get('/health', async () => ({ status: 'listening', sipVerified: false, provider: 'zadarma', activeCalls: registry.size, maxConcurrent: config.maxConcurrent, recording: 'asterisk-mixmonitor' }))
+  control.get('/health', async () => ({ status: 'listening', sipVerified: false, provider: 'zadarma', activeCalls: registry.size, maxConcurrent: config.maxConcurrent, availableSlots: Math.max(0, config.maxConcurrent - registry.size), recording: 'asterisk-mixmonitor' }))
   control.get<{ Params: { uuid: string } }>('/recordings/:uuid', async (req, reply) => {
     const { uuid } = req.params
     if (!RECORDING_UUID.test(uuid) || !dependencies.recording) return reply.code(404).send({ error: 'NOT_FOUND' })
@@ -59,6 +104,13 @@ export function buildZadarmaControl(config: ZadarmaGatewayConfig, registry: SipC
     if (!prior) {
       for (const [key, value] of requests) if (Date.now() - value.at > 24 * 3600_000) requests.delete(key)
       if (requests.size >= 5000) return reply.code(503).send({ error: 'REQUEST_CAPACITY_REACHED' })
+      // La capacidad se comprueba antes de preparar: preparar carga agente,
+      // prompt y comprobaciones de BD, y no tiene sentido hacerlo para
+      // rechazar después por línea ocupada.
+      if (registry.size >= registry.capacity) {
+        const { status, body } = classifyGatewayError(new RegistryError('ZADARMA_CAPACITY_REACHED', 20_000 + Math.floor(Math.random() * 10_000)))
+        return reply.code(status).send(body)
+      }
       const result = (async () => {
         const prepared = data.mode === 'test'
           ? await dependencies.prepareTest(data, config.callerId)
@@ -73,15 +125,18 @@ export function buildZadarmaControl(config: ZadarmaGatewayConfig, registry: SipC
     }
     try { return await requests.get(data.requestId)!.result }
     catch (error) {
-      console.warn('[ZADARMA] Call request failed:', error instanceof Error ? error.message : 'unknown')
-      return reply.code(409).send({ error: 'ZADARMA_CALL_BLOCKED_OR_FAILED' })
+      const { status, body } = classifyGatewayError(error)
+      // Solo se recuerda lo que llegó a marcar: es lo único ambiguo.
+      if (!body.dialed) requests.delete(data.requestId)
+      console.warn(`[ZADARMA] Call request failed: ${body.code}${body.cause ? ` (${body.cause})` : ''}`)
+      return reply.code(status).send(body)
     }
   })
   return control
 }
 
 export async function startZadarmaGateway(config: ZadarmaGatewayConfig) {
-  const { prepareSipCall, prepareSipTestCall } = await import('./runtime')
+  const { prepareSipCall, prepareSipTestCall, startPendingCallReconciler } = await import('./runtime')
   const registry = new SipCallRegistry(config.maxConcurrent)
   const media = createAudioSocketServer((id, hangup) => registry.claim(id, hangup), {
     maxDurationMs: config.maxDurationMs, onError: code => console.error('[ZADARMA]', code),
@@ -105,5 +160,8 @@ export async function startZadarmaGateway(config: ZadarmaGatewayConfig) {
     })
     await control.listen({ host: '127.0.0.1', port: config.controlPort })
   } catch (error) { await media.shutdown(); await control.close(); throw error }
-  return { close: async () => { await media.shutdown(); await control.close() } }
+  // Reintenta las ingestas que fallaron al colgar (<uuid>.pending.json) y
+  // enlaza grabaciones huérfanas; corre al arrancar y cada pocos minutos.
+  const stopReconciler = startPendingCallReconciler()
+  return { close: async () => { stopReconciler(); await media.shutdown(); await control.close() } }
 }

@@ -104,6 +104,19 @@ test('la activación meta se deriva de los campos legacy de la campaña', async 
 
   const listed = await listGlobalCampaigns(org.id)
   assert.equal(listed.length, 4)
+
+  // Formalizar la activación meta de una campaña sin ningún rastro de Meta
+  // deja señal persistida: la campaña pasa a adStatus 'draft' y la vista
+  // devuelve remote (no null), de modo que la operación en Meta sigue visible.
+  const formalized = await createActivation(org.id, { campaignId: empty.id, platform: 'meta' })
+  assert.ok(formalized)
+  assert.equal(formalized.status, 'draft')
+  assert.equal(formalized.adAccountRef, account.id)
+  assert.equal(formalized.remote?.adStatus, 'draft')
+  const emptyAfter = await prisma.campaign.findUnique({ where: { id: empty.id }, select: { adStatus: true } })
+  assert.equal(emptyAfter?.adStatus, 'draft')
+  const replannedEmpty = await getPlan(org.id, empty.id)
+  assert.equal(replannedEmpty?.activations.find(a => a.platform === 'meta')?.remote?.adStatus, 'draft')
 })
 
 test('el guardarraíl de presupuesto impide superar el global de la campaña', async () => {

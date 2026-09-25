@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import {
   RiArrowLeftLine, RiAddLine, RiDownloadLine,
   RiFlowChart, RiAlarmLine, RiSearchLine, RiChatVoiceLine,
-  RiCheckLine,
+  RiCheckLine, RiArrowUpSLine, RiArrowDownSLine, RiDeleteBinLine, RiSaveLine,
 } from 'react-icons/ri'
 import { HiArrowUp } from 'react-icons/hi'
 import { getLocale, localeCode, useI18n } from '../i18n'
@@ -18,16 +18,107 @@ const STATS = [
   { label:'Reuniones', value:'624', delta:'+18,1%', up:true },
 ]
 
-const INCLUDES = [
-  { Icon:RiFlowChart, label:'Flujo conversacional', value:'15 pasos' },
-  { Icon:RiAlarmLine, label:'Manejo de objeciones', value:'8 objeciones' },
-  { Icon:RiSearchLine, label:'Preguntas de calificación', value:'12 preguntas' },
-  { Icon:RiChatVoiceLine, label:'Mensajes y momentos clave', value:'9 mensajes' },
-]
 
-const IDEAL = ['Leads inbound interesados', 'Empresas SaaS / Tecnología', 'Ciclos de venta de 7-30 días']
+const TABS = ['Resumen', 'Pasos', 'Rendimiento']
 
-const TABS = ['Resumen', 'Incluye', 'Rendimiento']
+/** Pasos guardados en `Playbook.steps` (JSON) → forma editable. Tolera JSON antiguo. */
+function normalizeSteps(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter(step => step && typeof step === 'object')
+    .map((step, index) => ({
+      id: typeof step.id === 'string' && step.id ? step.id : `step-${index + 1}`,
+      title: typeof step.title === 'string' ? step.title : typeof step.name === 'string' ? step.name : `Paso ${index + 1}`,
+      instruction: typeof step.instruction === 'string' ? step.instruction : typeof step.text === 'string' ? step.text : '',
+      goal: typeof step.goal === 'string' ? step.goal : '',
+    }))
+}
+
+const stepsKey = steps => JSON.stringify(steps.map(step => [step.title, step.instruction, step.goal]))
+
+/**
+ * Editor de pasos del guion: lista ordenable con título, instrucción y
+ * objetivo. Guarda con `PUT /api/playbooks/:id`; una lista vacía borra los
+ * pasos. Es lo que el agente recibe como «Steps (follow them in order)».
+ */
+function PlaybookStepsEditor({ playbookId, initialSteps, accent, onSaved }) {
+  const [steps, setSteps] = useState(initialSteps)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [savedKey, setSavedKey] = useState(stepsKey(initialSteps))
+  const dirty = stepsKey(steps) !== savedKey
+  const invalid = steps.findIndex(step => !step.title.trim())
+
+  const patch = (index, field, value) => setSteps(current => current.map((step, i) => i === index ? { ...step, [field]: value } : step))
+  const move = (index, delta) => setSteps(current => {
+    const target = index + delta
+    if (target < 0 || target >= current.length) return current
+    const next = [...current]
+    const [item] = next.splice(index, 1)
+    next.splice(target, 0, item)
+    return next
+  })
+  const remove = index => setSteps(current => current.filter((_, i) => i !== index))
+  const add = () => setSteps(current => current.length >= 40 ? current : [...current, { id: `step-${Date.now()}`, title: '', instruction: '', goal: '' }])
+
+  const save = async () => {
+    if (saving || invalid !== -1) return
+    setSaving(true)
+    setError('')
+    try {
+      const payload = steps.map(step => ({ id: step.id, title: step.title.trim(), instruction: step.instruction.trim(), goal: step.goal.trim() }))
+      const response = await apiFetch(`/api/playbooks/${playbookId}`, { method: 'PUT', body: JSON.stringify({ steps: payload }) })
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        throw new Error(body?.error || 'No se pudieron guardar los pasos.')
+      }
+      setSavedKey(stepsKey(steps))
+      onSaved?.(payload)
+    } catch (saveError) {
+      setError(saveError?.message || 'No se pudieron guardar los pasos.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fieldStyle = { width:'100%', boxSizing:'border-box', background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius:8, padding:'8px 10px', color:'var(--text)', fontSize:12.5, fontFamily:'inherit' }
+  const iconButton = { background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius:7, width:26, height:26, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--muted)', cursor:'pointer', padding:0 }
+
+  return (
+    <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:12 }}>
+        <div>
+          <p style={{ margin:'0 0 4px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Pasos del guion</p>
+          <p style={{ margin:0, fontSize:12, color:'var(--dim)' }}>El agente los recibe en este orden dentro de su prompt. Sin pasos, el guion aporta solo nombre, descripción y etiquetas.</p>
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button type="button" onClick={add} disabled={steps.length >= 40} style={{ display:'flex', alignItems:'center', gap:5, background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius:9, padding:'8px 12px', color:'var(--muted)', fontSize:12.5, cursor:'pointer', fontFamily:'inherit' }}><RiAddLine /> Añadir paso</button>
+          <button type="button" onClick={save} disabled={!dirty || saving || invalid !== -1} style={{ display:'flex', alignItems:'center', gap:5, background: dirty && invalid === -1 ? accent : 'var(--surface-2)', border:'1px solid var(--line)', borderRadius:9, padding:'8px 12px', color: dirty && invalid === -1 ? '#fff' : 'var(--dim)', fontSize:12.5, fontWeight:700, cursor: dirty ? 'pointer' : 'default', fontFamily:'inherit' }}><RiSaveLine /> {saving ? 'Guardando…' : steps.length === 0 && dirty ? 'Guardar (borra los pasos)' : 'Guardar pasos'}</button>
+        </div>
+      </div>
+      {error ? <p role="alert" style={{ margin:'0 0 10px', fontSize:12, color:'var(--danger)' }}>{error}</p> : null}
+      {invalid !== -1 ? <p style={{ margin:'0 0 10px', fontSize:12, color:'var(--danger)' }}>El paso {invalid + 1} necesita un título.</p> : null}
+      {steps.length === 0 ? <p style={{ margin:0, fontSize:13, color:'var(--dim)' }}>Este guion no tiene pasos todavía.</p> : null}
+      <ol style={{ listStyle:'none', margin:0, padding:0, display:'flex', flexDirection:'column', gap:10 }}>
+        {steps.map((step, index) => (
+          <li key={step.id} style={{ display:'flex', gap:10, background:'var(--surface-2)', border:'1px solid var(--line)', borderRadius:10, padding:'10px 12px' }}>
+            <div style={{ width:22, height:22, borderRadius:7, flexShrink:0, background:`color-mix(in srgb, ${accent} 13%, transparent)`, border:`1px solid color-mix(in srgb, ${accent} 25%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:accent }}>{index + 1}</div>
+            <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:6 }}>
+              <input aria-label={`Título del paso ${index + 1}`} value={step.title} maxLength={160} onChange={e => patch(index, 'title', e.target.value)} placeholder="Título del paso (p. ej. Apertura)" style={{ ...fieldStyle, fontWeight:600 }} />
+              <textarea aria-label={`Instrucción del paso ${index + 1}`} value={step.instruction} maxLength={2000} rows={2} onChange={e => patch(index, 'instruction', e.target.value)} placeholder="Qué debe hacer o decir el agente en este paso" style={{ ...fieldStyle, resize:'vertical' }} />
+              <input aria-label={`Objetivo del paso ${index + 1}`} value={step.goal} maxLength={400} onChange={e => patch(index, 'goal', e.target.value)} placeholder="Objetivo: qué debe conseguir antes de pasar al siguiente" style={fieldStyle} />
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:4, flexShrink:0 }}>
+              <button type="button" aria-label="Subir paso" onClick={() => move(index, -1)} disabled={index === 0} style={iconButton}><RiArrowUpSLine /></button>
+              <button type="button" aria-label="Bajar paso" onClick={() => move(index, 1)} disabled={index === steps.length - 1} style={iconButton}><RiArrowDownSLine /></button>
+              <button type="button" aria-label="Eliminar paso" onClick={() => remove(index)} style={{ ...iconButton, color:'var(--danger-soft, #f87171)' }}><RiDeleteBinLine /></button>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
 
 export default function PlaybookDetailPage() {
   const { locale } = useI18n()
@@ -45,15 +136,25 @@ export default function PlaybookDetailPage() {
           type: 'Personalizado', badge: 'Personalizado',
           color: 'var(--accent)', bg: '#6366f120',
           IconEl: RiFlowChart, iconBg: '#6366f120', iconColor: 'var(--accent-soft)', badgeColor: 'var(--accent)',
-          tags: [], tasa: '—', reuniones: 0, campanas: 0,
+          tags: (Array.isArray(data.tags) ? data.tags : []).map(label => ({ label, bg: '#6366f120', color: 'var(--accent-soft)' })),
+          tasa: '—', reuniones: 0, campanas: typeof data.campaignCount === 'number' ? data.campaignCount : 0,
           successRate: '—', uses: 0, avgDuration: '—',
           description: data.description ?? '',
           desc: data.description ?? '',
+          steps: normalizeSteps(data.steps),
+          agents: Array.isArray(data.agents) ? data.agents : [],
         })
       }
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
+
+  const includes = useMemo(() => pb ? [
+    { Icon: RiFlowChart, label: 'Pasos del guion', value: pb.steps.length ? `${pb.steps.length} ${pb.steps.length === 1 ? 'paso' : 'pasos'}` : 'Sin pasos' },
+    { Icon: RiChatVoiceLine, label: 'Agentes con este guion activo', value: String(pb.agents.length) },
+    { Icon: RiSearchLine, label: 'Campañas que lo usan', value: String(pb.campanas) },
+    { Icon: RiAlarmLine, label: 'Etiquetas', value: pb.tags.length ? pb.tags.map(t => t.label).join(', ') : '—' },
+  ] : [], [pb])
 
   if (loading) return <PageLoadingState label={locale === 'en' ? 'Loading playbook' : 'Cargando playbook'} />
 
@@ -116,7 +217,7 @@ export default function PlaybookDetailPage() {
               <RiAddLine style={{ width:14, height:14 }} /> Usar en campaña
             </button>
             <button onClick={() => {
-              const blob = new Blob([`PLAYBOOK: ${pb.name}\n\n${pb.desc}\n\nEtiquetas: ${pb.tags.map(t=>t.label).join(', ')}\nTasa de éxito: ${pb.tasa}\nReuniones generadas: ${pb.reuniones}\nCampañas activas: ${pb.campanas}`], { type:'text/plain' })
+              const blob = new Blob([`PLAYBOOK: ${pb.name}\n\n${pb.desc}\n\nEtiquetas: ${pb.tags.map(t=>t.label).join(', ')}\n\nPASOS:\n${pb.steps.map((step, i) => `${i + 1}. ${step.title}${step.instruction ? ` — ${step.instruction}` : ''}${step.goal ? ` (objetivo: ${step.goal})` : ''}`).join('\n') || '(sin pasos)'}`], { type:'text/plain' })
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${pb.name.replace(/ /g,'_')}.txt`; a.click()
             }} style={{
               display:'flex', alignItems:'center', gap:6, background:'var(--surface-2)',
@@ -170,20 +271,21 @@ export default function PlaybookDetailPage() {
           {tab === 'Resumen' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
-                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Ideal para</p>
-                {IDEAL.map((item, i) => (
-                  <div key={i} style={{ display:'flex', gap:9, alignItems:'center', marginBottom:9 }}>
+                <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Agentes que lo usan como guion activo</p>
+                {pb.agents.length === 0 ? <p style={{ margin:0, fontSize:13, color:'var(--dim)' }}>Ningún agente lo tiene activo. Se asigna desde la ficha del agente (estrategia → guion).</p> : pb.agents.map(agent => (
+                  <div key={agent.id} style={{ display:'flex', gap:9, alignItems:'center', marginBottom:9 }}>
                     <div style={{ width:16, height:16, borderRadius:5, background:`color-mix(in srgb, ${pb.badgeColor} 13%, transparent)`, border:`1px solid color-mix(in srgb, ${pb.badgeColor} 25%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <RiCheckLine style={{ width:10, height:10, color:pb.badgeColor }} />
                     </div>
-                    <p style={{ margin:0, fontSize:13, color:'var(--muted)' }}>{item}</p>
+                    <button type="button" onClick={() => navigate(`/agentes/${agent.id}`)} style={{ background:'none', border:'none', padding:0, margin:0, fontSize:13, color:'var(--accent)', cursor:'pointer', fontFamily:'inherit' }}>{agent.name}</button>
+                    <span style={{ fontSize:11.5, color:'var(--dim)' }}>{agent.lifecycleStatus || (agent.isActive ? 'activo' : 'pausado')}</span>
                   </div>
                 ))}
               </div>
               <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
                 <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Componentes incluidos</p>
-                {INCLUDES.map(({ Icon, label, value }, i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom: i < INCLUDES.length-1 ? '1px solid var(--surface-2)' : 'none' }}>
+                {includes.map(({ Icon, label, value }, i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom: i < includes.length-1 ? '1px solid var(--surface-2)' : 'none' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:9 }}>
                       <div style={{ width:28, height:28, borderRadius:8, background:`color-mix(in srgb, ${pb.badgeColor} 8%, transparent)`, border:`1px solid color-mix(in srgb, ${pb.badgeColor} 19%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                         <Icon style={{ width:13, height:13, color:pb.iconColor }} />
@@ -197,16 +299,8 @@ export default function PlaybookDetailPage() {
             </div>
           )}
 
-          {tab === 'Incluye' && (
-            <div style={{ background:'var(--surface)', border:'1px solid var(--line)', borderRadius:12, padding:'16px' }}>
-              <p style={{ margin:'0 0 14px', fontSize:13, fontWeight:700, color:'var(--text)' }}>Estructura completa del playbook</p>
-              {['Apertura y presentación', 'Detección de necesidades (5 preguntas)', 'Manejo de 8 objeciones comunes', 'Propuesta de valor personalizada', 'Cierre y agenda de siguiente paso'].map((item, i) => (
-                <div key={i} style={{ display:'flex', gap:10, marginBottom:12 }}>
-                  <div style={{ width:22, height:22, borderRadius:7, background:`color-mix(in srgb, ${pb.badgeColor} 13%, transparent)`, border:`1px solid color-mix(in srgb, ${pb.badgeColor} 25%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:11, fontWeight:700, color:pb.badgeColor }}>{i+1}</div>
-                  <p style={{ margin:0, fontSize:13, color:'var(--muted)', paddingTop:3 }}>{item}</p>
-                </div>
-              ))}
-            </div>
+          {tab === 'Pasos' && (
+            <PlaybookStepsEditor key={pb.id} playbookId={pb.id} initialSteps={pb.steps} accent={pb.badgeColor} onSaved={steps => setPb(current => ({ ...current, steps: normalizeSteps(steps) }))} />
           )}
 
           {tab === 'Rendimiento' && (

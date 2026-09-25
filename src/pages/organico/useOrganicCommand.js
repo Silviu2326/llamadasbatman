@@ -22,18 +22,19 @@ import {
   updateOrganicAutonomy,
 } from '../../lib/organic/organicApi'
 import { DEMO_MODE } from '../../lib/dataMode'
+import { createTranslator, getLocale, useI18n } from '../../i18n'
 
 const CONNECTED_INTEGRATION_STATUSES = new Set(['connected', 'active', 'ready', 'synced'])
 
-export function integrationPresentation(integration) {
+export function integrationPresentation(integration, t = createTranslator(getLocale())) {
   const status = integration?.status || 'not_connected'
   const connected = CONNECTED_INTEGRATION_STATUSES.has(status)
   const hasProperty = Boolean(integration?.externalPropertyId)
-  if (status === 'error' || integration?.lastError) return { label: 'Revisar conexión', tone: 'bad', connected, hasProperty }
-  if (connected && !hasProperty) return { label: 'Propiedad pendiente', tone: 'warn', connected, hasProperty }
-  if (connected) return { label: 'Conectado', tone: 'ok', connected, hasProperty }
-  if (status === 'syncing') return { label: 'Sincronizando', tone: 'warn', connected: false, hasProperty }
-  return { label: 'No conectado', tone: 'idle', connected: false, hasProperty }
+  if (status === 'error' || integration?.lastError) return { label: t('organic.commandHook.statusReview'), tone: 'bad', connected, hasProperty }
+  if (connected && !hasProperty) return { label: t('organic.commandHook.statusPropertyPending'), tone: 'warn', connected, hasProperty }
+  if (connected) return { label: t('organic.commandHook.statusConnected'), tone: 'ok', connected, hasProperty }
+  if (status === 'syncing') return { label: t('organic.commandHook.statusSyncing'), tone: 'warn', connected: false, hasProperty }
+  return { label: t('organic.commandHook.statusNotConnected'), tone: 'idle', connected: false, hasProperty }
 }
 
 function hasOrganicSignals(data) {
@@ -54,6 +55,7 @@ function hasOrganicSignals(data) {
  * integraciones se piden por separado y cada una deja su propio estado.
  */
 export function useOrganicCommand({ notify }) {
+  const { t } = useI18n()
   const [period, setPeriod] = useState('30d')
   const [projectId, setProjectId] = useState('')
   const [view, setView] = useState({ status: 'loading', data: null, error: '', gate: null })
@@ -91,11 +93,11 @@ export function useOrganicCommand({ notify }) {
         data: null,
         gate: null,
         error: DEMO_MODE
-          ? 'El modo demo está habilitado, pero el circuito orgánico no usa datos simulados: conecta las fuentes reales para continuar.'
-          : error.message || 'Error inesperado.',
+          ? t('organic.commandHook.demoNoData')
+          : error.message || t('organic.commandHook.unexpected'),
       })
     }
-  }, [projectId, period, loadAutonomy, loadRecommendations])
+  }, [projectId, period, loadAutonomy, loadRecommendations, t])
 
   const loadIntegrations = useCallback(async () => {
     setIntegrationState(current => ({ ...current, status: 'loading', error: '', message: '' }))
@@ -103,9 +105,9 @@ export function useOrganicCommand({ notify }) {
       const result = await fetchOrganicIntegrations()
       setIntegrationState(current => ({ ...current, ...result, error: result.error || '', message: '' }))
     } catch (error) {
-      setIntegrationState(current => ({ ...current, status: 'error', error: error.message || 'No pudimos cargar los estados de integración.', message: '' }))
+      setIntegrationState(current => ({ ...current, status: 'error', error: error.message || t('organic.commandHook.integrationsLoadFailed'), message: '' }))
     }
-  }, [])
+  }, [t])
 
   useEffect(() => { loadOverview() }, [loadOverview])
   useEffect(() => { loadIntegrations() }, [loadIntegrations])
@@ -127,9 +129,9 @@ export function useOrganicCommand({ notify }) {
       else await createOrganicDraft({ ...form, projectId: data?.project?.id, opportunityId: modal?.target?.id || null, type: modal?.target?.type || 'service_page' })
       await loadOverview()
       setModal(null)
-      notify?.(modal?.action === 'project' ? 'Proyecto creado' : modal?.action === 'connect' ? 'Proyecto actualizado' : 'Borrador preparado')
+      notify?.(modal?.action === 'project' ? t('organic.commandHook.projectCreated') : modal?.action === 'connect' ? t('organic.commandHook.projectUpdated') : t('organic.commandHook.draftReady'))
     } catch (error) {
-      setModalMessage(error.message || 'No pudimos preparar la acción.')
+      setModalMessage(error.message || t('organic.commandHook.actionFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -145,7 +147,7 @@ export function useOrganicCommand({ notify }) {
           window.location.assign(authorizationUrl)
           return
         }
-        setIntegrationState(current => ({ ...current, message: 'El backend aceptó el inicio OAuth, pero no devolvió una URL de autorización.' }))
+        setIntegrationState(current => ({ ...current, message: t('organic.commandHook.oauthNoUrl') }))
       } else if (action === 'disconnect') {
         await disconnectOrganicIntegration(provider)
         await loadIntegrations()
@@ -156,10 +158,10 @@ export function useOrganicCommand({ notify }) {
       } else if (action === 'sync') {
         await syncOrganicIntegration(provider)
         await Promise.all([loadIntegrations(), loadOverview()])
-        notify?.('Fuente sincronizada')
+        notify?.(t('organic.commandHook.sourceSynced'))
       }
     } catch (error) {
-      setIntegrationState(current => ({ ...current, message: error.message || 'No pudimos completar la operación de integración.' }))
+      setIntegrationState(current => ({ ...current, message: error.message || t('organic.commandHook.integrationFailed') }))
     } finally {
       setIntegrationState(current => ({ ...current, busyProvider: '' }))
     }
@@ -172,7 +174,7 @@ export function useOrganicCommand({ notify }) {
       const body = await dispatchOrganicRecommendation(id)
       return body?.url || null
     } catch (error) {
-      notify?.(error.message || 'No se pudo abrir la recomendación')
+      notify?.(error.message || t('organic.commandHook.dispatchFailed'))
       return null
     } finally {
       setDispatching('')
@@ -207,7 +209,7 @@ export function useOrganicCommand({ notify }) {
     try {
       await operation()
     } catch (error) {
-      setAutonomyMessage(error.message || 'No pudimos completar la operación de autonomía.')
+      setAutonomyMessage(error.message || t('organic.commandHook.autonomyFailed'))
     } finally {
       await loadAutonomy()
       setAutonomyBusy(false)
@@ -221,10 +223,10 @@ export function useOrganicCommand({ notify }) {
     onApprove: id => withAutonomy(() => approveOrganicAutonomyDecision(id)),
     onReject: (id, reason) => withAutonomy(() => rejectOrganicAutonomyDecision(id, reason)),
     onPromote: kind => withAutonomy(() => promoteOrganicAutonomyKind(kind)),
-    onDemote: kind => withAutonomy(() => demoteOrganicAutonomyKind(kind, 'Permiso retirado desde el centro de mando')),
+    onDemote: kind => withAutonomy(() => demoteOrganicAutonomyKind(kind, t('organic.commandHook.demoteReason'))),
   }
 
-  const connectedSources = integrationState.integrations?.filter(item => integrationPresentation(item).connected).length || 0
+  const connectedSources = integrationState.integrations?.filter(item => integrationPresentation(item, t).connected).length || 0
   const pendingDecisions = autonomy?.decisions?.filter(item => ['advisory', 'pending_approval', 'shadow'].includes(item.status)).length || 0
   const hasProject = Boolean(data?.project)
 

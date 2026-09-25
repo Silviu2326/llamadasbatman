@@ -26,7 +26,7 @@ const STORAGE_KEY = 'vendrava.ads.campaign'
  * Todas las mutaciones devuelven el cuerpo de la respuesta o null si fallaron
  * (el error ya se ha notificado); tras el éxito recargan el plan.
  */
-export function useAdsPlan({ enabled = true, notify }) {
+export function useAdsPlan({ enabled = true, notify, t }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [campaigns, setCampaigns] = useState([])
   const [campaignsLoading, setCampaignsLoading] = useState(true)
@@ -111,11 +111,11 @@ export function useAdsPlan({ enabled = true, notify }) {
       setPlan(await response.json())
     } catch {
       setPlan(null)
-      setPlanError('No se pudo cargar el plan de esta campaña.')
+      setPlanError(t('ads.plan.loadError'))
     } finally {
       setPlanLoading(false)
     }
-  }, [selectedId])
+  }, [selectedId, t])
 
   useEffect(() => { if (enabled) reloadPlan() }, [enabled, reloadPlan])
 
@@ -132,40 +132,40 @@ export function useAdsPlan({ enabled = true, notify }) {
       await reloadPlan()
       return data
     } catch (error) {
-      notifyRef.current?.(error?.message || 'No se pudo completar la operación.')
+      notifyRef.current?.(error?.message || t('ads.common.operationFailed'))
       return null
     } finally {
       setBusyId('')
     }
-  }, [reloadPlan])
+  }, [reloadPlan, t])
 
   const createActivation = useCallback(body =>
-    mutate('/api/ads/activations', { body, okMessage: 'Activación creada.' }), [mutate])
+    mutate('/api/ads/activations', { body, okMessage: t('ads.plan.activationCreated') }), [mutate, t])
   const updateActivation = useCallback((id, body) =>
-    mutate(`/api/ads/activations/${id}`, { method: 'PUT', body, busy: id, okMessage: 'Activación actualizada.' }), [mutate])
+    mutate(`/api/ads/activations/${id}`, { method: 'PUT', body, busy: id, okMessage: t('ads.plan.activationUpdated') }), [mutate, t])
 
   const saveAudience = useCallback((body, id) => (id
-    ? mutate(`/api/ads/audiences/${id}`, { method: 'PUT', body, busy: id, okMessage: 'Audiencia actualizada.' })
-    : mutate('/api/ads/audiences', { body, okMessage: 'Audiencia creada.' })), [mutate])
+    ? mutate(`/api/ads/audiences/${id}`, { method: 'PUT', body, busy: id, okMessage: t('ads.plan.audienceUpdated') })
+    : mutate('/api/ads/audiences', { body, okMessage: t('ads.plan.audienceCreated') })), [mutate, t])
   const archiveAudience = useCallback(id =>
-    mutate(`/api/ads/audiences/${id}/archive`, { busy: id, okMessage: 'Audiencia archivada.' }), [mutate])
+    mutate(`/api/ads/audiences/${id}/archive`, { busy: id, okMessage: t('ads.plan.audienceArchived') }), [mutate, t])
 
   const saveBrief = useCallback((body, id) => (id
-    ? mutate(`/api/ads/briefs/${id}`, { method: 'PUT', body, busy: id, okMessage: 'Brief actualizado.' })
-    : mutate('/api/ads/briefs', { body, okMessage: 'Brief creado.' })), [mutate])
+    ? mutate(`/api/ads/briefs/${id}`, { method: 'PUT', body, busy: id, okMessage: t('ads.plan.briefUpdated') })
+    : mutate('/api/ads/briefs', { body, okMessage: t('ads.plan.briefCreated') })), [mutate, t])
   const setBriefStatus = useCallback((id, status) =>
     mutate(`/api/ads/briefs/${id}/status`, { body: { status }, busy: id }), [mutate])
 
   const createCreative = useCallback(body =>
-    mutate('/api/ads/creatives', { body, okMessage: 'Creatividad guardada.' }), [mutate])
+    mutate('/api/ads/creatives', { body, okMessage: t('ads.plan.creativeSaved') }), [mutate, t])
   const updateCreative = useCallback((id, body) =>
-    mutate(`/api/ads/creatives/${id}`, { method: 'PUT', body, busy: id, okMessage: 'Creatividad actualizada.' }), [mutate])
+    mutate(`/api/ads/creatives/${id}`, { method: 'PUT', body, busy: id, okMessage: t('ads.plan.creativeUpdated') }), [mutate, t])
   const submitCreative = useCallback(id =>
-    mutate(`/api/ads/creatives/${id}/submit`, { busy: id, okMessage: 'Creatividad enviada a revisión.' }), [mutate])
+    mutate(`/api/ads/creatives/${id}/submit`, { busy: id, okMessage: t('ads.plan.creativeSubmitted') }), [mutate, t])
   const approveCreative = useCallback(id =>
-    mutate(`/api/ads/creatives/${id}/approve`, { busy: id, okMessage: 'Creatividad aprobada.' }), [mutate])
+    mutate(`/api/ads/creatives/${id}/approve`, { busy: id, okMessage: t('ads.plan.creativeApproved') }), [mutate, t])
   const rejectCreative = useCallback((id, reason) =>
-    mutate(`/api/ads/creatives/${id}/reject`, { body: { reason }, busy: id, okMessage: 'Creatividad rechazada con tu motivo.' }), [mutate])
+    mutate(`/api/ads/creatives/${id}/reject`, { body: { reason }, busy: id, okMessage: t('ads.plan.creativeRejected') }), [mutate, t])
 
   const selectedCampaign = useMemo(
     () => campaigns.find(c => c.id === selectedId) ?? null,

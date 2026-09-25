@@ -12,4 +12,5 @@ export async function playbooksRoutes(app: FastifyInstance) {
   app.post('/', canMutate, ctrl.create as any)
   app.get('/:id', canRead, ctrl.get as any)
   app.put('/:id', canMutate, ctrl.update as any)
+  app.delete('/:id', canMutate, ctrl.remove as any)
 }

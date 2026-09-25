@@ -19,6 +19,8 @@ export async function callsRoutes(app: FastifyInstance) {
   app.get('/:id/metrics', canRead, ctrl.metrics as any)
   app.get('/:id/evaluation', canRead, ctrl.evaluation as any)
   app.get('/:id', canRead, ctrl.get as any)
+  // Corrección manual del resultado: `calls.write` (catálogo de access-control).
+  app.patch('/:id', canMutate, ctrl.update as any)
   app.post('/ingest', { preHandler: authenticateVoiceService }, ctrl.ingest as any)
   app.get('/:id/notes', canRead, ctrl.listNotes as any)
   app.post('/:id/notes', canMutate, ctrl.createNote as any)

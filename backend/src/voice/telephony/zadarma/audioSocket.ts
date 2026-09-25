@@ -77,21 +77,53 @@ export class SipPcmBridge {
   }
 }
 
-/** AudioSocket does not pace audio. Send at most one 20 ms frame per tick. */
+/** Bytes de PCM16 mono a 8 kHz por milisegundo. */
+const PCM8K_BYTES_PER_MS = 16
+
+/**
+ * AudioSocket does not pace audio. Send at most one 20 ms frame per tick.
+ *
+ * TTS delivers a whole turn in a burst, so the queue routinely holds several
+ * seconds. Instead of hanging up when it exceeds a limit, `push` applies
+ * backpressure: the promise resolves once the backlog drains below the soft
+ * limit. Only the hard limit (a runaway response) still rejects.
+ */
 export class PcmPlaybackQueue {
   private data = Buffer.alloc(0)
-  constructor(private maxBytes = 16000 * 15) {}
-  push(pcm8k: Buffer): void {
+  private waiters: Array<() => void> = []
+  readonly softBytes: number
+  readonly hardBytes: number
+  constructor(softMs = 15_000, hardMs = 60_000) {
+    this.softBytes = Math.max(320, Math.round(softMs * PCM8K_BYTES_PER_MS))
+    this.hardBytes = Math.max(this.softBytes, Math.round(hardMs * PCM8K_BYTES_PER_MS))
+  }
+  /** Milliseconds of audio still queued. */
+  get queuedMs(): number { return this.data.length / PCM8K_BYTES_PER_MS }
+  get queuedBytes(): number { return this.data.length }
+  /** Throws synchronously on the hard limit; otherwise resolves once below the soft limit. */
+  push(pcm8k: Buffer): Promise<void> {
     if (pcm8k.length % 2) throw new Error('PCM_OUTPUT_ODD_LENGTH')
-    if (this.data.length + pcm8k.length > this.maxBytes) throw new Error('AUDIO_PLAYBACK_BACKLOG')
+    if (this.data.length + pcm8k.length > this.hardBytes) throw new Error('AUDIO_PLAYBACK_BACKLOG')
     this.data = Buffer.concat([this.data, pcm8k])
+    if (this.data.length <= this.softBytes) return Promise.resolve()
+    return new Promise(resolve => { this.waiters.push(resolve) })
   }
   nextFrame(): Buffer | null {
     if (!this.data.length) return null
     const frame = Buffer.alloc(320)
     this.data.copy(frame, 0, 0, 320)
     this.data = this.data.subarray(Math.min(320, this.data.length))
+    if (this.data.length <= this.softBytes) this.release()
     return frame
   }
-  clear(): void { this.data = Buffer.alloc(0) }
+  clear(): void {
+    this.data = Buffer.alloc(0)
+    this.release()
+  }
+  private release(): void {
+    if (!this.waiters.length) return
+    const waiters = this.waiters
+    this.waiters = []
+    for (const resolve of waiters) resolve()
+  }
 }

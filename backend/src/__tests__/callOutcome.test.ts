@@ -17,7 +17,7 @@ import {
 
 test('los resultados que escribe el motor de voz son válidos', () => {
   // OUTCOME_MAP de voice/telephony/mediaStream.ts
-  for (const outcome of ['meeting_scheduled', 'callback_requested', 'not_interested', 'none']) {
+  for (const outcome of ['meeting_scheduled', 'human_requested', 'callback_requested', 'not_interested', 'none']) {
     assert.equal(isValidCallOutcome(outcome), true, `${outcome} debería ser canónico`)
   }
   // Clasificación de máquina de voice/telephony/amdService.ts
@@ -28,7 +28,8 @@ test('los resultados que escribe el motor de voz son válidos', () => {
 
 test('cualifican la reunión, la transferencia a una persona y el interés explícito', () => {
   assert.equal(isQualifyingOutcome(CALL_OUTCOME.MEETING_SCHEDULED), true)
-  assert.equal(isQualifyingOutcome(CALL_OUTCOME.TRANSFERRED_TO_HUMAN), true)
+  assert.equal(isQualifyingOutcome(CALL_OUTCOME.HUMAN_REQUESTED), true)
+  assert.equal(isQualifyingOutcome(CALL_OUTCOME.CALLBACK_REQUESTED), false, '"llámame después" no es intención expresada')
   assert.equal(isQualifyingOutcome(CALL_OUTCOME.INTERESTED), true)
 })
 
@@ -48,8 +49,9 @@ test('un rechazo es conversación humana; un buzón de voz no', () => {
 test('los alias antiguos se traducen al vocabulario canónico', () => {
   assert.equal(normalizeCallOutcome('rejected'), CALL_OUTCOME.NOT_INTERESTED)
   assert.equal(normalizeCallOutcome('optout'), CALL_OUTCOME.NOT_INTERESTED)
-  assert.equal(normalizeCallOutcome('callback'), CALL_OUTCOME.TRANSFERRED_TO_HUMAN)
-  assert.equal(normalizeCallOutcome('transferido'), CALL_OUTCOME.TRANSFERRED_TO_HUMAN)
+  assert.equal(normalizeCallOutcome('callback'), CALL_OUTCOME.CALLBACK_REQUESTED)
+  assert.equal(normalizeCallOutcome('transferido'), CALL_OUTCOME.HUMAN_REQUESTED)
+  assert.equal(normalizeCallOutcome('transfer_requested'), CALL_OUTCOME.HUMAN_REQUESTED)
   assert.equal(normalizeCallOutcome('demo_agendada'), CALL_OUTCOME.MEETING_SCHEDULED)
   assert.equal(normalizeCallOutcome('qualified'), CALL_OUTCOME.INTERESTED)
   assert.equal(normalizeCallOutcome('  MEETING_SCHEDULED  '), CALL_OUTCOME.MEETING_SCHEDULED)

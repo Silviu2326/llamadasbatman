@@ -81,6 +81,8 @@ export async function leadsRoutes(app: FastifyInstance) {
       requireEntitlement('crm'),
     ],
   }, ctrl.sendOutboundEmail as any)
+  // Consentimiento de voz manual (grant/revoke con fuente y evidencia).
+  app.post('/:id/consent', canMutateOrg, ctrl.setConsent as any)
   app.post('/:id/notes', canMutateOrg, ctrl.createNote as any)
   app.post('/:id/files', canMutateOrg, ctrl.uploadFile as any)
   app.post('/:id/send-email', {

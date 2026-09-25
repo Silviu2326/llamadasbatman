@@ -1,3 +1,7 @@
+// DEMO LOCAL: respuestas y prompt enlatados, sin API. No usa el prompt real de
+// buildIntelligentPrompt ni crea llamadas, por lo que NO cuenta como prueba del
+// agente. Retirado de AgentDetailPage (23-09-2026); se conserva solo como pieza
+// de demostración. El prompt real ya existe en GET /api/knowledge/prompt-preview?agentId=…: si se reincorpora, debe leer de ahí.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   RiArrowDownSLine, RiCheckLine, RiExternalLinkLine, RiLoader4Line,

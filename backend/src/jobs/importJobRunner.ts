@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { writeAuditLog } from '../lib/audit'
-import { createLead, ImportJobError, ImportJobRow, ImportJobRowsPayload } from '../services/leads.service'
-import { enqueueLeadCall } from '../services/leadIngestion.service'
+import { createLead, ImportConsentDeclaration, ImportJobError, ImportJobRow, ImportJobRowsPayload, InvalidPhoneError, LeadDuplicateError } from '../services/leads.service'
+import { enqueueCampaignLeadCall } from '../services/leadCallGate'
 import { recordQueueEvent } from '../observability/metrics'
 import { classifyOperationalError, logOperational } from '../observability/operationalLog'
 
@@ -20,12 +20,42 @@ const MAX_BACKOFF_MINUTES = 60
 const WORKER_ID = process.env.IMPORT_JOB_WORKER_ID?.trim() || `import-${process.pid}-${randomUUID()}`
 let running = false
 
-function readRowsPayload(raw: unknown): ImportJobRowsPayload {
+export function readRowsPayload(raw: unknown): ImportJobRowsPayload {
   if (raw && typeof raw === 'object' && !Array.isArray(raw) && Array.isArray((raw as any).items)) {
-    return { autoCall: Boolean((raw as any).autoCall), items: (raw as any).items as ImportJobRow[] }
+    const payload: ImportJobRowsPayload = { autoCall: Boolean((raw as any).autoCall), items: (raw as any).items as ImportJobRow[] }
+    const consent = (raw as any).consent
+    if (consent && typeof consent === 'object' && consent.voice === true) {
+      payload.consent = {
+        voice: true,
+        source: typeof consent.source === 'string' ? consent.source : undefined,
+        evidence: typeof consent.evidence === 'string' ? consent.evidence : undefined,
+      }
+    }
+    if ((raw as any).attachExistingToCampaign === true) payload.attachExistingToCampaign = true
+    return payload
   }
   return { autoCall: false, items: [] }
 }
+
+/**
+ * Consentimiento de voz que se pasa a createLead para una fila: la columna
+ * `consent_voice` de la fila manda; si no existe, se aplica la declaración
+ * del lote (casilla del modal). Sin ninguna de las dos, no se registra nada.
+ */
+export function resolveRowConsent(item: ImportJobRow, batch?: ImportConsentDeclaration): { voice: true; source: string; evidence?: string } | undefined {
+  if (item.consentVoice === true) {
+    return {
+      voice: true,
+      source: item.consentSource || batch?.source || 'import_row',
+      evidence: item.consentEvidence || batch?.evidence,
+    }
+  }
+  if (item.consentVoice === false) return undefined
+  if (batch?.voice) return { voice: true, source: batch.source || 'import_declaration', evidence: batch.evidence }
+  return undefined
+}
+
+export type ImportRowOutcome = 'created' | 'replayed' | 'existing'
 
 function readErrors(raw: unknown): ImportJobError[] {
   return Array.isArray(raw) ? (raw as ImportJobError[]) : []
@@ -111,41 +141,70 @@ function importRowExternalId(jobId: string, row: number) {
   return `import:${jobId}:row:${row}`
 }
 
-async function importOneRow(job: { id: string; orgId: string; createdById: string | null; campaignId: string | null }, item: ImportJobRow, autoCall: boolean) {
+export async function importOneRow(
+  job: { id: string; orgId: string; createdById: string | null; campaignId: string | null },
+  item: ImportJobRow,
+  autoCall: boolean,
+  options: { consent?: ImportConsentDeclaration; attachExistingToCampaign?: boolean } = {},
+): Promise<ImportRowOutcome> {
   if (!item.name) throw new Error('name es requerido')
   const externalLeadId = importRowExternalId(job.id, item.row)
   let lead = await prisma.lead.findUnique({
     where: { orgId_externalLeadId: { orgId: job.orgId, externalLeadId } },
     select: { id: true },
   })
-  let created = false
-  if (!lead) {
-    try {
-      lead = await createLead(job.orgId, job.createdById, {
-        name: item.name,
-        phone: item.phone,
-        email: item.email,
-        company: item.company,
-        campaignId: job.campaignId ?? undefined,
-        source: 'import',
-        externalLeadId,
-      })
-      created = true
-    } catch (error: any) {
-      // Another worker can only reach this branch after a lease expiry. The
-      // database unique constraint is the final idempotency fence.
-      if (error?.code !== 'P2002') throw error
-      lead = await prisma.lead.findUnique({
-        where: { orgId_externalLeadId: { orgId: job.orgId, externalLeadId } },
-        select: { id: true },
-      })
-      if (!lead) throw error
+  if (lead) return 'replayed'
+
+  try {
+    // strict: teléfono no interpretable → InvalidPhoneError; lead ya
+    // existente por teléfono E.164 o email → LeadDuplicateError (se reporta
+    // como «ya existía», no se crea otro).
+    lead = await createLead(job.orgId, job.createdById, {
+      name: item.name,
+      phone: item.phone,
+      email: item.email,
+      company: item.company,
+      campaignId: job.campaignId ?? undefined,
+      source: 'import',
+      externalLeadId,
+      consent: resolveRowConsent(item, options.consent),
+    }, { strict: true })
+  } catch (error: any) {
+    if (error instanceof InvalidPhoneError) throw new Error(`invalid_phone: ${error.phone}`)
+    if (error instanceof LeadDuplicateError) {
+      if (options.attachExistingToCampaign && job.campaignId) {
+        const attached = await prisma.lead.updateMany({
+          where: { id: error.existingLeadId, orgId: job.orgId, campaignId: null },
+          data: { campaignId: job.campaignId },
+        })
+        if (attached.count) await prisma.campaign.updateMany({ where: { id: job.campaignId, orgId: job.orgId }, data: { totalLeads: { increment: 1 } } })
+      }
+      throw new ImportRowExistsError(error.existingLeadId, error.matchedBy)
     }
+    // Another worker can only reach this branch after a lease expiry. The
+    // database unique constraint is the final idempotency fence.
+    if (error?.code !== 'P2002') throw error
+    lead = await prisma.lead.findUnique({
+      where: { orgId_externalLeadId: { orgId: job.orgId, externalLeadId } },
+      select: { id: true },
+    })
+    if (!lead) throw error
+    return 'replayed'
   }
   // Queue an automatic call only for the worker that created this exact lead.
   // A replay sees the same deterministic externalLeadId and never enqueues a
-  // second call.
-  if (created && autoCall) await enqueueLeadCall(job.orgId, lead.id).catch(() => {})
+  // second call. Same gate and dedupeKey as the voice-consent path in
+  // orchestrateNewLead: consent + autoCall on one row is still one job.
+  if (autoCall) await enqueueCampaignLeadCall(job.orgId, lead.id).catch(() => {})
+  return 'created'
+}
+
+/** Fila cuyo contacto ya existía en la organización: se cuenta como omitida, no como error. */
+export class ImportRowExistsError extends Error {
+  constructor(public existingLeadId: string, public matchedBy: 'phone' | 'email') {
+    super(`already_exists: ${matchedBy === 'phone' ? 'mismo teléfono' : 'mismo email'} (lead ${existingLeadId})`)
+    this.name = 'ImportRowExistsError'
+  }
 }
 
 async function releaseImportJobForRetry(
@@ -198,28 +257,33 @@ async function processImportJobTick() {
     if (!job) return
 
     const outcome = await withImportJobLease(job.id, WORKER_ID, async () => {
-      const { autoCall, items } = readRowsPayload(job!.rows)
+      const { autoCall, items, consent, attachExistingToCampaign } = readRowsPayload(job!.rows)
       const batch = items.slice(job!.processedRows, job!.processedRows + BATCH_SIZE)
       let importedDelta = 0
+      let skippedDelta = 0
       const newErrors: ImportJobError[] = []
 
       for (const item of batch) {
         try {
-          await importOneRow(job!, item, autoCall)
+          await importOneRow(job!, item, autoCall, { consent, attachExistingToCampaign })
           importedDelta++
         } catch (error) {
+          // «Ya existía» se lista para que el usuario lo vea, pero cuenta como
+          // omitido (igual que los duplicados dentro del archivo), no como error.
+          if (error instanceof ImportRowExistsError) skippedDelta++
           newErrors.push({ row: item.row, message: (error as Error).message || 'Error al importar la fila' })
         }
       }
 
       const processedRows = job!.processedRows + batch.length
       const importedCount = job!.importedCount + importedDelta
-      const errorCount = job!.errorCount + newErrors.length
+      const skippedCount = job!.skippedCount + skippedDelta
+      const errorCount = job!.errorCount + (newErrors.length - skippedDelta)
       const finished = processedRows >= job!.totalRows
       const status = finished
         ? (job!.totalRows > 0 && errorCount === job!.totalRows ? 'failed' : 'completed')
         : 'processing'
-      return { processedRows, importedCount, errorCount, finished, status, newErrors }
+      return { processedRows, importedCount, skippedCount, errorCount, finished, status, newErrors }
     })
 
     if (outcome.leaseLost) {
@@ -235,6 +299,7 @@ async function processImportJobTick() {
       data: {
         processedRows: result.processedRows,
         importedCount: result.importedCount,
+        skippedCount: result.skippedCount,
         errorCount: result.errorCount,
         errors: [...readErrors(job.errors), ...result.newErrors] as any,
         status: result.status,
@@ -252,7 +317,7 @@ async function processImportJobTick() {
       action: 'lead.import',
       entityType: 'ImportJob',
       entityId: job.id,
-      after: { importedCount: result.importedCount, errorCount: result.errorCount, skippedCount: job.skippedCount, totalRows: job.totalRows, campaignId: job.campaignId },
+      after: { importedCount: result.importedCount, errorCount: result.errorCount, skippedCount: result.skippedCount, totalRows: job.totalRows, campaignId: job.campaignId },
     })
   } catch (error) {
     if (job) await releaseImportJobForRetry(job, WORKER_ID, error)
