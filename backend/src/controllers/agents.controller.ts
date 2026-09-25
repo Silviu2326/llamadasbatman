@@ -149,12 +149,12 @@ export async function scheduleCall(request: FastifyRequest<{ Params: { id: strin
   if (scheduledAt.getTime() > Date.now() + 31 * 24 * 60 * 60 * 1000) return reply.status(400).send({ error: 'Solo puedes programar llamadas dentro de los próximos 31 días.' })
   const lead = await prisma.lead.findFirst({
     where: { id: body.leadId, orgId, phone: { not: null }, campaign: { agentId: request.params.id, status: 'active' } },
-    select: { id: true, name: true, company: true, phone: true },
+    select: { id: true, name: true, company: true, phone: true, campaignId: true },
   })
   if (!lead) return reply.status(422).send({ error: 'El contacto no tiene una campaña activa asignada a este agente o no tiene teléfono.' })
   const delayMs = scheduledAt.getTime() - Date.now()
   const dedupeKey = `scheduled:${orgId}:${request.params.id}:${lead.id}:${scheduledAt.toISOString()}`
-  const queued = await enqueueLeadCall(orgId, lead.id, dedupeKey, delayMs)
+  const queued = await enqueueLeadCall(orgId, lead.id, dedupeKey, delayMs, { campaignId: lead.campaignId!, agentId: request.params.id })
   if (!queued) return reply.status(503).send({ error: 'El servicio de llamadas no está disponible.' })
   return reply.status(201).send({ queued: true, scheduledAt: scheduledAt.toISOString(), lead })
 }

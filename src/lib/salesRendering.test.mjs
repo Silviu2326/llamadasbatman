@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 
 let server, meeting, task, action, I18nProvider
 before(async () => {
-  server = await createServer({ server: { middlewareMode: true, host: '127.0.0.1' }, appType: 'custom' })
+  server = await createServer({ server: { middlewareMode: true, host: '127.0.0.1', hmr: false }, appType: 'custom' })
   I18nProvider = (await server.ssrLoadModule('/src/i18n/index.js')).I18nProvider
   meeting = (await server.ssrLoadModule('/src/modals/NewReunionModal.jsx')).default
   task = (await server.ssrLoadModule('/src/modals/SalesTaskModal.jsx')).default
@@ -19,7 +19,7 @@ const render = (component, props) => renderToStaticMarkup(createElement(MemoryRo
 test('meeting opened from CRM preselects the existing contact rather than creating a duplicate', () => {
   const html = render(meeting, { initialLead: { id: 'contact-test', name: 'Contacto de prueba' } })
   assert.match(html, /value="Contacto de prueba"/)
-  assert.match(html, /aria-checked="true"/)
+  assert.match(html, /aria-pressed="true"/)
   assert.doesNotMatch(html, /Ej\. María Rodríguez/)
 })
 test('editing a calendar task retains its text and local due date field', () => {

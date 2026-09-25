@@ -8,6 +8,7 @@ export const CALL_BLOCK_LABELS = {
   max_attempts: 'Se alcanzó el máximo de intentos de llamada.',
   no_campaign: 'El contacto no pertenece a ninguna campaña.',
   campaign_changed: 'El contacto cambió de campaña después de programar la llamada.',
+  agent_changed: 'La campaña cambió de agente después de programar la llamada.',
   campaign_inactive: 'La campaña no está activa.',
   agent_missing: 'La campaña no tiene agente asignado.',
   agent_not_active: 'El agente no está publicado y activo.',

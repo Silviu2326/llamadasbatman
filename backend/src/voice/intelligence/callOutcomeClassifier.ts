@@ -170,17 +170,18 @@ export function fallbackOutcome(input: ClassifyInput): ClassifiedOutcome {
     if (normalized && normalized !== CALL_OUTCOME.INTERESTED && normalized !== CALL_OUTCOME.MEETING_SCHEDULED) outcome = normalized
   }
   const seconds = input.durationSeconds ?? 0
+  const en = input.language === 'en'
   const summary = outcome === CALL_OUTCOME.NOT_INTERESTED && ctx === 'optout'
-    ? 'El contacto pidió no recibir más llamadas. Se registró el opt-out y se colgó.'
+    ? (en ? 'The contact asked not to receive any more calls. The opt-out was recorded and the call ended.' : 'El contacto pidió no recibir más llamadas. Se registró el opt-out y se colgó.')
     : outcome === CALL_OUTCOME.HUMAN_REQUESTED
-      ? 'El contacto pidió hablar con una persona del equipo. Queda pendiente el seguimiento humano.'
+      ? (en ? 'The contact asked to speak with a team member. Human follow-up is pending.' : 'El contacto pidió hablar con una persona del equipo. Queda pendiente el seguimiento humano.')
       : outcome === CALL_OUTCOME.CALLBACK_REQUESTED
-        ? 'El contacto pidió que le llamen en otro momento. Queda pendiente volver a llamar.'
+        ? (en ? 'The contact asked to be called at another time. A callback is pending.' : 'El contacto pidió que le llamen en otro momento. Queda pendiente volver a llamar.')
       : outcome === CALL_OUTCOME.VOICEMAIL || outcome === CALL_OUTCOME.IVR
-        ? 'Contestó un buzón o una centralita automática. No hubo conversación.'
+        ? (en ? 'Voicemail or an automated switchboard answered. No conversation took place.' : 'Contestó un buzón o una centralita automática. No hubo conversación.')
         : spoken === 0
-          ? `Solo habló el agente durante ${seconds} segundos; el contacto no llegó a intervenir. Sin resultado clasificable.`
-          : `Llamada de ${seconds} segundos con ${spoken} intervenciones del contacto. El clasificador automático no estuvo disponible; revisa la transcripción y fija el resultado a mano.`
+          ? (en ? `Only the agent spoke during ${seconds} seconds; the contact did not speak. No classifiable outcome.` : `Solo habló el agente durante ${seconds} segundos; el contacto no llegó a intervenir. Sin resultado clasificable.`)
+          : (en ? `The call lasted ${seconds} seconds with ${spoken} contact turns. Automatic classification was unavailable; review the transcript and set the outcome manually.` : `Llamada de ${seconds} segundos con ${spoken} intervenciones del contacto. El clasificador automático no estuvo disponible; revisa la transcripción y fija el resultado a mano.`)
   return { outcome, summary, sentiment: 'neutral', callbackAt: null, meetingAt: null, highIntent: false, source: 'fallback' }
 }
 
@@ -256,7 +257,7 @@ export function buildClassifierMessages(input: ClassifyInput): ChatMessage[] {
     'Valores admitidos de "outcome":',
     definitions,
     'Reglas:',
-    '- "summary": dos o tres frases en español, en tercera persona, con lo que dijo el contacto y el siguiente paso acordado. Sin inventar datos.',
+    `- "summary": dos o tres frases en ${input.language === 'en' ? 'inglés (English)' : 'español'}, en tercera persona, con lo que dijo el contacto y el siguiente paso acordado. Sin inventar datos.`,
     '- "sentiment": actitud del contacto hacia la propuesta, no el tono del agente.',
     '- "meetingAt": solo si "outcome" es "meeting_scheduled" y se acordó una fecha u hora; en ISO 8601 con zona horaria. Si dijo "mañana a las diez", calcula la fecha exacta a partir de la fecha actual.',
     '- "callbackAt": solo si el contacto pidió una llamada en otro momento concreto; en ISO 8601 con zona horaria. Si no dio momento, null.',

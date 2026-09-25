@@ -644,7 +644,7 @@ export async function ingestCall(
  * lead: corregir una llamada antigua no debe revertir lo que decidió una
  * llamada posterior.
  */
-export async function applyCallOutcomeEffects(orgId: string, input: {
+interface CallOutcomeEffectsInput {
   callId: string
   leadId: string
   campaignId?: string | null
@@ -652,7 +652,14 @@ export async function applyCallOutcomeEffects(orgId: string, input: {
   callbackAt?: Date | null
   meetingAt?: Date | null
   applyLeadStatus?: boolean
-}): Promise<{ leadStatus: string | null; meetingCreated: boolean; taskCreated: boolean }> {
+}
+
+export async function applyCallOutcomeEffects(orgId: string, input: CallOutcomeEffectsInput) {
+  // The calendar changes and campaign counters must commit together.
+  return prisma.$transaction(tx => applyCallOutcomeEffectsInTransaction(tx, orgId, input))
+}
+
+async function applyCallOutcomeEffectsInTransaction(prisma: Prisma.TransactionClient, orgId: string, input: CallOutcomeEffectsInput): Promise<{ leadStatus: string | null; meetingCreated: boolean; taskCreated: boolean }> {
   const outcome = normalizeCallOutcome(input.outcome) ?? CALL_OUTCOME.NONE
   let leadStatus: string | null = null
   const applyLeadStatus = input.applyLeadStatus !== false
@@ -680,9 +687,9 @@ export async function applyCallOutcomeEffects(orgId: string, input: {
 
   let meetingCreated = false
   if (outcome === CALL_OUTCOME.MEETING_SCHEDULED && input.meetingAt) {
-    const meetingResult = await ensureAutoMeeting(orgId, input.leadId, input.callId, input.meetingAt)
+    const meetingResult = await ensureAutoMeeting(orgId, input.leadId, input.callId, input.meetingAt, prisma)
     meetingCreated = meetingResult.created
-    if (meetingResult.created && input.campaignId) {
+    if ((meetingResult.created || meetingResult.reactivated) && input.campaignId) {
       await prisma.campaign.updateMany({
         where: { id: input.campaignId, orgId },
         data: { meetingsScheduled: { increment: 1 } },
@@ -690,17 +697,40 @@ export async function applyCallOutcomeEffects(orgId: string, input: {
     }
   }
 
+  if (outcome !== CALL_OUTCOME.MEETING_SCHEDULED || !input.meetingAt) {
+    const cancelled = await prisma.meeting.updateMany({
+      where: { id: `auto-call-${input.callId}`, orgId, callId: input.callId, status: 'scheduled' },
+      data: { status: 'cancelled', outcome: 'call_result_corrected' },
+    })
+    if (cancelled.count && input.campaignId) {
+      await prisma.campaign.updateMany({
+        where: { id: input.campaignId, orgId, meetingsScheduled: { gt: 0 } },
+        data: { meetingsScheduled: { decrement: 1 } },
+      })
+    }
+  }
+
+  const taskTitle = outcome === CALL_OUTCOME.HUMAN_REQUESTED ? HUMAN_REQUESTED_TASK_TITLE
+    : outcome === CALL_OUTCOME.CALLBACK_REQUESTED ? CALLBACK_TASK_TITLE : null
+  // Automatic tasks have no author. Preserve authored tasks and completed work,
+  // including existing tasks created before this reconciliation was added.
+  await prisma.callTask.deleteMany({
+    where: {
+      orgId, callId: input.callId, userId: null, done: false,
+      title: { in: [CALLBACK_TASK_TITLE, HUMAN_REQUESTED_TASK_TITLE].filter(title => title !== taskTitle) },
+    },
+  })
   let taskCreated = false
   if (outcome === CALL_OUTCOME.CALLBACK_REQUESTED || outcome === CALL_OUTCOME.HUMAN_REQUESTED) {
     const title = outcome === CALL_OUTCOME.HUMAN_REQUESTED ? HUMAN_REQUESTED_TASK_TITLE : CALLBACK_TASK_TITLE
     // Pide persona: se devuelve la llamada cuanto antes, no cuando el lead diga.
-    const dueAt = outcome === CALL_OUTCOME.HUMAN_REQUESTED ? input.callbackAt ?? new Date() : input.callbackAt ?? undefined
-    const existing = await prisma.callTask.findFirst({ where: { orgId, callId: input.callId, title }, select: { id: true } })
+    const dueAt = outcome === CALL_OUTCOME.HUMAN_REQUESTED ? input.callbackAt ?? new Date() : input.callbackAt ?? null
+    const existing = await prisma.callTask.findFirst({ where: { orgId, callId: input.callId, title, userId: null }, select: { id: true, done: true } })
     if (!existing) {
       await prisma.callTask.create({ data: { orgId, callId: input.callId, title, dueAt } })
       taskCreated = true
-    } else if (input.callbackAt) {
-      await prisma.callTask.updateMany({ where: { id: existing.id, orgId }, data: { dueAt: input.callbackAt } })
+    } else if (!existing.done) {
+      await prisma.callTask.updateMany({ where: { id: existing.id, orgId, done: false, userId: null }, data: { dueAt } })
     }
     if (outcome === CALL_OUTCOME.HUMAN_REQUESTED) {
       // Prioridad alta: el mismo marcador que "marcar como prioritaria" en la lista.
@@ -753,7 +783,7 @@ export async function updateCallResult(orgId: string, callId: string, patch: Cal
   const outcomeChanged = outcome !== undefined && outcome !== call.outcome
   const callbackOutcome = updated.outcome === CALL_OUTCOME.CALLBACK_REQUESTED || updated.outcome === CALL_OUTCOME.HUMAN_REQUESTED
   let effects = { leadStatus: null as string | null, meetingCreated: false, taskCreated: false }
-  if (outcomeChanged || (patch.meetingAt !== undefined && updated.outcome === CALL_OUTCOME.MEETING_SCHEDULED) || (patch.callbackAt !== undefined && callbackOutcome)) {
+  if (outcome !== undefined || (patch.meetingAt !== undefined && updated.outcome === CALL_OUTCOME.MEETING_SCHEDULED) || (patch.callbackAt !== undefined && callbackOutcome)) {
     // El estado del lead solo lo decide su llamada más reciente: corregir una
     // antigua reaplica reunión y tarea, pero no revierte lo que pasó después.
     const latest = await prisma.call.findFirst({ where: { orgId, leadId: call.leadId }, orderBy: [{ startedAt: 'desc' }, { createdAt: 'desc' }], select: { id: true } })
@@ -783,12 +813,21 @@ export async function createAutoMeeting(orgId: string, leadId: string, callId: s
 }
 
 /** Solo con fecha real: una reunión "mañana a las diez" inventada no es una reunión. */
-async function ensureAutoMeeting(orgId: string, leadId: string, callId: string, scheduledAt: Date) {
-  const lead = await prisma.lead.findFirst({ where: { id: leadId, orgId } })
-  const existing = await prisma.meeting.findFirst({ where: { orgId, callId } })
+async function ensureAutoMeeting(orgId: string, leadId: string, callId: string, scheduledAt: Date, db: Prisma.TransactionClient = prisma) {
+  const lead = await db.lead.findFirst({ where: { id: leadId, orgId } })
+  const existing = await db.meeting.findFirst({ where: { id: `auto-call-${callId}`, orgId, callId } })
+    ?? await db.meeting.findFirst({ where: { orgId, callId } })
   if (existing) {
+    if (existing.id !== `auto-call-${callId}`) return { meeting: existing, created: false, reactivated: false }
+    if (existing.status === 'cancelled' && existing.outcome === 'call_result_corrected') {
+      const changed = await db.meeting.updateMany({
+        where: { id: existing.id, orgId, status: 'cancelled', outcome: 'call_result_corrected' },
+        data: { status: 'scheduled', scheduledAt, outcome: null },
+      })
+      return { meeting: { ...existing, status: 'scheduled' as const, scheduledAt, outcome: null }, created: false, reactivated: changed.count > 0 }
+    }
     if (existing.status === 'scheduled' && existing.scheduledAt.getTime() !== scheduledAt.getTime()) {
-      const meeting = await prisma.meeting.update({ where: { id: existing.id }, data: { scheduledAt } })
+      const meeting = await db.meeting.update({ where: { id: existing.id }, data: { scheduledAt } })
       return { meeting, created: false }
     }
     return { meeting: existing, created: false }
@@ -797,26 +836,18 @@ async function ensureAutoMeeting(orgId: string, leadId: string, callId: string, 
   // The deterministic id closes the race between two provider retries even
   // before a dedicated business unique index is present in every database.
   const id = `auto-call-${callId}`
-  try {
-    const meeting = await prisma.meeting.create({
-      data: {
-        id,
-        orgId,
-        leadId,
-        callId,
-        title: `Reunión con ${lead?.name ?? 'contacto'}`,
-        scheduledAt,
-        status: 'scheduled',
-        notes: 'Acordada en la llamada del agente de voz.',
-      },
-    })
-    return { meeting, created: true }
-  } catch (error) {
-    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error
-    const raced = await prisma.meeting.findFirst({ where: { orgId, callId } })
-    if (raced) return { meeting: raced, created: false }
-    throw error
-  }
+  const inserted = await db.meeting.createMany({
+    skipDuplicates: true,
+    data: {
+      id, orgId, leadId, callId,
+      title: `Reunión con ${lead?.name ?? 'contacto'}`,
+      scheduledAt, status: 'scheduled',
+      notes: 'Acordada en la llamada del agente de voz.',
+    },
+  })
+  const meeting = await db.meeting.findFirst({ where: { id, orgId, callId } })
+  if (!meeting) throw new Error('Automatic meeting could not be persisted')
+  return { meeting, created: inserted.count > 0, reactivated: false }
 }
 
 /**

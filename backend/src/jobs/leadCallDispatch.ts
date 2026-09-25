@@ -17,6 +17,7 @@ export interface LeadCallJob {
   leadId: string
   /** Campaña con la que se encoló; si el lead cambió de campaña, el trabajo caduca. */
   campaignId?: string
+  agentId?: string
   /** Clave de idempotencia fijada al encolar (BullMQ la necesita al reencolar). */
   requestId?: string
 }
@@ -42,7 +43,7 @@ let stopDatabaseWorker: (() => void) | null = null
  * es un intento. Los de cumplimiento reutilizan el `reason` de `canCall`.
  */
 export type CallBlockReason =
-  | 'lead_without_phone' | 'max_attempts' | 'no_campaign' | 'campaign_changed' | 'campaign_inactive'
+  | 'lead_without_phone' | 'max_attempts' | 'no_campaign' | 'campaign_changed' | 'agent_changed' | 'campaign_inactive'
   | 'agent_missing' | 'agent_not_active' | 'agent_incomplete' | 'agent_voice_consent_missing' | 'agent_limits'
   | 'white_label_quota' | 'invalid_phone' | 'quota_exceeded' | 'optout' | 'outside_hours' | 'missing_voice_consent'
   | 'gateway_rejected'
@@ -52,6 +53,7 @@ export const CALL_BLOCK_LABELS: Record<CallBlockReason, string> = {
   max_attempts: `Se alcanzó el máximo de ${MAX_CALL_ATTEMPTS} intentos de llamada.`,
   no_campaign: 'El contacto no pertenece a ninguna campaña.',
   campaign_changed: 'El contacto cambió de campaña después de programar la llamada.',
+  agent_changed: 'La campaña cambió de agente después de programar la llamada.',
   campaign_inactive: 'La campaña no está activa.',
   agent_missing: 'La campaña no tiene agente asignado.',
   agent_not_active: 'El agente no está publicado y activo.',
@@ -180,7 +182,7 @@ async function registerUnansweredAttempt(input: {
     orgId: input.orgId, actorType: 'system', action: 'lead.call_unanswered', entityType: 'Call', entityId: call.id,
     after: { leadId: input.lead.id, status, code: input.code, cause: input.cause ?? 'unknown', attempts }, correlationId: input.jobId,
   })
-  const retried = ambiguous ? false : await scheduleRetry(input.orgId, input.lead.id, attempts)
+  const retried = ambiguous ? false : await scheduleRetry(input.orgId, input.lead.id, attempts, { campaignId: input.lead.campaignId ?? undefined, agentId: input.agentId })
   console.warn(`[LeadCallDispatch] lead ${input.lead.id} → ${status} (${input.code}); intento ${attempts}/${MAX_CALL_ATTEMPTS}${retried ? ', reprogramada' : ambiguous ? ', sin reintento automático (resultado ambiguo)' : ''}`)
   return { call, attempts, retried }
 }
@@ -205,6 +207,7 @@ export async function processLeadCallJob(job: LeadCallJob, context: LeadCallJobC
   if (lead.campaign.status !== 'active') return block('campaign_inactive', lead.campaign.status)
   const agent = lead.campaign.agent
   if (!agent || agent.orgId !== orgId) return block('agent_missing')
+  if (job.agentId && job.agentId !== agent.id) return block('agent_changed')
   if (!agent.isActive || agent.lifecycleStatus !== 'active') return block('agent_not_active', agent.lifecycleStatus)
   const missing = [!agent.voiceId && 'voice', !agent.systemPrompt && 'instructions', !agent.phoneNumber && 'phone'].filter(Boolean)
   if (missing.length) return block('agent_incomplete', missing.join(','))
@@ -286,9 +289,9 @@ export async function processLeadCallJob(job: LeadCallJob, context: LeadCallJobC
  */
 export async function enqueueLeadCall(
   orgId: string, leadId: string, dedupeKey?: string, delayMs = 0,
-  options: { campaignId?: string; onFinished?: 'ignore' | 'requeue' } = {},
+  options: { campaignId?: string; agentId?: string; onFinished?: 'ignore' | 'requeue' } = {},
 ): Promise<boolean> {
-  const payload = { orgId, leadId, ...(options.campaignId ? { campaignId: options.campaignId } : {}) }
+  const payload = { orgId, leadId, ...(options.campaignId ? { campaignId: options.campaignId } : {}), ...(options.agentId ? { agentId: options.agentId } : {}) }
   if (isPostgresQueueBackend()) {
     return enqueueDatabaseJob({ queue: QUEUE_NAME, kind: 'call', payload, dedupeKey, delayMs, onFinished: options.onFinished })
   }
@@ -306,13 +309,13 @@ export async function enqueueLeadCall(
   }
 }
 
-export async function scheduleRetry(orgId: string, leadId: string, attemptsSoFar: number): Promise<boolean> {
+export async function scheduleRetry(orgId: string, leadId: string, attemptsSoFar: number, assignment: { campaignId?: string; agentId?: string } = {}): Promise<boolean> {
   if (isPostgresQueueBackend()) {
     if (attemptsSoFar >= MAX_CALL_ATTEMPTS) return false
     return enqueueDatabaseJob({
       queue: QUEUE_NAME,
       kind: 'call-retry',
-      payload: { orgId, leadId },
+      payload: { orgId, leadId, ...assignment },
       dedupeKey: `retry:${orgId}:${leadId}:${attemptsSoFar}`,
       delayMs: RETRY_BACKOFF_MS * attemptsSoFar,
     })
@@ -321,7 +324,7 @@ export async function scheduleRetry(orgId: string, leadId: string, attemptsSoFar
   try {
     await leadCallQueue.add(
       'call',
-      { orgId, leadId },
+      { orgId, leadId, ...assignment },
       { delay: RETRY_BACKOFF_MS * attemptsSoFar, priority: 2, removeOnComplete: 1000, removeOnFail: 1000 }
     )
     return true

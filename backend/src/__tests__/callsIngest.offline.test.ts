@@ -25,7 +25,7 @@ async function stubPrisma(t: test.TestContext, models: Models) {
   const restore: Array<() => void> = []
   const generic: Record<string, Method> = {
     findFirst: async () => null, findUnique: async () => null, findUniqueOrThrow: async () => { throw new Error('not found') },
-    findMany: async () => [], create: async (q: any) => ({ id: `${Math.random().toString(36).slice(2, 8)}`, ...q.data }),
+    findMany: async () => [], createMany: async () => ({ count: 0 }), create: async (q: any) => ({ id: `${Math.random().toString(36).slice(2, 8)}`, ...q.data }),
     update: async (q: any) => ({ id: q.where?.id, ...q.data }), updateMany: async () => ({ count: 0 }), upsert: async (q: any) => ({ id: 'up', ...q.create }),
     count: async () => 0, aggregate: async () => ({ _sum: {} }), deleteMany: async () => ({ count: 0 }),
   }
@@ -44,6 +44,11 @@ async function stubPrisma(t: test.TestContext, models: Models) {
   restore.push(() => { (prisma as any).$transaction = originalTx })
   t.after(() => restore.forEach(fn => fn()))
   return prisma
+}
+
+function matches(row: any, where: any): boolean {
+  return Object.entries(where).every(([key, value]: [string, any]) =>
+    value && typeof value === 'object' && 'in' in value ? value.in.includes(row[key]) : row[key] === value)
 }
 
 /** Estado mínimo para que `ingestCall` llegue hasta los efectos del resultado. */
@@ -69,13 +74,16 @@ function ingestState(t: test.TestContext, lead: Record<string, unknown> = LEAD) 
     },
     conversation: { findUnique: async () => null, upsert: async () => ({ id: 'conv-1' }), update: async () => ({ id: 'conv-1' }) },
     meeting: {
-      findFirst: async (q: any) => state.meetings.find(meeting => meeting.callId === q.where.callId) ?? null,
-      create: async (q: any) => { const row = { id: q.data.id ?? `meeting-${state.meetings.length + 1}`, ...q.data }; state.meetings.push(row); return row },
+      createMany: async (q: any) => { if (state.meetings.some(row => row.id === q.data.id)) return { count: 0 }; state.meetings.push({ ...q.data }); return { count: 1 } },
+      findFirst: async (q: any) => state.meetings.find(meeting => matches(meeting, q.where)) ?? null,
+      create: async (q: any) => { const row = { id: q.data.id ?? `meeting-${state.meetings.length + 1}`, status: 'scheduled', ...q.data }; state.meetings.push(row); return row },
       update: async (q: any) => { const row = state.meetings.find(meeting => meeting.id === q.where.id); Object.assign(row, q.data); return row },
+      updateMany: async (q: any) => { const rows = state.meetings.filter(row => matches(row, q.where)); rows.forEach(row => Object.assign(row, q.data)); return { count: rows.length } },
     },
     callTask: {
-      findFirst: async (q: any) => state.tasks.find(task => task.callId === q.where.callId && task.title === q.where.title) ?? null,
-      create: async (q: any) => { const row = { id: `task-${state.tasks.length + 1}`, ...q.data }; state.tasks.push(row); return row },
+      findFirst: async (q: any) => state.tasks.find(task => matches(task, q.where)) ?? null,
+      create: async (q: any) => { const row = { id: `task-${state.tasks.length + 1}`, userId: null, done: false, ...q.data }; state.tasks.push(row); return row },
+      deleteMany: async (q: any) => { const before = state.tasks.length; state.tasks = state.tasks.filter(row => !matches(row, q.where)); return { count: before - state.tasks.length } },
       updateMany: async (q: any) => { const row = state.tasks.find(task => task.id === q.where.id); if (row) Object.assign(row, q.data); return { count: row ? 1 : 0 } },
     },
   }
@@ -262,4 +270,60 @@ test('getCall expone la evaluación, las métricas y los turnos normalizados', a
   assert.equal(call.metrics.turn_latency, '520 ms')
   assert.equal(call.metrics.prospectTurns, 1)
   assert.ok(!('voiceEvaluation' in call))
+})
+
+
+test('corrections cancel and restore only automatic meetings and balance the campaign counter', async t => {
+  const { state, ready } = ingestState(t)
+  await ready
+  const { updateCallResult } = await import('../services/calls.service')
+  state.calls.push({ id: 'corrected', orgId: ORG, leadId: LEAD.id, campaignId: 'camp-1', outcome: 'none', status: 'completed', callbackAt: null, meetingAt: null })
+  const date = new Date(Date.now() + 86400_000).toISOString()
+  await updateCallResult(ORG, 'corrected', { outcome: 'meeting_scheduled', meetingAt: date }, { userId: 'u1' })
+  const automatic = state.meetings[0]
+  state.meetings.push({ id: 'manual', orgId: ORG, callId: 'corrected', status: 'scheduled' })
+  await updateCallResult(ORG, 'corrected', { outcome: 'not_interested' }, { userId: 'u1' })
+  await updateCallResult(ORG, 'corrected', { outcome: 'not_interested' }, { userId: 'u1' })
+  assert.equal(automatic.status, 'cancelled')
+  assert.equal(state.meetings[1].status, 'scheduled', 'manual meeting preserved')
+  assert.deepEqual(state.campaignUpdates.map(row => row.meetingsScheduled), [{ increment: 1 }, { decrement: 1 }])
+  await updateCallResult(ORG, 'corrected', { outcome: 'meeting_scheduled', meetingAt: date }, { userId: 'u1' })
+  assert.equal(automatic.status, 'scheduled')
+  assert.equal(state.meetings.length, 2, 'restore without duplication')
+  await updateCallResult(ORG, 'corrected', { meetingAt: null }, { userId: 'u1' })
+  assert.equal(automatic.status, 'cancelled', 'clearing the date removes the scheduled meeting')
+  assert.deepEqual(state.campaignUpdates.map(row => row.meetingsScheduled), [{ increment: 1 }, { decrement: 1 }, { increment: 1 }, { decrement: 1 }])
+})
+
+test('corrections remove obsolete pending tasks, clear callback dates and preserve authored/completed work', async t => {
+  const { state, ready } = ingestState(t)
+  await ready
+  const { updateCallResult } = await import('../services/calls.service')
+  state.calls.push({ id: 'corrected', orgId: ORG, leadId: LEAD.id, outcome: 'none', callbackAt: null, meetingAt: null })
+  const date = new Date(Date.now() + 86400_000).toISOString()
+  await updateCallResult(ORG, 'corrected', { outcome: 'callback_requested', callbackAt: date }, { userId: 'u1' })
+  assert.equal(state.tasks[0].dueAt.toISOString(), date)
+  await updateCallResult(ORG, 'corrected', { callbackAt: null }, { userId: 'u1' })
+  assert.equal(state.tasks[0].dueAt, null)
+  state.tasks.push(
+    { id: 'manual', orgId: ORG, callId: 'corrected', title: 'Volver a llamar', userId: 'u1', done: false },
+    { id: 'completed', orgId: ORG, callId: 'corrected', title: 'Volver a llamar', userId: null, done: true },
+  )
+  await updateCallResult(ORG, 'corrected', { outcome: 'human_requested' }, { userId: 'u1' })
+  assert.equal(state.tasks.length, 3)
+  assert.equal(state.tasks.filter(task => task.title === 'Devolver llamada (pide persona)').length, 1)
+  await updateCallResult(ORG, 'corrected', { outcome: 'not_interested' }, { userId: 'u1' })
+  assert.deepEqual(state.tasks.map(task => task.id), ['manual', 'completed'])
+})
+
+test('completed meetings and meetings cancelled by a person are not reopened by corrections', async t => {
+  const { state, ready } = ingestState(t)
+  await ready
+  const { applyCallOutcomeEffects } = await import('../services/calls.service')
+  for (const status of ['completed', 'cancelled']) {
+    state.meetings = [{ id: 'auto-call-preserve', orgId: ORG, callId: 'preserve', status, outcome: null }]
+    await applyCallOutcomeEffects(ORG, { callId: 'preserve', leadId: LEAD.id, campaignId: 'camp-1', outcome: 'meeting_scheduled', meetingAt: new Date() })
+    assert.equal(state.meetings[0].status, status)
+  }
+  assert.equal(state.campaignUpdates.length, 0)
 })

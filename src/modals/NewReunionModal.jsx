@@ -224,8 +224,8 @@ export default function NewReunionModal({ onClose, onSuccess, meeting, initialLe
         {!isReschedule && step === 0 ? <>
           <div className="new-meeting-question"><span>1</span><div><h3>¿Con quién es la reunión?</h3><p>Puedes crear un contacto ahora o elegir uno que ya exista en tu CRM.</p></div></div>
           <div className="new-meeting-contact-type">
-            <button type="button" className={!useExisting ? 'active' : ''} onClick={() => { setUseExisting(false); setSelectedLead(null); setLeadQuery(''); setError(null) }}><RiUserLine /><span><strong>Contacto nuevo</strong><small>Añadirlo al CRM al crear la reunión</small></span></button>
-            <button type="button" className={useExisting ? 'active' : ''} onClick={() => { setUseExisting(true); setSelectedLead(null); setLeadQuery(''); setError(null) }}><RiSearchLine /><span><strong>Contacto existente</strong><small>Buscar en tus contactos actuales</small></span></button>
+            <button type="button" aria-pressed={!useExisting} className={!useExisting ? 'active' : ''} onClick={() => { setUseExisting(false); setSelectedLead(null); setLeadQuery(''); setError(null) }}><RiUserLine /><span><strong>Contacto nuevo</strong><small>Añadirlo al CRM al crear la reunión</small></span></button>
+            <button type="button" aria-pressed={useExisting} className={useExisting ? 'active' : ''} onClick={() => { setUseExisting(true); setSelectedLead(null); setLeadQuery(''); setError(null) }}><RiSearchLine /><span><strong>Contacto existente</strong><small>Buscar en tus contactos actuales</small></span></button>
           </div>
           {useExisting ? <div className="new-meeting-lead-search" ref={boxRef}>
             <RiSearchLine /><input data-autofocus value={selectedLead ? selectedLead.name : leadQuery} onChange={event => { setSelectedLead(null); setLeadQuery(event.target.value); setLeadDropdownOpen(true) }} onFocus={() => setLeadDropdownOpen(true)} placeholder="Busca por nombre o empresa…" aria-label={t('modal.searchLead')} />

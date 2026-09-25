@@ -305,3 +305,38 @@ test('the generic worker only consumes lead-call-dispatch when asked to, and nev
   assert.deepEqual(leadCallDispatchWorkerPlan({ BACKGROUND_WORKERS_ENABLED: 'true', LEAD_CALL_DISPATCH_IN_WORKER: 'true' }), { start: true })
   assert.deepEqual(leadCallDispatchWorkerPlan({ BACKGROUND_WORKERS_ENABLED: 'true', LEAD_CALL_DISPATCH_IN_WORKER: 'true', ZADARMA_ORG_ID: 'org-calls' }), { start: true, excludeOrgId: 'org-calls' })
 })
+
+
+test('scheduled calls pin both campaign and agent in the persisted job', async t => {
+  const { state, ready } = dialReadyState(t)
+  await ready
+  const { scheduleCall } = await import('../controllers/agents.controller')
+  const reply: any = { statusCode: 200, status(code: number) { this.statusCode = code; return this }, send(body: unknown) { this.body = body; return this } }
+  await scheduleCall({ user: { orgId: ORG }, params: { id: AGENT.id }, body: { leadId: 'lead-1', scheduledAt: new Date(Date.now() + 60_000).toISOString() } } as any, reply)
+  assert.equal(reply.statusCode, 201)
+  assert.deepEqual(state.queued[0].payload, { orgId: ORG, leadId: 'lead-1', campaignId: 'camp-1', agentId: AGENT.id })
+})
+
+for (const scenario of [
+  { label: 'campaign', change: { campaignId: 'camp-2' }, reason: 'campaign_changed' },
+  { label: 'agent', change: { campaign: { ...CAMPAIGN, agent: { ...AGENT, id: 'agent-2' } } }, reason: 'agent_changed' },
+]) {
+  test(`scheduled call blocks a changed ${scenario.label} without dialing or spending an attempt`, async t => {
+    const { state, ready } = dialReadyState(t, { lead: scenario.change })
+    await ready
+    const requests = mockGateway(t, () => { throw new Error('must not dial') })
+    const { processLeadCallJob } = await import('../jobs/leadCallDispatch')
+    await processLeadCallJob({ orgId: ORG, leadId: 'lead-1', campaignId: 'camp-1', agentId: AGENT.id })
+    assert.equal(requests.length, 0)
+    assert.equal(state.leadUpdates[0].customFields.lastCallBlock.reason, scenario.reason)
+    assert.equal(state.leadUpdates[0].attempts, undefined)
+  })
+}
+
+test('call retries preserve the original assignment', async t => {
+  const { state, ready } = dialReadyState(t)
+  await ready
+  const { scheduleRetry } = await import('../jobs/leadCallDispatch')
+  await scheduleRetry(ORG, 'lead-1', 1, { campaignId: 'camp-1', agentId: AGENT.id })
+  assert.deepEqual(state.queued[0].payload, { orgId: ORG, leadId: 'lead-1', campaignId: 'camp-1', agentId: AGENT.id })
+})

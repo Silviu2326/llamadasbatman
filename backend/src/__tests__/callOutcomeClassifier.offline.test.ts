@@ -150,3 +150,20 @@ test('el prompt fija fecha, zona horaria y el vocabulario cerrado', () => {
   assert.match(user.content, /Bar Pepe/)
   assert.match(user.content, /remote_hangup/)
 })
+
+
+test('English agents request English summaries, including provider failures and silent calls', async () => {
+  const input = { turns: CONVERSATION, ctxOutcome: 'en_curso', language: 'en' as const, durationSeconds: 12 }
+  const result = await classifyCallOutcome(input, { complete: async messages => {
+    assert.match(messages[0].content, /summary.*English/)
+    assert.doesNotMatch(messages[0].content, /frases en español/)
+    throw new Error('provider unavailable')
+  } })
+  assert.match(result.summary, /The call lasted 12 seconds/)
+  assert.match(fallbackOutcome({ ...input, turns: [] }).summary, /Only the agent spoke/)
+  assert.match(fallbackOutcome({ ...input, ctxOutcome: 'optout' }).summary, /asked not to receive/)
+  assert.match(fallbackOutcome({ ...input, ctxOutcome: 'human_requested' }).summary, /team member/)
+  assert.match(fallbackOutcome({ ...input, ctxOutcome: 'callback_requested' }).summary, /callback is pending/)
+  assert.match(fallbackOutcome({ ...input, ctxOutcome: 'voicemail' }).summary, /Voicemail/)
+  assert.match(buildClassifierMessages({ ...input, language: 'es' })[0].content, /frases en español/)
+})
