@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://pleneva.com";
+const VERCEL_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+  (VERCEL_URL ? `https://${VERCEL_URL}` : "https://pleneva.com");
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
