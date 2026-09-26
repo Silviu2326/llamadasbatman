@@ -1,56 +1,81 @@
 # Nueva marca: sustituir a Vendrava
 
-*Propuesta de naming e identidad para el producto que hoy se llama Vendrava/VozIA
-(`vendrava.com/es`). El tono sale de «Escribo porque me gusta ganar dinero», de Isra
-Bravo: frases cortas, historias reales, cero jerga y honestidad incluso cuando no nos
-favorece.*
+*Propuesta de posicionamiento, nombre e identidad para el producto que hoy se llama
+Vendrava/VozIA (`vendrava.com/es`). El tono sale de «Escribo porque me gusta ganar
+dinero», de Isra Bravo: frases cortas, historias reales, cero jerga y honestidad
+incluso cuando no nos favorece.*
 
-Fecha: 26-09-2026.
+Fecha: 26-09-2026 (v2: reposicionada de «agente de llamadas» a «te traemos
+clientes»).
 
 ---
 
-## Por qué cambiar
+## El posicionamiento: no vendemos llamadas, vendemos clientes
 
 Mira...
 
-«Vendrava» suena a SaaS. A startup de Berlín con logo azul. A nombre que sale de un
-generador de nombres.
+Agentes de voz con IA hay cientos. Cada semana sale otro. Todos «suenan humanos»,
+todos «responden en menos de un segundo», todos tienen una demo con una voz muy
+simpática.
 
-Y la web dice cosas como «CRM con IA que contesta, califica y agenda tus leads».
-Correcto. Verdadero. Y lo mismo que dicen otras cuarenta webs.
+Si nos vendemos como otro agente de llamadas, competimos en precio por minuto. Y ahí
+gana el que más barato lo haga, no el mejor.
 
-El producto no es eso. El producto es **un tío que coge el teléfono y llama**. Que
-habla como tu mejor comercial, no se cansa, no se enfada con el cliente pesado y lo
-apunta todo. Eso es lo que hay que nombrar.
+Pero es que el dueño de una clínica no quiere un agente de llamadas. Tampoco quiere
+un CRM. Ni una auditoría SEO. Ni anuncios en Instagram.
 
-Así que el nombre tiene que cumplir cuatro cosas:
+**Quiere que entren clientes por la puerta.** Todo lo demás le da igual.
 
-1. Sonar a español de la calle, no a inglés de pitch deck.
-2. Hablar de **la llamada**, no de «la IA».
-3. Entenderse a la primera en España y en Latinoamérica.
-4. Tener el `.com` libre. Sin guiones, sin números, sin «get» ni «app» delante.
+Y eso es exactamente lo que hace el producto de principio a fin, cosa que casi nadie
+más hace entero:
+
+| Paso | Lo que hace | Pieza del producto |
+|---|---|---|
+| 1. **Encuentra** | Saca a quién venderle: negocios por sector y zona, o anuncios que generan leads | Prospect Finder, anuncios Meta, funnels, importación CSV |
+| 2. **Engancha** | Les dice por qué te necesitan, con datos suyos | Auditoría digital con argumento de venta ya redactado |
+| 3. **Contacta** | Llama en el primer minuto, escribe por WhatsApp, manda el email | Agente de voz, WhatsApp, email, secuencias |
+| 4. **Convence** | Escucha qué necesita cada uno y responde como tu mejor comercial | Agente entrenado por sector, propuestas comerciales |
+| 5. **Mete en la agenda** | Deja la cita puesta o te pasa la llamada caliente | Agenda, handoff a persona |
+| 6. **No suelta a nadie** | Seguimiento hasta que compra o dice que no | CRM, seguimientos automáticos, analíticas |
+
+Las llamadas con IA son **el arma**, no la categoría. Lo que vendemos es el
+resultado: la agenda llena.
+
+> **Categoría:** el sistema que te trae clientes.
+> Ni «CRM con IA», ni «agentes de voz», ni «automatización de ventas».
 
 ---
 
 ## Los 5 nombres (con .com libre)
 
+Criterio: que el nombre hable de **clientes que llegan**, no de teléfonos. Que suene
+a español de la calle. Y que el `.com` esté libre, sin guiones ni números.
+
 | # | Nombre | Dominio | Qué dice | Riesgo |
 |---|---|---|---|---|
-| 1 | **Llamazo** ⭐ | `llamazo.com` | Llamada + «-azo»: un golpe, un pelotazo. Una llamada que cuenta. | Bajo. Sin marcas conocidas con ese nombre. |
-| 2 | **Tenlabia** | `tenlabia.com` | «Ten labia»: tener don de palabra. Es una orden y un piropo a la vez. | Bajo. «Labia» sola está pillada; esta forma no. |
-| 3 | **Tiraderecho** | `tiraderecho.com` | «Tirar derecho»: ir al grano, sin rodeos. Es la filosofía del libro. | Largo (11 letras). Se lee bien, se escribe peor dictado por teléfono. |
-| 4 | **Vozarrón** | `vozarron.com` | Una voz que se oye. Aumentativo, con presencia. | La tilde se pierde en el dominio. Puede sonar a gritón. |
-| 5 | **Charlao** | `charlao.com` | «Lo hemos charlao»: conversación cercana, de bar, sin corbata. | Muy de España (sur). En LatAm se entiende, pero suena más español. |
+| 1 | **Llenamos** ⭐ | `llenamos.com` | Es una promesa y un verbo. Llenamos tu agenda, tu local, tu caja. En primera persona del plural: el trabajo lo hacemos nosotros. | Bajo. `.es`, `.io` y `.ai` también libres. |
+| 2 | **Yavienen** | `yavienen.com` | «¡Ya vienen!» Es lo que grita el camarero cuando entra el autobús de turistas. Urgencia y abundancia. | Se escribe junto; hay que ver el logo como «ya vienen». |
+| 3 | **Hacecaja** | `hacecaja.com` | «Hacer caja» es lo que importa al final del día. Tan descarado como el título del libro. | Algunos lo leerán como demasiado «de dinero». Ese es el filtro. |
+| 4 | **Tenertirón** | `tenertiron.com` | «Tener tirón»: atraer gente sin perseguirla. Es lo que quiere ser cualquier negocio. | Tilde perdida en el dominio. 10 letras. |
+| 5 | **Colaenlapuerta** | `colaenlapuerta.com` | La imagen del éxito de cualquier negocio: gente esperando fuera. | Largo (14 letras). Mejor como eslogan que como marca. |
 
-**Recomendación: Llamazo.** Corto (7 letras), se dice igual que se escribe, se dicta
-por teléfono sin deletrear, funciona como verbo informal («dale un llamazo») y como
-resultado («menudo llamazo»). Además `llamazo.es`, `llamazo.io` y `llamazo.ai`
-también aparecen libres, así que se puede blindar la marca entera.
+**Recomendación: Llenamos.**
 
-Descartados con el `.com` ya registrado: Labia, Pico de oro, Descuelga, Desparpajo,
-Sin rodeos, Palique, Mandamás, Tuteo, Zasca, Currante, Pregonero, Bocazas…
-Descartado por choque: **Contestona** (`.com` libre, pero demasiado parecido a
-«Contestone», el servicio de tonos de Telcel en México).
+- Es la promesa entera en una palabra. No hay que explicar qué hacemos.
+- Aguanta cualquier sector: *llenamos tu clínica, tu concesionario, tu gimnasio*.
+- Sirve de eslogan sin añadir nada: *Llenamos. Tú atiendes.*
+- Se dicta por teléfono sin deletrear y se entiende igual en España y en
+  Latinoamérica.
+- Permite blindar la marca: `llenamos.com`, `.es`, `.io` y `.ai` aparecen libres.
+
+Descartados con el `.com` ya registrado: Clientela, Clientazo, Parroquia, Llenazo,
+Gancho, Imán, Cajazo, Reventón, Aforo… Descartado por doble sentido: *Tengancho*
+(«el gancho» es también el cómplice de un timo) y *Tienescola*.
+
+Descartados por posicionamiento (la v1 de este documento): *Llamazo, Tenlabia,
+Tiraderecho, Vozarrón, Charlao*. Tienen `.com` libre pero hablan de llamar, no de
+traer clientes. **Llamazo** puede quedarse como nombre del agente de voz dentro del
+producto.
 
 ### Cómo se comprobaron los dominios
 
@@ -67,104 +92,118 @@ Antes de enamorarse:
 
 ---
 
-## Identidad de marca: Llamazo
+## Identidad de marca: Llenamos
 
 ### La promesa, en una frase
 
-> **Llamazo llama a tus leads antes que tu competencia. Y lo apunta todo.**
+> **Llenamos tu agenda de clientes. Tú solo tienes que atenderlos.**
 
 Sin «revolucionar», sin «potenciar», sin «el futuro de las ventas».
 
 ### La historia de marca (la que se cuenta, no la que se enmarca)
 
-Todo negocio tiene la misma escena: un formulario que entra un martes a las 19:40.
-Nadie llama. El miércoles alguien se acuerda. El jueves el cliente ya ha comprado en
-otro sitio.
+Todo dueño de negocio ha vivido la misma semana: un lunes con la agenda vacía, el
+martes pagando anuncios que no sabes si funcionan, el miércoles un formulario que
+nadie llama hasta el viernes. Y el viernes ese cliente ya ha comprado en otro sitio.
 
-No perdiste esa venta por precio. Ni por producto. La perdiste por no descolgar.
+No te falta producto. No te falta ganas. Te faltan clientes que entren.
 
-Llamazo existe para eso. Llama en el primer minuto, con una voz que no parece un
-contestador, escucha lo que el cliente necesita de verdad y te deja la cita en la
-agenda. Si la cosa se pone seria, te pasa la llamada. Y todo queda grabado y apuntado.
+Y para conseguirlos te han vendido piezas sueltas: una agencia de anuncios, un CRM
+que nadie rellena, un chatbot, una centralita. Cada uno con su factura y ninguno
+responsable del resultado.
 
-Ya está. Eso es lo que hacemos.
+Llenamos hace el trabajo entero. Encuentra a quién venderle, le dice por qué te
+necesita, le llama en el primer minuto, le escucha, le convence y te deja la cita
+puesta. Y no lo suelta hasta que compra o dice que no.
+
+Tú abres la agenda y está llena. Ya está. Eso es lo que hacemos.
 
 ### Personalidad
 
+- **Obsesionada con el resultado.** Habla de clientes, citas y caja. No de
+  funciones.
 - **Directa.** Dice lo que hace y lo que no hace. Primero lo segundo, si hace falta.
 - **Currante.** Presume de trabajo hecho, no de tecnología.
 - **Con calle.** Habla como la gente que vende de verdad, no como un informe de
   consultora.
 - **Honesta hasta el punto de molestar.** Si no somos para ti, lo decimos.
-- **Con autoridad.** Las reglas del negocio (consentimiento, grabación, horarios) no
-  se discuten ni se «personalizan» para cerrar un trato.
+- **Con autoridad.** Las reglas (consentimiento, grabación, horarios, precios) no se
+  discuten ni se «personalizan» para cerrar un trato.
 
 ### Reglas de tono (sacadas del libro y aplicadas a nosotros)
 
 1. **Frases cortas.** Un punto y aparte vale más que tres comas.
-2. **Empieza por una historia, no por una función.** Un caso real (el martes a las
-   19:40, la clínica que perdía 12 llamadas al día) vende más que una lista de
-   características.
-3. **Habla mal de ti cuando sea verdad.** «No sirve para todo el mundo.» «Si vendes
-   menos de 10 cosas al mes, no nos necesitas.» Eso da más confianza que cualquier
-   testimonio.
-4. **Cero jerga de marketing.** Prohibido: *potenciar, sinergia, disruptivo, solución
+2. **Empieza por una historia, no por una función.** La semana con la agenda vacía
+   vende más que una lista de características.
+3. **Habla del resultado, nunca de la herramienta.** «Te llenamos la agenda», no
+   «agente de voz con latencia de 800 ms». La tecnología va en la letra pequeña.
+4. **Habla mal de ti cuando sea verdad.** «No es para todo el mundo.» «Si tu negocio
+   no puede atender a más clientes, no nos contrates.» Eso da más confianza que
+   cualquier testimonio.
+5. **Cero jerga de marketing.** Prohibido: *potenciar, sinergia, disruptivo, solución
    integral, 360°, omnicanal, next-gen, revolucionar*.
-5. **Las motivaciones del cliente, no las nuestras.** A nadie le importa nuestro
-   modelo de lenguaje. Le importa que el teléfono se coja.
-6. **Investigación antes que creatividad.** Cada sector habla distinto; el agente y
+6. **Las motivaciones del cliente, no las nuestras.** A nadie le importa nuestro
+   modelo de lenguaje. Le importa que entre gente.
+7. **Investigación antes que creatividad.** Cada sector habla distinto; el agente y
    la web también. Una veterinaria no es un concesionario.
-7. **Cierra con una P. D.** En emails y landings, la posdata es el segundo titular.
-8. **Autoridad sin debate.** Precios claros, condiciones claras. No se regatea lo
-   que no se regatea.
+8. **Cierra con una P. D.** En emails y landings, la posdata es el segundo titular.
 
 ### Vocabulario
 
 | Decimos | No decimos |
 |---|---|
-| llamar, coger el teléfono, descolgar | engagement, touchpoint |
-| el cliente, la persona | el lead (solo dentro del CRM) |
-| cita, venta, seguimiento | conversión, pipeline optimizado |
+| clientes, citas, caja, agenda llena | leads cualificados, conversiones |
+| te traemos clientes | generación de demanda |
+| llamamos en el primer minuto | speed-to-lead |
+| no soltamos a nadie | nurturing, seguimiento omnicanal |
 | grabado y apuntado | trazabilidad end-to-end |
 | una voz que no parece un robot | IA conversacional de última generación |
-| te pasa la llamada | handoff inteligente |
+| te pasamos la llamada | handoff inteligente |
 
 ### Mensajes clave
 
-- **Titular principal:** *Tus leads se enfrían en 5 minutos. Llamazo los llama en 1.*
-- **Alternativa:** *El comercial que coge el teléfono cuando tú no puedes.*
-- **Sub:** *Un agente de voz que llama, escucha, entiende qué necesita cada cliente y
-  te deja la cita en la agenda. Todo grabado. Todo en el CRM. Tú sigues mandando.*
-- **CTA:** *Oye cómo suena* (en vez de «Empezar demo gratis»).
+- **Titular principal:** *Te traemos clientes. Tú solo tienes que atenderlos.*
+- **Alternativas:**
+  - *Tu agenda, llena. Sin agencias, sin perseguir a nadie.*
+  - *Encontramos a tus clientes, les llamamos y te los dejamos en la agenda.*
+  - *Si tu negocio tuviera cola en la puerta, ¿qué cambiaría?*
+- **Sub:** *Llenamos busca a quién venderle, le llama en el primer minuto con una voz
+  que no parece un robot, le convence y te deja la cita puesta. Anuncios, llamadas,
+  WhatsApp y seguimiento en un solo sitio. Tú sigues mandando.*
+- **CTA:** *Quiero la agenda llena* (en vez de «Empezar demo gratis»).
 - **CTA secundaria:** *Llámame tú* (el visitante deja su número y el agente le llama:
   la demo es el producto).
-- **Firma de pie de página:** *Llamazo. Llamamos. Apuntamos. Tú cierras.*
+- **Firma de pie de página:** *Llenamos. Encontramos, llamamos y no soltamos. Tú
+  atiendes.*
 
 ### Ejemplo de email (tono de referencia)
 
-> **Asunto:** El formulario del martes
+> **Asunto:** El lunes con la agenda vacía
 >
 > Mira...
 >
-> El martes a las 19:40 alguien rellenó el formulario de tu web.
+> Hay un momento que todo dueño de negocio conoce.
 >
-> Quería una cita. Tenía dinero. Tenía prisa.
+> Lunes, 9:00. Abres la agenda. Hay dos citas. Una la cancelarán.
 >
-> Nadie le llamó hasta el jueves. Para entonces ya había reservado en otro sitio.
+> Y piensas: «tengo que hacer algo». Anuncios. Una agencia. Llamar a los que
+> preguntaron el mes pasado. Pero son las 9:05 y ya tienes a alguien en el mostrador.
 >
-> No es culpa de tu equipo. A las 19:40 la gente cena.
+> Así que no haces nada. Y el lunes siguiente, igual.
 >
-> Llamazo no cena. Llama en el primer minuto, pregunta lo que preguntaría tu mejor
-> comercial y te deja la cita puesta. Si el cliente quiere hablar con una persona, te
-> pasa la llamada.
+> No es falta de ganas. Es que no puedes atender el negocio y a la vez salir a buscar
+> clientes.
 >
-> No es para todo el mundo. Si te entran dos formularios al mes, llámalos tú.
+> Nosotros sí. Llenamos encuentra a quién venderle, le llama en el primer minuto, le
+> explica por qué te necesita y te deja la cita puesta. Si alguien no contesta,
+> vuelve a intentarlo. Si alguien quiere hablar contigo, te pasa la llamada.
 >
-> Si te entran veinte, esto sí te interesa: [Oye cómo suena]
+> No es para todo el mundo. Si ya tienes la agenda llena, no nos necesitas. Enhorabuena.
 >
-> P. D. La demo es una llamada. A tu móvil. Dura dos minutos y la puedes colgar
-> cuando quieras. Que es justo lo que hará tu cliente si el agente suena mal. Por eso
-> no suena mal.
+> Si no, esto sí te interesa: [Quiero la agenda llena]
+>
+> P. D. No te vamos a enseñar una presentación. Te vamos a llamar. A tu móvil. Así
+> sabrás exactamente lo que escucharán tus clientes.
 
 ### Identidad visual
 
@@ -172,32 +211,36 @@ La marca actual es azul `#3B82F6`, el azul por defecto de medio internet. Fuera.
 
 | Uso | Color | Hex |
 |---|---|---|
-| Principal | Naranja butano (el de la bombona: visible, cotidiano, español) | `#FF5A1F` |
+| Principal | Naranja butano (visible, cotidiano, español) | `#FF5A1F` |
 | Texto y fondos oscuros | Negro tinta | `#141414` |
 | Fondo claro | Papel crema (carta, no dashboard) | `#F6F1E7` |
-| Apoyo / éxito | Verde descolgar (el botón de coger la llamada) | `#1DB954` |
-| Neutro | Gris desguace | `#8A8A85` |
+| Apoyo / «lleno» | Verde caja (el tique que sale de la registradora) | `#1DB954` |
+| Neutro | Gris asfalto | `#8A8A85` |
 
 - **Tipografía de titulares:** *Archivo Black* o *Anton* (condensada, de cartel,
   golpea).
 - **Tipografía de texto:** *Source Serif 4* para cartas de ventas y emails largos
   (se lee como una carta), *Inter* para la interfaz del CRM.
-- **Logotipo:** la palabra `llamazo` en minúsculas, negra, con la **o final como un
-  auricular descolgado** en naranja butano. Nada de ondas de sonido ni cerebros de IA.
-- **Fotografía:** gente real al teléfono en su negocio (una recepción, un taller,
-  una clínica). Nada de robots, hologramas ni fondos azules con redes neuronales.
-- **Icono de app / favicon:** la «o» auricular sola, naranja sobre negro.
+- **Logotipo:** la palabra `llenamos` en minúsculas, negra, con la **o final como un
+  vaso lleno hasta el borde** (un círculo relleno de naranja butano). Nada de ondas
+  de sonido, cerebros de IA ni cohetes.
+- **Elemento gráfico recurrente:** la barra de «aforo» que se llena. Sirve para el
+  hero, para las métricas del CRM y para los anuncios.
+- **Fotografía:** negocios reales llenos: una sala de espera con gente, un taller con
+  coches en la puerta, una recepción ocupada. Nada de robots ni fondos azules con
+  redes neuronales.
+- **Icono de app / favicon:** la «o» llena sola, naranja sobre negro.
 
 ### Nombres de producto (encajan con la marca)
 
-| Hoy | Con Llamazo |
+| Hoy | Con Llenamos |
 |---|---|
-| Agentes IA de voz | **Los llamadores** |
-| Prospect Finder | **A quién llamar** |
+| Prospect Finder | **A quién venderle** |
+| Anuncios Meta / funnels | **Que vengan solos** |
 | Auditoría digital | **La radiografía** |
-| Llamadas IA salientes | **Llamazo saliente** |
-| Llamadas entrantes | **Llamazo entrante** |
-| Analíticas de ventas | **Lo que ha pasado** |
+| Agentes IA de voz | **Llamazo** (el agente que llama) |
+| WhatsApp / email / secuencias | **No soltamos** |
+| CRM y analíticas | **La caja** (qué entró, de dónde y cuánto vale) |
 
 ---
 
@@ -207,7 +250,9 @@ Este documento **no renombra nada todavía**. Cuando se elija el nombre:
 
 - La web pública (`vendrava-public/`) concentra la marca en
   `lib/constants.ts` (`SITE_NAME`, `SITE_URL`, `BRAND_COLOR`, `SOCIAL_LINKS`,
-  descripciones SEO) y en `content/locales/{es,en}/`. Ese es el primer cambio.
+  descripciones SEO) y en `content/locales/{es,en}/`. Además del nombre, hay que
+  reescribir el hero (hoy: «Un agente de voz IA que llama, diagnostica y vende») para
+  que la home hable de clientes, no de llamadas.
 - En total hay ~376 ficheros que mencionan «Vendrava». Muchos son documentación
   interna y pueden quedarse.
 - **No renombrar** de momento lo que corre en el VPS: el usuario de sistema
