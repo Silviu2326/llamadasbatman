@@ -8,6 +8,8 @@ incluso cuando no nos favorece.*
 Fecha: 26-09-2026 (v3: posicionada como «te traemos clientes», con nombre
 inventado tipo Vendrava).
 
+> **Nombre elegido: Pleneva** (`pleneva.com`). Landing en `pleneva-landing/`.
+
 ---
 
 ## El posicionamiento: no vendemos llamadas, vendemos clientes
@@ -102,11 +104,11 @@ Antes de enamorarse:
 
 ---
 
-## Identidad de marca: Colmora
+## Identidad de marca: Pleneva
 
 ### La promesa, en una frase
 
-> **Colmora te trae clientes hasta llenar tu agenda. Tú solo tienes que atenderlos.**
+> **Te traemos clientes. Tú solo tienes que atenderlos.**
 
 Sin «revolucionar», sin «potenciar», sin «el futuro de las ventas».
 
@@ -122,7 +124,7 @@ Y para conseguirlos te han vendido piezas sueltas: una agencia de anuncios, un C
 que nadie rellena, un chatbot, una centralita. Cada uno con su factura y ninguno
 responsable del resultado.
 
-Colmora hace el trabajo entero. Encuentra a quién venderle, le dice por qué te
+Pleneva hace el trabajo entero. Encuentra a quién venderle, le dice por qué te
 necesita, le llama en el primer minuto, le escucha, le convence y te deja la cita
 puesta. Y no lo suelta hasta que compra o dice que no.
 
@@ -177,13 +179,13 @@ Tú abres la agenda y está llena. Ya está. Eso es lo que hacemos.
   - *Tu agenda, llena. Sin agencias, sin perseguir a nadie.*
   - *Encontramos a tus clientes, les llamamos y te los dejamos en la agenda.*
   - *Si tu negocio tuviera cola en la puerta, ¿qué cambiaría?*
-- **Sub:** *Colmora busca a quién venderle, le llama en el primer minuto con una voz
+- **Sub:** *Pleneva busca a quién venderle, le llama en el primer minuto con una voz
   que no parece un robot, le convence y te deja la cita puesta. Anuncios, llamadas,
   WhatsApp y seguimiento en un solo sitio. Tú sigues mandando.*
 - **CTA:** *Quiero la agenda llena* (en vez de «Empezar demo gratis»).
 - **CTA secundaria:** *Llámame tú* (el visitante deja su número y el agente le llama:
   la demo es el producto).
-- **Firma de pie de página:** *Colmora. Encontramos, llamamos y no soltamos. Tú
+- **Firma de pie de página:** *Pleneva. Encontramos, llamamos y no soltamos. Tú
   atiendes.*
 
 ### Ejemplo de email (tono de referencia)
@@ -204,7 +206,7 @@ Tú abres la agenda y está llena. Ya está. Eso es lo que hacemos.
 > No es falta de ganas. Es que no puedes atender el negocio y a la vez salir a buscar
 > clientes.
 >
-> Nosotros sí. Colmora encuentra a quién venderle, le llama en el primer minuto, le
+> Nosotros sí. Pleneva encuentra a quién venderle, le llama en el primer minuto, le
 > explica por qué te necesita y te deja la cita puesta. Si alguien no contesta,
 > vuelve a intentarlo. Si alguien quiere hablar contigo, te pasa la llamada.
 >
@@ -231,19 +233,19 @@ La marca actual es azul `#3B82F6`, el azul por defecto de medio internet. Fuera.
   golpea).
 - **Tipografía de texto:** *Source Serif 4* para cartas de ventas y emails largos
   (se lee como una carta), *Inter* para la interfaz del CRM.
-- **Logotipo:** la palabra `colmora` en minúsculas, negra, con la **segunda o como un
-  vaso colmado hasta el borde** (un círculo relleno de naranja butano). Nada de ondas
+- **Logotipo:** la palabra `pleneva` en minúsculas, negra, junto a un
+  **vaso colmado hasta el borde** en naranja butano. Nada de ondas
   de sonido, cerebros de IA ni cohetes.
 - **Elemento gráfico recurrente:** la barra de «aforo» que se llena. Sirve para el
   hero, para las métricas del CRM y para los anuncios.
 - **Fotografía:** negocios reales llenos: una sala de espera con gente, un taller con
   coches en la puerta, una recepción ocupada. Nada de robots ni fondos azules con
   redes neuronales.
-- **Icono de app / favicon:** la «o» colmada sola, naranja sobre negro.
+- **Icono de app / favicon:** el vaso colmado solo, naranja sobre negro.
 
 ### Nombres de producto (encajan con la marca)
 
-| Hoy | Con Colmora |
+| Hoy | Con Pleneva |
 |---|---|
 | Prospect Finder | **A quién venderle** |
 | Anuncios Meta / funnels | **Que vengan solos** |
