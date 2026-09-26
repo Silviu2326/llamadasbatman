@@ -5,8 +5,8 @@ Vendrava/VozIA (`vendrava.com/es`). El tono sale de «Escribo porque me gusta ga
 dinero», de Isra Bravo: frases cortas, historias reales, cero jerga y honestidad
 incluso cuando no nos favorece.*
 
-Fecha: 26-09-2026 (v2: reposicionada de «agente de llamadas» a «te traemos
-clientes»).
+Fecha: 26-09-2026 (v3: posicionada como «te traemos clientes», con nombre
+inventado tipo Vendrava).
 
 ---
 
@@ -48,39 +48,49 @@ resultado: la agenda llena.
 
 ## Los 5 nombres (con .com libre)
 
-Criterio: que el nombre hable de **clientes que llegan**, no de teléfonos. Que suene
-a español de la calle. Y que el `.com` esté libre, sin guiones ni números.
+Criterio (v3): un nombre **inventado**, con la misma pegada que «Vendrava». Que no
+sea una frase en español ni describa literalmente lo que hacemos: el nombre tiene que
+sonar a marca y el mensaje lo pone el eslogan. Pero que por dentro tenga raíz de
+«traer, atraer, llenar», para que no sea un nombre vacío. Dos o tres sílabas, se
+pronuncia igual en español y en inglés, y el `.com` libre.
 
-| # | Nombre | Dominio | Qué dice | Riesgo |
+| # | Nombre | Dominio | De dónde sale | Cómo suena |
 |---|---|---|---|---|
-| 1 | **Llenamos** ⭐ | `llenamos.com` | Es una promesa y un verbo. Llenamos tu agenda, tu local, tu caja. En primera persona del plural: el trabajo lo hacemos nosotros. | Bajo. `.es`, `.io` y `.ai` también libres. |
-| 2 | **Yavienen** | `yavienen.com` | «¡Ya vienen!» Es lo que grita el camarero cuando entra el autobús de turistas. Urgencia y abundancia. | Se escribe junto; hay que ver el logo como «ya vienen». |
-| 3 | **Hacecaja** | `hacecaja.com` | «Hacer caja» es lo que importa al final del día. Tan descarado como el título del libro. | Algunos lo leerán como demasiado «de dinero». Ese es el filtro. |
-| 4 | **Tenertirón** | `tenertiron.com` | «Tener tirón»: atraer gente sin perseguirla. Es lo que quiere ser cualquier negocio. | Tilde perdida en el dominio. 10 letras. |
-| 5 | **Colaenlapuerta** | `colaenlapuerta.com` | La imagen del éxito de cualquier negocio: gente esperando fuera. | Largo (14 letras). Mejor como eslogan que como marca. |
+| 1 | **Colmora** ⭐ | `colmora.com` | De *colmar*: llenar hasta que rebosa. | Rotundo, premium, fácil en inglés («col-MO-ra»). |
+| 2 | **Atranza** | `atranza.com` | *Atraer* + *-anza* (bonanza, confianza). | Fuerte, con empuje. La que más «vende». |
+| 3 | **Traenza** | `traenza.com` | *Trae* (clientes) + eco de *trenza*: anuncios, llamadas, WhatsApp y CRM trenzados en uno. | Elegante, con doble lectura. |
+| 4 | **Pleneva** | `pleneva.com` | Del latín *plenus* (lleno); en inglés evoca *plenty*. | La más internacional. Suave, tipo Geneva. |
+| 5 | **Afluvio** | `afluvio.com` | *Afluencia* + eco de *aluvión*: un aluvión de clientes. | Distinta, con fluidez. Algo menos contundente. |
 
-**Recomendación: Llenamos.**
+Los cinco tienen libres también `.es`, `.ai` y `.io`, así que se puede blindar la
+marca entera con cualquiera. La búsqueda web no encontró empresas con estos nombres
+(solo un canal de YouTube inactivo llamado «colmora» y un apellido «Afluvio»).
 
-- Es la promesa entera en una palabra. No hay que explicar qué hacemos.
-- Aguanta cualquier sector: *llenamos tu clínica, tu concesionario, tu gimnasio*.
-- Sirve de eslogan sin añadir nada: *Llenamos. Tú atiendes.*
-- Se dicta por teléfono sin deletrear y se entiende igual en España y en
-  Latinoamérica.
-- Permite blindar la marca: `llenamos.com`, `.es`, `.io` y `.ai` aparecen libres.
+**Recomendación: Colmora.**
 
-Descartados con el `.com` ya registrado: Clientela, Clientazo, Parroquia, Llenazo,
-Gancho, Imán, Cajazo, Reventón, Aforo… Descartado por doble sentido: *Tengancho*
-(«el gancho» es también el cómplice de un timo) y *Tienescola*.
+- Tiene la pegada de Vendrava: tres sílabas, acento en la del medio, termina en -a.
+- No es literal, pero tiene significado: **colmar** es llenar hasta arriba, y lo
+  cuenta sin decirlo. Nadie lo lee como «software de llamadas».
+- Funciona en España, en Latinoamérica y en inglés sin cambiar nada.
+- Da juego para la marca: *la gota que colma*, *agenda colmada*, *colma tu agenda*.
+- El mensaje lo pone el eslogan, no el nombre: **Colmora. Te traemos clientes.**
 
-Descartados por posicionamiento (la v1 de este documento): *Llamazo, Tenlabia,
-Tiraderecho, Vozarrón, Charlao*. Tienen `.com` libre pero hablan de llamar, no de
-traer clientes. **Llamazo** puede quedarse como nombre del agente de voz dentro del
-producto.
+Reserva: **Kaptova** (`kaptova.com`, de *captar*), más agresiva y con aire eslavo.
+
+Descartados con el `.com` ya registrado (casi todos los inventados cortos están
+pillados): Atraia, Atrava, Clientra, Clienza, Plenra, Plenova, Colmara, Imanta,
+Magnetia, Caudalia, Vendora, Aforia, Captora…
+
+Versiones anteriores de este documento, descartadas: v1 (*Llamazo, Tenlabia…*)
+hablaba de llamar, no de traer clientes; v2 (*Llenamos, Yavienen, Hacecaja…*) era
+demasiado literal y en español para funcionar como marca. **Llamazo** puede
+quedarse como nombre del agente de voz dentro del producto y **«Llenamos»** como
+verbo de campaña.
 
 ### Cómo se comprobaron los dominios
 
-Consulta DNS de cada dominio el 26-09-2026: los cinco devuelven `NXDOMAIN`, es decir,
-no están en la zona `.com`. Es la señal más fiable disponible aquí (los servicios
+Consulta DNS de cada dominio el 26-09-2026: los cinco devuelven `NXDOMAIN` en `.com`,
+`.es`, `.ai` e `.io`, es decir, no están registrados en esas zonas. Es la señal más fiable disponible aquí (los servicios
 WHOIS/RDAP estaban bloqueados desde este entorno), pero **no es una reserva**: un
 dominio puede estar recién comprado, en periodo de gracia o marcado como premium.
 Antes de enamorarse:
@@ -92,11 +102,11 @@ Antes de enamorarse:
 
 ---
 
-## Identidad de marca: Llenamos
+## Identidad de marca: Colmora
 
 ### La promesa, en una frase
 
-> **Llenamos tu agenda de clientes. Tú solo tienes que atenderlos.**
+> **Colmora te trae clientes hasta llenar tu agenda. Tú solo tienes que atenderlos.**
 
 Sin «revolucionar», sin «potenciar», sin «el futuro de las ventas».
 
@@ -112,7 +122,7 @@ Y para conseguirlos te han vendido piezas sueltas: una agencia de anuncios, un C
 que nadie rellena, un chatbot, una centralita. Cada uno con su factura y ninguno
 responsable del resultado.
 
-Llenamos hace el trabajo entero. Encuentra a quién venderle, le dice por qué te
+Colmora hace el trabajo entero. Encuentra a quién venderle, le dice por qué te
 necesita, le llama en el primer minuto, le escucha, le convence y te deja la cita
 puesta. Y no lo suelta hasta que compra o dice que no.
 
@@ -167,13 +177,13 @@ Tú abres la agenda y está llena. Ya está. Eso es lo que hacemos.
   - *Tu agenda, llena. Sin agencias, sin perseguir a nadie.*
   - *Encontramos a tus clientes, les llamamos y te los dejamos en la agenda.*
   - *Si tu negocio tuviera cola en la puerta, ¿qué cambiaría?*
-- **Sub:** *Llenamos busca a quién venderle, le llama en el primer minuto con una voz
+- **Sub:** *Colmora busca a quién venderle, le llama en el primer minuto con una voz
   que no parece un robot, le convence y te deja la cita puesta. Anuncios, llamadas,
   WhatsApp y seguimiento en un solo sitio. Tú sigues mandando.*
 - **CTA:** *Quiero la agenda llena* (en vez de «Empezar demo gratis»).
 - **CTA secundaria:** *Llámame tú* (el visitante deja su número y el agente le llama:
   la demo es el producto).
-- **Firma de pie de página:** *Llenamos. Encontramos, llamamos y no soltamos. Tú
+- **Firma de pie de página:** *Colmora. Encontramos, llamamos y no soltamos. Tú
   atiendes.*
 
 ### Ejemplo de email (tono de referencia)
@@ -194,7 +204,7 @@ Tú abres la agenda y está llena. Ya está. Eso es lo que hacemos.
 > No es falta de ganas. Es que no puedes atender el negocio y a la vez salir a buscar
 > clientes.
 >
-> Nosotros sí. Llenamos encuentra a quién venderle, le llama en el primer minuto, le
+> Nosotros sí. Colmora encuentra a quién venderle, le llama en el primer minuto, le
 > explica por qué te necesita y te deja la cita puesta. Si alguien no contesta,
 > vuelve a intentarlo. Si alguien quiere hablar contigo, te pasa la llamada.
 >
@@ -221,19 +231,19 @@ La marca actual es azul `#3B82F6`, el azul por defecto de medio internet. Fuera.
   golpea).
 - **Tipografía de texto:** *Source Serif 4* para cartas de ventas y emails largos
   (se lee como una carta), *Inter* para la interfaz del CRM.
-- **Logotipo:** la palabra `llenamos` en minúsculas, negra, con la **o final como un
-  vaso lleno hasta el borde** (un círculo relleno de naranja butano). Nada de ondas
+- **Logotipo:** la palabra `colmora` en minúsculas, negra, con la **segunda o como un
+  vaso colmado hasta el borde** (un círculo relleno de naranja butano). Nada de ondas
   de sonido, cerebros de IA ni cohetes.
 - **Elemento gráfico recurrente:** la barra de «aforo» que se llena. Sirve para el
   hero, para las métricas del CRM y para los anuncios.
 - **Fotografía:** negocios reales llenos: una sala de espera con gente, un taller con
   coches en la puerta, una recepción ocupada. Nada de robots ni fondos azules con
   redes neuronales.
-- **Icono de app / favicon:** la «o» llena sola, naranja sobre negro.
+- **Icono de app / favicon:** la «o» colmada sola, naranja sobre negro.
 
 ### Nombres de producto (encajan con la marca)
 
-| Hoy | Con Llenamos |
+| Hoy | Con Colmora |
 |---|---|
 | Prospect Finder | **A quién venderle** |
 | Anuncios Meta / funnels | **Que vengan solos** |
