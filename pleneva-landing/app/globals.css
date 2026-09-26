@@ -1,14 +1,18 @@
 :root {
-  --butano: #ff5a1f;
-  --butano-dark: #e04810;
-  --ink: #141414;
-  --ink-soft: #2a2a28;
-  --paper: #f6f1e7;
-  --paper-2: #ede5d5;
+  /* Colores del logo Pleneva: naranja de la cinta y azules de la P. */
+  --butano: #fe6416;
+  --butano-dark: #d9500c;
+  --blue: #0158be;
+  --blue-dark: #01449a;
+  --ink: #002553;
+  --ink-soft: #1d3a61;
+  --night: #000d25;
+  --paper: #f5f8fc;
+  --paper-2: #e6eef8;
   --green: #1db954;
-  --grey: #8a8a85;
-  --line: rgba(20, 20, 20, 0.12);
-  --line-light: rgba(246, 241, 231, 0.16);
+  --grey: #6b7a90;
+  --line: rgba(0, 37, 83, 0.12);
+  --line-light: rgba(245, 248, 252, 0.16);
 
   --font-display: "Archivo Black", "Arial Black", Impact, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -158,6 +162,10 @@ select:focus-visible {
   color: var(--paper);
 }
 
+.btn-dark:hover {
+  background: var(--blue);
+}
+
 .btn-ghost {
   border-color: var(--ink);
   color: var(--ink);
@@ -173,7 +181,7 @@ select:focus-visible {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(246, 241, 231, 0.88);
+  background: rgba(245, 248, 252, 0.88);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -193,14 +201,16 @@ select:focus-visible {
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
 }
 
-.logo-word {
-  font-family: var(--font-display);
-  font-size: 1.45rem;
-  letter-spacing: -0.02em;
-  line-height: 1;
+.logo img {
+  display: block;
+  height: 46px;
+  width: auto;
+}
+
+.logo-lg img {
+  height: 56px;
 }
 
 .nav {
@@ -294,7 +304,7 @@ select:focus-visible {
   color: var(--paper);
   border-radius: 22px;
   padding: 20px;
-  box-shadow: 0 30px 60px -30px rgba(20, 20, 20, 0.55);
+  box-shadow: 0 30px 60px -30px rgba(0, 37, 83, 0.55);
   min-width: 0;
 }
 
@@ -315,7 +325,7 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(246, 241, 231, 0.75);
+  color: rgba(245, 248, 252, 0.75);
 }
 
 .dot {
@@ -341,13 +351,13 @@ select:focus-visible {
   text-align: center;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(246, 241, 231, 0.6);
+  color: rgba(245, 248, 252, 0.6);
   padding-bottom: 2px;
 }
 
 .agenda-time {
   font-size: 0.7rem;
-  color: rgba(246, 241, 231, 0.5);
+  color: rgba(245, 248, 252, 0.5);
   align-self: center;
 }
 
@@ -389,7 +399,7 @@ select:focus-visible {
   justify-content: space-between;
   font-size: 0.8rem;
   margin-bottom: 8px;
-  color: rgba(246, 241, 231, 0.75);
+  color: rgba(245, 248, 252, 0.75);
 }
 
 .agenda-meter-value {
@@ -400,7 +410,7 @@ select:focus-visible {
 .meter {
   height: 10px;
   border-radius: 999px;
-  background: rgba(246, 241, 231, 0.12);
+  background: rgba(245, 248, 252, 0.12);
   overflow: hidden;
 }
 
@@ -408,7 +418,7 @@ select:focus-visible {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--butano), #ffa071);
+  background: linear-gradient(90deg, var(--butano), #ff9d5c);
   transform-origin: left;
   transform: scaleX(0);
   animation: fill 5.6s 0.4s ease-out forwards;
@@ -469,7 +479,7 @@ select:focus-visible {
 
 /* Story / letter */
 .story {
-  background: #fffaf0;
+  background: #ffffff;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
@@ -597,7 +607,7 @@ select:focus-visible {
 }
 
 .step p {
-  color: rgba(246, 241, 231, 0.75);
+  color: rgba(245, 248, 252, 0.75);
 }
 
 /* Honest */
@@ -684,7 +694,7 @@ select:focus-visible {
 
 .plan-featured {
   border: 2px solid var(--butano);
-  box-shadow: 0 24px 50px -30px rgba(255, 90, 31, 0.6);
+  box-shadow: 0 24px 50px -30px rgba(254, 100, 22, 0.6);
 }
 
 .plan-tag {
@@ -757,7 +767,7 @@ select:focus-visible {
 }
 
 .demo-copy p {
-  color: rgba(246, 241, 231, 0.8);
+  color: rgba(245, 248, 252, 0.8);
   max-width: 52ch;
 }
 
@@ -803,7 +813,7 @@ select:focus-visible {
   font: 500 1rem var(--font-body);
   padding: 13px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(20, 20, 20, 0.25);
+  border: 1px solid rgba(0, 37, 83, 0.25);
   background: #fff;
   color: var(--ink);
 }
@@ -895,7 +905,7 @@ select:focus-visible {
 }
 
 .closing .btn-primary:hover {
-  background: #000;
+  background: var(--blue);
 }
 
 .ps {
@@ -907,8 +917,8 @@ select:focus-visible {
 
 /* Footer */
 .site-footer {
-  background: var(--ink);
-  color: rgba(246, 241, 231, 0.75);
+  background: var(--night);
+  color: rgba(245, 248, 252, 0.75);
   padding: 40px 0;
 }
 

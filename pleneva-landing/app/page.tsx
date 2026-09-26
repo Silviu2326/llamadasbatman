@@ -335,7 +335,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <div className="wrap footer-inner">
-          <Logo inverted />
+          <Logo inverted large />
           <p>Encontramos, llamamos y no soltamos. Tú atiendes.</p>
           <p className="footer-legal">© {new Date().getFullYear()} Pleneva. Llamadas con aviso de IA y grabación.</p>
         </div>
