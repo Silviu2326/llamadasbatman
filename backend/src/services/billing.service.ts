@@ -68,6 +68,7 @@ export async function createCheckoutSession(orgId: string, email: string, plan: 
     mode: 'subscription',
     automatic_tax: { enabled: true },
     billing_address_collection: 'required',
+    customer_update: { address: 'auto', name: 'auto' },
     tax_id_collection: { enabled: true },
     line_items: [{ price, quantity: 1 }],
     success_url: `${base}?billing=success`,
