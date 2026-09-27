@@ -19,7 +19,7 @@ function stripeClient() {
 }
 
 export function billingEnabled() {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim())
+  return Boolean(process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim() && availablePlans().length)
 }
 
 export function priceIdForPlan(plan: string): string | null {
@@ -47,7 +47,7 @@ async function ensureCustomer(orgId: string, email: string) {
     email,
     name: org.name,
     metadata: { orgId },
-  })
+  }, { idempotencyKey: `pleneva-customer:${orgId}` })
   await prisma.organization.update({ where: { id: orgId }, data: { stripeCustomerId: customer.id } })
   return customer.id
 }
