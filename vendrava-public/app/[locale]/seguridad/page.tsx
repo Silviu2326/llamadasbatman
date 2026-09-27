@@ -22,19 +22,19 @@ const ITEMS = [
 const FAQ = [
   {
     q: "¿El cliente sabe que está hablando con una IA?",
-    a: "Sí. El agente de Vendrava puede indicar al inicio de la conversación que se trata de un asistente de IA, en línea con los requisitos de transparencia de cada mercado, como el Reglamento de IA de la UE.",
+    a: "Sí. El agente de Pleneva puede indicar al inicio de la conversación que se trata de un asistente de IA, en línea con los requisitos de transparencia de cada mercado, como el Reglamento de IA de la UE.",
   },
   {
     q: "¿Quién controla lo que hace la IA?",
     a: "Tu equipo. La IA está diseñada para proponer acciones y acelerar procesos comerciales, pero el control humano sigue siendo parte central del sistema: tu equipo aprueba, edita o toma la conversación cuando lo necesita.",
   },
   {
-    q: "¿Vendrava cumple con el RGPD?",
-    a: "Vendrava está diseñado con una arquitectura orientada al control, la trazabilidad y la gestión responsable de datos comerciales. Cada organización debe revisar los requisitos legales específicos de su mercado con su equipo legal.",
+    q: "¿Pleneva cumple con el RGPD?",
+    a: "Pleneva está diseñado con una arquitectura orientada al control, la trazabilidad y la gestión responsable de datos comerciales. Cada organización debe revisar los requisitos legales específicos de su mercado con su equipo legal.",
   },
   {
-    q: "¿Vendrava graba las llamadas?",
-    a: "Las llamadas y conversaciones gestionadas por Vendrava pueden registrarse y conectarse al CRM para mantener trazabilidad, según la configuración y la normativa aplicable a cada equipo.",
+    q: "¿Pleneva graba las llamadas?",
+    a: "Las llamadas y conversaciones gestionadas por Pleneva pueden registrarse y conectarse al CRM para mantener trazabilidad, según la configuración y la normativa aplicable a cada equipo.",
   },
   {
     q: "¿Puedo configurar permisos distintos por equipo?",
@@ -46,9 +46,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "security",
     locale: "es",
-    title: "Seguridad, cumplimiento y control humano | Vendrava",
+    title: "Seguridad, cumplimiento y control humano | Pleneva",
     description:
-      "Vendrava contacta con transparencia: aviso de IA en la llamada, consentimiento, control humano y trazabilidad conectada al CRM, con un enfoque orientado al RGPD.",
+      "Pleneva contacta con transparencia: aviso de IA en la llamada, consentimiento, control humano y trazabilidad conectada al CRM, con un enfoque orientado al RGPD.",
   });
 }
 
@@ -67,7 +67,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           IA comercial con transparencia, consentimiento y control humano
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">
-          Vendrava está diseñado para que la IA contacte y atienda con transparencia: aviso de que se habla con una IA,
+          Pleneva está diseñado para que la IA contacte y atienda con transparencia: aviso de que se habla con una IA,
           consentimiento, control humano y trazabilidad conectada al CRM.
         </p>
       </Container>
@@ -97,7 +97,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <FinalCTASection
         locale="es"
         title="Que ninguna oportunidad se pierda por no responder a tiempo"
-        sub="Prueba Vendrava con 100.000 créditos de IA incluidos."
+        sub="Prueba Pleneva con 100.000 créditos de IA incluidos."
         primary="Solicitar una demo"
         secondary="Hablar con ventas"
       />

@@ -19,7 +19,7 @@ const COPY = {
     breadcrumbComparisons: "Comparativas",
     breadcrumbHome: "Inicio",
     feature: "Funcionalidad",
-    fitLabel: "Cuándo Vendrava puede encajar mejor",
+    fitLabel: "Cuándo Pleneva puede encajar mejor",
     ctaPrimary: "Solicitar demo",
     ctaSecondary: "Hablar con ventas",
   },
@@ -27,7 +27,7 @@ const COPY = {
     breadcrumbComparisons: "Comparisons",
     breadcrumbHome: "Home",
     feature: "Feature",
-    fitLabel: "When Vendrava can be a better fit",
+    fitLabel: "When Pleneva can be a better fit",
     ctaPrimary: "Book a demo",
     ctaSecondary: "Talk to sales",
   },
@@ -120,7 +120,7 @@ export function ComparisonPageTemplate({
                   {content.competitorName}
                 </th>
                 <th scope="col" className="px-5 py-4 font-mono text-xs uppercase tracking-wide text-cyan">
-                  Vendrava
+                  Pleneva
                 </th>
               </tr>
             </thead>

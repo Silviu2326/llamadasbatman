@@ -55,9 +55,9 @@ export function Header({ locale, common }: { locale: Locale; common: CommonConte
   return (
     <header className="sticky top-0 z-[60] border-b border-white/[0.08] bg-bg/70 backdrop-blur-xl">
       <div className="mx-auto flex h-[70px] max-w-7xl items-center gap-7 px-6">
-        <Link href={pathFor("home", locale)} className="flex flex-none items-center" aria-label="Vendrava">
+        <Link href={pathFor("home", locale)} className="flex flex-none items-center" aria-label="Pleneva">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Vendrava" width={800} height={189} className="h-8 w-auto" />
+          <img src="/brand/pleneva-logo-inverted.png" alt="Pleneva" width={800} height={189} className="h-8 w-auto" />
         </Link>
 
         <nav className="ml-2 hidden items-center gap-1 lg:flex">

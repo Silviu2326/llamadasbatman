@@ -1,4 +1,4 @@
-.agent-simulator-panel { --sim-bg: var(--surface, #0d111c); --sim-surface: var(--surface-2, #111827); --sim-surface-soft: var(--surface-3, #151d2c); --sim-line: var(--line-2, #263249); --sim-muted: var(--dim, #71809b); --sim-text: var(--text, #bdc8dc); --sim-strong: var(--text-strong, #eef3ff); --sim-accent: var(--accent, #4f46e5); --sim-accent-soft: var(--accent-soft, #8b8cf6); --sim-cyan: var(--cyan, #22d3ee); --sim-green: var(--success, #34d399); min-width: 0; padding: 22px; border: 1px solid var(--line, #202b40); border-radius: 14px; color: var(--sim-text); background: radial-gradient(circle at 94% 0%, #4f46e51c, transparent 34%), var(--sim-bg); box-shadow: 0 16px 38px var(--shadow-color, #00000020); font-family: Inter, "SF Pro Display", "Segoe UI", system-ui, sans-serif; }
+.agent-simulator-panel { --sim-bg: var(--surface, #0d111c); --sim-surface: var(--surface-2, #111827); --sim-surface-soft: var(--surface-3, #151d2c); --sim-line: var(--line-2, #263249); --sim-muted: var(--dim, #71809b); --sim-text: var(--text, #bdc8dc); --sim-strong: var(--text-strong, #eef3ff); --sim-accent: var(--accent, var(--accent-deep)); --sim-accent-soft: var(--accent-soft, #8b8cf6); --sim-cyan: var(--cyan, #22d3ee); --sim-green: var(--success, #34d399); min-width: 0; padding: 22px; border: 1px solid var(--line, #202b40); border-radius: 14px; color: var(--sim-text); background: radial-gradient(circle at 94% 0%, color-mix(in srgb, var(--accent-deep) 11%, transparent), transparent 34%), var(--sim-bg); box-shadow: 0 16px 38px var(--shadow-color, #00000020); font-family: Inter, "SF Pro Display", "Segoe UI", system-ui, sans-serif; }
 .agent-simulator-header, .agent-simulator-toolbar, .agent-simulator-conversation-head, .agent-simulator-section-title, .agent-simulator-composer-actions, .agent-simulator-connection, .agent-simulator-scenario-copy, .agent-simulator-route { display: flex; align-items: center; }
 .agent-simulator-header { justify-content: space-between; gap: 18px; margin-bottom: 15px; }
 .agent-simulator-heading { min-width: 0; }
@@ -19,7 +19,7 @@
 .agent-simulator-scenario > span { color: var(--sim-muted); font-size: 10px; font-weight: 750; }
 .agent-simulator-scenario > div { position: relative; display: flex; align-items: center; }
 .agent-simulator-scenario select { width: 100%; height: 38px; padding: 0 32px 0 11px; appearance: none; border: 1px solid var(--sim-line); border-radius: 7px; outline: none; color: var(--sim-text); background: var(--sim-bg); font: inherit; font-size: 12px; cursor: pointer; }
-.agent-simulator-scenario select:focus { border-color: var(--sim-accent-soft); box-shadow: 0 0 0 2px #4f46e51c; }
+.agent-simulator-scenario select:focus { border-color: var(--sim-accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-deep) 11%, transparent); }
 .agent-simulator-scenario svg { position: absolute; right: 10px; width: 16px; height: 16px; color: var(--sim-muted); pointer-events: none; }
 .agent-simulator-scenario-copy { gap: 6px; min-width: 0; color: var(--sim-muted); font-size: 11px; line-height: 1.4; }
 .agent-simulator-scenario-copy svg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--sim-green); }
@@ -40,7 +40,7 @@
 .agent-simulator-messages { display: grid; align-content: start; gap: 14px; min-height: 0; flex: 1; padding: 16px 14px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--sim-line) transparent; }
 .agent-simulator-message { display: flex; align-items: flex-start; gap: 9px; max-width: 88%; }
 .agent-simulator-message.is-user { margin-left: auto; flex-direction: row-reverse; }
-.agent-simulator-message-avatar { display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 auto; border: 1px solid var(--sim-line); border-radius: 8px; color: var(--sim-accent-soft); background: #4f46e514; }
+.agent-simulator-message-avatar { display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 auto; border: 1px solid var(--sim-line); border-radius: 8px; color: var(--sim-accent-soft); background: color-mix(in srgb, var(--accent-deep) 8%, transparent); }
 .agent-simulator-message.is-user .agent-simulator-message-avatar { color: var(--sim-cyan); background: #22d3ee12; }
 .agent-simulator-message-avatar svg { width: 14px; height: 14px; }
 .agent-simulator-message-body { min-width: 0; }
@@ -50,13 +50,13 @@
 .agent-simulator-message-body p { margin: 0; padding: 10px 11px; border: 1px solid var(--sim-line); border-radius: 8px 10px 10px 2px; color: var(--sim-text); background: var(--sim-surface-soft); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .agent-simulator-message.is-user .agent-simulator-message-body { text-align: right; }
 .agent-simulator-message.is-user .agent-simulator-message-meta { justify-content: flex-end; }
-.agent-simulator-message.is-user .agent-simulator-message-body p { border-color: #4f46e13d; border-radius: 10px 8px 2px 10px; color: #f1f2ff; background: #4f46e51f; text-align: left; }
+.agent-simulator-message.is-user .agent-simulator-message-body p { border-color: #4f46e13d; border-radius: 10px 8px 2px 10px; color: #f1f2ff; background: color-mix(in srgb, var(--accent-deep) 12%, transparent); text-align: left; }
 .agent-simulator-thinking { display: inline-flex; align-items: center; gap: 6px; color: var(--sim-muted); font-size: 11px; }
 .agent-simulator-thinking svg { width: 14px; height: 14px; color: var(--sim-accent-soft); animation: agent-simulator-spin 1s linear infinite; }
 .agent-simulator-composer { display: grid; gap: 9px; padding: 11px; border-top: 1px solid var(--sim-line); background: color-mix(in srgb, var(--sim-bg) 55%, var(--sim-surface)); }
 .agent-simulator-composer textarea { width: 100%; box-sizing: border-box; min-height: 64px; padding: 10px 11px; resize: vertical; border: 1px solid var(--sim-line); border-radius: 8px; outline: none; color: var(--sim-text); background: var(--sim-bg); font: inherit; font-size: 12px; line-height: 1.5; }
 .agent-simulator-composer textarea::placeholder { color: var(--sim-muted); }
-.agent-simulator-composer textarea:focus { border-color: var(--sim-accent-soft); box-shadow: 0 0 0 2px #4f46e51c; }
+.agent-simulator-composer textarea:focus { border-color: var(--sim-accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-deep) 11%, transparent); }
 .agent-simulator-composer textarea:disabled { cursor: not-allowed; opacity: .62; }
 .agent-simulator-composer-actions { justify-content: flex-end; gap: 7px; }
 .agent-simulator-mic-button { border: 1px solid var(--sim-line); color: var(--sim-text); background: transparent; }
@@ -77,7 +77,7 @@
 .agent-simulator-metric strong { color: var(--sim-strong); font-size: 19px; letter-spacing: -.2px; }
 .agent-simulator-metric small { color: var(--sim-muted); font-size: 9px; line-height: 1.35; }
 .agent-simulator-route { gap: 8px; }
-.agent-simulator-route > span { display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 auto; border-radius: 8px; color: var(--sim-accent-soft); background: #4f46e514; }
+.agent-simulator-route > span { display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 auto; border-radius: 8px; color: var(--sim-accent-soft); background: color-mix(in srgb, var(--accent-deep) 8%, transparent); }
 .agent-simulator-route > span.is-cyan { color: var(--sim-cyan); background: #22d3ee12; }
 .agent-simulator-route > span.is-green { color: var(--sim-green); background: #10b98112; }
 .agent-simulator-route > span svg { width: 14px; height: 14px; }

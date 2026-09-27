@@ -122,7 +122,7 @@ export function BlogPostTemplate({ locale, post }: { locale: Locale; post: BlogP
       <FinalCTASection
         locale={locale}
         title={isEs ? "Que ninguna oportunidad se pierda por no responder a tiempo" : "Don't let an opportunity slip away because nobody replied in time"}
-        sub={isEs ? "Prueba Vendrava con 100.000 créditos de IA incluidos." : "Try Vendrava with 100,000 AI credits included."}
+        sub={isEs ? "Prueba Pleneva con 100.000 créditos de IA incluidos." : "Try Pleneva with 100,000 AI credits included."}
         primary={isEs ? "Solicitar una demo" : "Book a demo"}
         secondary={isEs ? "Hablar con ventas" : "Talk to sales"}
       />

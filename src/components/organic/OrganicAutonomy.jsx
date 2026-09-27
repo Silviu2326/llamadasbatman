@@ -15,7 +15,7 @@ import { useI18n } from '../../i18n'
  *
  * Lo que esta pantalla tiene que dejar claro, en este orden:
  *
- * 1. **Qué puede hacer Vendrava solo y qué no.** La lista de §9 es cerrada y se
+ * 1. **Qué puede hacer Pleneva solo y qué no.** La lista de §9 es cerrada y se
  *    enseña entera, incluidos los tipos que todavía no tienen ejecución: un
  *    hueco silencioso se lee como "esto ya funciona".
  * 2. **Por qué está en el nivel en el que está.** Cada tipo dice qué le falta

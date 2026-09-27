@@ -29,8 +29,8 @@ export const commonEn: CommonContent = {
     secondary: "See how it works",
     talkToSales: "Talk to sales",
     exploreAgents: "Explore AI agents",
-    discover: "Discover Vendrava",
-    start: "Start with Vendrava",
+    discover: "Discover Pleneva",
+    start: "Start with Pleneva",
   },
   footer: {
     tagline: "The AI CRM that answers, qualifies and books your leads over voice and WhatsApp, with your team in control.",

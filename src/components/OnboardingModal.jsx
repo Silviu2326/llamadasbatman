@@ -16,7 +16,7 @@ import { useI18n } from '../i18n'
 const STEPS = [
   { id: 'businessType', eyebrow: 'Tu contexto', title: '¿Qué tipo de negocio quieres hacer crecer?', options: BUSINESS_TYPE_OPTIONS },
   { id: 'objective', eyebrow: 'Tu objetivo', title: '¿Qué resultado quieres priorizar?', options: OBJECTIVE_OPTIONS },
-  { id: 'profile', eyebrow: 'Tu papel', title: '¿Cómo vas a usar Vendrava?', options: PROFILE_OPTIONS },
+  { id: 'profile', eyebrow: 'Tu papel', title: '¿Cómo vas a usar Pleneva?', options: PROFILE_OPTIONS },
   { id: 'plan', eyebrow: 'Tu espacio', title: '¿Qué nivel de experiencia necesitas?', options: PLAN_OPTIONS },
 ]
 

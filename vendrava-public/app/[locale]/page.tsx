@@ -34,14 +34,14 @@ export async function generateMetadata({
   const meta =
     locale === "es"
       ? {
-          title: "Vendrava | Agente comercial de voz IA que llama, diagnostica y vende",
+          title: "Pleneva | Te traemos clientes. Tú los atiendes.",
           description:
-            "Agente de voz IA que hace y recibe llamadas como un comercial entrenado en tu nicho: diagnostica la necesidad y ofrece una solución, en español neutro. No es un bot de WhatsApp: llama, atiende y vende, con WhatsApp y CRM en el mismo sistema.",
+            "Encuentra clientes, contacta oportunidades y da seguimiento desde Pleneva, una plataforma de crecimiento conectada a tu CRM.",
         }
       : {
-          title: "Vendrava | AI voice sales agent that calls, diagnoses and sells",
+          title: "Pleneva | We bring you customers",
           description:
-            "An AI voice agent that makes and answers calls like a sales rep trained on your niche: it diagnoses the need and offers a solution. Not a WhatsApp bot: it calls, answers and sells, with WhatsApp and CRM in one system.",
+            "Find customers, reach opportunities and follow up with Pleneva, a growth platform connected to your CRM.",
         };
 
   return buildMetadata({ routeKey: "home", locale, ...meta });

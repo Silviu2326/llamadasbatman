@@ -65,8 +65,8 @@ function NewAccountModal({ onClose, onSuccess }) {
   return <FormModal title="Nueva empresa" onClose={() => { if (!saving) onClose() }} onSubmit={submit} submitDisabled={saving} submitText={saving ? 'Creando…' : 'Crear empresa'} size="sm">
     <p className="sales-modal-intro">Crea la empresa y conecta después sus contactos y oportunidades.</p>
     {error ? <p className="sales-modal-error" role="alert">{error}</p> : null}
-    <FormInput label="Nombre" required autoFocus value={form.name} onChange={update('name')} placeholder="Ej. Vendrava" />
-    <FormRow><FormInput label="Dominio" value={form.domain} onChange={update('domain')} placeholder="vendrava.com" /><FormInput label="Sector" value={form.industry} onChange={update('industry')} placeholder="Tecnología" /></FormRow>
+    <FormInput label="Nombre" required autoFocus value={form.name} onChange={update('name')} placeholder="Ej. Pleneva" />
+    <FormRow><FormInput label="Dominio" value={form.domain} onChange={update('domain')} placeholder="empresa.com" /><FormInput label="Sector" value={form.industry} onChange={update('industry')} placeholder="Tecnología" /></FormRow>
     <FormInput label="Tamaño" value={form.sizeBand} onChange={update('sizeBand')} placeholder="11-50" />
   </FormModal>
 }

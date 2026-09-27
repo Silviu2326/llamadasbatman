@@ -11,11 +11,11 @@ import { buildMetadata } from "@/lib/metadata";
 
 const FAQ = [
   {
-    q: "Does Vendrava have public pricing?",
+    q: "Does Pleneva have public pricing?",
     a: "Paid plans adapt to each team's lead volume, calls and automations, so we work out the proposal by talking directly with sales.",
   },
   {
-    q: "Can I try Vendrava before choosing a plan?",
+    q: "Can I try Pleneva before choosing a plan?",
     a: "Yes. You can book a demo to explore the CRM, AI voice agents and automation workflows before deciding on a plan.",
   },
   {
@@ -32,9 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "pricing",
     locale: "en",
-    title: "Vendrava pricing | AI Sales CRM",
+    title: "Pleneva pricing | AI Sales CRM",
     description:
-      "Vendrava plans adapted to your lead volume, calls and automations: Starter, Growth, Scale and Enterprise. Talk to sales for a tailored proposal.",
+      "Pleneva plans adapted to your lead volume, calls and automations: Starter, Growth, Scale and Enterprise. Talk to sales for a tailored proposal.",
   });
 }
 
@@ -63,7 +63,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <FinalCTASection
         locale="en"
         title="Convert leads before they go cold"
-        sub="Try Vendrava with 100,000 AI credits included."
+        sub="Try Pleneva with 100,000 AI credits included."
         primary="Book a demo"
         secondary="Talk to sales"
       />

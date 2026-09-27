@@ -8,8 +8,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "legal.terms",
     locale: "en",
-    title: "Terms and conditions | Vendrava",
-    description: "Terms of use for the Vendrava platform for sales teams.",
+    title: "Terms and conditions | Pleneva",
+    description: "Terms of use for the Pleneva platform for sales teams.",
   });
 }
 
@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section>
         <h2>Use of the service</h2>
         <p>
-          Access to Vendrava is subject to these terms. By using the platform, the customer agrees to use it lawfully
+          Access to Pleneva is subject to these terms. By using the platform, the customer agrees to use it lawfully
           and in accordance with applicable regulations in its market, including those related to automated calls and
           data protection.
         </p>
@@ -44,7 +44,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section>
         <h2>Limitation of liability</h2>
         <p>
-          Vendrava helps automate and accelerate commercial processes, but does not guarantee specific sales
+          Pleneva helps automate and accelerate commercial processes, but does not guarantee specific sales
           outcomes. Final control over business decisions remains with the customer&apos;s team.
         </p>
       </section>

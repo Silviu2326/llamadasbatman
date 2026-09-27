@@ -321,7 +321,7 @@ export default function Sidebar({ isOpen }) {
       <div style={{ padding: '24px 20px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img
-            src={brand.logoUrl || '/logo.png'}
+            src={brand.logoUrl || '/brand/pleneva-mark.png'}
             alt={brand.brandName}
             className="logo-spin-hover"
             style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, cursor: 'pointer', boxShadow: `0 0 22px ${brand.primaryColor}55` }}

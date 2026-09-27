@@ -101,7 +101,7 @@ export default function VoiceUploadForm({ agentId, value, onCreated }) {
   }
 
   return <div className="voice-upload">
-    <div className="voice-picker-custom-heading"><RiMicLine /><h4>Tu voz, desde aquí</h4><p>Sube una grabación y crea la voz de tu agente sin salir de Vendrava.</p></div>
+    <div className="voice-picker-custom-heading"><RiMicLine /><h4>Tu voz, desde aquí</h4><p>Sube una grabación y crea la voz de tu agente sin salir de Pleneva.</p></div>
     {uploads.length ? <div className="voice-upload-library"><strong>Tus voces</strong>{uploads.map(item => <div key={item.requestId}><span>{item.voice?.name || item.name}<small>{item.status === 'ready' ? 'Privada · Lista para usar' : 'En preparación'}</small></span><button type="button" disabled={busy} onClick={() => item.status === 'ready' ? onCreatedRef.current(item.voice) : run(item.requestId)}>{item.status !== 'ready' ? 'Comprobar' : value === item.voice.id ? 'Seleccionada' : 'Usar voz'}</button></div>)}</div> : null}
     {listError ? <div className="voice-upload-list-error" role="status">{listError} <button type="button" onClick={() => setReload(current => current + 1)}>Reintentar</button></div> : null}
     <label className={`voice-upload-drop ${file ? 'has-file' : ''}`} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); chooseFile(event.dataTransfer.files[0]) }}>

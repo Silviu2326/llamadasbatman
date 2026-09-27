@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.blog",
     locale: "es",
-    title: "Blog de Vendrava: CRM con IA, ventas y automatización",
+    title: "Blog de Pleneva: CRM con IA, ventas y automatización",
     description:
       "Artículos sobre CRM con IA, agentes de voz, llamadas con IA, automatización de ventas, speed-to-lead y growth marketing.",
   });
@@ -31,7 +31,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         items={[{ name: "Inicio", path: "" }, { name: "Recursos", path: "recursos" }, { name: "Blog", path: "recursos/blog" }]}
       />
       <h1 className="mt-5 max-w-xl font-display text-[clamp(30px,3.6vw,48px)] font-bold leading-[1.08] tracking-tight text-white">
-        Blog de Vendrava
+        Blog de Pleneva
       </h1>
       <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">
         Guías prácticas sobre CRM con IA, agentes de voz, automatización de ventas y cómo contactar, calificar y agendar

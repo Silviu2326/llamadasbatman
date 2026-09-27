@@ -25,7 +25,7 @@ const COPY = {
     related: "Módulos relacionados",
     ctaPrimary: "Solicitar demo",
     ctaSecondary: "Hablar con ventas",
-    screenshotCaption: "Interfaz real de Vendrava",
+    screenshotCaption: "Interfaz real de Pleneva",
   },
   en: {
     breadcrumbProduct: "Product",
@@ -35,7 +35,7 @@ const COPY = {
     related: "Related modules",
     ctaPrimary: "Book a demo",
     ctaSecondary: "Talk to sales",
-    screenshotCaption: "Real Vendrava interface",
+    screenshotCaption: "Real Pleneva interface",
   },
 };
 

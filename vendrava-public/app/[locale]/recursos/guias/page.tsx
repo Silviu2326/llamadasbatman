@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.guides",
     locale: "es",
-    title: "Guías de Vendrava: IA de voz, seguimiento y WhatsApp",
+    title: "Guías de Pleneva: IA de voz, seguimiento y WhatsApp",
     description: "Guías prácticas paso a paso: poner en marcha un agente de voz IA, automatizar el seguimiento, plantillas de WhatsApp y cumplimiento en llamadas.",
   });
 }
@@ -32,7 +32,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         items={[{ name: "Inicio", path: "" }, { name: "Recursos", path: "recursos" }, { name: "Guías", path: "recursos/guias" }]}
       />
       <h1 className="mt-5 max-w-xl font-display text-[clamp(30px,3.6vw,48px)] font-bold leading-[1.08] tracking-tight text-white">
-        Guías prácticas de Vendrava
+        Guías prácticas de Pleneva
       </h1>
       <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">
         Guías paso a paso para poner en marcha IA de voz, automatizar el seguimiento, usar WhatsApp con criterio y

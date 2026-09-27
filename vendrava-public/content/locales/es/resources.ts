@@ -54,7 +54,7 @@ export const blogClustersEs: { cluster: string; items: ResourceItem[] }[] = [
 ];
 
 export const guidesEs: ResourceItem[] = [
-  { cluster: "Guías", title: "Guía para poner en marcha tu primer flujo de IA de voz", description: "Pasos recomendados para activar tu primer flujo de llamadas IA en Vendrava." },
+  { cluster: "Guías", title: "Guía para poner en marcha tu primer flujo de IA de voz", description: "Pasos recomendados para activar tu primer flujo de llamadas IA en Pleneva." },
   { cluster: "Guías", title: "Guía de automatización de seguimiento comercial", description: "Cómo diseñar reglas de seguimiento según canal, estado e intención del lead." },
   { cluster: "Guías", title: "Guía de migración desde un CRM tradicional", description: "Cómo planificar la transición hacia un CRM con IA sin perder historial comercial." },
 ];

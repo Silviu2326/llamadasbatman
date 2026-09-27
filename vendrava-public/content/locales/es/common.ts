@@ -29,8 +29,8 @@ export const commonEs: CommonContent = {
     secondary: "Ver cómo funciona",
     talkToSales: "Hablar con ventas",
     exploreAgents: "Explorar agentes IA",
-    discover: "Descubrir Vendrava",
-    start: "Empezar con Vendrava",
+    discover: "Descubrir Pleneva",
+    start: "Empezar con Pleneva",
   },
   footer: {
     tagline: "El CRM con IA que contesta, califica y agenda tus leads por voz y WhatsApp, con tu equipo al control.",

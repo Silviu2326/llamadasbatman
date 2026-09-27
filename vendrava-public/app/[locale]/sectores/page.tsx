@@ -15,9 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "industries.index",
     locale: "es",
-    title: "CRM con IA por sector | Vendrava",
+    title: "CRM con IA por sector | Pleneva",
     description:
-      "Descubre cómo Vendrava ayuda a inmobiliarias, clínicas, concesionarios, agencias, SaaS, educación y servicios profesionales a contactar y convertir más leads.",
+      "Descubre cómo Pleneva ayuda a inmobiliarias, clínicas, concesionarios, agencias, SaaS, educación y servicios profesionales a contactar y convertir más leads.",
   });
 }
 
@@ -33,7 +33,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           CRM con IA para cada sector comercial
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">
-          Vendrava se adapta al flujo de trabajo de cada sector: cómo llega el lead, qué hay que calificar y qué acción
+          Pleneva se adapta al flujo de trabajo de cada sector: cómo llega el lead, qué hay que calificar y qué acción
           conviene automatizar primero.
         </p>
       </Container>
@@ -61,7 +61,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <FinalCTASection
         locale="es"
         title="Convierte tus leads antes de que se enfríen"
-        sub="Prueba Vendrava con 100.000 créditos de IA incluidos."
+        sub="Prueba Pleneva con 100.000 créditos de IA incluidos."
         primary="Solicitar una demo"
         secondary="Hablar con ventas"
       />

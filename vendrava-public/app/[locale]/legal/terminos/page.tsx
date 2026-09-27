@@ -8,8 +8,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "legal.terms",
     locale: "es",
-    title: "Términos y condiciones | Vendrava",
-    description: "Condiciones de uso de la plataforma Vendrava para equipos comerciales.",
+    title: "Términos y condiciones | Pleneva",
+    description: "Condiciones de uso de la plataforma Pleneva para equipos comerciales.",
   });
 }
 
@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section>
         <h2>Uso del servicio</h2>
         <p>
-          El acceso a Vendrava está sujeto a estos términos. Al usar la plataforma, el cliente acepta utilizarla de
+          El acceso a Pleneva está sujeto a estos términos. Al usar la plataforma, el cliente acepta utilizarla de
           forma lícita y conforme a la normativa aplicable en su mercado, incluyendo la relativa a llamadas
           automatizadas y protección de datos.
         </p>
@@ -44,7 +44,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section>
         <h2>Limitación de responsabilidad</h2>
         <p>
-          Vendrava ayuda a automatizar y acelerar procesos comerciales, pero no garantiza resultados de ventas
+          Pleneva ayuda a automatizar y acelerar procesos comerciales, pero no garantiza resultados de ventas
           específicos. El control final sobre las decisiones comerciales corresponde al equipo del cliente.
         </p>
       </section>

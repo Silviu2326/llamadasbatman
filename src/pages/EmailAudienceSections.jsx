@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   RiAlertLine, RiArrowRightSLine, RiCheckLine, RiCursorLine, RiErrorWarningLine,
   RiInboxLine, RiMailForbidLine, RiMailOpenLine, RiMailSendLine, RiRefreshLine,
-  RiSearchLine, RiSendPlaneLine, RiShieldCheckLine, RiSpam2Line, RiUserFollowLine,
+  RiSearchLine, RiSendPlaneLine, RiSpam2Line, RiUserFollowLine,
   RiUserUnfollowLine,
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
@@ -52,8 +52,6 @@ function PanelState({ icon: Icon = RiAlertLine, title, copy, onRetry }) {
 // (clics/aperturas); el backend lo documenta en emailMetrics.service.ts.
 
 const DELIVERABILITY_TILES = [
-  { key: 'sent', label: 'Enviados', hint: 'Registros de envío creados', color: '#818cf8', Icon: RiMailSendLine },
-  { key: 'delivered', label: 'Entregados', hint: 'Confirmados por el proveedor', color: '#34d399', Icon: RiShieldCheckLine },
   { key: 'failed', label: 'Fallidos y rebotes', hint: 'No llegaron a bandeja', color: '#fb7185', Icon: RiErrorWarningLine },
   { key: 'unsubscribes', label: 'Bajas', hint: 'Se dieron de baja', color: '#fbbf24', Icon: RiMailForbidLine },
   { key: 'complaints', label: 'Quejas de spam', hint: 'Marcaron como spam', color: '#f87171', Icon: RiSpam2Line },
@@ -226,12 +224,12 @@ export function SubscribersPanel({ onNotice }) {
       </div>
 
       {purposes.length > 0 && (
-        <div className="email-purpose-tabs" role="tablist" aria-label="Categorías de suscripción">
+        <div className="email-purpose-tabs" role="group" aria-label="Categorías de suscripción">
           {purposes.map(item => (
             <button
               key={item.purpose}
-              role="tab"
-              aria-selected={item.purpose === purpose}
+              type="button"
+              aria-pressed={item.purpose === purpose}
               className={item.purpose === purpose ? 'active' : ''}
               onClick={() => setPurpose(item.purpose)}
             >
@@ -299,11 +297,11 @@ export function SubscribersPanel({ onNotice }) {
                 const blocked = row.status === 'bounced' || row.status === 'complaint'
                 return (
                   <div className="email-table-row" role="row" key={row.id}>
-                    <div role="cell" className="email-cell-contact">
+                    <div role="cell" className="email-cell-contact" data-label="Contacto">
                       <Link to={`/leads/${row.leadId}`}>{row.name}</Link>
                       <small>{row.email || 'Sin email'}</small>
                     </div>
-                    <div role="cell">
+                    <div role="cell" data-label="Estado">
                       <span
                         className="email-campaign-status"
                         style={{
@@ -313,9 +311,9 @@ export function SubscribersPanel({ onNotice }) {
                         }}
                       >{meta.label}</span>
                     </div>
-                    <div role="cell"><small>{row.source}</small></div>
-                    <div role="cell"><small>{shortDate(row.lastDeliveryAt)}</small></div>
-                    <div role="cell" className="email-col-action">
+                    <div role="cell" data-label="Origen"><small>{row.source}</small></div>
+                    <div role="cell" data-label="Último envío"><small>{shortDate(row.lastDeliveryAt)}</small></div>
+                    <div role="cell" className="email-col-action" data-label="Acción">
                       <button
                         type="button"
                         className="email-button ghost"
@@ -411,7 +409,7 @@ export function InboxPanel() {
           ? 'Tu rol no puede enviar mensajes de pago: hace falta el permiso costs.request.'
           : payload?.error || `El envío no se completó (HTTP ${res.status}).`
         const rootCause = !templates.length
-          ? ' No hay plantillas de respuesta disponibles en Vendrava. Configura el proveedor de email y añade una plantilla de respuesta para este canal.'
+          ? ' No hay plantillas de respuesta disponibles en Pleneva. Configura el proveedor de email y añade una plantilla de respuesta para este canal.'
           : ''
         setSendError(reason + rootCause)
         return
@@ -655,12 +653,12 @@ export function TrackingPanel() {
                 const meta = DELIVERY_STATUS_META[row.status] ?? { label: row.status, color: 'var(--muted)' }
                 return (
                   <div className="email-table-row" role="row" key={row.id}>
-                    <div role="cell" className="email-cell-contact">
+                    <div role="cell" className="email-cell-contact" data-label="Destinatario">
                       <Link to={`/leads/${row.leadId}`}>{row.leadName}</Link>
                       <small>{row.toAddress}</small>
                     </div>
-                    <div role="cell"><small>{row.campaignName || 'Envío suelto'}</small></div>
-                    <div role="cell">
+                    <div role="cell" data-label="Campaña"><small>{row.campaignName || 'Envío suelto'}</small></div>
+                    <div role="cell" data-label="Estado">
                       <span
                         className="email-campaign-status"
                         style={{
@@ -671,9 +669,9 @@ export function TrackingPanel() {
                       >{meta.label}</span>
                       {row.failureCode && <small className="email-fail-code" title={row.failureDetail || ''}>{row.failureCode}</small>}
                     </div>
-                    <div role="cell"><span className="email-count"><RiMailOpenLine /> {row.opens}</span></div>
-                    <div role="cell"><span className="email-count"><RiCursorLine /> {row.clicks}</span></div>
-                    <div role="cell"><small>{dateTime(row.queuedAt)}</small></div>
+                    <div role="cell" data-label="Aperturas"><span className="email-count"><RiMailOpenLine /> {row.opens}</span></div>
+                    <div role="cell" data-label="Clics"><span className="email-count"><RiCursorLine /> {row.clicks}</span></div>
+                    <div role="cell" data-label="Fecha"><small>{dateTime(row.queuedAt)}</small></div>
                   </div>
                 )
               })}

@@ -107,7 +107,7 @@ const initialProviders: Record<ProviderName, StageStatus> = {
 /**
  * Las claves viven en el servidor y el navegador no puede comprobarlas sin
  * gastar una llamada: se asume disponible y el backend responde con un error
- * explícito ("Faltan claves del stack Vendrava") si no lo está.
+ * explícito ("Faltan claves del stack Pleneva") si no lo está.
  */
 const SERVER_SIDE_HEALTH: HealthResponse = {
   configured: { deepgram: true, cartesia: true, cerebras: true, groq: true, deepseek: true, fish: true, minimax: true },
@@ -540,7 +540,7 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
       handleServerEvent({ type: "provider.status", provider, status: "active" });
     }
 
-    const greeting = es ? "Hola, soy Isa de Vendrava. Seré breve: ¿qué tal va tu día?" : DEFAULT_GREETING;
+    const greeting = es ? "Hola, soy Isa de Pleneva. Seré breve: ¿qué tal va tu día?" : DEFAULT_GREETING;
     const question = es ? "Hola Isa, solo tengo un minuto: ¿de qué se trata?" : "Hi Carlos, I only have a minute—what is this about?";
     handleServerEvent({ type: "transcript", id: "demo-greeting", speaker: "assistant", text: greeting, final: true });
     handleServerEvent({ type: "demo.speak", text: greeting });
@@ -569,8 +569,8 @@ export function useVoiceSession(options: { token?: string | null; agentId?: stri
     await delay(115);
     if (!alive()) return;
     const answer = es
-      ? "Claro, seré breve. Te llamo de Vendrava para ver si un flujo de voz más rápido podría ayudar a tu equipo."
-      : "Absolutely—I’ll keep it brief. I’m calling from Vendrava to see whether a faster voice workflow could help your team.";
+      ? "Claro, seré breve. Te llamo de Pleneva para ver si un flujo de voz más rápido podría ayudar a tu equipo."
+      : "Absolutely—I’ll keep it brief. I’m calling from Pleneva to see whether a faster voice workflow could help your team.";
     handleServerEvent({ type: "transcript", id: "demo-carlos", speaker: "assistant", text: answer, final: true });
     handleServerEvent({ type: "demo.speak", text: answer });
     handleServerEvent({ type: "pipeline.stage", stage: "fish", status: "complete", latencyMs: 176 });

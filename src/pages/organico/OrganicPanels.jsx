@@ -246,7 +246,7 @@ export function OrganicPages({ pages }) {
 /* ── Qué hacer ──────────────────────────────────────────────────────────── */
 
 /**
- * Cola priorizada de organico.md §5.5: señales de canal, caza de Vendrava y
+ * Cola priorizada de organico.md §5.5: señales de canal, caza de Pleneva y
  * acontecimientos en la misma lista, ordenados por impacto × confianza ÷
  * esfuerzo. El botón NO ejecuta: abre el brazo con el contexto cargado.
  */

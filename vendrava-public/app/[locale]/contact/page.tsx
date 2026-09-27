@@ -10,8 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "contact",
     locale: "en",
-    title: "Contact | Vendrava",
-    description: "Get in touch with the Vendrava team for sales, technical or partnership questions.",
+    title: "Contact | Pleneva",
+    description: "Get in touch with the Pleneva team for sales, technical or partnership questions.",
   });
 }
 
@@ -26,11 +26,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         Let&apos;s talk
       </h1>
       <p className="mt-4 max-w-lg text-lg leading-relaxed text-muted">
-        Reach out if you have questions about Vendrava, want a tailored proposal, or are exploring a commercial
+        Reach out if you have questions about Pleneva, want a tailored proposal, or are exploring a commercial
         partnership.
       </p>
       <p className="mt-3 font-mono text-xs text-faint">
-        Vendrava is a SprintMarkt project · Valencia, Spain.
+        Pleneva is a SprintMarkt project · Valencia, Spain.
       </p>
       <div className="mt-8 rounded-2xl border border-white/10 bg-gradient-to-b from-panel to-panel-2 p-7">
         <ContactForm locale="en" />

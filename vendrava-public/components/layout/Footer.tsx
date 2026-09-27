@@ -19,9 +19,9 @@ export function Footer({ locale, common }: { locale: Locale; common: CommonConte
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid grid-cols-2 gap-10 md:grid-cols-3 lg:grid-cols-[1.4fr_repeat(5,1fr)]">
           <div className="col-span-2 md:col-span-3 lg:col-span-1">
-            <Link href={pathFor("home", locale)} className="flex items-center" aria-label="Vendrava">
+            <Link href={pathFor("home", locale)} className="flex items-center" aria-label="Pleneva">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Vendrava" width={800} height={189} className="h-9 w-auto" />
+              <img src="/brand/pleneva-logo-inverted.png" alt="Pleneva" width={800} height={189} className="h-9 w-auto" />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">{common.footer.tagline}</p>
             <p className="mt-3 font-mono text-xs text-faint">{common.footer.built}</p>
@@ -54,7 +54,7 @@ export function Footer({ locale, common }: { locale: Locale; common: CommonConte
 
         <div className="mt-12 flex flex-col gap-2 border-t border-white/10 pt-6 text-xs text-faint md:flex-row md:items-center md:justify-between">
           <span>
-            © {year} Vendrava. {common.footer.rights}
+            © {year} Pleneva. {common.footer.rights}
           </span>
           <span>
             {locale === "es" ? "Un proyecto de" : "A project by"}{" "}

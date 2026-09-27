@@ -17,7 +17,7 @@ export const MICROAPP_COLLECTION_META = {
   'growth-sales': { label: 'Growth & Sales', shortLabel: 'Ventas', color: 'var(--success)' },
   'ads-content': { label: 'Ads & Content', shortLabel: 'Ads + Contenido', color: 'var(--pink)' },
   'studio-ops': { label: 'Studio & Operations', shortLabel: 'Studio + Ops', color: 'var(--violet)' },
-  'platform-core': { label: 'Vendrava Core', shortLabel: 'Core', color: 'var(--accent)' },
+  'platform-core': { label: 'Pleneva Core', shortLabel: 'Core', color: 'var(--accent)' },
   existing: { label: 'Catálogo anterior', shortLabel: 'Anteriores', color: 'var(--muted)' },
 }
 

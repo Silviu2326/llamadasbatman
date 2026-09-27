@@ -6,12 +6,12 @@ const COPY = {
   es: {
     title: "Esta página no existe",
     text: "La página que buscas puede haberse movido o no está disponible todavía en este idioma.",
-    cta: "Volver a Vendrava",
+    cta: "Volver a Pleneva",
   },
   en: {
     title: "This page does not exist",
     text: "The page you are looking for may have moved or is not available in this language yet.",
-    cta: "Back to Vendrava",
+    cta: "Back to Pleneva",
   },
 };
 

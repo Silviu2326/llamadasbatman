@@ -24,7 +24,7 @@
 .data-status-action:focus-visible { outline: 2px solid var(--accent-faint); outline-offset: 2px; }
 .data-status-live { border-color: #16653499; background: var(--success-bg); }
 .data-status-live > svg { color: var(--success-soft); }
-.data-status-demo { border-color: #7c3aed88; background: var(--accent-bg); }
+.data-status-demo { border-color: color-mix(in srgb, var(--violet-deep) 53%, transparent); background: var(--accent-bg); }
 .data-status-demo > svg { color: var(--violet-soft); }
 .data-status-empty { border-color: var(--line-control); background: var(--surface-2); }
 .data-status-empty > svg { color: var(--muted); }

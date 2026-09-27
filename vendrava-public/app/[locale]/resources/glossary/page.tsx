@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.glossary",
     locale: "en",
-    title: "AI CRM and sales glossary | Vendrava",
+    title: "AI CRM and sales glossary | Pleneva",
     description: "Key definitions on AI CRM, voice agents, lead scoring, pipeline and sales automation.",
   });
 }

@@ -633,7 +633,7 @@ export default function CreativeCommandCenterPage({ onOpenPerformance, brief = n
       const objectUrl = URL.createObjectURL(await response.blob())
       const anchor = document.createElement('a')
       anchor.href = objectUrl
-      anchor.download = `vendrava-creatividad.${extension}`
+      anchor.download = `pleneva-creatividad.${extension}`
       document.body.appendChild(anchor)
       anchor.click()
       anchor.remove()

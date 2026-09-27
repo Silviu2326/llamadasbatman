@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/constants";
 
 export const dynamic = "force-static";
 
-// AI / LLM crawlers we explicitly welcome so Vendrava can be discovered, cited
+// AI / LLM crawlers we explicitly welcome so Pleneva can be discovered, cited
 // and answered by AI engines (ChatGPT, Perplexity, Google AI, Claude, etc.).
 const AI_BOTS = [
   "GPTBot",

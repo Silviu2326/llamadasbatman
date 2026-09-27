@@ -33,7 +33,7 @@ export default class AppErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Keep the failure visible during development without breaking the rest of the shell.
-    if (import.meta.env?.DEV) console.error('Vendrava render error', error, errorInfo)
+    if (import.meta.env?.DEV) console.error('Pleneva render error', error, errorInfo)
 
     // React caches a rejected lazy import, so simply rendering it again cannot
     // recover. Reload once to request the current asset graph, with a session

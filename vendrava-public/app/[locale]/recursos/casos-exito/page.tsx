@@ -10,8 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.case-studies",
     locale: "es",
-    title: "Casos de éxito de Vendrava | AI Sales CRM",
-    description: "Ejemplos de cómo distintos equipos usan Vendrava para contactar, calificar y convertir más leads.",
+    title: "Casos de éxito de Pleneva | AI Sales CRM",
+    description: "Ejemplos de cómo distintos equipos usan Pleneva para contactar, calificar y convertir más leads.",
   });
 }
 
@@ -29,7 +29,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         Casos de éxito
       </h1>
       <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">
-        Estamos documentando cómo distintos equipos usan Vendrava en su día a día comercial. Estos casos se irán
+        Estamos documentando cómo distintos equipos usan Pleneva en su día a día comercial. Estos casos se irán
         publicando progresivamente.
       </p>
 

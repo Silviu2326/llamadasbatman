@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.blog",
     locale: "en",
-    title: "Vendrava blog: AI CRM, sales and automation",
+    title: "Pleneva blog: AI CRM, sales and automation",
     description:
       "Articles on AI CRM, voice agents, AI calling, sales automation, speed-to-lead and growth marketing.",
   });
@@ -31,7 +31,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         items={[{ name: "Home", path: "" }, { name: "Resources", path: "resources" }, { name: "Blog", path: "resources/blog" }]}
       />
       <h1 className="mt-5 max-w-xl font-display text-[clamp(30px,3.6vw,48px)] font-bold leading-[1.08] tracking-tight text-white">
-        Vendrava blog
+        Pleneva blog
       </h1>
       <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">
         Practical guides on AI CRM, voice agents, sales automation and how to contact, qualify and book more leads

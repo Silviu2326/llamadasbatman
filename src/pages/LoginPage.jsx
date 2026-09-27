@@ -23,16 +23,19 @@ const TRUST_ITEMS = [
 
 function Brand({ compact = false }) {
   const brand = useBrand()
+  const isPlenevaDefault = !brand.logoUrl && brand.brandName === 'Pleneva'
   return (
     <div className={`login-brand${compact ? ' login-brand--compact' : ''}`}>
       {brand.logoUrl
-        ? <img src={brand.logoUrl} alt="" style={{ width: 34, height: 34, borderRadius: 9, objectFit: 'cover' }} />
-        : (
-          <span className="login-brand__mark" aria-hidden="true">
-            {[18, 28, 38, 30, 22].map((height, index) => <i key={index} style={{ '--brand-bar-height': `${height}px` }} />)}
-          </span>
-        )}
-      <span>{brand.brandName}</span>
+        ? <img src={brand.logoUrl} alt="" className="login-brand__custom-logo" />
+        : isPlenevaDefault
+          ? <img src={compact ? '/brand/pleneva-logo.png' : '/brand/pleneva-logo-inverted.png'} alt="Pleneva" className="login-brand__wordmark" />
+          : (
+            <span className="login-brand__mark" aria-hidden="true">
+              {[18, 28, 38, 30, 22].map((height, index) => <i key={index} style={{ '--brand-bar-height': `${height}px` }} />)}
+            </span>
+          )}
+      {!isPlenevaDefault && <span>{brand.brandName}</span>}
     </div>
   )
 }
@@ -77,7 +80,7 @@ function Showcase() {
 
       <div className="login-showcase__content">
         <div className="login-orb-wrap">
-          <img src="/assets/login/voice-orb-premium.png" alt="" className="login-orb" />
+          <img src="/assets/login/voice-orb-pleneva.png" alt="" className="login-orb" />
           <div className="login-orb__core-mark" aria-hidden="true"><RiPulseLine /></div>
           <SceneCard type="voice" icon={RiPulseLine} title={t('auth.activeConversation')} detail={t('auth.listening')}>
             <Waveform />
@@ -153,8 +156,8 @@ export default function LoginPage() {
   const errorId = 'login-form-error'
   const recoveryDescriptionId = 'login-recovery-description'
   const supportMailto = locale === 'en'
-    ? `mailto:soporte@vendrava.app?subject=${encodeURIComponent('Vendrava access recovery request')}&body=${encodeURIComponent(`Hello, I need to recover access to Vendrava.\n\nAccount email: ${recoveryEmail.trim() || '[enter your email]'}\n\nThank you.`)}`
-    : `mailto:soporte@vendrava.app?subject=${encodeURIComponent('Solicitud de recuperación de acceso a Vendrava')}&body=${encodeURIComponent(`Hola, necesito recuperar el acceso a Vendrava.\n\nCorreo de la cuenta: ${recoveryEmail.trim() || '[indica aquí tu correo]'}\n\nGracias.`)}`
+    ? `mailto:soporte@vendrava.app?subject=${encodeURIComponent('Pleneva access recovery request')}&body=${encodeURIComponent(`Hello, I need to recover access to Pleneva.\n\nAccount email: ${recoveryEmail.trim() || '[enter your email]'}\n\nThank you.`)}`
+    : `mailto:soporte@vendrava.app?subject=${encodeURIComponent('Solicitud de recuperación de acceso a Pleneva')}&body=${encodeURIComponent(`Hola, necesito recuperar el acceso a Pleneva.\n\nCorreo de la cuenta: ${recoveryEmail.trim() || '[indica aquí tu correo]'}\n\nGracias.`)}`
 
   useEffect(() => {
     if (!showRecovery) return
@@ -297,11 +300,11 @@ export default function LoginPage() {
                     type="button"
                     disabled={recoverySending || !recoveryEmail.trim()}
                     onClick={sendRecovery}
-                    style={{ display: 'inline-flex', alignItems: 'center', minHeight: 36, padding: '0 12px', borderRadius: 8, color: '#fff', background: '#4858d9', fontWeight: 700, border: 'none', cursor: recoverySending ? 'progress' : 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', minHeight: 36, padding: '0 12px', borderRadius: 8, color: '#fff', background: '#a63808', fontWeight: 700, border: 'none', cursor: recoverySending ? 'progress' : 'pointer' }}
                   >
                     {recoverySending ? 'Enviando…' : locale === 'en' ? 'Email me a reset link' : 'Enviarme un enlace'}
                   </button>
-                  <a href={supportMailto} style={{ color: '#4858d9', fontWeight: 600, fontSize: 12.5 }}>{t('auth.openSupportEmail')}</a>
+                  <a href={supportMailto} style={{ color: '#a63808', fontWeight: 600, fontSize: 12.5 }}>{t('auth.openSupportEmail')}</a>
                 </div>
                 {recoverySent && (
                   <p style={{ margin: '10px 0 0', fontSize: 12.5, color: '#14233d' }}>
@@ -336,7 +339,7 @@ export default function LoginPage() {
           </div>
 
           <p className="login-legal">
-            {locale === 'en' ? 'By signing in you accept the ' : 'Al acceder aceptas los '}<Link to="/terminos" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Terms' : 'Términos'}</Link>{locale === 'en' ? ' and ' : ' y la '}<Link to="/privacidad" style={{ color: '#6777a7', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Privacy Policy' : 'Privacidad'}</Link>.
+            {locale === 'en' ? 'By signing in you accept the ' : 'Al acceder aceptas los '}<Link to="/terminos" style={{ color: '#a63808', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Terms' : 'Términos'}</Link>{locale === 'en' ? ' and ' : ' y la '}<Link to="/privacidad" style={{ color: '#a63808', textDecoration: 'underline', textUnderlineOffset: 2 }}>{locale === 'en' ? 'Privacy Policy' : 'Privacidad'}</Link>.
           </p>
           <div className="login-locale-switcher" role="group" aria-label={t('common.language')}>
             <button type="button" className={locale === 'es' ? 'active' : ''} onClick={() => setLocale('es')}>ES</button>

@@ -38,7 +38,7 @@ export default function TutorialsPage({ sectionNavigation = null }) {
       <ProductPageHeader
         Icon={RiBookReadLine}
         title="Tutoriales"
-        description="Rutas breves y prácticas para configurar Vendrava y dominar agentes, microapps y automatizaciones."
+        description="Rutas breves y prácticas para configurar Pleneva y dominar agentes, microapps y automatizaciones."
         navigation={sectionNavigation}
       />
 

@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import AssistantOperations, { AssistantActionCard, AssistantQueryResult } from './AssistantOperations'
 import AssistantWorkflows from './AssistantWorkflows'
+import AssistantMarkdown from './AssistantMarkdown'
+import AssistantWidgets from './AssistantWidgets'
 import { assistantScreenContext, performAssistantScreenCommand } from '../lib/assistantScreen'
 import './platform-assistant.css'
 import './assistant-workflows.css'
@@ -134,7 +136,7 @@ export default function PlatformAssistant({ open, onClose, onOpen, brandName, pa
       if (body.workflowDraft) { setWorkflowDraft(body.workflowDraft); setView('workflows') }
       const screenResults = []
       for (const command of (body.screens || []).slice(0, 3)) screenResults.push(await applyScreenCommand(command))
-      setMessages(current => [...current, { role: 'assistant', content: screenResults.length ? screenResults.join('\n') : body.text, actions: body.actions || [], results: body.results || [] }])
+      setMessages(current => [...current, { role: 'assistant', content: screenResults.length ? screenResults.join('\n') : body.text, actions: body.actions || [], results: body.results || [], widgets: body.widgets || [] }])
     } catch (failure) {
       if (controller.signal.aborted && controller.signal.reason !== 'timeout') return
       setError(controller.signal.reason === 'timeout' ? (en ? 'The response is taking too long. Please try again.' : 'La respuesta está tardando demasiado. Puedes reintentar.') : failure.message)
@@ -182,12 +184,13 @@ export default function PlatformAssistant({ open, onClose, onOpen, brandName, pa
           <div className="assistant-welcome-art" aria-hidden="true"><AssistantIllustration scene="welcome" /></div>
           <span className="assistant-eyebrow">{en ? 'A little help goes a long way' : 'Un poco de ayuda sienta bien'}</span>
           <h3>{en ? 'Let’s take it' : 'Vamos'} <em>{en ? 'step by step.' : 'paso a paso.'}</em></h3>
-          <p>{en ? 'Tell me what you’d like to do in ' : 'Cuéntame qué quieres hacer en '}{brandName || 'Vendrava'}{en ? '. We’ll find where to start.' : '. Encontramos por dónde empezar.'}</p>
+          <p>{en ? 'Tell me what you’d like to do in ' : 'Cuéntame qué quieres hacer en '}{brandName || 'Pleneva'}{en ? '. We’ll find where to start.' : '. Encontramos por dónde empezar.'}</p>
           <div className="assistant-suggestions">{suggestions.map(({ icon: Icon, tone, title, detail, question }) => <button type="button" key={question} aria-label={`${title}. ${question}`} onClick={() => send(question)}><span className={`assistant-suggestion-icon is-${tone}`}><Icon aria-hidden="true" /></span><span className="assistant-suggestion-copy"><strong>{title}</strong><span>{detail}</span></span><RiArrowRightLine className="assistant-suggestion-arrow" aria-hidden="true" /></button>)}</div>
         </div> : null}
         <div className="assistant-messages" role="log" aria-label={en ? 'Conversation' : 'Conversación'} aria-live="polite" aria-relevant="additions text">
           {messages.map((message, index) => <div className={`assistant-message is-${message.role}`} key={index}>
-            <span className="assistant-message-author">{message.role === 'assistant' ? <AssistantCompanion small /> : null}{message.role === 'user' ? (en ? 'You' : 'Tú') : (en ? 'Your assistant' : 'Tu asistente')}</span><p>{message.content}</p>
+            <span className="assistant-message-author">{message.role === 'assistant' ? <AssistantCompanion small /> : null}{message.role === 'user' ? (en ? 'You' : 'Tú') : (en ? 'Your assistant' : 'Tu asistente')}</span>{message.role === 'assistant' ? <AssistantMarkdown content={message.content} /> : <p>{message.content}</p>}
+            {message.widgets?.length ? <AssistantWidgets blocks={message.widgets} onScreenCommand={applyScreenCommand} /> : null}
             {message.results?.map((result, resultIndex) => <AssistantQueryResult key={resultIndex} result={result} onScreenCommand={applyScreenCommand} />)}
             {message.actions?.map(action => <AssistantActionCard key={action.id} action={action} onClose={onClose} onChange={updated => setMessages(current => current.map(item => ({ ...item, actions: item.actions?.map(entry => entry.id === updated.id ? updated : entry) })))} />)}
             {message.role === 'assistant' ? <button className="assistant-copy" type="button" onClick={() => copyMessage(message.content, index)} aria-label={en ? 'Copy response' : 'Copiar respuesta'}>{copied === index ? <RiCheckLine aria-hidden="true" /> : <RiFileCopyLine aria-hidden="true" />}{copied === index ? (en ? 'Copied' : 'Copiado') : (en ? 'Copy' : 'Copiar')}</button> : null}
@@ -204,7 +207,7 @@ export default function PlatformAssistant({ open, onClose, onOpen, brandName, pa
         {lastUser && !draft && !busy ? <button type="button" className="assistant-recover" onClick={() => { setDraft(lastUser); setNotice(''); setView('chat'); input.current?.focus() }}><RiHistoryLine aria-hidden="true" />{en ? 'Recover my last message' : 'Recuperar mi último mensaje'}</button> : null}
         <label className="sr-only" htmlFor="assistant-message">{en ? 'Your message' : 'Tu mensaje'}</label>
         <div className="assistant-input-wrap"><textarea id="assistant-message" ref={input} value={draft} maxLength={2000} rows={2} placeholder={en ? 'Tell me, what do you have in mind?' : 'Cuéntame, ¿qué tienes en mente?'} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(draft) } }} />{busy ? <button type="button" onClick={stopResponse} aria-label={en ? 'Stop response' : 'Detener respuesta'}><RiStopFill /></button> : <button type="submit" disabled={!draft.trim()} aria-label={en ? 'Send message' : 'Enviar mensaje'}><RiArrowUpLine /></button>}</div>
-        <p>{en ? 'Your AI guide to ' : 'Tu guía con IA en '}{brandName || 'Vendrava'}</p>
+        <p>{en ? 'Your AI guide to ' : 'Tu guía con IA en '}{brandName || 'Pleneva'}</p>
       </form>
     </div>
   </dialog>{screenActivity && !open ? <aside className={`assistant-screen-activity is-${screenActivity.state}`} role="status">{screenActivity.state === 'working' ? <RiLoader4Line aria-hidden="true" /> : screenActivity.state === 'error' ? <RiErrorWarningLine aria-hidden="true" /> : <RiCheckLine aria-hidden="true" />}<span>{screenActivity.message}</span><button type="button" onClick={onOpen}>Volver al asistente</button>{screenActivity.state !== 'working' ? <button type="button" aria-label="Ocultar resultado del asistente" onClick={() => setScreenActivity(null)}><RiCloseLine /></button> : null}</aside> : null}</>

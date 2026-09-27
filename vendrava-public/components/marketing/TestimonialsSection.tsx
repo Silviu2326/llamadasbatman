@@ -3,7 +3,7 @@ import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 
 /**
- * Renders segment-based social proof ("who Vendrava is built for") rather
+ * Renders segment-based social proof ("who Pleneva is built for") rather
  * than fabricated customer quotes, since no real testimonials exist yet.
  */
 export function TestimonialsSection({ socialProof }: { socialProof: HomeContent["socialProof"] }) {

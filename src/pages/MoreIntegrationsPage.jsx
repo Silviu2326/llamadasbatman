@@ -46,7 +46,7 @@ export default function MoreIntegrationsPage({ embedded = false }) {
       : <ProductPageHeader
           Icon={RiPlugLine}
           title="Integraciones"
-          description="Conecta proveedores, instala extensiones y enlaza Vendrava con tus sistemas."
+          description="Conecta proveedores, instala extensiones y enlaza Pleneva con tus sistemas."
           navigation={navigation}
         />}
     <div className="more-center-body">

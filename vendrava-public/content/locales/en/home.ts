@@ -2,19 +2,19 @@ import type { HomeContent } from "@/types/content";
 
 export const homeEn: HomeContent = {
   hero: {
-    badge: "AI voice sales agent",
-    h1a: "An AI voice agent that calls, diagnoses and",
-    h1b: "sells — not just a chat that replies",
-    sub: "Vendrava makes and answers calls like a consultative sales rep trained on your niche: it detects the prospect's real need and offers an already-diagnosed solution. With WhatsApp and CRM in the same system.",
-    secondary: "See Vendrava in action",
+    badge: "Grow with more opportunities",
+    h1a: "We bring you customers.",
+    h1b: "You just take care of them.",
+    sub: "We find the right people to sell to, reach your potential customers, and follow every conversation so your calendar fills up. Everything stays connected to your CRM.",
+    secondary: "See how it works",
     micro: "From €99/mo. 100,000 AI credits included to test calls, analysis and automations.",
-    trust: "Voice, WhatsApp and CRM in one system",
+    trust: "Prospecting, follow-up and CRM in one system",
     channels: ["Outbound calls", "Inbound calls", "WhatsApp", "Email", "Forms", "Campaigns"],
     badges: ["Makes and answers phone calls", "Diagnoses before selling, not a script", "Consent, calling hours and human handoff", "WhatsApp and CRM in one system"],
   },
   comoFunciona: {
     tag: "In 3 steps",
-    title: "What Vendrava does, in plain words",
+    title: "What Pleneva does, in plain words",
     steps: [
       { n: "1", t: "Answers and calls", d: "It answers the calls and messages you miss, and calls your new leads, with real voice, not just chat." },
       { n: "2", t: "Understands the need", d: "It talks like a rep for your sector: it listens, understands each person's need and qualifies them." },
@@ -23,7 +23,7 @@ export const homeEn: HomeContent = {
     note: "No complex setup. You define the scripts and your team always keeps control.",
     screenshot: {
       src: "/screens/call-intelligence.webp",
-      caption: "Real interface: a call analyzed by Vendrava — insight, buying signals, sentiment and the next touch already drafted",
+      caption: "Real interface: a call analyzed by Pleneva — insight, buying signals, sentiment and the next touch already drafted",
     },
   },
   problem: {
@@ -40,8 +40,8 @@ export const homeEn: HomeContent = {
   },
   solution: {
     tag: "The solution",
-    title: "Vendrava answers every inbound with an action, not a record",
-    text: "Vendrava centralizes your leads and activates workflows to answer, call, qualify, book and follow up from one platform.",
+    title: "Pleneva answers every inbound with an action, not a record",
+    text: "Pleneva centralizes your leads and activates workflows to answer, call, qualify, book and follow up from one platform.",
     inputs: [
       { icon: "▦", label: "Web form" },
       { icon: "✆", label: "Inbound call" },
@@ -62,16 +62,16 @@ export const homeEn: HomeContent = {
   differentiator: {
     tag: "The difference",
     title: "This is not a WhatsApp bot",
-    text: "The chat tools you already know automate messages, but they never pick up the phone. Vendrava does: it calls and answers with voice, leads the conversation like a consultative rep for your sector and, instead of reciting a script, diagnoses what the prospect needs and proposes the right solution. WhatsApp and the CRM sit behind it, adding context, not as the product itself.",
+    text: "The chat tools you already know automate messages, but they never pick up the phone. Pleneva does: it calls and answers with voice, leads the conversation like a consultative rep for your sector and, instead of reciting a script, diagnoses what the prospect needs and proposes the right solution. WhatsApp and the CRM sit behind it, adding context, not as the product itself.",
     chatLabel: "Chat / WhatsApp bots",
     chatPoints: ["Wait for the customer to write", "Only automate messages: they never call anyone", "Reply with a fixed script", "Offer a service, they do not diagnose"],
-    vendLabel: "Vendrava · AI voice agent",
+    vendLabel: "Pleneva · AI voice agent",
     vendPoints: ["Makes and answers phone calls", "Talks like a consultative sales rep", "Diagnoses the need and proposes a solution", "Trained on your niche, in neutral Spanish"],
   },
   inboundOutbound: {
     tag: "Inbound + Outbound",
     title: "It does not just call. It also answers.",
-    sub: "Vendrava is designed to manage both outbound leads and inbound queries. It answers calls, records conversations, qualifies intent and triggers next steps from the CRM.",
+    sub: "Pleneva is designed to manage both outbound leads and inbound queries. It answers calls, records conversations, qualifies intent and triggers next steps from the CRM.",
     outLabel: "Outbound AI",
     outItems: ["Calls new leads", "Runs cold-call campaigns at volume", "Recovers cold leads", "Asks qualifying questions", "Books appointments or visits", "Transfers to a human agent"],
     inLabel: "Inbound AI",
@@ -83,7 +83,7 @@ export const homeEn: HomeContent = {
     text: "A form at night, a missed call, a WhatsApp message after hours or a query from a campaign can become an appointment or a sale if it is handled fast and with context.",
     steps: [
       { t: "10:43 PM", title: "A lead comes in", text: "Form or call, outside business hours." },
-      { t: "10:43 PM", title: "Vendrava answers", text: "AI responds or logs the query and detects intent." },
+      { t: "10:43 PM", title: "Pleneva answers", text: "AI responds or logs the query and detects intent." },
       { t: "10:45 PM", title: "Summary saved", text: "Need, reason and context are stored in the CRM." },
       { t: "9:00 AM", title: "The team gets context", text: "Starts the day with the recommended next action, not from scratch." },
     ],
@@ -92,17 +92,17 @@ export const homeEn: HomeContent = {
     tag: "How it works",
     title: "From the first signal to the next step, with nothing falling through",
     steps: [
-      { n: "1", title: "Capture the lead", text: "Vendrava centralizes forms, campaigns, calls and contacts.", tag: "Web · Ads · Inbound" },
+      { n: "1", title: "Capture the lead", text: "Pleneva centralizes forms, campaigns, calls and contacts.", tag: "Web · Ads · Inbound" },
       { n: "2", title: "Activate contact", text: "The system can trigger AI calls, emails, WhatsApp messages or tasks.", tag: "Multichannel" },
       { n: "3", title: "Qualify the opportunity", text: "AI collects intent, urgency, reason, budget and context.", tag: "Intent: High" },
-      { n: "4", title: "Book and follow up", text: "Vendrava books the appointment and keeps the opportunity moving with reminders.", tag: "Follow-up" },
+      { n: "4", title: "Book and follow up", text: "Pleneva books the appointment and keeps the opportunity moving with reminders.", tag: "Follow-up" },
       { n: "5", title: "Move forward with more context", text: "Your team gets summaries, buying signals and recommended actions.", tag: "Next action" },
     ],
   },
   dualAI: {
     tag: "Dual AI System",
     title: "One AI responds. Another thinks strategically.",
-    sub: "Vendrava combines a fast layer for fluid conversations with a strategic layer that analyzes context, objections and next steps in the background.",
+    sub: "Pleneva combines a fast layer for fluid conversations with a strategic layer that analyzes context, objections and next steps in the background.",
     mini: [
       { name: "Fast Executor", rows: ["Responds fast", "Keeps it fluid", "Answers or calls"] },
       { name: "Guru Supervisor", rows: ["Analyzes intent", "Detects objections", "Recommends strategy"] },
@@ -191,7 +191,7 @@ export const homeEn: HomeContent = {
   advisor: {
     tag: "AI sales advisor",
     title: "Not a generic bot. A sales advisor trained on your industry.",
-    sub: "Vendrava learns your niche's language, qualifying questions and objections to talk like your best rep would, and adapts to each market and language.",
+    sub: "Pleneva learns your niche's language, qualifying questions and objections to talk like your best rep would, and adapts to each market and language.",
     nicheLabel: "Trained on your industry:",
     niches: ["Real estate", "Clinics", "Veterinary", "Pet grooming", "Car dealers", "Call centers", "Services", "Education"],
     cards: [
@@ -242,7 +242,7 @@ export const homeEn: HomeContent = {
     text: "Design flows where each lead gets the right follow-up based on status, channel, urgency and intent.",
     trigLabel: "When this happens",
     triggers: ["New form", "Missed inbound call", "WhatsApp received", "Lead not replying", "Proposal viewed", "Appointment booked"],
-    actLabel: "Vendrava can",
+    actLabel: "Pleneva can",
     actions: [
       { icon: "✆", label: "Answer with AI" },
       { icon: "✆", label: "Call with AI" },
@@ -256,21 +256,21 @@ export const homeEn: HomeContent = {
     nodeLabel: "decides the flow",
   },
   dayInLife: {
-    tag: "A day with Vendrava",
-    title: "How Vendrava works while your team sells",
+    tag: "A day with Pleneva",
+    title: "How Pleneva works while your team sells",
     items: [
-      { t: "08:12", title: "New lead from a campaign", text: "A Google Ads form comes in and Vendrava classifies it.", side: "l" },
+      { t: "08:12", title: "New lead from a campaign", text: "A Google Ads form comes in and Pleneva classifies it.", side: "l" },
       { t: "08:13", title: "Triggers contact", text: "The flow picks an AI call plus WhatsApp based on the source.", side: "r" },
       { t: "08:15", title: "AI agent calls", text: "Detects high intent and confirms the reason.", side: "l" },
       { t: "08:18", title: "Summary in the CRM", text: "Need, objection and next step are recorded.", side: "r" },
       { t: "09:00", title: "The team gets the action", text: "Sees who to call and what to say, with full context.", side: "l" },
-      { t: "11:30", title: "Lead replies on WhatsApp", text: "Vendrava keeps the conversation inside the pipeline.", side: "r" },
+      { t: "11:30", title: "Lead replies on WhatsApp", text: "Pleneva keeps the conversation inside the pipeline.", side: "r" },
       { t: "12:10", title: "Appointment booked", text: "The appointment is confirmed and the status updates itself.", side: "l" },
     ],
   },
   demo: {
     badge: "Free demo",
-    title: "Try Vendrava with real AI, not just an empty demo",
+    title: "Try Pleneva with real AI, not just an empty demo",
     sub: "Start with included AI credits to test calls, inbound handling, conversation analysis and automations with real or test leads.",
     unit: "included AI credits",
     use: "Use them to test calls, summaries, analysis, automations and commercial flows.",
@@ -288,7 +288,7 @@ export const homeEn: HomeContent = {
   growthHub: {
     tag: "Growth Marketing Hub",
     title: "CRM, calls and growth in a single system",
-    text: "Vendrava connects acquisition, follow-up and conversion so marketing and sales work on the same flow of opportunities.",
+    text: "Pleneva connects acquisition, follow-up and conversion so marketing and sales work on the same flow of opportunities.",
     modules: [
       { name: "Campaigns", span: 2, desc: "Launch campaigns and connect every lead to the CRM.", val: "Multichannel", iconKey: "campaigns" },
       { name: "Email", span: 1, desc: "Sequences tied to commercial status.", val: "", iconKey: "email" },
@@ -303,7 +303,7 @@ export const homeEn: HomeContent = {
   },
   capabilities: {
     tag: "Capabilities",
-    title: "What Vendrava can activate for your team",
+    title: "What Pleneva can activate for your team",
     groups: [
       { name: "Capture", items: ["Sales funnels", "Prospect Finder", "Forms and campaigns", "WhatsApp and email"] },
       { name: "Voice AI", items: ["Answer inbound calls", "Call new leads", "Detect buying signals", "Insight for every call"] },
@@ -327,18 +327,18 @@ export const homeEn: HomeContent = {
   },
   beforeAfter: {
     tag: "Before / After",
-    title: "What changes when Vendrava joins the team",
-    beforeLabel: "Before Vendrava",
-    afterLabel: "After Vendrava",
+    title: "What changes when Pleneva joins the team",
+    beforeLabel: "Before Pleneva",
+    afterLabel: "After Pleneva",
     before: ["Missed calls", "Leads with no context", "Manual follow-ups", "Outdated CRM", "The team reacting late"],
     after: ["Calls answered or logged", "Qualified leads", "Automatic reminders", "Clear next actions", "A live, updated CRM"],
   },
   comparison: {
     tag: "Comparison",
-    title: "A traditional CRM waits. Vendrava acts.",
-    sub: "Storing contacts is no longer enough. Vendrava helps you answer, call, receive, qualify and book from the same system.",
+    title: "A traditional CRM waits. Pleneva acts.",
+    sub: "Storing contacts is no longer enough. Pleneva helps you answer, call, receive, qualify and book from the same system.",
     tradLabel: "Traditional CRM",
-    vendLabel: "Vendrava",
+    vendLabel: "Pleneva",
     rows: [
       { trad: "Stores contacts", vend: "Activates leads automatically" },
       { trad: "Relies on the team to call", vend: "Can call and answer with AI voice agents" },
@@ -357,7 +357,7 @@ export const homeEn: HomeContent = {
   security: {
     tag: "Security & compliance",
     title: "Automation with human control and compliance",
-    text: "Vendrava's AI can identify itself as AI, manage consent where applicable and always leave the final decision to your team. Every conversation and action is logged and connected to the CRM.",
+    text: "Pleneva's AI can identify itself as AI, manage consent where applicable and always leave the final decision to your team. Every conversation and action is logged and connected to the CRM.",
     items: [
       { icon: "◎", title: "AI disclosure on the call", text: "The agent can identify itself as AI at the start, per each market's regulations." },
       { icon: "✓", title: "Consent and calling hours", text: "Configure consent, permitted hours and exclusions per market." },
@@ -369,18 +369,18 @@ export const homeEn: HomeContent = {
     tag: "FAQ",
     title: "Frequently asked questions",
     items: [
-      { q: "What is Vendrava?", a: "Vendrava is an AI CRM designed to answer, call, qualify, book and follow up on your leads over voice and WhatsApp, with your team always in control." },
-      { q: "Do AI calls comply with regulations?", a: "Vendrava is designed to be configured to the applicable regulations in each market: AI disclosure, consent, permitted calling hours and human control. Responsible configuration is part of the product." },
-      { q: "Does Vendrava replace my team?", a: "No. Vendrava supports the team: it speeds up responses, qualifies leads, books and keeps follow-up going. The final decision and the customer relationship stay with people." },
+      { q: "What is Pleneva?", a: "Pleneva is an AI CRM designed to answer, call, qualify, book and follow up on your leads over voice and WhatsApp, with your team always in control." },
+      { q: "Do AI calls comply with regulations?", a: "Pleneva is designed to be configured to the applicable regulations in each market: AI disclosure, consent, permitted calling hours and human control. Responsible configuration is part of the product." },
+      { q: "Does Pleneva replace my team?", a: "No. Pleneva supports the team: it speeds up responses, qualifies leads, books and keeps follow-up going. The final decision and the customer relationship stay with people." },
       { q: "What are AI voice agents?", a: "They are conversational agents that can answer and contact leads by phone, ask qualification questions and log context inside the CRM." },
-      { q: "Does Vendrava integrate WhatsApp and email?", a: "Yes. Vendrava is designed to connect sales follow-up across calls, email, WhatsApp and other channels within the same CRM." },
-      { q: "Can I use Vendrava only as a CRM?", a: "Yes, but its greatest value appears when CRM, AI voice, WhatsApp, automation and growth marketing work together." },
-      { q: "How does Vendrava help convert more leads?", a: "It helps reduce response time, answer after hours, qualify opportunities, book appointments and give the team more context." },
+      { q: "Does Pleneva integrate WhatsApp and email?", a: "Yes. Pleneva is designed to connect sales follow-up across calls, email, WhatsApp and other channels within the same CRM." },
+      { q: "Can I use Pleneva only as a CRM?", a: "Yes, but its greatest value appears when CRM, AI voice, WhatsApp, automation and growth marketing work together." },
+      { q: "How does Pleneva help convert more leads?", a: "It helps reduce response time, answer after hours, qualify opportunities, book appointments and give the team more context." },
     ],
   },
   finalCta: {
     title: "Don't let an opportunity slip away because nobody replied in time",
-    sub: "Try Vendrava with 100,000 AI credits included and see how to answer, call, qualify and book from a single CRM.",
+    sub: "Try Pleneva with 100,000 AI credits included and see how to answer, call, qualify and book from a single CRM.",
     primary: "Book a demo",
     secondary: "Talk to sales",
   },

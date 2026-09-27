@@ -11,11 +11,11 @@ import { buildMetadata } from "@/lib/metadata";
 
 const FAQ = [
   {
-    q: "¿Vendrava tiene precios públicos?",
+    q: "¿Pleneva tiene precios públicos?",
     a: "Los planes de pago se adaptan al volumen de leads, llamadas y automatizaciones de cada equipo, por lo que trabajamos la propuesta hablando directamente con ventas.",
   },
   {
-    q: "¿Puedo probar Vendrava antes de elegir un plan?",
+    q: "¿Puedo probar Pleneva antes de elegir un plan?",
     a: "Sí. Puedes solicitar una demo para explorar el CRM, los agentes IA de voz y los flujos de automatización antes de decidir un plan.",
   },
   {
@@ -32,9 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "pricing",
     locale: "es",
-    title: "Precios de Vendrava | AI Sales CRM",
+    title: "Precios de Pleneva | AI Sales CRM",
     description:
-      "Planes de Vendrava adaptados al volumen de leads, llamadas y automatizaciones: Starter, Growth, Scale y Enterprise. Habla con ventas para una propuesta a medida.",
+      "Planes de Pleneva adaptados al volumen de leads, llamadas y automatizaciones: Starter, Growth, Scale y Enterprise. Habla con ventas para una propuesta a medida.",
   });
 }
 
@@ -63,7 +63,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <FinalCTASection
         locale="es"
         title="Convierte tus leads antes de que se enfríen"
-        sub="Prueba Vendrava con 100.000 créditos de IA incluidos."
+        sub="Prueba Pleneva con 100.000 créditos de IA incluidos."
         primary="Solicitar una demo"
         secondary="Hablar con ventas"
       />

@@ -7,20 +7,20 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "crm-con-ia",
     slugEn: "ai-crm",
     es: {
-      metaTitle: "CRM con IA para equipos comerciales | Vendrava",
+      metaTitle: "CRM con IA para equipos comerciales | Pleneva",
       metaDescription:
-        "CRM con IA que centraliza tus leads y activa flujos automáticos para llamar, calificar, dar seguimiento y convertir más oportunidades. Prueba Vendrava.",
+        "CRM con IA que centraliza tus leads y activa flujos automáticos para llamar, calificar, dar seguimiento y convertir más oportunidades. Prueba Pleneva.",
       navLabel: "CRM con IA",
       heroKicker: "CRM con IA",
       h1: "CRM con IA para equipos comerciales que necesitan vender más rápido",
       heroSub:
-        "Vendrava centraliza tus leads en un solo lugar y usa inteligencia artificial para priorizar, calificar y activar el siguiente paso de cada oportunidad, sin que tu equipo tenga que perseguir cada dato manualmente.",
+        "Pleneva centraliza tus leads en un solo lugar y usa inteligencia artificial para priorizar, calificar y activar el siguiente paso de cada oportunidad, sin que tu equipo tenga que perseguir cada dato manualmente.",
       problemTitle: "Los leads llegan rápido, pero el seguimiento no",
       problemText:
         "Los leads entran por formularios, WhatsApp, llamadas y redes a cualquier hora del día. Cuando la información queda dispersa entre hojas de cálculo, bandejas de entrada y notas sueltas, el equipo comercial pierde tiempo buscando contexto en lugar de vender, y la oportunidad se enfría mientras alguien decide quién debe responder.",
       solutionTitle: "Un CRM que además de organizar, actúa",
       solutionText:
-        "Vendrava centraliza tus leads y activa flujos inteligentes para llamar, calificar, enviar seguimientos, generar propuestas y medir cada oportunidad desde una sola plataforma. La IA ayuda a priorizar qué lead atender primero y qué acción conviene tomar, mientras tu equipo mantiene el control de cada conversación.",
+        "Pleneva centraliza tus leads y activa flujos inteligentes para llamar, calificar, enviar seguimientos, generar propuestas y medir cada oportunidad desde una sola plataforma. La IA ayuda a priorizar qué lead atender primero y qué acción conviene tomar, mientras tu equipo mantiene el control de cada conversación.",
       benefits: [
         {
           title: "Menos tiempo administrativo",
@@ -75,15 +75,15 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "¿Qué diferencia a un CRM con IA de un CRM tradicional?",
-          a: "Un CRM tradicional almacena información y depende de que el equipo la actualice y la revise manualmente. Un CRM con IA como Vendrava, además de almacenar los datos, ayuda a priorizar leads, sugiere el siguiente paso y puede activar acciones como llamadas o seguimientos automáticos.",
+          a: "Un CRM tradicional almacena información y depende de que el equipo la actualice y la revise manualmente. Un CRM con IA como Pleneva, además de almacenar los datos, ayuda a priorizar leads, sugiere el siguiente paso y puede activar acciones como llamadas o seguimientos automáticos.",
         },
         {
-          q: "¿Vendrava reemplaza a mi equipo de ventas?",
-          a: "No. Vendrava está diseñado para apoyar y acelerar el trabajo del equipo comercial, no para sustituirlo. Las personas siguen tomando las decisiones clave y mantienen el control sobre cada conversación y cada cierre.",
+          q: "¿Pleneva reemplaza a mi equipo de ventas?",
+          a: "No. Pleneva está diseñado para apoyar y acelerar el trabajo del equipo comercial, no para sustituirlo. Las personas siguen tomando las decisiones clave y mantienen el control sobre cada conversación y cada cierre.",
         },
         {
           q: "¿Puedo migrar mis datos desde otro CRM?",
-          a: "Sí, Vendrava permite importar contactos, oportunidades e historial desde otras plataformas para que el equipo no tenga que empezar de cero.",
+          a: "Sí, Pleneva permite importar contactos, oportunidades e historial desde otras plataformas para que el equipo no tenga que empezar de cero.",
         },
         {
           q: "¿El CRM funciona para equipos en varios países?",
@@ -91,28 +91,28 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "¿Necesito conocimientos técnicos para configurarlo?",
-          a: "No es necesario. Los flujos de trabajo se configuran desde una interfaz visual, y el equipo de Vendrava puede acompañar la puesta en marcha inicial.",
+          a: "No es necesario. Los flujos de trabajo se configuran desde una interfaz visual, y el equipo de Pleneva puede acompañar la puesta en marcha inicial.",
         },
       ],
       ctaTitle: "Centraliza tu operación comercial en un solo CRM",
       ctaSub:
-        "Descubre cómo Vendrava puede ayudar a tu equipo a organizar leads, automatizar seguimientos y cerrar más oportunidades.",
+        "Descubre cómo Pleneva puede ayudar a tu equipo a organizar leads, automatizar seguimientos y cerrar más oportunidades.",
     },
     en: {
-      metaTitle: "AI CRM for Sales Teams | Vendrava",
+      metaTitle: "AI CRM for Sales Teams | Pleneva",
       metaDescription:
-        "AI CRM that centralizes your leads and activates automated workflows to call, qualify, follow up and convert more opportunities. Try Vendrava.",
+        "AI CRM that centralizes your leads and activates automated workflows to call, qualify, follow up and convert more opportunities. Try Pleneva.",
       navLabel: "AI CRM",
       heroKicker: "AI Sales CRM",
       h1: "AI CRM for sales teams that need to move faster",
       heroSub:
-        "Vendrava centralizes your leads in one place and uses AI to prioritize, qualify and trigger the next step for every opportunity, so your team spends less time chasing information and more time selling.",
+        "Pleneva centralizes your leads in one place and uses AI to prioritize, qualify and trigger the next step for every opportunity, so your team spends less time chasing information and more time selling.",
       problemTitle: "Leads arrive fast. Follow-up usually doesn't",
       problemText:
         "Leads come in through forms, WhatsApp, calls and social media at any hour. When that information is scattered across spreadsheets, inboxes and loose notes, the sales team spends time hunting for context instead of selling, and the opportunity cools down while someone figures out who should respond.",
       solutionTitle: "A CRM that organizes and also acts",
       solutionText:
-        "Vendrava centralizes your leads and activates intelligent workflows to call, qualify, follow up, generate proposals and measure every opportunity from one platform. AI helps prioritize which lead to work next and what action makes sense, while your team keeps control of every conversation.",
+        "Pleneva centralizes your leads and activates intelligent workflows to call, qualify, follow up, generate proposals and measure every opportunity from one platform. AI helps prioritize which lead to work next and what action makes sense, while your team keeps control of every conversation.",
       benefits: [
         {
           title: "Less administrative work",
@@ -167,15 +167,15 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "What's the difference between an AI CRM and a traditional CRM?",
-          a: "A traditional CRM stores information and relies on the team to update and review it manually. An AI CRM like Vendrava also helps prioritize leads, suggests the next step, and can trigger actions such as calls or automated follow-ups.",
+          a: "A traditional CRM stores information and relies on the team to update and review it manually. An AI CRM like Pleneva also helps prioritize leads, suggests the next step, and can trigger actions such as calls or automated follow-ups.",
         },
         {
-          q: "Does Vendrava replace my sales team?",
-          a: "No. Vendrava is designed to support and accelerate the sales team's work, not replace it. People still make the key decisions and stay in control of every conversation and every close.",
+          q: "Does Pleneva replace my sales team?",
+          a: "No. Pleneva is designed to support and accelerate the sales team's work, not replace it. People still make the key decisions and stay in control of every conversation and every close.",
         },
         {
           q: "Can I migrate my data from another CRM?",
-          a: "Yes, Vendrava supports importing contacts, opportunities and history from other platforms so the team doesn't have to start from scratch.",
+          a: "Yes, Pleneva supports importing contacts, opportunities and history from other platforms so the team doesn't have to start from scratch.",
         },
         {
           q: "Does the CRM work for teams across multiple countries?",
@@ -183,12 +183,12 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "Do I need technical knowledge to set it up?",
-          a: "No. Workflows are configured through a visual interface, and the Vendrava team can support the initial setup.",
+          a: "No. Workflows are configured through a visual interface, and the Pleneva team can support the initial setup.",
         },
       ],
       ctaTitle: "Centralize your sales operation in one CRM",
       ctaSub:
-        "See how Vendrava can help your team organize leads, automate follow-up and convert more opportunities.",
+        "See how Pleneva can help your team organize leads, automate follow-up and convert more opportunities.",
     },
   },
 
@@ -198,9 +198,9 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "agentes-ia-voz",
     slugEn: "ai-voice-agents",
     es: {
-      metaTitle: "Agentes IA de voz para ventas | Vendrava",
+      metaTitle: "Agentes IA de voz para ventas | Pleneva",
       metaDescription:
-        "Agentes IA de voz que contactan, califican y dan seguimiento a tus leads con control humano en todo momento. Descubre cómo funcionan en Vendrava.",
+        "Agentes IA de voz que contactan, califican y dan seguimiento a tus leads con control humano en todo momento. Descubre cómo funcionan en Pleneva.",
       navLabel: "Agentes IA de voz",
       heroKicker: "Producto · Agentes IA de voz",
       h1: "Agentes IA de voz para contactar y calificar leads",
@@ -211,7 +211,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Cuando un lead deja sus datos espera una respuesta rápida. Si el equipo comercial está ocupado, fuera de horario o simplemente no llega a tiempo, ese contacto se enfría o termina eligiendo a la competencia que respondió primero.",
       solutionTitle: "Un agente de voz que abre la conversación por ti",
       solutionText:
-        "Los agentes IA de voz de Vendrava pueden contactar a un lead en minutos, hacer preguntas de calificación, detectar intención de compra y registrar un resumen estructurado en el CRM. Un sistema de análisis en segundo plano ayuda a ajustar el enfoque de la conversación según el contexto, mientras el equipo humano supervisa y decide los siguientes pasos. Las llamadas automatizadas deben configurarse respetando la normativa aplicable, el consentimiento y los horarios permitidos en cada mercado.",
+        "Los agentes IA de voz de Pleneva pueden contactar a un lead en minutos, hacer preguntas de calificación, detectar intención de compra y registrar un resumen estructurado en el CRM. Un sistema de análisis en segundo plano ayuda a ajustar el enfoque de la conversación según el contexto, mientras el equipo humano supervisa y decide los siguientes pasos. Las llamadas automatizadas deben configurarse respetando la normativa aplicable, el consentimiento y los horarios permitidos en cada mercado.",
       benefits: [
         {
           title: "Contacto casi inmediato",
@@ -278,7 +278,7 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "¿Es legal usar llamadas automatizadas con IA?",
-          a: "El uso de llamadas automatizadas debe configurarse respetando la normativa aplicable, el consentimiento del contacto y los horarios permitidos en cada mercado. Vendrava permite ajustar estos parámetros según el país de operación.",
+          a: "El uso de llamadas automatizadas debe configurarse respetando la normativa aplicable, el consentimiento del contacto y los horarios permitidos en cada mercado. Pleneva permite ajustar estos parámetros según el país de operación.",
         },
         {
           q: "¿Puedo personalizar las preguntas de calificación?",
@@ -287,12 +287,12 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Deja que un agente de voz abra la conversación",
       ctaSub:
-        "Conoce cómo los agentes IA de voz de Vendrava pueden ayudarte a contactar y calificar leads más rápido, sin perder el control humano.",
+        "Conoce cómo los agentes IA de voz de Pleneva pueden ayudarte a contactar y calificar leads más rápido, sin perder el control humano.",
     },
     en: {
-      metaTitle: "AI Voice Agents for Sales | Vendrava",
+      metaTitle: "AI Voice Agents for Sales | Pleneva",
       metaDescription:
-        "AI voice agents that contact, qualify and follow up with your leads, with human control at every step. See how it works in Vendrava.",
+        "AI voice agents that contact, qualify and follow up with your leads, with human control at every step. See how it works in Pleneva.",
       navLabel: "AI Voice Agents",
       heroKicker: "Product · AI Voice Agents",
       h1: "AI voice agents to contact and qualify leads",
@@ -303,7 +303,7 @@ export const PRODUCTS: ProductEntry[] = [
         "When a lead submits their details, they expect a quick response. If the sales team is busy, outside working hours, or simply not fast enough, that contact cools down or ends up choosing whichever competitor answered first.",
       solutionTitle: "A voice agent that opens the conversation for you",
       solutionText:
-        "Vendrava's AI voice agents can reach a lead within minutes, ask qualification questions, detect buying intent and log a structured summary in the CRM. A background analysis layer helps adjust the conversation's approach based on context, while the human team supervises and decides the next steps. Automated calls should be configured in accordance with applicable regulations, consent requirements and permitted calling hours in each market.",
+        "Pleneva's AI voice agents can reach a lead within minutes, ask qualification questions, detect buying intent and log a structured summary in the CRM. A background analysis layer helps adjust the conversation's approach based on context, while the human team supervises and decides the next steps. Automated calls should be configured in accordance with applicable regulations, consent requirements and permitted calling hours in each market.",
       benefits: [
         {
           title: "Near-instant contact",
@@ -370,7 +370,7 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "Is it legal to use AI-automated calls?",
-          a: "Automated calling must be configured in accordance with applicable regulations, contact consent and permitted calling hours in each market. Vendrava lets you adjust these parameters based on your country of operation.",
+          a: "Automated calling must be configured in accordance with applicable regulations, contact consent and permitted calling hours in each market. Pleneva lets you adjust these parameters based on your country of operation.",
         },
         {
           q: "Can I customize the qualification questions?",
@@ -379,7 +379,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Let a voice agent open the conversation",
       ctaSub:
-        "See how Vendrava's AI voice agents can help you contact and qualify leads faster, without losing human control.",
+        "See how Pleneva's AI voice agents can help you contact and qualify leads faster, without losing human control.",
     },
   },
 
@@ -389,20 +389,20 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "llamadas-ia",
     slugEn: "ai-calling",
     es: {
-      metaTitle: "Llamadas con IA para ventas y seguimiento | Vendrava",
+      metaTitle: "Llamadas con IA para ventas y seguimiento | Pleneva",
       metaDescription:
         "Automatiza llamadas entrantes y salientes con IA: calificación, recuperación de llamadas perdidas y agendamiento, todo conectado a tu CRM.",
       navLabel: "Llamadas con IA",
       heroKicker: "Llamadas IA",
       h1: "Llamadas con IA para ventas, seguimiento y calificación de leads",
       heroSub:
-        "Vendrava organiza tu operación telefónica completa: llamadas salientes automáticas, recuperación de llamadas perdidas y agendamiento, todo registrado en el mismo CRM que usa tu equipo comercial.",
+        "Pleneva organiza tu operación telefónica completa: llamadas salientes automáticas, recuperación de llamadas perdidas y agendamiento, todo registrado en el mismo CRM que usa tu equipo comercial.",
       problemTitle: "El teléfono sigue siendo un canal crítico, y también uno frágil",
       problemText:
         "Una llamada perdida puede significar una oportunidad perdida. Cuando el volumen de llamadas entrantes y salientes crece, es difícil garantizar que cada una se atienda, se registre correctamente y tenga un seguimiento a tiempo, sobre todo fuera del horario laboral o en picos de demanda.",
       solutionTitle: "Una operación de llamadas que no depende solo de disponibilidad humana",
       solutionText:
-        "Vendrava combina llamadas salientes automatizadas con recuperación de llamadas perdidas y agendamiento inteligente, para que cada intento de contacto por teléfono quede cubierto y registrado en el CRM. El equipo comercial puede enfocarse en las conversaciones que requieren su criterio, mientras el sistema se encarga del volumen operativo. Las llamadas automatizadas deben configurarse respetando la normativa aplicable, el consentimiento y los horarios permitidos en cada mercado.",
+        "Pleneva combina llamadas salientes automatizadas con recuperación de llamadas perdidas y agendamiento inteligente, para que cada intento de contacto por teléfono quede cubierto y registrado en el CRM. El equipo comercial puede enfocarse en las conversaciones que requieren su criterio, mientras el sistema se encarga del volumen operativo. Las llamadas automatizadas deben configurarse respetando la normativa aplicable, el consentimiento y los horarios permitidos en cada mercado.",
       benefits: [
         {
           title: "Menos llamadas perdidas",
@@ -466,7 +466,7 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "¿Qué diferencia hay entre llamadas IA y agentes IA de voz?",
-          a: "Llamadas IA se refiere a la operación telefónica completa (entrantes, salientes, recuperación de llamadas perdidas y agendamiento), mientras que los agentes IA de voz son la capacidad conversacional que sostiene esas llamadas. Ambos módulos trabajan juntos dentro de Vendrava.",
+          a: "Llamadas IA se refiere a la operación telefónica completa (entrantes, salientes, recuperación de llamadas perdidas y agendamiento), mientras que los agentes IA de voz son la capacidad conversacional que sostiene esas llamadas. Ambos módulos trabajan juntos dentro de Pleneva.",
         },
         {
           q: "¿Puedo recuperar llamadas perdidas fuera de horario laboral?",
@@ -474,11 +474,11 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "¿Las llamadas automatizadas cumplen con la normativa de protección de datos?",
-          a: "Las llamadas automatizadas deben configurarse respetando la normativa aplicable, el consentimiento del contacto y los horarios permitidos en cada mercado. Vendrava permite ajustar estos parámetros según el país de operación.",
+          a: "Las llamadas automatizadas deben configurarse respetando la normativa aplicable, el consentimiento del contacto y los horarios permitidos en cada mercado. Pleneva permite ajustar estos parámetros según el país de operación.",
         },
         {
           q: "¿Puedo integrar mi número de teléfono existente?",
-          a: "En la mayoría de los casos sí es posible integrar líneas existentes; el equipo de Vendrava puede orientar sobre la configuración según el proveedor de telefonía.",
+          a: "En la mayoría de los casos sí es posible integrar líneas existentes; el equipo de Pleneva puede orientar sobre la configuración según el proveedor de telefonía.",
         },
         {
           q: "¿El agendamiento se sincroniza con mi calendario actual?",
@@ -487,23 +487,23 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Organiza tu operación de llamadas de principio a fin",
       ctaSub:
-        "Descubre cómo Vendrava automatiza llamadas salientes, recupera llamadas perdidas y agenda citas sin perder registro de nada.",
+        "Descubre cómo Pleneva automatiza llamadas salientes, recupera llamadas perdidas y agenda citas sin perder registro de nada.",
     },
     en: {
-      metaTitle: "AI Calling for Sales and Follow-Up | Vendrava",
+      metaTitle: "AI Calling for Sales and Follow-Up | Pleneva",
       metaDescription:
         "Automate inbound and outbound calls with AI: qualification, missed-call recovery and scheduling, all connected to your CRM.",
       navLabel: "AI Calling",
       heroKicker: "AI Calling",
       h1: "AI calling for sales, follow-up and lead qualification",
       heroSub:
-        "Vendrava organizes your entire phone operation: automated outbound calls, missed-call recovery and scheduling, all logged in the same CRM your sales team already uses.",
+        "Pleneva organizes your entire phone operation: automated outbound calls, missed-call recovery and scheduling, all logged in the same CRM your sales team already uses.",
       problemTitle: "The phone is still a critical channel, and a fragile one",
       problemText:
         "A missed call can mean a missed opportunity. As inbound and outbound call volume grows, it becomes hard to guarantee every call gets answered, logged correctly and followed up on time, especially outside business hours or during demand spikes.",
       solutionTitle: "A calling operation that doesn't rely only on human availability",
       solutionText:
-        "Vendrava combines automated outbound calling with missed-call recovery and intelligent scheduling, so every phone contact attempt is covered and logged in the CRM. The sales team can focus on the conversations that need their judgment, while the system handles the operational volume. Automated calls should be configured in accordance with applicable regulations, consent requirements and permitted calling hours in each market.",
+        "Pleneva combines automated outbound calling with missed-call recovery and intelligent scheduling, so every phone contact attempt is covered and logged in the CRM. The sales team can focus on the conversations that need their judgment, while the system handles the operational volume. Automated calls should be configured in accordance with applicable regulations, consent requirements and permitted calling hours in each market.",
       benefits: [
         {
           title: "Fewer missed calls",
@@ -567,7 +567,7 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "What's the difference between AI calling and AI voice agents?",
-          a: "AI calling refers to the full telephony operation (inbound, outbound, missed-call recovery and scheduling), while AI voice agents are the conversational capability that powers those calls. Both modules work together inside Vendrava.",
+          a: "AI calling refers to the full telephony operation (inbound, outbound, missed-call recovery and scheduling), while AI voice agents are the conversational capability that powers those calls. Both modules work together inside Pleneva.",
         },
         {
           q: "Can I recover missed calls outside business hours?",
@@ -575,11 +575,11 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "Do automated calls comply with data protection regulations?",
-          a: "Automated calls must be configured in accordance with applicable regulations, contact consent and permitted calling hours in each market. Vendrava lets you adjust these parameters based on your country of operation.",
+          a: "Automated calls must be configured in accordance with applicable regulations, contact consent and permitted calling hours in each market. Pleneva lets you adjust these parameters based on your country of operation.",
         },
         {
           q: "Can I integrate my existing phone number?",
-          a: "In most cases, yes. The Vendrava team can guide the setup depending on your telephony provider.",
+          a: "In most cases, yes. The Pleneva team can guide the setup depending on your telephony provider.",
         },
         {
           q: "Does scheduling sync with my current calendar?",
@@ -588,7 +588,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Organize your calling operation end to end",
       ctaSub:
-        "See how Vendrava automates outbound calls, recovers missed calls and schedules appointments without losing track of anything.",
+        "See how Pleneva automates outbound calls, recovers missed calls and schedules appointments without losing track of anything.",
     },
   },
 
@@ -598,7 +598,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "automatizacion-ventas",
     slugEn: "sales-automation",
     es: {
-      metaTitle: "Automatización de ventas | Vendrava",
+      metaTitle: "Automatización de ventas | Pleneva",
       metaDescription:
         "Automatiza tareas repetitivas del proceso comercial: asignación de leads, seguimientos, recordatorios y más, conectado a tu CRM con IA.",
       navLabel: "Automatización de ventas",
@@ -611,7 +611,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Asignar leads, enviar el mismo correo de seguimiento, recordar una llamada pendiente o mover una oportunidad de etapa son tareas necesarias pero repetitivas. Cuando se hacen manualmente, consumen horas que el equipo podría dedicar a conversaciones de valor, y es fácil que algo se pase por alto.",
       solutionTitle: "Flujos automáticos para cada etapa del proceso comercial",
       solutionText:
-        "Vendrava permite diseñar flujos de trabajo que activan acciones automáticas según reglas y señales del comportamiento del lead: asignar el contacto correcto, enviar un seguimiento, programar una llamada o mover la oportunidad a la siguiente etapa. El equipo define las reglas y supervisa los resultados, mientras la automatización se encarga de la ejecución repetitiva.",
+        "Pleneva permite diseñar flujos de trabajo que activan acciones automáticas según reglas y señales del comportamiento del lead: asignar el contacto correcto, enviar un seguimiento, programar una llamada o mover la oportunidad a la siguiente etapa. El equipo define las reglas y supervisa los resultados, mientras la automatización se encarga de la ejecución repetitiva.",
       benefits: [
         {
           title: "Menos tareas manuales",
@@ -687,10 +687,10 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Automatiza lo repetitivo, enfoca el esfuerzo en vender",
       ctaSub:
-        "Descubre cómo la automatización de ventas de Vendrava ayuda a tu equipo a mover oportunidades más rápido.",
+        "Descubre cómo la automatización de ventas de Pleneva ayuda a tu equipo a mover oportunidades más rápido.",
     },
     en: {
-      metaTitle: "Sales Automation | Vendrava",
+      metaTitle: "Sales Automation | Pleneva",
       metaDescription:
         "Automate repetitive sales tasks: lead assignment, follow-ups, reminders and more, connected to your AI-powered CRM.",
       navLabel: "Sales Automation",
@@ -703,7 +703,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Assigning leads, sending the same follow-up email, remembering a pending call, or moving an opportunity to the next stage are necessary but repetitive tasks. Done manually, they consume hours the team could spend on high-value conversations, and it's easy for something to slip through.",
       solutionTitle: "Automated workflows for every stage of the sales process",
       solutionText:
-        "Vendrava lets you design workflows that trigger automatic actions based on rules and lead behavior signals: assigning the right contact, sending a follow-up, scheduling a call, or moving the opportunity to the next stage. The team defines the rules and reviews the results, while automation handles the repetitive execution.",
+        "Pleneva lets you design workflows that trigger automatic actions based on rules and lead behavior signals: assigning the right contact, sending a follow-up, scheduling a call, or moving the opportunity to the next stage. The team defines the rules and reviews the results, while automation handles the repetitive execution.",
       benefits: [
         {
           title: "Fewer manual tasks",
@@ -779,7 +779,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Automate the repetitive, focus effort on selling",
       ctaSub:
-        "See how Vendrava's sales automation helps your team move opportunities faster.",
+        "See how Pleneva's sales automation helps your team move opportunities faster.",
     },
   },
 
@@ -789,7 +789,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "gestion-leads",
     slugEn: "lead-management",
     es: {
-      metaTitle: "Gestión de leads con seguimiento inteligente | Vendrava",
+      metaTitle: "Gestión de leads con seguimiento inteligente | Pleneva",
       metaDescription:
         "Centraliza, prioriza y da seguimiento a tus leads desde una sola plataforma. Gestión de leads con IA conectada a llamadas, email y WhatsApp.",
       navLabel: "Gestión de leads",
@@ -802,7 +802,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Un lead puede llegar por formulario, WhatsApp, una llamada entrante o una recomendación, y cada canal suele tener su propio registro separado. Sin un lugar único donde verlos todos, es fácil que alguno quede sin respuesta, se duplique el contacto o se pierda el historial de la conversación.",
       solutionTitle: "Cada lead, en un solo lugar, con el contexto completo",
       solutionText:
-        "Vendrava centraliza los leads que llegan por cualquier canal y organiza su seguimiento según reglas claras: quién lo atiende, cuándo se le contacta de nuevo y qué información ya se recogió. La IA ayuda a priorizar los leads con mayor probabilidad de avanzar, para que el equipo enfoque su energía donde más importa.",
+        "Pleneva centraliza los leads que llegan por cualquier canal y organiza su seguimiento según reglas claras: quién lo atiende, cuándo se le contacta de nuevo y qué información ya se recogió. La IA ayuda a priorizar los leads con mayor probabilidad de avanzar, para que el equipo enfoque su energía donde más importa.",
       benefits: [
         {
           title: "Ningún lead se pierde entre canales",
@@ -869,7 +869,7 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "¿Puedo integrar mis formularios y campañas actuales?",
-          a: "Sí, Vendrava permite conectar formularios web, campañas publicitarias y otras fuentes de leads existentes.",
+          a: "Sí, Pleneva permite conectar formularios web, campañas publicitarias y otras fuentes de leads existentes.",
         },
         {
           q: "¿La gestión de leads incluye seguimiento por WhatsApp y llamadas?",
@@ -878,10 +878,10 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Dale a cada lead el seguimiento que merece",
       ctaSub:
-        "Descubre cómo Vendrava centraliza y prioriza tus leads para que ninguno se quede sin respuesta.",
+        "Descubre cómo Pleneva centraliza y prioriza tus leads para que ninguno se quede sin respuesta.",
     },
     en: {
-      metaTitle: "Lead Management with Intelligent Follow-Up | Vendrava",
+      metaTitle: "Lead Management with Intelligent Follow-Up | Pleneva",
       metaDescription:
         "Centralize, prioritize and follow up on your leads from one platform. AI-powered lead management connected to calls, email and WhatsApp.",
       navLabel: "Lead Management",
@@ -894,7 +894,7 @@ export const PRODUCTS: ProductEntry[] = [
         "A lead can arrive through a form, WhatsApp, an inbound call, or a referral, and each channel usually has its own separate record. Without one place to see them all, it's easy for a lead to go unanswered, get contacted twice, or lose its conversation history.",
       solutionTitle: "Every lead, in one place, with full context",
       solutionText:
-        "Vendrava centralizes leads arriving through any channel and organizes their follow-up with clear rules: who handles it, when to re-contact, and what information has already been gathered. AI helps prioritize the leads most likely to move forward, so the team focuses its energy where it matters most.",
+        "Pleneva centralizes leads arriving through any channel and organizes their follow-up with clear rules: who handles it, when to re-contact, and what information has already been gathered. AI helps prioritize the leads most likely to move forward, so the team focuses its energy where it matters most.",
       benefits: [
         {
           title: "No lead gets lost between channels",
@@ -961,7 +961,7 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "Can I integrate my current forms and campaigns?",
-          a: "Yes, Vendrava supports connecting web forms, ad campaigns and other existing lead sources.",
+          a: "Yes, Pleneva supports connecting web forms, ad campaigns and other existing lead sources.",
         },
         {
           q: "Does lead management include follow-up via WhatsApp and calls?",
@@ -970,7 +970,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Give every lead the follow-up it deserves",
       ctaSub:
-        "See how Vendrava centralizes and prioritizes your leads so none go unanswered.",
+        "See how Pleneva centralizes and prioritizes your leads so none go unanswered.",
     },
   },
 
@@ -980,7 +980,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "crm-growth-marketing",
     slugEn: "growth-marketing-crm",
     es: {
-      metaTitle: "CRM y Growth Marketing en una plataforma | Vendrava",
+      metaTitle: "CRM y Growth Marketing en una plataforma | Pleneva",
       metaDescription:
         "Conecta adquisición, seguimiento y conversión en un solo sistema. CRM con growth marketing para escalar tu embudo comercial de punta a punta.",
       navLabel: "CRM Growth Marketing",
@@ -993,7 +993,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Cuando las herramientas de marketing y el CRM de ventas viven separados, es difícil saber qué campañas realmente generan clientes y no solo leads. Marketing optimiza según clics y formularios, mientras ventas trabaja con información incompleta sobre el origen y el contexto de cada oportunidad.",
       solutionTitle: "Un mismo embudo, desde la adquisición hasta el cierre",
       solutionText:
-        "Vendrava conecta la captación de leads con su gestión comercial dentro de una sola plataforma, para que cada campaña, formulario o canal de adquisición se pueda seguir hasta el cierre o pérdida de la oportunidad. Esto permite entender qué esfuerzos de growth realmente generan clientes, no solo tráfico o formularios completados.",
+        "Pleneva conecta la captación de leads con su gestión comercial dentro de una sola plataforma, para que cada campaña, formulario o canal de adquisición se pueda seguir hasta el cierre o pérdida de la oportunidad. Esto permite entender qué esfuerzos de growth realmente generan clientes, no solo tráfico o formularios completados.",
       benefits: [
         {
           title: "Visibilidad de extremo a extremo",
@@ -1048,7 +1048,7 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "¿Este módulo reemplaza mis herramientas de marketing digital?",
-          a: "No necesariamente. Vendrava puede integrarse con herramientas de publicidad y analítica existentes, centralizando el seguimiento posterior de los leads que generan.",
+          a: "No necesariamente. Pleneva puede integrarse con herramientas de publicidad y analítica existentes, centralizando el seguimiento posterior de los leads que generan.",
         },
         {
           q: "¿Puedo ver qué campaña generó cada cliente cerrado?",
@@ -1069,10 +1069,10 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Une adquisición y conversión en un solo sistema",
       ctaSub:
-        "Descubre cómo Vendrava conecta growth marketing y CRM para que cada campaña se pueda medir hasta el cierre.",
+        "Descubre cómo Pleneva conecta growth marketing y CRM para que cada campaña se pueda medir hasta el cierre.",
     },
     en: {
-      metaTitle: "CRM and Growth Marketing in One Platform | Vendrava",
+      metaTitle: "CRM and Growth Marketing in One Platform | Pleneva",
       metaDescription:
         "Connect acquisition, follow-up and conversion in one system. CRM with growth marketing to scale your sales funnel end to end.",
       navLabel: "Growth Marketing CRM",
@@ -1085,7 +1085,7 @@ export const PRODUCTS: ProductEntry[] = [
         "When marketing tools and the sales CRM live separately, it's hard to know which campaigns actually generate customers, not just leads. Marketing optimizes based on clicks and form fills, while sales works with incomplete information about the origin and context of each opportunity.",
       solutionTitle: "One funnel, from acquisition to close",
       solutionText:
-        "Vendrava connects lead acquisition with sales management inside a single platform, so every campaign, form or acquisition channel can be tracked through to the opportunity's close or loss. This makes it possible to understand which growth efforts actually generate customers, not just traffic or completed forms.",
+        "Pleneva connects lead acquisition with sales management inside a single platform, so every campaign, form or acquisition channel can be tracked through to the opportunity's close or loss. This makes it possible to understand which growth efforts actually generate customers, not just traffic or completed forms.",
       benefits: [
         {
           title: "End-to-end visibility",
@@ -1140,7 +1140,7 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "Does this module replace my digital marketing tools?",
-          a: "Not necessarily. Vendrava can integrate with existing advertising and analytics tools, centralizing the follow-up of the leads they generate.",
+          a: "Not necessarily. Pleneva can integrate with existing advertising and analytics tools, centralizing the follow-up of the leads they generate.",
         },
         {
           q: "Can I see which campaign generated each closed customer?",
@@ -1161,7 +1161,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Bring acquisition and conversion into one system",
       ctaSub:
-        "See how Vendrava connects growth marketing and CRM so every campaign can be measured through to close.",
+        "See how Pleneva connects growth marketing and CRM so every campaign can be measured through to close.",
     },
   },
 
@@ -1171,7 +1171,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "email-marketing",
     slugEn: "email-marketing",
     es: {
-      metaTitle: "Email marketing conectado a tu CRM | Vendrava",
+      metaTitle: "Email marketing conectado a tu CRM | Pleneva",
       metaDescription:
         "Envía secuencias de email marketing conectadas a los datos de tu CRM: segmentación, automatización y seguimiento en un solo lugar.",
       navLabel: "Email marketing",
@@ -1184,7 +1184,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Cuando las campañas de email se gestionan en una herramienta separada del CRM, es difícil segmentar según la etapa comercial real de cada contacto o saber si alguien que abrió un correo también recibió una llamada esa misma semana. El resultado son mensajes genéricos que no reflejan dónde está realmente cada lead.",
       solutionTitle: "Email que conoce el contexto comercial de cada lead",
       solutionText:
-        "Vendrava conecta el email marketing directamente con los datos del CRM, permitiendo segmentar campañas según etapa, comportamiento o historial de interacciones, y activar secuencias automáticas que se coordinan con llamadas y mensajes de WhatsApp dentro del mismo flujo comercial.",
+        "Pleneva conecta el email marketing directamente con los datos del CRM, permitiendo segmentar campañas según etapa, comportamiento o historial de interacciones, y activar secuencias automáticas que se coordinan con llamadas y mensajes de WhatsApp dentro del mismo flujo comercial.",
       benefits: [
         {
           title: "Segmentación basada en datos reales del CRM",
@@ -1251,19 +1251,19 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "¿Puedo migrar mis plantillas de email actuales?",
-          a: "Sí, las plantillas existentes pueden adaptarse al editor de Vendrava para mantener la identidad visual de tus campañas.",
+          a: "Sí, las plantillas existentes pueden adaptarse al editor de Pleneva para mantener la identidad visual de tus campañas.",
         },
         {
           q: "¿El sistema gestiona bajas y preferencias de contacto?",
-          a: "Sí, Vendrava permite gestionar bajas de suscripción y preferencias de frecuencia para cumplir con buenas prácticas de envío.",
+          a: "Sí, Pleneva permite gestionar bajas de suscripción y preferencias de frecuencia para cumplir con buenas prácticas de envío.",
         },
       ],
       ctaTitle: "Haz que tus campañas de email conozcan a cada lead",
       ctaSub:
-        "Descubre cómo el email marketing conectado al CRM de Vendrava ayuda a enviar el mensaje correcto en el momento correcto.",
+        "Descubre cómo el email marketing conectado al CRM de Pleneva ayuda a enviar el mensaje correcto en el momento correcto.",
     },
     en: {
-      metaTitle: "Email Marketing Connected to Your CRM | Vendrava",
+      metaTitle: "Email Marketing Connected to Your CRM | Pleneva",
       metaDescription:
         "Send email marketing sequences connected to your CRM data: segmentation, automation and tracking in one place.",
       navLabel: "Email Marketing",
@@ -1276,7 +1276,7 @@ export const PRODUCTS: ProductEntry[] = [
         "When email campaigns are managed in a tool separate from the CRM, it's hard to segment based on a contact's real sales stage or know whether someone who opened an email also received a call that same week. The result is generic messaging that doesn't reflect where each lead actually stands.",
       solutionTitle: "Email that knows each lead's sales context",
       solutionText:
-        "Vendrava connects email marketing directly with CRM data, allowing campaigns to be segmented by stage, behavior or interaction history, and triggering automated sequences that coordinate with calls and WhatsApp messages within the same sales flow.",
+        "Pleneva connects email marketing directly with CRM data, allowing campaigns to be segmented by stage, behavior or interaction history, and triggering automated sequences that coordinate with calls and WhatsApp messages within the same sales flow.",
       benefits: [
         {
           title: "Segmentation based on real CRM data",
@@ -1343,16 +1343,16 @@ export const PRODUCTS: ProductEntry[] = [
         },
         {
           q: "Can I migrate my current email templates?",
-          a: "Yes, existing templates can be adapted to Vendrava's editor to keep the visual identity of your campaigns.",
+          a: "Yes, existing templates can be adapted to Pleneva's editor to keep the visual identity of your campaigns.",
         },
         {
           q: "Does the system manage unsubscribes and contact preferences?",
-          a: "Yes, Vendrava lets you manage subscription opt-outs and frequency preferences to follow sending best practices.",
+          a: "Yes, Pleneva lets you manage subscription opt-outs and frequency preferences to follow sending best practices.",
         },
       ],
       ctaTitle: "Make your email campaigns know each lead",
       ctaSub:
-        "See how CRM-connected email marketing from Vendrava helps you send the right message at the right time.",
+        "See how CRM-connected email marketing from Pleneva helps you send the right message at the right time.",
     },
   },
 
@@ -1362,7 +1362,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "whatsapp-crm",
     slugEn: "whatsapp-crm",
     es: {
-      metaTitle: "WhatsApp CRM para ventas | Vendrava",
+      metaTitle: "WhatsApp CRM para ventas | Pleneva",
       metaDescription:
         "Responde, da seguimiento y convierte conversaciones de WhatsApp desde tu CRM. Centraliza chats de ventas con automatización e IA.",
       navLabel: "WhatsApp CRM",
@@ -1375,7 +1375,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Muchos leads prefieren escribir por WhatsApp antes que llenar un formulario o contestar una llamada. El problema aparece cuando esas conversaciones viven en el teléfono personal de cada vendedor, sin registro centralizado, sin historial compartido y sin forma de medir qué está pasando con cada chat.",
       solutionTitle: "Las conversaciones de WhatsApp, dentro de tu proceso comercial",
       solutionText:
-        "Vendrava centraliza los chats de WhatsApp del equipo comercial dentro del CRM, conectando cada conversación con la ficha del lead correspondiente. Esto permite dar seguimiento coordinado, usar plantillas aprobadas y activar automatizaciones sin depender del teléfono personal de cada persona del equipo.",
+        "Pleneva centraliza los chats de WhatsApp del equipo comercial dentro del CRM, conectando cada conversación con la ficha del lead correspondiente. Esto permite dar seguimiento coordinado, usar plantillas aprobadas y activar automatizaciones sin depender del teléfono personal de cada persona del equipo.",
       benefits: [
         {
           title: "Conversaciones centralizadas",
@@ -1451,10 +1451,10 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Convierte tus conversaciones de WhatsApp en oportunidades",
       ctaSub:
-        "Descubre cómo Vendrava centraliza y da seguimiento a tus chats de WhatsApp comercial desde el CRM.",
+        "Descubre cómo Pleneva centraliza y da seguimiento a tus chats de WhatsApp comercial desde el CRM.",
     },
     en: {
-      metaTitle: "WhatsApp CRM for Sales | Vendrava",
+      metaTitle: "WhatsApp CRM for Sales | Pleneva",
       metaDescription:
         "Respond to, follow up on and convert WhatsApp conversations from your CRM. Centralize sales chats with automation and AI.",
       navLabel: "WhatsApp CRM",
@@ -1467,7 +1467,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Many leads prefer messaging on WhatsApp over filling out a form or answering a call. The problem shows up when those conversations live on each rep's personal phone, with no centralized record, no shared history, and no way to measure what's actually happening in each chat.",
       solutionTitle: "WhatsApp conversations, inside your sales process",
       solutionText:
-        "Vendrava centralizes the sales team's WhatsApp chats inside the CRM, connecting every conversation to the corresponding lead record. This enables coordinated follow-up, use of approved templates, and automation triggers, without depending on each team member's personal phone.",
+        "Pleneva centralizes the sales team's WhatsApp chats inside the CRM, connecting every conversation to the corresponding lead record. This enables coordinated follow-up, use of approved templates, and automation triggers, without depending on each team member's personal phone.",
       benefits: [
         {
           title: "Centralized conversations",
@@ -1543,7 +1543,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Turn your WhatsApp conversations into opportunities",
       ctaSub:
-        "See how Vendrava centralizes and follows up on your sales WhatsApp chats from the CRM.",
+        "See how Pleneva centralizes and follows up on your sales WhatsApp chats from the CRM.",
     },
   },
 
@@ -1553,7 +1553,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "propuestas-comerciales",
     slugEn: "sales-proposals",
     es: {
-      metaTitle: "Propuestas comerciales conectadas al CRM | Vendrava",
+      metaTitle: "Propuestas comerciales conectadas al CRM | Pleneva",
       metaDescription:
         "Crea y envía propuestas comerciales conectadas a tus leads y oportunidades. Da seguimiento a cada propuesta desde el mismo CRM.",
       navLabel: "Propuestas comerciales",
@@ -1566,7 +1566,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Cuando las propuestas comerciales se crean en un documento aparte y se envían por correo sin conexión al CRM, es difícil saber si el cliente la abrió, en qué quedó la última conversación al respecto o cuántas propuestas están pendientes de respuesta en un momento dado.",
       solutionTitle: "De la oportunidad a la propuesta, sin cambiar de herramienta",
       solutionText:
-        "Vendrava permite generar propuestas comerciales usando la información ya disponible en la ficha del lead, enviarlas y dar seguimiento a su estado directamente desde el CRM. Esto conecta la propuesta con el resto del historial de la oportunidad, en lugar de dejarla aislada en un correo.",
+        "Pleneva permite generar propuestas comerciales usando la información ya disponible en la ficha del lead, enviarlas y dar seguimiento a su estado directamente desde el CRM. Esto conecta la propuesta con el resto del historial de la oportunidad, en lugar de dejarla aislada en un correo.",
       benefits: [
         {
           title: "Propuestas más rápidas de generar",
@@ -1621,7 +1621,7 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "¿Puedo usar mis plantillas de propuestas actuales?",
-          a: "Sí, las plantillas existentes pueden adaptarse al formato de Vendrava para mantener el diseño y la estructura que ya usa tu equipo.",
+          a: "Sí, las plantillas existentes pueden adaptarse al formato de Pleneva para mantener el diseño y la estructura que ya usa tu equipo.",
         },
         {
           q: "¿Cómo sé si el cliente abrió la propuesta?",
@@ -1642,10 +1642,10 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Conecta cada propuesta con su oportunidad",
       ctaSub:
-        "Descubre cómo Vendrava ayuda a generar, enviar y dar seguimiento a tus propuestas comerciales desde un solo lugar.",
+        "Descubre cómo Pleneva ayuda a generar, enviar y dar seguimiento a tus propuestas comerciales desde un solo lugar.",
     },
     en: {
-      metaTitle: "Sales Proposals Connected to Your CRM | Vendrava",
+      metaTitle: "Sales Proposals Connected to Your CRM | Pleneva",
       metaDescription:
         "Create and send sales proposals connected to your leads and opportunities. Track every proposal from the same CRM.",
       navLabel: "Sales Proposals",
@@ -1658,7 +1658,7 @@ export const PRODUCTS: ProductEntry[] = [
         "When sales proposals are created in a separate document and sent by email disconnected from the CRM, it's hard to know if the client opened it, what the last conversation about it concluded, or how many proposals are pending a response at any given moment.",
       solutionTitle: "From opportunity to proposal, without switching tools",
       solutionText:
-        "Vendrava lets you generate sales proposals using information already available on the lead's record, send them, and track their status directly from the CRM. This connects the proposal to the rest of the opportunity's history, instead of leaving it isolated in an email.",
+        "Pleneva lets you generate sales proposals using information already available on the lead's record, send them, and track their status directly from the CRM. This connects the proposal to the rest of the opportunity's history, instead of leaving it isolated in an email.",
       benefits: [
         {
           title: "Faster proposal generation",
@@ -1713,7 +1713,7 @@ export const PRODUCTS: ProductEntry[] = [
       faq: [
         {
           q: "Can I use my current proposal templates?",
-          a: "Yes, existing templates can be adapted to Vendrava's format to keep the design and structure your team already uses.",
+          a: "Yes, existing templates can be adapted to Pleneva's format to keep the design and structure your team already uses.",
         },
         {
           q: "How do I know if the client opened the proposal?",
@@ -1734,7 +1734,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Connect every proposal to its opportunity",
       ctaSub:
-        "See how Vendrava helps you generate, send and track your sales proposals from one place.",
+        "See how Pleneva helps you generate, send and track your sales proposals from one place.",
     },
   },
 
@@ -1744,7 +1744,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "analiticas-ventas",
     slugEn: "sales-analytics",
     es: {
-      metaTitle: "Analíticas de ventas | Vendrava",
+      metaTitle: "Analíticas de ventas | Pleneva",
       metaDescription:
         "Analiza el rendimiento de tu proceso comercial: conversión por etapa, por canal y por representante. Analíticas de ventas conectadas a tu CRM con IA.",
       navLabel: "Analíticas de ventas",
@@ -1757,7 +1757,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Muchos equipos comerciales saben cuánto vendieron, pero no por qué. Sin visibilidad sobre en qué etapa del pipeline se pierden más oportunidades, qué canal de origen convierte mejor o qué representante necesita apoyo, las decisiones sobre dónde invertir esfuerzo terminan basándose en percepción más que en datos.",
       solutionTitle: "Reportes que muestran dónde está realmente la oportunidad de mejora",
       solutionText:
-        "Vendrava conecta las analíticas directamente con la actividad real registrada en el CRM: llamadas, correos, propuestas y cambios de etapa. Esto permite ver con claridad qué está funcionando en el proceso comercial y dónde conviene ajustar el enfoque, con paneles que se actualizan a medida que avanza la operación.",
+        "Pleneva conecta las analíticas directamente con la actividad real registrada en el CRM: llamadas, correos, propuestas y cambios de etapa. Esto permite ver con claridad qué está funcionando en el proceso comercial y dónde conviene ajustar el enfoque, con paneles que se actualizan a medida que avanza la operación.",
       benefits: [
         {
           title: "Decisiones basadas en datos del propio proceso",
@@ -1833,10 +1833,10 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Entiende qué está funcionando en tu proceso comercial",
       ctaSub:
-        "Descubre cómo las analíticas de ventas de Vendrava ayudan a tomar decisiones comerciales con datos, no con intuición.",
+        "Descubre cómo las analíticas de ventas de Pleneva ayudan a tomar decisiones comerciales con datos, no con intuición.",
     },
     en: {
-      metaTitle: "Sales Analytics | Vendrava",
+      metaTitle: "Sales Analytics | Pleneva",
       metaDescription:
         "Analyze your sales process performance: conversion by stage, channel and rep. AI-powered sales analytics connected to your CRM.",
       navLabel: "Sales Analytics",
@@ -1849,7 +1849,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Many sales teams know how much they sold, but not why. Without visibility into which pipeline stage loses the most opportunities, which source channel converts best, or which rep needs support, decisions about where to invest effort end up based on perception rather than data.",
       solutionTitle: "Reports that show where the real opportunity for improvement is",
       solutionText:
-        "Vendrava connects analytics directly to the real activity logged in the CRM: calls, emails, proposals and stage changes. This makes it possible to see clearly what's working in the sales process and where to adjust focus, with dashboards that update as the operation moves forward.",
+        "Pleneva connects analytics directly to the real activity logged in the CRM: calls, emails, proposals and stage changes. This makes it possible to see clearly what's working in the sales process and where to adjust focus, with dashboards that update as the operation moves forward.",
       benefits: [
         {
           title: "Decisions based on your own process data",
@@ -1925,7 +1925,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Understand what's working in your sales process",
       ctaSub:
-        "See how Vendrava's sales analytics help you make sales decisions based on data, not guesswork.",
+        "See how Pleneva's sales analytics help you make sales decisions based on data, not guesswork.",
     },
   },
 
@@ -1935,7 +1935,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "buscador-de-prospectos",
     slugEn: "prospect-finder",
     es: {
-      metaTitle: "Prospect Finder: encuentra a quién llamar | Vendrava",
+      metaTitle: "Prospect Finder: encuentra a quién llamar | Pleneva",
       metaDescription:
         "Busca negocios por sector y ciudad, califícalos por reputación y datos de contacto, e impórtalos a una campaña de llamadas IA en un clic. Descubre Prospect Finder.",
       navLabel: "Prospect Finder",
@@ -2027,7 +2027,7 @@ export const PRODUCTS: ProductEntry[] = [
         "Descubre cómo Prospect Finder encuentra, califica y activa a tus próximos clientes en minutos.",
     },
     en: {
-      metaTitle: "Prospect Finder: know who to call first | Vendrava",
+      metaTitle: "Prospect Finder: know who to call first | Pleneva",
       metaDescription:
         "Search businesses by sector and city, qualify them by reputation and contact data, and import them into an AI calling campaign in one click. Meet Prospect Finder.",
       navLabel: "Prospect Finder",
@@ -2126,7 +2126,7 @@ export const PRODUCTS: ProductEntry[] = [
     slugEs: "landings-de-captacion",
     slugEn: "lead-capture-landings",
     es: {
-      metaTitle: "Funnels de ventas con landings y llamadas IA | Vendrava",
+      metaTitle: "Funnels de ventas con landings y llamadas IA | Pleneva",
       metaDescription:
         "Monta el funnel de ventas completo: landing de captación, calificación automática y llamada del agente IA en un mismo flujo, con métricas de conversión de punta a punta.",
       navLabel: "Funnels de ventas",
@@ -2215,10 +2215,10 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Convierte cada visita en una conversación",
       ctaSub:
-        "Descubre cómo las landings de Vendrava capturan leads y los ponen al teléfono antes de que se enfríen.",
+        "Descubre cómo las landings de Pleneva capturan leads y los ponen al teléfono antes de que se enfríen.",
     },
     en: {
-      metaTitle: "Sales funnels with landing pages and AI calls | Vendrava",
+      metaTitle: "Sales funnels with landing pages and AI calls | Pleneva",
       metaDescription:
         "Build the full sales funnel: capture landing, automatic qualification and the AI voice agent's call in one flow, with end-to-end conversion metrics.",
       navLabel: "Sales funnels",
@@ -2307,7 +2307,7 @@ export const PRODUCTS: ProductEntry[] = [
       ],
       ctaTitle: "Turn every visit into a conversation",
       ctaSub:
-        "See how Vendrava landings capture leads and get them on the phone before they go cold.",
+        "See how Pleneva landings capture leads and get them on the phone before they go cold.",
     },
   },
 ];

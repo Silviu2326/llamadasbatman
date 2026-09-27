@@ -44,7 +44,7 @@ export function AIFlowSection({ automation }: { automation: HomeContent["automat
 
           <div className="hidden justify-self-center md:block">
             <div className="rounded-2xl bg-gradient-to-br from-electric to-cyan px-[18px] py-3.5 text-center text-bg shadow-[0_12px_34px_rgba(59,130,246,0.35)]">
-              <span className="font-display text-sm font-bold">◆ Vendrava</span>
+              <span className="font-display text-sm font-bold">◆ Pleneva</span>
               <div className="mt-0.5 font-mono text-[9px]">{automation.nodeLabel}</div>
             </div>
           </div>

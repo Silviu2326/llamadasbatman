@@ -2,7 +2,7 @@
 .ccc-shell { width: 100%; padding: 0 22px 18px; }
 .ccc-header { display: flex; align-items: center; min-height: 74px; gap: 38px; border-bottom: 1px solid var(--ccc-line-soft); }
 .ccc-brand { display: flex; align-items: center; gap: 10px; width: 218px; flex-shrink: 0; font-size: 13px; line-height: 1.13; letter-spacing: -.2px; }
-.ccc-brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #8291ff7a; border-radius: 10px; color: var(--ccc-cyan); font-size: 25px; font-weight: 800; background: linear-gradient(135deg, #1e2a5a, #111e3b); box-shadow: 0 0 24px #4f46e527; }
+.ccc-brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #8291ff7a; border-radius: 10px; color: var(--ccc-cyan); font-size: 25px; font-weight: 800; background: linear-gradient(135deg, #1e2a5a, #111e3b); box-shadow: 0 0 24px color-mix(in srgb, var(--accent-deep) 15%, transparent); }
 .ccc-top-nav { display: flex; align-self: stretch; gap: 36px; }
 .ccc-top-nav button, .ccc-top-nav a { position: relative; display: inline-flex; align-items: center; text-decoration: none; padding: 0; border: 0; color: var(--ccc-muted); background: transparent; font: inherit; font-size: 14px; cursor: pointer; }
 .ccc-top-nav button:hover, .ccc-top-nav a:hover, .ccc-top-nav button.active { color: var(--ccc-text); }

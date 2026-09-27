@@ -22,19 +22,19 @@ const ITEMS = [
 const FAQ = [
   {
     q: "Does the customer know they are talking to an AI?",
-    a: "Yes. Vendrava's agent can state at the start of the conversation that it is an AI assistant, in line with each market's transparency requirements, such as the EU AI Act.",
+    a: "Yes. Pleneva's agent can state at the start of the conversation that it is an AI assistant, in line with each market's transparency requirements, such as the EU AI Act.",
   },
   {
     q: "Who controls what the AI does?",
     a: "Your team. The AI is designed to propose actions and accelerate commercial processes, but human control remains a core part of the system: your team approves, edits or takes the conversation whenever needed.",
   },
   {
-    q: "Is Vendrava GDPR compliant?",
-    a: "Vendrava is designed with an architecture focused on control, traceability and responsible handling of commercial data. Each organization should review the specific legal requirements of its market with its legal team.",
+    q: "Is Pleneva GDPR compliant?",
+    a: "Pleneva is designed with an architecture focused on control, traceability and responsible handling of commercial data. Each organization should review the specific legal requirements of its market with its legal team.",
   },
   {
-    q: "Does Vendrava record calls?",
-    a: "Calls and conversations handled by Vendrava can be logged and connected to the CRM to keep traceability, depending on each team's configuration and applicable regulations.",
+    q: "Does Pleneva record calls?",
+    a: "Calls and conversations handled by Pleneva can be logged and connected to the CRM to keep traceability, depending on each team's configuration and applicable regulations.",
   },
   {
     q: "Can I configure different permissions per team?",
@@ -46,9 +46,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "security",
     locale: "en",
-    title: "Security, compliance and human control | Vendrava",
+    title: "Security, compliance and human control | Pleneva",
     description:
-      "Vendrava reaches out with transparency: AI disclosure on the call, consent, human control and traceability connected to the CRM, with a GDPR-oriented approach.",
+      "Pleneva reaches out with transparency: AI disclosure on the call, consent, human control and traceability connected to the CRM, with a GDPR-oriented approach.",
   });
 }
 
@@ -67,7 +67,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           Commercial AI with transparency, consent and human control
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">
-          Vendrava is designed so AI reaches out and answers with transparency: disclosure that it is an AI, consent,
+          Pleneva is designed so AI reaches out and answers with transparency: disclosure that it is an AI, consent,
           human control and traceability connected to the CRM.
         </p>
       </Container>
@@ -96,7 +96,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <FinalCTASection
         locale="en"
         title="Don't let an opportunity slip away because nobody replied in time"
-        sub="Try Vendrava with 100,000 AI credits included."
+        sub="Try Pleneva with 100,000 AI credits included."
         primary="Book a demo"
         secondary="Talk to sales"
       />

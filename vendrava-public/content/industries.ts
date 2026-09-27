@@ -9,9 +9,9 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/agencias-marketing",
     slugEn: "industries/marketing-agencies",
     es: {
-      metaTitle: "CRM con IA para agencias de marketing | Vendrava",
+      metaTitle: "CRM con IA para agencias de marketing | Pleneva",
       metaDescription:
-        "Vendrava ayuda a agencias de marketing a responder y calificar leads de clientes al instante, priorizar oportunidades y centralizar el seguimiento comercial en un solo lugar.",
+        "Pleneva ayuda a agencias de marketing a responder y calificar leads de clientes al instante, priorizar oportunidades y centralizar el seguimiento comercial en un solo lugar.",
       navLabel: "Agencias de marketing",
       heroKicker: "Sector · Agencias de marketing",
       h1: "CRM con IA para agencias de marketing",
@@ -32,9 +32,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Con varios clientes y canales activos a la vez, es difícil tener una vista única de qué leads entraron, cómo se gestionaron y qué resultado tuvieron.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Vendrava centraliza los leads que llegan por formulario, WhatsApp o campañas, y usa agentes de IA por voz y mensaje para calificar el tipo de proyecto, el presupuesto estimado y la urgencia antes de pasarlo a un comercial. Así el equipo humano se enfoca en cerrar, no en filtrar, y cada cuenta gestionada mantiene su propio embudo y reporting.",
+        "Pleneva centraliza los leads que llegan por formulario, WhatsApp o campañas, y usa agentes de IA por voz y mensaje para calificar el tipo de proyecto, el presupuesto estimado y la urgencia antes de pasarlo a un comercial. Así el equipo humano se enfoca en cerrar, no en filtrar, y cada cuenta gestionada mantiene su propio embudo y reporting.",
       flow: ["Lead", "IA", "Informe", "Handoff"],
       useCases: [
         "Calificación automática de leads entrantes de campañas propias y de clientes",
@@ -55,16 +55,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava sirve para gestionar leads de varios clientes a la vez?",
-          a: "Sí. Vendrava permite organizar leads, embudos y automatizaciones por cuenta o cliente, manteniendo el reporting separado dentro de un mismo CRM.",
+          q: "¿Pleneva sirve para gestionar leads de varios clientes a la vez?",
+          a: "Sí. Pleneva permite organizar leads, embudos y automatizaciones por cuenta o cliente, manteniendo el reporting separado dentro de un mismo CRM.",
         },
         {
           q: "¿La IA reemplaza al equipo de la agencia?",
-          a: "No. Vendrava ayuda a calificar y dar seguimiento inicial a los leads, pero las decisiones estratégicas, la creatividad y el cierre siguen en manos del equipo humano.",
+          a: "No. Pleneva ayuda a calificar y dar seguimiento inicial a los leads, pero las decisiones estratégicas, la creatividad y el cierre siguen en manos del equipo humano.",
         },
         {
           q: "¿Puede integrarse con las herramientas que ya usamos para campañas?",
-          a: "Vendrava está diseñado para centralizar leads que llegan desde formularios web, landing pages, WhatsApp y otros canales habituales de captación en agencias.",
+          a: "Pleneva está diseñado para centralizar leads que llegan desde formularios web, landing pages, WhatsApp y otros canales habituales de captación en agencias.",
         },
         {
           q: "¿Cómo se prioriza qué leads atender primero?",
@@ -72,17 +72,17 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Sirve para agencias pequeñas o solo para agencias grandes?",
-          a: "Vendrava está pensado para escalar: agencias pequeñas pueden empezar con lo esencial y añadir más automatizaciones y cuentas a medida que crecen.",
+          a: "Pleneva está pensado para escalar: agencias pequeñas pueden empezar con lo esencial y añadir más automatizaciones y cuentas a medida que crecen.",
         },
       ],
       ctaTitle: "Responde a los leads de tus clientes antes que nadie",
       ctaSub:
-        "Prueba Vendrava y descubre cómo centralizar la calificación y el seguimiento comercial de todas tus cuentas.",
+        "Prueba Pleneva y descubre cómo centralizar la calificación y el seguimiento comercial de todas tus cuentas.",
     },
     en: {
-      metaTitle: "AI CRM for marketing agencies | Vendrava",
+      metaTitle: "AI CRM for marketing agencies | Pleneva",
       metaDescription:
-        "Vendrava helps marketing agencies respond to and qualify client leads instantly, prioritize opportunities, and centralize sales follow-up in one place.",
+        "Pleneva helps marketing agencies respond to and qualify client leads instantly, prioritize opportunities, and centralize sales follow-up in one place.",
       navLabel: "Marketing agencies",
       heroKicker: "Industry · Marketing agencies",
       h1: "AI CRM for marketing agencies",
@@ -103,9 +103,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "With several clients and channels running at once, it's hard to get a single view of which leads came in, how they were handled, and what happened next.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "Vendrava centralizes leads coming from forms, WhatsApp, or campaigns, and uses voice and messaging AI agents to qualify project type, estimated budget, and urgency before handing them to a rep. That lets the human team focus on closing instead of filtering, while each managed account keeps its own pipeline and reporting.",
+        "Pleneva centralizes leads coming from forms, WhatsApp, or campaigns, and uses voice and messaging AI agents to qualify project type, estimated budget, and urgency before handing them to a rep. That lets the human team focus on closing instead of filtering, while each managed account keeps its own pipeline and reporting.",
       flow: ["Lead", "AI", "Report", "Handoff"],
       useCases: [
         "Automatic qualification of inbound leads from in-house and client campaigns",
@@ -126,16 +126,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Can Vendrava manage leads for multiple clients at once?",
-          a: "Yes. Vendrava lets you organize leads, pipelines, and automations by account or client, keeping reporting separate within a single CRM.",
+          q: "Can Pleneva manage leads for multiple clients at once?",
+          a: "Yes. Pleneva lets you organize leads, pipelines, and automations by account or client, keeping reporting separate within a single CRM.",
         },
         {
           q: "Does the AI replace the agency's team?",
-          a: "No. Vendrava helps qualify and follow up with leads early on, but strategy, creative work, and closing stay in the hands of the human team.",
+          a: "No. Pleneva helps qualify and follow up with leads early on, but strategy, creative work, and closing stay in the hands of the human team.",
         },
         {
           q: "Can it integrate with the tools we already use for campaigns?",
-          a: "Vendrava is designed to centralize leads arriving from web forms, landing pages, WhatsApp, and other common acquisition channels used by agencies.",
+          a: "Pleneva is designed to centralize leads arriving from web forms, landing pages, WhatsApp, and other common acquisition channels used by agencies.",
         },
         {
           q: "How does it decide which leads to prioritize?",
@@ -143,12 +143,12 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "Is this only for large agencies, or does it work for small ones too?",
-          a: "Vendrava is built to scale: smaller agencies can start with the essentials and add more automations and accounts as they grow.",
+          a: "Pleneva is built to scale: smaller agencies can start with the essentials and add more automations and accounts as they grow.",
         },
       ],
       ctaTitle: "Respond to your clients' leads before anyone else does",
       ctaSub:
-        "Try Vendrava and see how to centralize qualification and follow-up across all your accounts.",
+        "Try Pleneva and see how to centralize qualification and follow-up across all your accounts.",
     },
   },
 
@@ -160,14 +160,14 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/inmobiliarias",
     slugEn: "industries/real-estate",
     es: {
-      metaTitle: "CRM con IA para inmobiliarias | Vendrava",
+      metaTitle: "CRM con IA para inmobiliarias | Pleneva",
       metaDescription:
-        "Vendrava ayuda a inmobiliarias a contactar, calificar y agendar visitas con IA mientras el lead sigue caliente, reduciendo tiempos de respuesta y visitas perdidas.",
+        "Pleneva ayuda a inmobiliarias a contactar, calificar y agendar visitas con IA mientras el lead sigue caliente, reduciendo tiempos de respuesta y visitas perdidas.",
       navLabel: "Inmobiliarias",
       heroKicker: "Sector · Inmobiliarias",
       h1: "CRM con IA para inmobiliarias",
       heroSub:
-        "En inmobiliaria, la velocidad lo es todo. Vendrava contacta, califica y agenda visitas mientras el lead sigue caliente.",
+        "En inmobiliaria, la velocidad lo es todo. Pleneva contacta, califica y agenda visitas mientras el lead sigue caliente.",
       painTitle: "El reto en inmobiliaria",
       pains: [
         {
@@ -183,9 +183,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Sin seguimiento, las visitas se caen y el lead compra en otro lado.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Cuando un lead pide información sobre una propiedad, Vendrava lo registra y activa un agente de IA que llama o escribe en minutos, no en horas. El agente califica presupuesto, zona, urgencia y tipo de propiedad, y agenda la visita o traspasa la conversación a un agente humano con un resumen listo para actuar.",
+        "Cuando un lead pide información sobre una propiedad, Pleneva lo registra y activa un agente de IA que llama o escribe en minutos, no en horas. El agente califica presupuesto, zona, urgencia y tipo de propiedad, y agenda la visita o traspasa la conversación a un agente humano con un resumen listo para actuar.",
       flow: ["Lead del portal", "Llamada IA", "Calificación", "Agendar visita"],
       useCases: [
         "Respuesta inmediata a leads de portales inmobiliarios y campañas propias",
@@ -206,8 +206,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava puede llamar a leads de portales como Idealista o Fotocasa?",
-          a: "Vendrava centraliza los leads que llegan desde portales inmobiliarios y activa un agente de IA para contactarlos de forma casi inmediata, antes de que se enfríen.",
+          q: "¿Pleneva puede llamar a leads de portales como Idealista o Fotocasa?",
+          a: "Pleneva centraliza los leads que llegan desde portales inmobiliarios y activa un agente de IA para contactarlos de forma casi inmediata, antes de que se enfríen.",
         },
         {
           q: "¿La IA reemplaza a los agentes inmobiliarios?",
@@ -215,30 +215,30 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Cómo se agendan las visitas?",
-          a: "Una vez calificado el lead, Vendrava puede proponer horarios disponibles y confirmar la visita directamente, o traspasar la conversación a un agente para que la cierre.",
+          a: "Una vez calificado el lead, Pleneva puede proponer horarios disponibles y confirmar la visita directamente, o traspasar la conversación a un agente para que la cierre.",
         },
         {
           q: "¿Qué pasa con los leads que no contestan a la primera?",
-          a: "Vendrava automatiza el reenganche con mensajes de seguimiento espaciados en el tiempo, para recuperar interesados que no respondieron de inmediato.",
+          a: "Pleneva automatiza el reenganche con mensajes de seguimiento espaciados en el tiempo, para recuperar interesados que no respondieron de inmediato.",
         },
         {
           q: "¿Sirve para inmobiliarias con varias oficinas o carteras grandes?",
-          a: "Sí, Vendrava permite organizar leads y propiedades por oficina, zona o agente, manteniendo el seguimiento centralizado.",
+          a: "Sí, Pleneva permite organizar leads y propiedades por oficina, zona o agente, manteniendo el seguimiento centralizado.",
         },
       ],
       ctaTitle: "No dejes que un lead caliente se enfríe",
       ctaSub:
-        "Prueba Vendrava y agenda más visitas contactando a tus leads en minutos, no en horas.",
+        "Prueba Pleneva y agenda más visitas contactando a tus leads en minutos, no en horas.",
     },
     en: {
-      metaTitle: "AI CRM for real estate teams | Vendrava",
+      metaTitle: "AI CRM for real estate teams | Pleneva",
       metaDescription:
-        "Vendrava helps real estate teams contact, qualify, and book visits with AI while the lead is still warm, cutting response times and missed showings.",
+        "Pleneva helps real estate teams contact, qualify, and book visits with AI while the lead is still warm, cutting response times and missed showings.",
       navLabel: "Real estate",
       heroKicker: "Industry · Real estate",
       h1: "AI CRM for real estate teams",
       heroSub:
-        "In real estate, speed is everything. Vendrava contacts, qualifies and books visits while the lead is still warm.",
+        "In real estate, speed is everything. Pleneva contacts, qualifies and books visits while the lead is still warm.",
       painTitle: "The real estate challenge",
       pains: [
         {
@@ -254,9 +254,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Without follow-up, visits fall through and the lead buys elsewhere.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "When a lead asks about a property, Vendrava logs it and triggers an AI agent that calls or messages within minutes, not hours. The agent qualifies budget, area, urgency, and property type, then books the visit or hands the conversation to a human agent with a ready-to-act summary.",
+        "When a lead asks about a property, Pleneva logs it and triggers an AI agent that calls or messages within minutes, not hours. The agent qualifies budget, area, urgency, and property type, then books the visit or hands the conversation to a human agent with a ready-to-act summary.",
       flow: ["Portal lead", "AI call", "Qualification", "Book visit"],
       useCases: [
         "Immediate response to leads from real estate portals and in-house campaigns",
@@ -277,8 +277,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Can Vendrava call leads from portals like Zillow or Rightmove?",
-          a: "Vendrava centralizes leads coming from real estate portals and triggers an AI agent to contact them almost immediately, before they go cold.",
+          q: "Can Pleneva call leads from portals like Zillow or Rightmove?",
+          a: "Pleneva centralizes leads coming from real estate portals and triggers an AI agent to contact them almost immediately, before they go cold.",
         },
         {
           q: "Does the AI replace real estate agents?",
@@ -286,20 +286,20 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "How are visits scheduled?",
-          a: "Once a lead is qualified, Vendrava can propose available time slots and confirm the visit directly, or hand the conversation to an agent to close it.",
+          a: "Once a lead is qualified, Pleneva can propose available time slots and confirm the visit directly, or hand the conversation to an agent to close it.",
         },
         {
           q: "What happens with leads that don't respond right away?",
-          a: "Vendrava automates re-engagement with follow-up messages spaced over time, to recover interested leads who didn't reply immediately.",
+          a: "Pleneva automates re-engagement with follow-up messages spaced over time, to recover interested leads who didn't reply immediately.",
         },
         {
           q: "Does it work for agencies with multiple offices or large listing portfolios?",
-          a: "Yes, Vendrava lets you organize leads and listings by office, area, or agent while keeping follow-up centralized.",
+          a: "Yes, Pleneva lets you organize leads and listings by office, area, or agent while keeping follow-up centralized.",
         },
       ],
       ctaTitle: "Don't let a warm lead go cold",
       ctaSub:
-        "Try Vendrava and book more visits by reaching your leads in minutes, not hours.",
+        "Try Pleneva and book more visits by reaching your leads in minutes, not hours.",
     },
   },
 
@@ -311,14 +311,14 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/clinicas",
     slugEn: "industries/clinics",
     es: {
-      metaTitle: "CRM con IA para clínicas | Vendrava",
+      metaTitle: "CRM con IA para clínicas | Pleneva",
       metaDescription:
-        "Vendrava ayuda a clínicas y centros de salud a reducir llamadas perdidas y agendar consultas más rápido con IA, dejando siempre el criterio clínico en manos del equipo humano.",
+        "Pleneva ayuda a clínicas y centros de salud a reducir llamadas perdidas y agendar consultas más rápido con IA, dejando siempre el criterio clínico en manos del equipo humano.",
       navLabel: "Clínicas",
       heroKicker: "Sector · Clínicas",
       h1: "CRM con IA para clínicas",
       heroSub:
-        "Reduce llamadas perdidas y agenda consultas más rápido. Vendrava se encarga de la recepción y el seguimiento administrativo, no de decisiones clínicas.",
+        "Reduce llamadas perdidas y agenda consultas más rápido. Pleneva se encarga de la recepción y el seguimiento administrativo, no de decisiones clínicas.",
       painTitle: "El reto en clínicas",
       pains: [
         {
@@ -334,9 +334,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Muchas personas preguntan por tratamientos o precios y no vuelven a contactar si no reciben una respuesta rápida y clara.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Vendrava atiende llamadas y mensajes entrantes con un agente de IA que identifica el motivo de contacto, ofrece información general y ayuda a agendar la cita con el profesional adecuado. El equipo administrativo y clínico mantiene el control total sobre la agenda y las decisiones médicas; Vendrava solo agiliza la parte operativa de captación y agendado.",
+        "Pleneva atiende llamadas y mensajes entrantes con un agente de IA que identifica el motivo de contacto, ofrece información general y ayuda a agendar la cita con el profesional adecuado. El equipo administrativo y clínico mantiene el control total sobre la agenda y las decisiones médicas; Pleneva solo agiliza la parte operativa de captación y agendado.",
       flow: ["Llamada", "IA", "Motivo", "Cita"],
       useCases: [
         "Atención de llamadas y mensajes fuera de horario o en horas punta",
@@ -357,16 +357,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿La IA de Vendrava da diagnósticos o recomendaciones médicas?",
-          a: "No. Vendrava se limita a la gestión administrativa de contactos y citas; cualquier valoración clínica o diagnóstico depende siempre del personal médico.",
+          q: "¿La IA de Pleneva da diagnósticos o recomendaciones médicas?",
+          a: "No. Pleneva se limita a la gestión administrativa de contactos y citas; cualquier valoración clínica o diagnóstico depende siempre del personal médico.",
         },
         {
-          q: "¿Puede Vendrava reemplazar a la recepción de la clínica?",
+          q: "¿Puede Pleneva reemplazar a la recepción de la clínica?",
           a: "No está pensado para sustituir al personal, sino para apoyarlo: absorbe el volumen de llamadas y mensajes repetitivos para que el equipo se enfoque en los pacientes presentes y en tareas que requieren criterio humano.",
         },
         {
           q: "¿Cómo se gestionan los datos de los pacientes?",
-          a: "Vendrava centraliza la información de contacto y el historial de comunicación necesario para la gestión comercial y de citas, dentro de un sistema pensado para el manejo responsable de datos.",
+          a: "Pleneva centraliza la información de contacto y el historial de comunicación necesario para la gestión comercial y de citas, dentro de un sistema pensado para el manejo responsable de datos.",
         },
         {
           q: "¿Sirve para clínicas con varias especialidades?",
@@ -379,17 +379,17 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       ctaTitle: "Menos llamadas perdidas, más consultas agendadas",
       ctaSub:
-        "Prueba Vendrava y descubre cómo agilizar la recepción y el agendado de tu clínica sin perder el control del criterio clínico.",
+        "Prueba Pleneva y descubre cómo agilizar la recepción y el agendado de tu clínica sin perder el control del criterio clínico.",
     },
     en: {
-      metaTitle: "AI CRM for clinics | Vendrava",
+      metaTitle: "AI CRM for clinics | Pleneva",
       metaDescription:
-        "Vendrava helps clinics and health centers cut missed calls and book appointments faster with AI, while clinical judgment always stays with the human team.",
+        "Pleneva helps clinics and health centers cut missed calls and book appointments faster with AI, while clinical judgment always stays with the human team.",
       navLabel: "Clinics",
       heroKicker: "Industry · Clinics",
       h1: "AI CRM for clinics",
       heroSub:
-        "Cut missed calls and book appointments faster. Vendrava handles front-desk and follow-up admin work, not clinical decisions.",
+        "Cut missed calls and book appointments faster. Pleneva handles front-desk and follow-up admin work, not clinical decisions.",
       painTitle: "The clinic challenge",
       pains: [
         {
@@ -405,9 +405,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Many people ask about treatments or pricing and never reach back out if they don't get a quick, clear answer.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "Vendrava handles inbound calls and messages with an AI agent that identifies the reason for contact, shares general information, and helps book the appointment with the right provider. The administrative and clinical team keeps full control over the schedule and medical decisions; Vendrava only speeds up the operational side of intake and booking.",
+        "Pleneva handles inbound calls and messages with an AI agent that identifies the reason for contact, shares general information, and helps book the appointment with the right provider. The administrative and clinical team keeps full control over the schedule and medical decisions; Pleneva only speeds up the operational side of intake and booking.",
       flow: ["Call", "AI", "Reason", "Appointment"],
       useCases: [
         "Handling calls and messages after hours or during peak times",
@@ -428,16 +428,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava's AI give diagnoses or medical advice?",
-          a: "No. Vendrava is limited to administrative contact and appointment management; any clinical assessment or diagnosis always depends on medical staff.",
+          q: "Does Pleneva's AI give diagnoses or medical advice?",
+          a: "No. Pleneva is limited to administrative contact and appointment management; any clinical assessment or diagnosis always depends on medical staff.",
         },
         {
-          q: "Can Vendrava replace the clinic's front desk?",
+          q: "Can Pleneva replace the clinic's front desk?",
           a: "It isn't meant to replace staff, but to support them: it absorbs the volume of repetitive calls and messages so the team can focus on patients on-site and tasks that require human judgment.",
         },
         {
           q: "How is patient data handled?",
-          a: "Vendrava centralizes the contact information and communication history needed for scheduling and follow-up, within a system built for responsible data handling.",
+          a: "Pleneva centralizes the contact information and communication history needed for scheduling and follow-up, within a system built for responsible data handling.",
         },
         {
           q: "Does it work for clinics with multiple specialties?",
@@ -450,7 +450,7 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       ctaTitle: "Fewer missed calls, more appointments booked",
       ctaSub:
-        "Try Vendrava and see how to streamline your clinic's front desk and scheduling without losing control of clinical judgment.",
+        "Try Pleneva and see how to streamline your clinic's front desk and scheduling without losing control of clinical judgment.",
     },
   },
 
@@ -462,14 +462,14 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/concesionarios",
     slugEn: "industries/car-dealerships",
     es: {
-      metaTitle: "CRM con IA para concesionarios | Vendrava",
+      metaTitle: "CRM con IA para concesionarios | Pleneva",
       metaDescription:
-        "Vendrava ayuda a concesionarios a filtrar compradores reales y agendar pruebas de manejo con IA, calificando presupuesto, financiación y plazo de compra antes de pasar el lead al equipo comercial.",
+        "Pleneva ayuda a concesionarios a filtrar compradores reales y agendar pruebas de manejo con IA, calificando presupuesto, financiación y plazo de compra antes de pasar el lead al equipo comercial.",
       navLabel: "Concesionarios",
       heroKicker: "Sector · Concesionarios",
       h1: "CRM con IA para concesionarios",
       heroSub:
-        "Filtra compradores reales y agenda pruebas de manejo. Vendrava califica cada lead antes de que tu equipo invierta tiempo en él.",
+        "Filtra compradores reales y agenda pruebas de manejo. Pleneva califica cada lead antes de que tu equipo invierta tiempo en él.",
       painTitle: "El reto en concesionarios",
       pains: [
         {
@@ -485,9 +485,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Sin un recordatorio y seguimiento adecuado, muchas pruebas de manejo agendadas terminan en ausencias.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Cuando un lead pregunta por un modelo, Vendrava detecta el interés y activa un agente de IA que califica presupuesto, interés en financiación, vehículo actual y plazo de compra. Con esa información agenda una llamada o visita con el comercial, o envía seguimiento por email y WhatsApp para mantener el interés vivo hasta la prueba de manejo.",
+        "Cuando un lead pregunta por un modelo, Pleneva detecta el interés y activa un agente de IA que califica presupuesto, interés en financiación, vehículo actual y plazo de compra. Con esa información agenda una llamada o visita con el comercial, o envía seguimiento por email y WhatsApp para mantener el interés vivo hasta la prueba de manejo.",
       flow: ["Lead", "Llamada IA", "Financiación", "Test drive"],
       useCases: [
         "Calificación de leads de portales de coches y campañas propias",
@@ -508,7 +508,7 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava puede calificar el interés en financiación de cada lead?",
+          q: "¿Pleneva puede calificar el interés en financiación de cada lead?",
           a: "Sí, el agente de IA pregunta por la forma de pago prevista y el interés en financiación como parte de la calificación inicial, y traslada esa información al comercial.",
         },
         {
@@ -517,7 +517,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Cómo se evita perder pruebas de manejo agendadas?",
-          a: "Vendrava envía recordatorios automáticos antes de la cita y puede reprogramar fácilmente si el cliente necesita cambiar el horario.",
+          a: "Pleneva envía recordatorios automáticos antes de la cita y puede reprogramar fácilmente si el cliente necesita cambiar el horario.",
         },
         {
           q: "¿Sirve para concesionarios con varias marcas o sedes?",
@@ -525,22 +525,22 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Qué pasa con los leads que solo están comparando precios?",
-          a: "Vendrava los identifica dentro del proceso de calificación y activa un seguimiento más espaciado, sin ocupar el tiempo del equipo comercial hasta que muestren intención real de compra.",
+          a: "Pleneva los identifica dentro del proceso de calificación y activa un seguimiento más espaciado, sin ocupar el tiempo del equipo comercial hasta que muestren intención real de compra.",
         },
       ],
       ctaTitle: "Convierte más consultas en pruebas de manejo",
       ctaSub:
-        "Prueba Vendrava y descubre cómo calificar compradores reales antes de que tu equipo comercial invierta tiempo en ellos.",
+        "Prueba Pleneva y descubre cómo calificar compradores reales antes de que tu equipo comercial invierta tiempo en ellos.",
     },
     en: {
-      metaTitle: "AI CRM for car dealerships | Vendrava",
+      metaTitle: "AI CRM for car dealerships | Pleneva",
       metaDescription:
-        "Vendrava helps car dealerships filter real buyers and book test drives with AI, qualifying budget, financing, and purchase timeline before handing the lead to sales.",
+        "Pleneva helps car dealerships filter real buyers and book test drives with AI, qualifying budget, financing, and purchase timeline before handing the lead to sales.",
       navLabel: "Car dealerships",
       heroKicker: "Industry · Car dealerships",
       h1: "AI CRM for car dealerships",
       heroSub:
-        "Filter real buyers and book test drives. Vendrava qualifies every lead before your team invests time in it.",
+        "Filter real buyers and book test drives. Pleneva qualifies every lead before your team invests time in it.",
       painTitle: "The car dealership challenge",
       pains: [
         {
@@ -556,9 +556,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Without proper reminders and follow-up, many scheduled test drives end up as no-shows.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "When a lead asks about a model, Vendrava detects the interest and triggers an AI agent that qualifies budget, interest in financing, current vehicle, and purchase timeline. With that information it books a call or visit with the sales rep, or sends email and WhatsApp follow-up to keep interest alive until the test drive.",
+        "When a lead asks about a model, Pleneva detects the interest and triggers an AI agent that qualifies budget, interest in financing, current vehicle, and purchase timeline. With that information it books a call or visit with the sales rep, or sends email and WhatsApp follow-up to keep interest alive until the test drive.",
       flow: ["Lead", "AI call", "Financing", "Test drive"],
       useCases: [
         "Qualifying leads from car portals and in-house campaigns",
@@ -579,7 +579,7 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Can Vendrava qualify each lead's interest in financing?",
+          q: "Can Pleneva qualify each lead's interest in financing?",
           a: "Yes, the AI agent asks about the expected payment method and interest in financing as part of the initial qualification, and passes that information to the sales rep.",
         },
         {
@@ -588,7 +588,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "How does it prevent losing scheduled test drives?",
-          a: "Vendrava sends automatic reminders before the appointment and can easily reschedule if the customer needs to change the time.",
+          a: "Pleneva sends automatic reminders before the appointment and can easily reschedule if the customer needs to change the time.",
         },
         {
           q: "Does it work for dealerships with multiple brands or locations?",
@@ -596,12 +596,12 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "What about leads who are just comparing prices?",
-          a: "Vendrava identifies them during qualification and triggers a more spaced-out follow-up, without taking up the sales team's time until they show real buying intent.",
+          a: "Pleneva identifies them during qualification and triggers a more spaced-out follow-up, without taking up the sales team's time until they show real buying intent.",
         },
       ],
       ctaTitle: "Turn more inquiries into test drives",
       ctaSub:
-        "Try Vendrava and see how to qualify real buyers before your sales team spends time on them.",
+        "Try Pleneva and see how to qualify real buyers before your sales team spends time on them.",
     },
   },
 
@@ -613,14 +613,14 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/saas",
     slugEn: "industries/saas",
     es: {
-      metaTitle: "CRM con IA para empresas SaaS | Vendrava",
+      metaTitle: "CRM con IA para empresas SaaS | Pleneva",
       metaDescription:
-        "Vendrava ayuda a empresas SaaS a calificar trials y activar upgrades con seguimiento automatizado, conectando product-led growth con un proceso comercial claro.",
+        "Pleneva ayuda a empresas SaaS a calificar trials y activar upgrades con seguimiento automatizado, conectando product-led growth con un proceso comercial claro.",
       navLabel: "SaaS",
       heroKicker: "Sector · Empresas SaaS",
       h1: "CRM con IA para empresas SaaS",
       heroSub:
-        "Califica trials y activa upgrades con seguimiento. Vendrava ayuda a convertir señales de producto en conversaciones comerciales en el momento adecuado.",
+        "Califica trials y activa upgrades con seguimiento. Pleneva ayuda a convertir señales de producto en conversaciones comerciales en el momento adecuado.",
       painTitle: "El reto en empresas SaaS",
       pains: [
         {
@@ -636,9 +636,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Sin alertas automáticas, las oportunidades de upgrade o expansión se detectan tarde, cuando el cliente ya perdió interés o está evaluando alternativas.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Vendrava conecta las señales de actividad del trial (registro, uso de funciones clave, límites alcanzados) con agentes de IA que califican la intención de compra y activan seguimiento por email, WhatsApp o llamada. Esto permite priorizar cuentas con alto potencial de conversión o upgrade sin que el equipo comercial tenga que revisar manualmente cada cuenta.",
+        "Pleneva conecta las señales de actividad del trial (registro, uso de funciones clave, límites alcanzados) con agentes de IA que califican la intención de compra y activan seguimiento por email, WhatsApp o llamada. Esto permite priorizar cuentas con alto potencial de conversión o upgrade sin que el equipo comercial tenga que revisar manualmente cada cuenta.",
       flow: ["Trial", "IA", "Demo", "Upgrade"],
       useCases: [
         "Calificación automática de leads de trial según actividad de producto",
@@ -659,16 +659,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Cómo sabe Vendrava qué trials tienen más potencial?",
-          a: "Vendrava usa las señales de actividad que definas (uso de funciones clave, límites alcanzados, frecuencia de acceso) para calificar automáticamente cada cuenta y priorizar el seguimiento.",
+          q: "¿Cómo sabe Pleneva qué trials tienen más potencial?",
+          a: "Pleneva usa las señales de actividad que definas (uso de funciones clave, límites alcanzados, frecuencia de acceso) para calificar automáticamente cada cuenta y priorizar el seguimiento.",
         },
         {
           q: "¿Esto reemplaza a nuestro equipo de customer success?",
-          a: "No. Vendrava ayuda a identificar y calificar oportunidades de conversión o upgrade, pero el acompañamiento estratégico del cliente sigue siendo responsabilidad del equipo humano.",
+          a: "No. Pleneva ayuda a identificar y calificar oportunidades de conversión o upgrade, pero el acompañamiento estratégico del cliente sigue siendo responsabilidad del equipo humano.",
         },
         {
           q: "¿Puede integrarse con nuestro producto para leer señales de uso?",
-          a: "Vendrava está diseñado para centralizar señales de actividad y comportamiento que alimenten la calificación y el seguimiento comercial dentro del CRM.",
+          a: "Pleneva está diseñado para centralizar señales de actividad y comportamiento que alimenten la calificación y el seguimiento comercial dentro del CRM.",
         },
         {
           q: "¿Sirve para modelos product-led growth y sales-led growth?",
@@ -676,22 +676,22 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Cómo ayuda con renovaciones y upsells?",
-          a: "Vendrava puede generar alertas automáticas cuando detecta señales de expansión o riesgo de cancelación, para que el equipo actúe antes de que sea tarde.",
+          a: "Pleneva puede generar alertas automáticas cuando detecta señales de expansión o riesgo de cancelación, para que el equipo actúe antes de que sea tarde.",
         },
       ],
       ctaTitle: "Convierte señales de producto en ingresos",
       ctaSub:
-        "Prueba Vendrava y descubre cómo priorizar trials y cuentas con mayor potencial de conversión o upgrade.",
+        "Prueba Pleneva y descubre cómo priorizar trials y cuentas con mayor potencial de conversión o upgrade.",
     },
     en: {
-      metaTitle: "AI CRM for SaaS companies | Vendrava",
+      metaTitle: "AI CRM for SaaS companies | Pleneva",
       metaDescription:
-        "Vendrava helps SaaS companies qualify trials and drive upgrades with automated follow-up, connecting product-led growth signals to a clear sales process.",
+        "Pleneva helps SaaS companies qualify trials and drive upgrades with automated follow-up, connecting product-led growth signals to a clear sales process.",
       navLabel: "SaaS",
       heroKicker: "Industry · SaaS companies",
       h1: "AI CRM for SaaS companies",
       heroSub:
-        "Qualify trials and drive upgrades with follow-up. Vendrava helps turn product signals into sales conversations at the right moment.",
+        "Qualify trials and drive upgrades with follow-up. Pleneva helps turn product signals into sales conversations at the right moment.",
       painTitle: "The SaaS challenge",
       pains: [
         {
@@ -707,9 +707,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Without automatic alerts, upgrade or expansion opportunities get spotted late, once the customer has lost interest or is already evaluating alternatives.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "Vendrava connects trial activity signals (signup, key feature usage, limits reached) with AI agents that qualify buying intent and trigger follow-up by email, WhatsApp, or call. This makes it possible to prioritize accounts with high conversion or upgrade potential without the sales team manually reviewing every account.",
+        "Pleneva connects trial activity signals (signup, key feature usage, limits reached) with AI agents that qualify buying intent and trigger follow-up by email, WhatsApp, or call. This makes it possible to prioritize accounts with high conversion or upgrade potential without the sales team manually reviewing every account.",
       flow: ["Trial", "AI", "Demo", "Upgrade"],
       useCases: [
         "Automatic qualification of trial leads based on product activity",
@@ -730,16 +730,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "How does Vendrava know which trials have the most potential?",
-          a: "Vendrava uses the activity signals you define (key feature usage, limits reached, access frequency) to automatically qualify each account and prioritize follow-up.",
+          q: "How does Pleneva know which trials have the most potential?",
+          a: "Pleneva uses the activity signals you define (key feature usage, limits reached, access frequency) to automatically qualify each account and prioritize follow-up.",
         },
         {
           q: "Does this replace our customer success team?",
-          a: "No. Vendrava helps identify and qualify conversion or upgrade opportunities, but strategic customer guidance remains the responsibility of the human team.",
+          a: "No. Pleneva helps identify and qualify conversion or upgrade opportunities, but strategic customer guidance remains the responsibility of the human team.",
         },
         {
           q: "Can it integrate with our product to read usage signals?",
-          a: "Vendrava is designed to centralize activity and behavior signals that feed qualification and sales follow-up within the CRM.",
+          a: "Pleneva is designed to centralize activity and behavior signals that feed qualification and sales follow-up within the CRM.",
         },
         {
           q: "Does it work for both product-led and sales-led growth models?",
@@ -747,12 +747,12 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "How does it help with renewals and upsells?",
-          a: "Vendrava can generate automatic alerts when it detects expansion signals or churn risk, so the team can act before it's too late.",
+          a: "Pleneva can generate automatic alerts when it detects expansion signals or churn risk, so the team can act before it's too late.",
         },
       ],
       ctaTitle: "Turn product signals into revenue",
       ctaSub:
-        "Try Vendrava and see how to prioritize trials and accounts with the highest conversion or upgrade potential.",
+        "Try Pleneva and see how to prioritize trials and accounts with the highest conversion or upgrade potential.",
     },
   },
 
@@ -764,14 +764,14 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/educacion",
     slugEn: "industries/education",
     es: {
-      metaTitle: "CRM con IA para educación y formación | Vendrava",
+      metaTitle: "CRM con IA para educación y formación | Pleneva",
       metaDescription:
-        "Vendrava ayuda a centros educativos y de formación a responder consultas de matrícula al instante, calificar el interés real y agendar llamadas de admisión con IA.",
+        "Pleneva ayuda a centros educativos y de formación a responder consultas de matrícula al instante, calificar el interés real y agendar llamadas de admisión con IA.",
       navLabel: "Educación",
       heroKicker: "Sector · Educación y formación",
       h1: "CRM con IA para educación y formación",
       heroSub:
-        "Responde a cada consulta sobre programas o cursos al instante. Vendrava califica interés, presupuesto y plazos, y agenda la llamada de admisión.",
+        "Responde a cada consulta sobre programas o cursos al instante. Pleneva califica interés, presupuesto y plazos, y agenda la llamada de admisión.",
       painTitle: "El reto en educación y formación",
       pains: [
         {
@@ -787,9 +787,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Muchos interesados piden información pero no llegan a inscribirse porque nadie retoma la conversación en el momento adecuado.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Cuando alguien pregunta por un programa o curso, Vendrava activa un agente de IA por voz o WhatsApp que califica el interés, el presupuesto disponible y los plazos de inicio. Con esa información agenda una llamada con el equipo de admisiones o envía la información solicitada, manteniendo el seguimiento automático hasta la inscripción.",
+        "Cuando alguien pregunta por un programa o curso, Pleneva activa un agente de IA por voz o WhatsApp que califica el interés, el presupuesto disponible y los plazos de inicio. Con esa información agenda una llamada con el equipo de admisiones o envía la información solicitada, manteniendo el seguimiento automático hasta la inscripción.",
       flow: ["Consulta", "IA", "Calificación", "Llamada de admisión"],
       useCases: [
         "Respuesta inmediata a consultas sobre programas, cursos o becas",
@@ -810,12 +810,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava puede gestionar picos de consultas en periodo de matrícula?",
+          q: "¿Pleneva puede gestionar picos de consultas en periodo de matrícula?",
           a: "Sí, la IA está diseñada para escalar y responder a un alto volumen de consultas sin perder tiempos de respuesta, incluso en campañas de admisión.",
         },
         {
           q: "¿La IA sustituye al equipo de orientación o admisiones?",
-          a: "No. Vendrava se encarga de la primera respuesta y la calificación; la orientación académica y la decisión final de admisión dependen del equipo humano.",
+          a: "No. Pleneva se encarga de la primera respuesta y la calificación; la orientación académica y la decisión final de admisión dependen del equipo humano.",
         },
         {
           q: "¿Cómo se prioriza a los interesados con mayor intención real?",
@@ -827,22 +827,22 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Qué pasa con los interesados que piden información pero no se inscriben?",
-          a: "Vendrava automatiza el seguimiento con recordatorios y mensajes espaciados en el tiempo, para recuperar interesados que no completaron la inscripción a la primera.",
+          a: "Pleneva automatiza el seguimiento con recordatorios y mensajes espaciados en el tiempo, para recuperar interesados que no completaron la inscripción a la primera.",
         },
       ],
       ctaTitle: "Convierte más consultas en matrículas",
       ctaSub:
-        "Prueba Vendrava y descubre cómo responder y calificar cada consulta educativa sin saturar a tu equipo de admisiones.",
+        "Prueba Pleneva y descubre cómo responder y calificar cada consulta educativa sin saturar a tu equipo de admisiones.",
     },
     en: {
-      metaTitle: "AI CRM for education and training teams | Vendrava",
+      metaTitle: "AI CRM for education and training teams | Pleneva",
       metaDescription:
-        "Vendrava helps schools and training providers respond to enrollment inquiries instantly, qualify real interest, and book admissions calls with AI.",
+        "Pleneva helps schools and training providers respond to enrollment inquiries instantly, qualify real interest, and book admissions calls with AI.",
       navLabel: "Education",
       heroKicker: "Industry · Education and training",
       h1: "AI CRM for education and training teams",
       heroSub:
-        "Respond to every inquiry about programs or courses instantly. Vendrava qualifies interest, budget, and timing, and books the admissions call.",
+        "Respond to every inquiry about programs or courses instantly. Pleneva qualifies interest, budget, and timing, and books the admissions call.",
       painTitle: "The education and training challenge",
       pains: [
         {
@@ -858,9 +858,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Many prospects ask for information but never enroll because no one follows up at the right moment.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "When someone asks about a program or course, Vendrava triggers a voice or WhatsApp AI agent that qualifies interest, available budget, and start timing. With that information it books a call with the admissions team or sends the requested information, keeping automatic follow-up going until enrollment.",
+        "When someone asks about a program or course, Pleneva triggers a voice or WhatsApp AI agent that qualifies interest, available budget, and start timing. With that information it books a call with the admissions team or sends the requested information, keeping automatic follow-up going until enrollment.",
       flow: ["Inquiry", "AI", "Qualification", "Admissions call"],
       useCases: [
         "Immediate response to inquiries about programs, courses, or scholarships",
@@ -881,12 +881,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Can Vendrava handle inquiry spikes during enrollment periods?",
+          q: "Can Pleneva handle inquiry spikes during enrollment periods?",
           a: "Yes, the AI is designed to scale and respond to high inquiry volumes without losing response speed, even during admissions campaigns.",
         },
         {
           q: "Does the AI replace the guidance or admissions team?",
-          a: "No. Vendrava handles the first response and qualification; academic guidance and the final admissions decision remain with the human team.",
+          a: "No. Pleneva handles the first response and qualification; academic guidance and the final admissions decision remain with the human team.",
         },
         {
           q: "How does it prioritize prospects with the highest real intent?",
@@ -898,12 +898,12 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "What happens with prospects who ask for information but don't enroll?",
-          a: "Vendrava automates follow-up with reminders and messages spaced over time, to recover prospects who didn't complete enrollment on the first try.",
+          a: "Pleneva automates follow-up with reminders and messages spaced over time, to recover prospects who didn't complete enrollment on the first try.",
         },
       ],
       ctaTitle: "Turn more inquiries into enrollments",
       ctaSub:
-        "Try Vendrava and see how to respond to and qualify every education inquiry without overwhelming your admissions team.",
+        "Try Pleneva and see how to respond to and qualify every education inquiry without overwhelming your admissions team.",
     },
   },
 
@@ -915,14 +915,14 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/servicios-profesionales",
     slugEn: "industries/professional-services",
     es: {
-      metaTitle: "CRM con IA para servicios profesionales | Vendrava",
+      metaTitle: "CRM con IA para servicios profesionales | Pleneva",
       metaDescription:
-        "Vendrava ayuda a despachos y firmas de servicios profesionales a priorizar clientes de alto valor automáticamente y acelerar el paso de consulta a propuesta.",
+        "Pleneva ayuda a despachos y firmas de servicios profesionales a priorizar clientes de alto valor automáticamente y acelerar el paso de consulta a propuesta.",
       navLabel: "Servicios profesionales",
       heroKicker: "Sector · Servicios profesionales",
       h1: "CRM con IA para servicios profesionales",
       heroSub:
-        "Prioriza clientes de alto valor automáticamente. Vendrava califica cada consulta y acelera el camino hacia la propuesta.",
+        "Prioriza clientes de alto valor automáticamente. Pleneva califica cada consulta y acelera el camino hacia la propuesta.",
       painTitle: "El reto en servicios profesionales",
       pains: [
         {
@@ -938,9 +938,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Entre la primera consulta y el envío de la propuesta pasa demasiado tiempo, y el cliente potencial se decide por otra firma.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Vendrava califica automáticamente cada consulta entrante según el tipo de servicio, el volumen o complejidad estimada y la urgencia, y asigna una puntuación (score) que ayuda a priorizar qué clientes atender primero. A partir de esa calificación, puede generar automáticamente una propuesta inicial o agendar una reunión con el profesional adecuado.",
+        "Pleneva califica automáticamente cada consulta entrante según el tipo de servicio, el volumen o complejidad estimada y la urgencia, y asigna una puntuación (score) que ayuda a priorizar qué clientes atender primero. A partir de esa calificación, puede generar automáticamente una propuesta inicial o agendar una reunión con el profesional adecuado.",
       flow: ["Lead", "Score", "Propuesta"],
       useCases: [
         "Calificación automática de consultas por tipo de servicio y complejidad",
@@ -961,12 +961,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Cómo decide Vendrava qué clientes son de alto valor?",
-          a: "Vendrava asigna un score a cada consulta según los criterios que definas (tipo de servicio, volumen estimado, urgencia), y prioriza automáticamente las de mayor potencial.",
+          q: "¿Cómo decide Pleneva qué clientes son de alto valor?",
+          a: "Pleneva asigna un score a cada consulta según los criterios que definas (tipo de servicio, volumen estimado, urgencia), y prioriza automáticamente las de mayor potencial.",
         },
         {
           q: "¿La IA sustituye el criterio profesional en la relación con el cliente?",
-          a: "No. Vendrava ayuda a calificar y priorizar consultas entrantes, pero el asesoramiento, la propuesta de valor y la relación con el cliente dependen del profesional o socio responsable.",
+          a: "No. Pleneva ayuda a calificar y priorizar consultas entrantes, pero el asesoramiento, la propuesta de valor y la relación con el cliente dependen del profesional o socio responsable.",
         },
         {
           q: "¿Sirve para despachos con varias áreas de práctica o especialidades?",
@@ -974,7 +974,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Cómo se acelera el envío de la propuesta inicial?",
-          a: "Con la información calificada de cada consulta, Vendrava puede generar una propuesta inicial o agendar directamente una reunión con el profesional indicado, reduciendo los tiempos muertos.",
+          a: "Con la información calificada de cada consulta, Pleneva puede generar una propuesta inicial o agendar directamente una reunión con el profesional indicado, reduciendo los tiempos muertos.",
         },
         {
           q: "¿Qué pasa con las consultas de menor prioridad?",
@@ -983,17 +983,17 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       ctaTitle: "Prioriza a tus clientes de mayor valor de forma automática",
       ctaSub:
-        "Prueba Vendrava y descubre cómo calificar y acelerar el paso de consulta a propuesta en tu firma.",
+        "Prueba Pleneva y descubre cómo calificar y acelerar el paso de consulta a propuesta en tu firma.",
     },
     en: {
-      metaTitle: "AI CRM for professional services | Vendrava",
+      metaTitle: "AI CRM for professional services | Pleneva",
       metaDescription:
-        "Vendrava helps professional services firms prioritize high-value clients automatically and speed up the path from inquiry to proposal.",
+        "Pleneva helps professional services firms prioritize high-value clients automatically and speed up the path from inquiry to proposal.",
       navLabel: "Professional services",
       heroKicker: "Industry · Professional services",
       h1: "AI CRM for professional services",
       heroSub:
-        "Prioritize high-value clients automatically. Vendrava qualifies every inquiry and speeds up the path to a proposal.",
+        "Prioritize high-value clients automatically. Pleneva qualifies every inquiry and speeds up the path to a proposal.",
       painTitle: "The professional services challenge",
       pains: [
         {
@@ -1009,9 +1009,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Too much time passes between the first inquiry and sending the proposal, and the prospective client decides on another firm.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "Vendrava automatically qualifies each inbound inquiry based on service type, estimated volume or complexity, and urgency, assigning a score that helps prioritize which clients to handle first. Based on that score, it can automatically generate an initial proposal or schedule a meeting with the right professional.",
+        "Pleneva automatically qualifies each inbound inquiry based on service type, estimated volume or complexity, and urgency, assigning a score that helps prioritize which clients to handle first. Based on that score, it can automatically generate an initial proposal or schedule a meeting with the right professional.",
       flow: ["Lead", "Score", "Proposal"],
       useCases: [
         "Automatic qualification of inquiries by service type and complexity",
@@ -1032,12 +1032,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "How does Vendrava decide which clients are high-value?",
-          a: "Vendrava assigns a score to each inquiry based on the criteria you define (service type, estimated volume, urgency), and automatically prioritizes the ones with the highest potential.",
+          q: "How does Pleneva decide which clients are high-value?",
+          a: "Pleneva assigns a score to each inquiry based on the criteria you define (service type, estimated volume, urgency), and automatically prioritizes the ones with the highest potential.",
         },
         {
           q: "Does the AI replace professional judgment in the client relationship?",
-          a: "No. Vendrava helps qualify and prioritize inbound inquiries, but advisory work, the value proposition, and the client relationship remain with the responsible professional or partner.",
+          a: "No. Pleneva helps qualify and prioritize inbound inquiries, but advisory work, the value proposition, and the client relationship remain with the responsible professional or partner.",
         },
         {
           q: "Does it work for firms with multiple practice areas or specialties?",
@@ -1045,7 +1045,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "How does it speed up sending the initial proposal?",
-          a: "Using the qualified information from each inquiry, Vendrava can generate an initial proposal or directly schedule a meeting with the right professional, cutting down dead time.",
+          a: "Using the qualified information from each inquiry, Pleneva can generate an initial proposal or directly schedule a meeting with the right professional, cutting down dead time.",
         },
         {
           q: "What happens with lower-priority inquiries?",
@@ -1054,7 +1054,7 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       ctaTitle: "Prioritize your highest-value clients automatically",
       ctaSub:
-        "Try Vendrava and see how to qualify and speed up the path from inquiry to proposal at your firm.",
+        "Try Pleneva and see how to qualify and speed up the path from inquiry to proposal at your firm.",
     },
   },
 
@@ -1066,12 +1066,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/veterinarias",
     slugEn: "industries/veterinary-clinics",
     es: {
-      metaTitle: "IA para clínicas veterinarias | Vendrava",
-      metaDescription: "Vendrava contesta llamadas y WhatsApp de tu clínica veterinaria fuera de horario y en horas punta, identifica el motivo, agenda o reprograma citas y recupera no-shows. La gestión es administrativa; el criterio clínico siempre es de tu equipo.",
+      metaTitle: "IA para clínicas veterinarias | Pleneva",
+      metaDescription: "Pleneva contesta llamadas y WhatsApp de tu clínica veterinaria fuera de horario y en horas punta, identifica el motivo, agenda o reprograma citas y recupera no-shows. La gestión es administrativa; el criterio clínico siempre es de tu equipo.",
       navLabel: "Veterinarias",
       heroKicker: "Sector · Veterinarias",
       h1: "IA para clínicas veterinarias",
-      heroSub: "En una veterinaria, una llamada perdida es un paciente perdido. Vendrava contesta por voz y WhatsApp cuando tu equipo no puede, identifica el motivo y agenda la cita, sin dar nunca consejo clínico.",
+      heroSub: "En una veterinaria, una llamada perdida es un paciente perdido. Pleneva contesta por voz y WhatsApp cuando tu equipo no puede, identifica el motivo y agenda la cita, sin dar nunca consejo clínico.",
       painTitle: "El reto en clínicas veterinarias",
       pains: [
         {
@@ -1087,8 +1087,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Vacunas de recuerdo, revisiones y postoperatorios se olvidan sin recordatorios, y las citas perdidas rara vez se recuperan porque nadie tiene tiempo de volver a llamar."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Vendrava atiende las llamadas y mensajes que tu equipo no puede atender con un agente de IA que identifica el motivo (urgencia, vacuna, revisión, peluquería, cirugía), agenda o reprograma la cita según la disponibilidad real y recupera no-shows. La IA solo hace gestión administrativa: nunca da diagnóstico ni consejo veterinario, y ante cualquier caso urgente o dudoso avisa y traspasa a una persona de tu equipo. Al inicio de cada contacto se indica que se habla con un asistente de IA, con consentimiento y trato de datos conforme a la normativa de protección de datos aplicable, y tu equipo mantiene el control clínico en todo momento.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Pleneva atiende las llamadas y mensajes que tu equipo no puede atender con un agente de IA que identifica el motivo (urgencia, vacuna, revisión, peluquería, cirugía), agenda o reprograma la cita según la disponibilidad real y recupera no-shows. La IA solo hace gestión administrativa: nunca da diagnóstico ni consejo veterinario, y ante cualquier caso urgente o dudoso avisa y traspasa a una persona de tu equipo. Al inicio de cada contacto se indica que se habla con un asistente de IA, con consentimiento y trato de datos conforme a la normativa de protección de datos aplicable, y tu equipo mantiene el control clínico en todo momento.",
       flow: ["Llamada", "IA", "Motivo", "Cita"],
       useCases: [
         "Atención de llamadas y WhatsApp fuera de horario, en horas punta o cuando la recepción está ocupada",
@@ -1118,8 +1118,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿La IA de Vendrava da diagnósticos o consejo veterinario?",
-          a: "No. Vendrava se limita a la gestión administrativa: contestar, identificar el motivo, agendar y reprogramar citas. Cualquier valoración clínica o consejo sobre un animal depende siempre de tu equipo veterinario."
+          q: "¿La IA de Pleneva da diagnósticos o consejo veterinario?",
+          a: "No. Pleneva se limita a la gestión administrativa: contestar, identificar el motivo, agendar y reprogramar citas. Cualquier valoración clínica o consejo sobre un animal depende siempre de tu equipo veterinario."
         },
         {
           q: "¿Qué pasa si la llamada es una urgencia?",
@@ -1130,7 +1130,7 @@ export const INDUSTRIES: IndustryEntry[] = [
           a: "Sí. Al inicio del contacto se indica de forma clara que se habla con un asistente de IA de la clínica, se pide el consentimiento necesario y los datos se tratan conforme al RGPD. La transparencia es parte del planteamiento, no una nota al pie."
         },
         {
-          q: "¿Vendrava sustituye a la recepción de la clínica?",
+          q: "¿Pleneva sustituye a la recepción de la clínica?",
           a: "No. Está pensado para apoyar a tu equipo: absorbe las llamadas y mensajes que no se pueden atender, sobre todo fuera de horario y en horas punta, para que la recepción se centre en los pacientes presentes y en lo que requiere criterio humano."
         },
         {
@@ -1139,15 +1139,15 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Que ninguna llamada perdida te cueste un paciente",
-      ctaSub: "Prueba Vendrava y descubre cómo contestar, agendar y recuperar citas en tu clínica veterinaria sin perder el control del criterio clínico."
+      ctaSub: "Prueba Pleneva y descubre cómo contestar, agendar y recuperar citas en tu clínica veterinaria sin perder el control del criterio clínico."
     },
     en: {
-      metaTitle: "AI for veterinary clinics | Vendrava",
-      metaDescription: "Vendrava answers your veterinary clinic's calls and WhatsApp after hours and during peak times, identifies the reason, books or reschedules appointments, and recovers no-shows. The work is administrative; clinical judgment always stays with your team.",
+      metaTitle: "AI for veterinary clinics | Pleneva",
+      metaDescription: "Pleneva answers your veterinary clinic's calls and WhatsApp after hours and during peak times, identifies the reason, books or reschedules appointments, and recovers no-shows. The work is administrative; clinical judgment always stays with your team.",
       navLabel: "Veterinary clinics",
       heroKicker: "Industry · Veterinary clinics",
       h1: "AI for veterinary clinics",
-      heroSub: "In a veterinary clinic, a missed call is a lost patient. Vendrava answers by voice and WhatsApp when your team can't, identifies the reason, and books the appointment, without ever giving clinical advice.",
+      heroSub: "In a veterinary clinic, a missed call is a lost patient. Pleneva answers by voice and WhatsApp when your team can't, identifies the reason, and books the appointment, without ever giving clinical advice.",
       painTitle: "The veterinary clinic challenge",
       pains: [
         {
@@ -1163,8 +1163,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Booster vaccines, check-ups, and post-op visits get forgotten without reminders, and missed appointments are rarely recovered because no one has time to call back."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "Vendrava handles the calls and messages your team can't pick up with an AI agent that identifies the reason (urgent, vaccine, check-up, grooming, surgery), books or reschedules based on real availability, and recovers no-shows. The AI only does administrative work: it never gives a diagnosis or veterinary advice, and for any urgent or unclear case it flags and hands off to a person on your team. At the start of every contact it states that the caller is speaking with an AI assistant, with consent and data handling in line with GDPR, and your team keeps clinical control at all times.",
+      howTitle: "How Pleneva helps",
+      howText: "Pleneva handles the calls and messages your team can't pick up with an AI agent that identifies the reason (urgent, vaccine, check-up, grooming, surgery), books or reschedules based on real availability, and recovers no-shows. The AI only does administrative work: it never gives a diagnosis or veterinary advice, and for any urgent or unclear case it flags and hands off to a person on your team. At the start of every contact it states that the caller is speaking with an AI assistant, with consent and data handling in line with GDPR, and your team keeps clinical control at all times.",
       flow: ["Call", "AI", "Reason", "Appointment"],
       useCases: [
         "Handling calls and WhatsApp after hours, during peak times, or when the front desk is busy",
@@ -1194,8 +1194,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava's AI give diagnoses or veterinary advice?",
-          a: "No. Vendrava is limited to administrative work: answering, identifying the reason, and booking or rescheduling appointments. Any clinical assessment or advice about an animal always depends on your veterinary team."
+          q: "Does Pleneva's AI give diagnoses or veterinary advice?",
+          a: "No. Pleneva is limited to administrative work: answering, identifying the reason, and booking or rescheduling appointments. Any clinical assessment or advice about an animal always depends on your veterinary team."
         },
         {
           q: "What happens if the call is an emergency?",
@@ -1206,7 +1206,7 @@ export const INDUSTRIES: IndustryEntry[] = [
           a: "Yes. At the start of the contact it clearly states that the caller is speaking with the clinic's AI assistant, asks for the necessary consent, and handles data in line with GDPR. Transparency is part of the approach, not a footnote."
         },
         {
-          q: "Does Vendrava replace the clinic's front desk?",
+          q: "Does Pleneva replace the clinic's front desk?",
           a: "No. It's built to support your team: it absorbs the calls and messages that can't be picked up, especially after hours and during peak times, so the front desk can focus on patients on-site and on what needs human judgment."
         },
         {
@@ -1215,7 +1215,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Don't let a missed call cost you a patient",
-      ctaSub: "Try Vendrava and see how to answer, book, and recover appointments at your veterinary clinic without losing control of clinical judgment."
+      ctaSub: "Try Pleneva and see how to answer, book, and recover appointments at your veterinary clinic without losing control of clinical judgment."
     }
   },
 
@@ -1227,12 +1227,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/peluquerias-caninas",
     slugEn: "industries/pet-grooming",
     es: {
-      metaTitle: "IA de voz y WhatsApp para peluquerías caninas | Vendrava",
-      metaDescription: "Vendrava contesta las llamadas y los WhatsApp de tu peluquería canina mientras bañas o cortas, agenda por tamaño, raza y servicio, y envía recordatorios para reducir ausencias. Tu equipo, con IA de apoyo.",
+      metaTitle: "IA de voz y WhatsApp para peluquerías caninas | Pleneva",
+      metaDescription: "Pleneva contesta las llamadas y los WhatsApp de tu peluquería canina mientras bañas o cortas, agenda por tamaño, raza y servicio, y envía recordatorios para reducir ausencias. Tu equipo, con IA de apoyo.",
       navLabel: "Peluquerías caninas",
       heroKicker: "Sector · Peluquerías caninas",
       h1: "IA de voz y WhatsApp para peluquerías caninas y de mascotas",
-      heroSub: "Cuando estás bañando o cortando, no puedes atender el teléfono. Vendrava contesta llamadas y WhatsApp, agenda por tamaño, raza y servicio, y recuerda las citas para que no pierdas clientes por no responder a tiempo.",
+      heroSub: "Cuando estás bañando o cortando, no puedes atender el teléfono. Pleneva contesta llamadas y WhatsApp, agenda por tamaño, raza y servicio, y recuerda las citas para que no pierdas clientes por no responder a tiempo.",
       painTitle: "El reto en peluquerías caninas",
       pains: [
         {
@@ -1248,8 +1248,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Un perro necesita corte cada pocas semanas, pero si nadie le recuerda que le toca, el cliente lo va aplazando y termina espaciando o abandonando las visitas."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Cuando entra una llamada o un WhatsApp y tú estás ocupado, Vendrava responde con un agente de IA que pregunta por el tipo de mascota, tamaño, raza y servicio, y propone hueco en tu agenda. Antes de la cita envía recordatorios para reducir ausencias, y reactiva a los clientes recurrentes con un aviso de que le toca corte. La IA avisa siempre de que se habla con un asistente automático y tú mantienes el control: puedes intervenir, confirmar o reprogramar cualquier cita cuando salgas del baño.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Cuando entra una llamada o un WhatsApp y tú estás ocupado, Pleneva responde con un agente de IA que pregunta por el tipo de mascota, tamaño, raza y servicio, y propone hueco en tu agenda. Antes de la cita envía recordatorios para reducir ausencias, y reactiva a los clientes recurrentes con un aviso de que le toca corte. La IA avisa siempre de que se habla con un asistente automático y tú mantienes el control: puedes intervenir, confirmar o reprogramar cualquier cita cuando salgas del baño.",
       flow: ["Llamada", "IA", "Servicio", "Cita"],
       useCases: [
         "Contestar llamadas y WhatsApp cuando estás bañando o cortando y no puedes atender",
@@ -1280,12 +1280,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava contesta el WhatsApp de la peluquería mientras estoy cortando?",
+          q: "¿Pleneva contesta el WhatsApp de la peluquería mientras estoy cortando?",
           a: "Sí. Cuando no puedes atender, el agente de IA responde por WhatsApp y por voz, pregunta por la mascota y el servicio, y propone cita en tu agenda. Cuando sales del baño ves todo lo gestionado y puedes ajustar lo que haga falta."
         },
         {
           q: "¿La IA sustituye a la persona que lleva la peluquería?",
-          a: "No. Vendrava es un apoyo para no perder llamadas ni citas cuando tienes las manos ocupadas. Tú y tu equipo mantienen el control: la atención al animal, el trato con el cliente y la decisión final sobre la agenda siguen siendo suyos."
+          a: "No. Pleneva es un apoyo para no perder llamadas ni citas cuando tienes las manos ocupadas. Tú y tu equipo mantienen el control: la atención al animal, el trato con el cliente y la decisión final sobre la agenda siguen siendo suyos."
         },
         {
           q: "¿Cómo agenda las citas si cada perro necesita un tiempo distinto?",
@@ -1297,19 +1297,19 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Puede recordar a los clientes que a su perro le toca corte?",
-          a: "Sí. Según la frecuencia habitual de cada mascota, Vendrava puede enviar un aviso de que le toca corte y ofrecer directamente cita, para recuperar clientes recurrentes que van espaciando las visitas."
+          a: "Sí. Según la frecuencia habitual de cada mascota, Pleneva puede enviar un aviso de que le toca corte y ofrecer directamente cita, para recuperar clientes recurrentes que van espaciando las visitas."
         }
       ],
       ctaTitle: "Que ninguna llamada perdida te cueste un cliente",
-      ctaSub: "Prueba Vendrava y deja que conteste, agende y recuerde las citas de tu peluquería mientras tú te dedicas a las mascotas."
+      ctaSub: "Prueba Pleneva y deja que conteste, agende y recuerde las citas de tu peluquería mientras tú te dedicas a las mascotas."
     },
     en: {
-      metaTitle: "Voice and WhatsApp AI for pet grooming salons | Vendrava",
-      metaDescription: "Vendrava answers your grooming salon's calls and WhatsApp while you're bathing or clipping, books by size, breed, and service, and sends reminders to cut no-shows. Your team, with AI support.",
+      metaTitle: "Voice and WhatsApp AI for pet grooming salons | Pleneva",
+      metaDescription: "Pleneva answers your grooming salon's calls and WhatsApp while you're bathing or clipping, books by size, breed, and service, and sends reminders to cut no-shows. Your team, with AI support.",
       navLabel: "Pet grooming",
       heroKicker: "Industry · Pet grooming",
       h1: "Voice and WhatsApp AI for pet grooming and mascot salons",
-      heroSub: "When you're bathing or clipping, you can't pick up the phone. Vendrava answers calls and WhatsApp, books by size, breed, and service, and reminds clients of their appointments so you don't lose them by responding too late.",
+      heroSub: "When you're bathing or clipping, you can't pick up the phone. Pleneva answers calls and WhatsApp, books by size, breed, and service, and reminds clients of their appointments so you don't lose them by responding too late.",
       painTitle: "The pet grooming challenge",
       pains: [
         {
@@ -1325,8 +1325,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "A dog needs a groom every few weeks, but if no one reminds the owner it's due, they keep putting it off and end up spacing out or dropping their visits."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "When a call or WhatsApp comes in and you're busy, Vendrava answers with an AI agent that asks about the pet type, size, breed, and service, and offers a slot in your calendar. Before the appointment it sends reminders to cut no-shows, and it re-engages recurring clients with a heads-up that their pet is due for a groom. The AI always states that it's an automated assistant, and you stay in control: you can step in, confirm, or reschedule any appointment when you're out of the bath.",
+      howTitle: "How Pleneva helps",
+      howText: "When a call or WhatsApp comes in and you're busy, Pleneva answers with an AI agent that asks about the pet type, size, breed, and service, and offers a slot in your calendar. Before the appointment it sends reminders to cut no-shows, and it re-engages recurring clients with a heads-up that their pet is due for a groom. The AI always states that it's an automated assistant, and you stay in control: you can step in, confirm, or reschedule any appointment when you're out of the bath.",
       flow: ["Call", "AI", "Service", "Booking"],
       useCases: [
         "Answering calls and WhatsApp when you're bathing or clipping and can't pick up",
@@ -1357,12 +1357,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava answer the salon's WhatsApp while I'm clipping?",
+          q: "Does Pleneva answer the salon's WhatsApp while I'm clipping?",
           a: "Yes. When you can't respond, the AI agent replies over WhatsApp and voice, asks about the pet and the service, and offers an appointment in your calendar. When you're out of the bath you see everything it handled and can adjust whatever you need."
         },
         {
           q: "Does the AI replace the person running the salon?",
-          a: "No. Vendrava is a support so you don't miss calls or appointments when your hands are busy. You and your team stay in control: caring for the animal, the client relationship, and the final call on the schedule remain yours."
+          a: "No. Pleneva is a support so you don't miss calls or appointments when your hands are busy. You and your team stay in control: caring for the animal, the client relationship, and the final call on the schedule remain yours."
         },
         {
           q: "How does it book appointments if each dog needs a different amount of time?",
@@ -1374,11 +1374,11 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "Can it remind clients their dog is due for a groom?",
-          a: "Yes. Based on each pet's usual frequency, Vendrava can send a heads-up that a groom is due and offer an appointment directly, to win back recurring clients who are drifting apart on their visits."
+          a: "Yes. Based on each pet's usual frequency, Pleneva can send a heads-up that a groom is due and offer an appointment directly, to win back recurring clients who are drifting apart on their visits."
         }
       ],
       ctaTitle: "Don't let a missed call cost you a client",
-      ctaSub: "Try Vendrava and let it answer, book, and remind your salon's appointments while you focus on the pets."
+      ctaSub: "Try Pleneva and let it answer, book, and remind your salon's appointments while you focus on the pets."
     }
   },
 
@@ -1390,14 +1390,14 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/call-centers",
     slugEn: "industries/call-centers",
     es: {
-      metaTitle: "IA de voz para call centers y llamadas en frío | Vendrava",
+      metaTitle: "IA de voz para call centers y llamadas en frío | Pleneva",
       metaDescription:
-        "Vendrava suma agentes de voz IA a tu call center para ejecutar campañas de llamadas en frío y salientes a gran volumen, calificar y pasar solo los leads interesados a tus agentes, con consentimiento, horarios y control humano.",
+        "Pleneva suma agentes de voz IA a tu call center para ejecutar campañas de llamadas en frío y salientes a gran volumen, calificar y pasar solo los leads interesados a tus agentes, con consentimiento, horarios y control humano.",
       navLabel: "Call centers",
       heroKicker: "Sector · Call centers y telemarketing",
       h1: "IA de voz para call centers y llamadas en frío",
       heroSub:
-        "Vendrava ejecuta campañas de llamadas salientes y en frío a gran volumen con agentes de voz IA: contactan, califican y pasan solo los leads interesados a tus agentes humanos, con consentimiento y horarios configurables.",
+        "Pleneva ejecuta campañas de llamadas salientes y en frío a gran volumen con agentes de voz IA: contactan, califican y pasan solo los leads interesados a tus agentes humanos, con consentimiento y horarios configurables.",
       painTitle: "El reto en call centers y equipos de outbound",
       pains: [
         {
@@ -1413,9 +1413,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Consentimiento, horarios permitidos, listas de exclusión y guiones consistentes son difíciles de garantizar cuando el volumen crece.",
         },
       ],
-      howTitle: "Cómo ayuda Vendrava",
+      howTitle: "Cómo ayuda Pleneva",
       howText:
-        "Vendrava suma agentes de voz IA a tu operación de outbound: cargan tus listas, marcan a gran volumen, hacen las preguntas de calificación de tu guion y, cuando detectan interés, transfieren la llamada a un agente humano o agendan la cita. Cada campaña se configura respetando el consentimiento, los horarios permitidos y las listas de exclusión de cada mercado, y todo queda registrado en el CRM. Tus agentes dejan de marcar en frío y se centran en cerrar.",
+        "Pleneva suma agentes de voz IA a tu operación de outbound: cargan tus listas, marcan a gran volumen, hacen las preguntas de calificación de tu guion y, cuando detectan interés, transfieren la llamada a un agente humano o agendan la cita. Cada campaña se configura respetando el consentimiento, los horarios permitidos y las listas de exclusión de cada mercado, y todo queda registrado en el CRM. Tus agentes dejan de marcar en frío y se centran en cerrar.",
       flow: ["Lista", "Llamada IA", "Calificación", "Handoff / cita"],
       useCases: [
         "Campañas de llamadas en frío y salientes a gran volumen",
@@ -1437,7 +1437,7 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava reemplaza a mis agentes?",
+          q: "¿Pleneva reemplaza a mis agentes?",
           a: "No. La IA hace el marcado en frío y la precalificación a volumen; tus agentes reciben solo los leads interesados para cerrar. El trato humano y el cierre siguen siendo suyos.",
         },
         {
@@ -1459,17 +1459,17 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       ctaTitle: "Multiplica tu capacidad de llamadas sin ampliar la plantilla",
       ctaSub:
-        "Prueba Vendrava y descubre cómo automatizar el marcado en frío y la precalificación para que tus agentes hablen solo con interesados.",
+        "Prueba Pleneva y descubre cómo automatizar el marcado en frío y la precalificación para que tus agentes hablen solo con interesados.",
     },
     en: {
-      metaTitle: "AI voice for call centers and cold calling | Vendrava",
+      metaTitle: "AI voice for call centers and cold calling | Pleneva",
       metaDescription:
-        "Vendrava adds AI voice agents to your call center to run cold and outbound calling campaigns at scale, qualify, and pass only interested leads to your agents, with consent, calling hours and human control.",
+        "Pleneva adds AI voice agents to your call center to run cold and outbound calling campaigns at scale, qualify, and pass only interested leads to your agents, with consent, calling hours and human control.",
       navLabel: "Call centers",
       heroKicker: "Industry · Call centers and telemarketing",
       h1: "AI voice for call centers and cold calling",
       heroSub:
-        "Vendrava runs outbound and cold calling campaigns at scale with AI voice agents: they contact, qualify, and pass only interested leads to your human agents, with configurable consent and calling hours.",
+        "Pleneva runs outbound and cold calling campaigns at scale with AI voice agents: they contact, qualify, and pass only interested leads to your human agents, with configurable consent and calling hours.",
       painTitle: "The call center and outbound challenge",
       pains: [
         {
@@ -1485,9 +1485,9 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Consent, permitted calling hours, exclusion lists and consistent scripts are hard to guarantee as volume grows.",
         },
       ],
-      howTitle: "How Vendrava helps",
+      howTitle: "How Pleneva helps",
       howText:
-        "Vendrava adds AI voice agents to your outbound operation: they load your lists, dial at scale, ask your script qualification questions and, when they detect interest, transfer the call to a human agent or book the appointment. Every campaign is configured to respect consent, permitted calling hours and each market exclusion lists, and everything is logged in the CRM. Your agents stop cold dialing and focus on closing.",
+        "Pleneva adds AI voice agents to your outbound operation: they load your lists, dial at scale, ask your script qualification questions and, when they detect interest, transfer the call to a human agent or book the appointment. Every campaign is configured to respect consent, permitted calling hours and each market exclusion lists, and everything is logged in the CRM. Your agents stop cold dialing and focus on closing.",
       flow: ["List", "AI call", "Qualification", "Handoff / booking"],
       useCases: [
         "Cold and outbound calling campaigns at high volume",
@@ -1509,7 +1509,7 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava replace my agents?",
+          q: "Does Pleneva replace my agents?",
           a: "No. The AI handles cold dialing and pre-qualification at volume; your agents receive only interested leads to close. The human relationship and the close stay with them.",
         },
         {
@@ -1531,7 +1531,7 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       ctaTitle: "Multiply your calling capacity without growing headcount",
       ctaSub:
-        "Try Vendrava and see how to automate cold dialing and pre-qualification so your agents only talk to interested prospects.",
+        "Try Pleneva and see how to automate cold dialing and pre-qualification so your agents only talk to interested prospects.",
     },
   },
 
@@ -1543,12 +1543,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/clinicas-dentales",
     slugEn: "industries/dental-clinics",
     es: {
-      metaTitle: "CRM con IA para clínicas dentales | Vendrava",
-      metaDescription: "Vendrava ayuda a clínicas dentales a no perder pacientes por llamadas sin atender: contesta, califica el motivo y agenda citas por voz y WhatsApp, con recordatorios y recuperación de no-shows, siempre bajo control del equipo humano.",
+      metaTitle: "CRM con IA para clínicas dentales | Pleneva",
+      metaDescription: "Pleneva ayuda a clínicas dentales a no perder pacientes por llamadas sin atender: contesta, califica el motivo y agenda citas por voz y WhatsApp, con recordatorios y recuperación de no-shows, siempre bajo control del equipo humano.",
       navLabel: "Clínicas dentales",
       heroKicker: "Sector · Clínicas dentales",
       h1: "CRM con IA para clínicas dentales",
-      heroSub: "En una clínica dental, una llamada sin atender suele ser un paciente perdido. Vendrava contesta, identifica el motivo y agenda la cita por voz y WhatsApp; el diagnóstico siempre queda en manos del equipo clínico.",
+      heroSub: "En una clínica dental, una llamada sin atender suele ser un paciente perdido. Pleneva contesta, identifica el motivo y agenda la cita por voz y WhatsApp; el diagnóstico siempre queda en manos del equipo clínico.",
       painTitle: "El reto en clínicas dentales",
       pains: [
         {
@@ -1564,8 +1564,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Las ausencias y las cancelaciones de última hora dejan huecos difíciles de rellenar, sillón parado y agenda descuadrada. Recuperar y reagendar a mano consume tiempo que la recepción no siempre tiene."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Vendrava se comporta como un asesor de recepción entrenado en tu clínica: aprende tus tratamientos, tus preguntas de calificación y tus respuestas habituales sobre presupuesto y financiación. Contesta llamadas y mensajes de WhatsApp, identifica el motivo (urgencia, primera visita, revisión, presupuesto de implantes u ortodoncia), agenda la cita con el profesional adecuado y envía recordatorios para reducir ausencias. Solo hace gestión administrativa: nunca da diagnóstico ni indicación clínica, y cualquier caso puede pasar al equipo humano en cualquier momento. Los datos de salud se tratan como un valor a proteger, con aviso de uso de IA, consentimiento y control humano según la normativa de protección de datos aplicable.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Pleneva se comporta como un asesor de recepción entrenado en tu clínica: aprende tus tratamientos, tus preguntas de calificación y tus respuestas habituales sobre presupuesto y financiación. Contesta llamadas y mensajes de WhatsApp, identifica el motivo (urgencia, primera visita, revisión, presupuesto de implantes u ortodoncia), agenda la cita con el profesional adecuado y envía recordatorios para reducir ausencias. Solo hace gestión administrativa: nunca da diagnóstico ni indicación clínica, y cualquier caso puede pasar al equipo humano en cualquier momento. Los datos de salud se tratan como un valor a proteger, con aviso de uso de IA, consentimiento y control humano según la normativa de protección de datos aplicable.",
       flow: ["Llamada", "Motivo", "Agenda", "Recordatorio"],
       useCases: [
         "Atención de llamadas y WhatsApp fuera de horario, en festivos o cuando la recepción está ocupada",
@@ -1596,12 +1596,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿La IA de Vendrava da diagnósticos o recomendaciones dentales?",
-          a: "No. Vendrava solo hace gestión administrativa: contesta, identifica el motivo de contacto y agenda la cita. Cualquier valoración, diagnóstico o indicación clínica depende siempre del profesional dental."
+          q: "¿La IA de Pleneva da diagnósticos o recomendaciones dentales?",
+          a: "No. Pleneva solo hace gestión administrativa: contesta, identifica el motivo de contacto y agenda la cita. Cualquier valoración, diagnóstico o indicación clínica depende siempre del profesional dental."
         },
         {
           q: "¿Puede gestionar presupuestos de implantes u ortodoncia?",
-          a: "Sí, en la parte administrativa. Vendrava recoge el interés, responde dudas frecuentes sobre precios y opciones de financiación con la información que tú definas, y da seguimiento hasta que el paciente decide, dejando la explicación clínica y el plan de tratamiento al equipo."
+          a: "Sí, en la parte administrativa. Pleneva recoge el interés, responde dudas frecuentes sobre precios y opciones de financiación con la información que tú definas, y da seguimiento hasta que el paciente decide, dejando la explicación clínica y el plan de tratamiento al equipo."
         },
         {
           q: "¿Cómo ayuda con los no-shows y los huecos de agenda?",
@@ -1617,15 +1617,15 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Que ninguna llamada perdida te cueste un paciente",
-      ctaSub: "Prueba Vendrava y descubre cómo atender, calificar y agendar cada contacto de tu clínica dental sin dejar de lado el criterio clínico ni la protección de datos."
+      ctaSub: "Prueba Pleneva y descubre cómo atender, calificar y agendar cada contacto de tu clínica dental sin dejar de lado el criterio clínico ni la protección de datos."
     },
     en: {
-      metaTitle: "AI CRM for dental clinics | Vendrava",
-      metaDescription: "Vendrava helps dental clinics stop losing patients to unanswered calls: it answers, qualifies the reason, and books appointments by voice and WhatsApp, with reminders and no-show recovery, always under human control.",
+      metaTitle: "AI CRM for dental clinics | Pleneva",
+      metaDescription: "Pleneva helps dental clinics stop losing patients to unanswered calls: it answers, qualifies the reason, and books appointments by voice and WhatsApp, with reminders and no-show recovery, always under human control.",
       navLabel: "Dental clinics",
       heroKicker: "Industry · Dental clinics",
       h1: "AI CRM for dental clinics",
-      heroSub: "In a dental clinic, an unanswered call usually means a lost patient. Vendrava answers, identifies the reason, and books the appointment by voice and WhatsApp; the diagnosis always stays with the clinical team.",
+      heroSub: "In a dental clinic, an unanswered call usually means a lost patient. Pleneva answers, identifies the reason, and books the appointment by voice and WhatsApp; the diagnosis always stays with the clinical team.",
       painTitle: "The dental clinic challenge",
       pains: [
         {
@@ -1641,8 +1641,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "No-shows and last-minute cancellations leave gaps that are hard to fill, an idle chair, and a broken schedule. Recovering and rebooking by hand takes time the front desk doesn't always have."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "Vendrava behaves like a front-desk advisor trained in your clinic: it learns your treatments, your qualifying questions, and your usual answers about budget and financing. It answers calls and WhatsApp messages, identifies the reason (emergency, first visit, checkup, implant or orthodontics estimate), books the appointment with the right provider, and sends reminders to cut no-shows. It only handles administrative work: it never gives a diagnosis or clinical advice, and any case can be handed to the human team at any point. Health data is treated as something to protect, with an AI-use notice, consent, and human control in line with the applicable data protection regulations.",
+      howTitle: "How Pleneva helps",
+      howText: "Pleneva behaves like a front-desk advisor trained in your clinic: it learns your treatments, your qualifying questions, and your usual answers about budget and financing. It answers calls and WhatsApp messages, identifies the reason (emergency, first visit, checkup, implant or orthodontics estimate), books the appointment with the right provider, and sends reminders to cut no-shows. It only handles administrative work: it never gives a diagnosis or clinical advice, and any case can be handed to the human team at any point. Health data is treated as something to protect, with an AI-use notice, consent, and human control in line with the applicable data protection regulations.",
       flow: ["Call", "Reason", "Schedule", "Reminder"],
       useCases: [
         "Handling calls and WhatsApp after hours, on holidays, or when the front desk is busy",
@@ -1673,12 +1673,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava's AI give dental diagnoses or advice?",
-          a: "No. Vendrava only handles administrative work: it answers, identifies the reason for contact, and books the appointment. Any assessment, diagnosis, or clinical guidance always depends on the dental professional."
+          q: "Does Pleneva's AI give dental diagnoses or advice?",
+          a: "No. Pleneva only handles administrative work: it answers, identifies the reason for contact, and books the appointment. Any assessment, diagnosis, or clinical guidance always depends on the dental professional."
         },
         {
           q: "Can it handle implant or orthodontics estimates?",
-          a: "Yes, on the administrative side. Vendrava captures interest, answers common questions about pricing and financing options using the information you define, and follows up until the patient decides, leaving the clinical explanation and treatment plan to the team."
+          a: "Yes, on the administrative side. Pleneva captures interest, answers common questions about pricing and financing options using the information you define, and follows up until the patient decides, leaving the clinical explanation and treatment plan to the team."
         },
         {
           q: "How does it help with no-shows and schedule gaps?",
@@ -1694,7 +1694,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Don't let a missed call cost you a patient",
-      ctaSub: "Try Vendrava and see how to answer, qualify, and book every contact for your dental clinic without setting aside clinical judgment or data protection."
+      ctaSub: "Try Pleneva and see how to answer, qualify, and book every contact for your dental clinic without setting aside clinical judgment or data protection."
     }
   },
 
@@ -1706,12 +1706,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/estetica-belleza",
     slugEn: "industries/beauty-aesthetics",
     es: {
-      metaTitle: "CRM con IA para estética y belleza | Vendrava",
-      metaDescription: "Vendrava ayuda a clínicas de estética y centros de belleza a atender consultas por WhatsApp y voz, agendar tratamientos y recuperar no-shows con IA, sin dar nunca consejo médico-estético.",
+      metaTitle: "CRM con IA para estética y belleza | Pleneva",
+      metaDescription: "Pleneva ayuda a clínicas de estética y centros de belleza a atender consultas por WhatsApp y voz, agendar tratamientos y recuperar no-shows con IA, sin dar nunca consejo médico-estético.",
       navLabel: "Estética y belleza",
       heroKicker: "Sector · Estética y belleza",
       h1: "CRM con IA para estética y belleza",
-      heroSub: "Atiende cada consulta al instante, agenda tratamientos y recupera citas perdidas. Vendrava se ocupa de la recepción y el seguimiento; el criterio del profesional siempre queda en tu equipo.",
+      heroSub: "Atiende cada consulta al instante, agenda tratamientos y recupera citas perdidas. Pleneva se ocupa de la recepción y el seguimiento; el criterio del profesional siempre queda en tu equipo.",
       painTitle: "El reto en estética y belleza",
       pains: [
         {
@@ -1727,8 +1727,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Entre atender a quien está en cabina y contestar el teléfono y los mensajes, se escapan reservas recurrentes y no se reactiva a clientas que hace tiempo que no vuelven."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Vendrava atiende las consultas entrantes por WhatsApp y voz con un agente de IA entrenado en tu catálogo de servicios: informa de tratamientos, promociones y precios de forma general, resuelve dudas frecuentes y agenda o reprograma la cita según tu disponibilidad. Además recupera no-shows y reactiva clientas inactivas con mensajes de seguimiento. La IA nunca da consejo médico ni estético personalizado: toda valoración de tratamiento queda en manos del profesional, y tu equipo mantiene el control de la agenda.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Pleneva atiende las consultas entrantes por WhatsApp y voz con un agente de IA entrenado en tu catálogo de servicios: informa de tratamientos, promociones y precios de forma general, resuelve dudas frecuentes y agenda o reprograma la cita según tu disponibilidad. Además recupera no-shows y reactiva clientas inactivas con mensajes de seguimiento. La IA nunca da consejo médico ni estético personalizado: toda valoración de tratamiento queda en manos del profesional, y tu equipo mantiene el control de la agenda.",
       flow: ["Consulta", "IA", "Agenda", "Recordatorio"],
       useCases: [
         "Respuesta inmediata por WhatsApp y voz a consultas de tratamientos, promociones y precios",
@@ -1759,36 +1759,36 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿La IA de Vendrava da consejo médico o estético?",
-          a: "No. Vendrava informa de servicios, promociones y precios de forma general y gestiona la agenda, pero nunca recomienda tratamientos ni emite valoraciones estéticas o médicas. Cualquier indicación sobre un tratamiento depende siempre del profesional del centro."
+          q: "¿La IA de Pleneva da consejo médico o estético?",
+          a: "No. Pleneva informa de servicios, promociones y precios de forma general y gestiona la agenda, pero nunca recomienda tratamientos ni emite valoraciones estéticas o médicas. Cualquier indicación sobre un tratamiento depende siempre del profesional del centro."
         },
         {
-          q: "¿Cómo ayuda Vendrava a reducir los no-shows?",
+          q: "¿Cómo ayuda Pleneva a reducir los no-shows?",
           a: "Envía recordatorios automáticos por WhatsApp y SMS antes de cada cita y, si alguien no acude, activa un seguimiento para reagendar cuanto antes y aprovechar el hueco que ha quedado libre."
         },
         {
           q: "¿Puede atender las consultas que llegan por WhatsApp?",
-          a: "Sí. WhatsApp es el canal principal en estética, y Vendrava responde de forma casi inmediata a las preguntas frecuentes sobre tratamientos y precios, agenda la cita y traspasa a tu equipo cuando hace falta atención personalizada."
+          a: "Sí. WhatsApp es el canal principal en estética, y Pleneva responde de forma casi inmediata a las preguntas frecuentes sobre tratamientos y precios, agenda la cita y traspasa a tu equipo cuando hace falta atención personalizada."
         },
         {
           q: "¿Sirve para fidelizar y hacer que las clientas vuelvan?",
-          a: "Sí. Vendrava mantiene el seguimiento de clientas recurrentes con recordatorios de repetición del tratamiento y difusión de promociones, y reactiva a quienes hace tiempo que no reservan."
+          a: "Sí. Pleneva mantiene el seguimiento de clientas recurrentes con recordatorios de repetición del tratamiento y difusión de promociones, y reactiva a quienes hace tiempo que no reservan."
         },
         {
           q: "¿Cómo se tratan los datos de las clientas?",
-          a: "Vendrava centraliza los datos de contacto y el historial de comunicación necesarios para gestionar citas y seguimiento, dentro de un sistema pensado para el manejo responsable de datos y conforme a la normativa de protección de datos aplicable."
+          a: "Pleneva centraliza los datos de contacto y el historial de comunicación necesarios para gestionar citas y seguimiento, dentro de un sistema pensado para el manejo responsable de datos y conforme a la normativa de protección de datos aplicable."
         }
       ],
       ctaTitle: "Menos citas perdidas, agenda siempre llena",
-      ctaSub: "Prueba Vendrava y descubre cómo atender cada consulta, agendar tratamientos y recuperar no-shows sin recargar a tu recepción."
+      ctaSub: "Prueba Pleneva y descubre cómo atender cada consulta, agendar tratamientos y recuperar no-shows sin recargar a tu recepción."
     },
     en: {
-      metaTitle: "AI CRM for beauty and aesthetics | Vendrava",
-      metaDescription: "Vendrava helps aesthetic clinics and beauty centers handle WhatsApp and voice inquiries, book treatments, and recover no-shows with AI, without ever giving medical or aesthetic advice.",
+      metaTitle: "AI CRM for beauty and aesthetics | Pleneva",
+      metaDescription: "Pleneva helps aesthetic clinics and beauty centers handle WhatsApp and voice inquiries, book treatments, and recover no-shows with AI, without ever giving medical or aesthetic advice.",
       navLabel: "Beauty & aesthetics",
       heroKicker: "Industry · Beauty & aesthetics",
       h1: "AI CRM for beauty and aesthetics",
-      heroSub: "Answer every inquiry instantly, book treatments, and recover missed appointments. Vendrava handles the front desk and follow-up; professional judgment always stays with your team.",
+      heroSub: "Answer every inquiry instantly, book treatments, and recover missed appointments. Pleneva handles the front desk and follow-up; professional judgment always stays with your team.",
       painTitle: "The beauty and aesthetics challenge",
       pains: [
         {
@@ -1804,8 +1804,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Between caring for clients in the room and answering the phone and messages, recurring bookings slip away and lapsed clients never get reactivated."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "Vendrava handles inbound WhatsApp and voice inquiries with an AI agent trained on your service catalog: it shares general information about treatments, promotions, and prices, answers common questions, and books or reschedules the appointment based on your availability. It also recovers no-shows and reactivates lapsed clients with follow-up messages. The AI never gives medical or personalized aesthetic advice: any treatment assessment stays with the professional, and your team keeps control of the schedule.",
+      howTitle: "How Pleneva helps",
+      howText: "Pleneva handles inbound WhatsApp and voice inquiries with an AI agent trained on your service catalog: it shares general information about treatments, promotions, and prices, answers common questions, and books or reschedules the appointment based on your availability. It also recovers no-shows and reactivates lapsed clients with follow-up messages. The AI never gives medical or personalized aesthetic advice: any treatment assessment stays with the professional, and your team keeps control of the schedule.",
       flow: ["Inquiry", "AI", "Booking", "Reminder"],
       useCases: [
         "Immediate WhatsApp and voice response to inquiries about treatments, promotions, and prices",
@@ -1836,28 +1836,28 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava's AI give medical or aesthetic advice?",
-          a: "No. Vendrava shares general information about services, promotions, and prices and manages the schedule, but it never recommends treatments or issues aesthetic or medical assessments. Any guidance on a treatment always depends on the center's professional."
+          q: "Does Pleneva's AI give medical or aesthetic advice?",
+          a: "No. Pleneva shares general information about services, promotions, and prices and manages the schedule, but it never recommends treatments or issues aesthetic or medical assessments. Any guidance on a treatment always depends on the center's professional."
         },
         {
-          q: "How does Vendrava help reduce no-shows?",
+          q: "How does Pleneva help reduce no-shows?",
           a: "It sends automatic reminders via WhatsApp and SMS before each appointment and, if someone doesn't show, it triggers follow-up to rebook as soon as possible and make use of the freed-up slot."
         },
         {
           q: "Can it handle inquiries that come in over WhatsApp?",
-          a: "Yes. WhatsApp is the primary channel in aesthetics, and Vendrava responds almost immediately to common questions about treatments and prices, books the appointment, and hands off to your team when personalized attention is needed."
+          a: "Yes. WhatsApp is the primary channel in aesthetics, and Pleneva responds almost immediately to common questions about treatments and prices, books the appointment, and hands off to your team when personalized attention is needed."
         },
         {
           q: "Does it help with loyalty and getting clients to return?",
-          a: "Yes. Vendrava keeps recurring clients engaged with repeat-treatment reminders and promotion outreach, and reactivates clients who haven't booked in a while."
+          a: "Yes. Pleneva keeps recurring clients engaged with repeat-treatment reminders and promotion outreach, and reactivates clients who haven't booked in a while."
         },
         {
           q: "How is client data handled?",
-          a: "Vendrava centralizes the contact information and communication history needed to manage appointments and follow-up, within a system built for responsible data handling and compliant with applicable data protection regulations."
+          a: "Pleneva centralizes the contact information and communication history needed to manage appointments and follow-up, within a system built for responsible data handling and compliant with applicable data protection regulations."
         }
       ],
       ctaTitle: "Fewer missed appointments, a schedule that stays full",
-      ctaSub: "Try Vendrava and see how to answer every inquiry, book treatments, and recover no-shows without overloading your front desk."
+      ctaSub: "Try Pleneva and see how to answer every inquiry, book treatments, and recover no-shows without overloading your front desk."
     }
   },
 
@@ -1869,12 +1869,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/reformas-servicios-hogar",
     slugEn: "industries/home-services",
     es: {
-      metaTitle: "CRM con IA para reformas y servicios del hogar | Vendrava",
-      metaDescription: "Vendrava contesta y precalifica solicitudes de presupuesto y urgencias de reformas, fontanería, electricidad y climatización por voz y WhatsApp, y transfiere al técnico cuando hay interés real.",
+      metaTitle: "CRM con IA para reformas y servicios del hogar | Pleneva",
+      metaDescription: "Pleneva contesta y precalifica solicitudes de presupuesto y urgencias de reformas, fontanería, electricidad y climatización por voz y WhatsApp, y transfiere al técnico cuando hay interés real.",
       navLabel: "Reformas y hogar",
       heroKicker: "Sector · Reformas y servicios del hogar",
       h1: "CRM con IA para reformas y servicios del hogar",
-      heroSub: "En servicios del hogar gana quien contesta primero. Vendrava atiende cada solicitud de presupuesto y cada urgencia al instante, la precalifica y la transfiere a un técnico cuando hay interés real.",
+      heroSub: "En servicios del hogar gana quien contesta primero. Pleneva atiende cada solicitud de presupuesto y cada urgencia al instante, la precalifica y la transfiere a un técnico cuando hay interés real.",
       painTitle: "El reto en reformas y servicios del hogar",
       pains: [
         {
@@ -1890,8 +1890,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Se envía el presupuesto y no se retoma la conversación. Sin seguimiento, trabajos de ticket alto se enfrían y acaban en manos de la competencia."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Cuando entra una solicitud de presupuesto o una urgencia, Vendrava activa un agente de IA que contesta por voz o WhatsApp en minutos, no en horas. Aprende el guion de tu negocio y actúa como un asesor del sector: precalifica el tipo de trabajo, la urgencia, el presupuesto estimado y la ubicación, y agenda la visita técnica o transfiere a un técnico o comercial cuando detecta interés real. También hace outbound: retoma presupuestos enviados y reactiva contactos antiguos. El equipo humano mantiene siempre el control, y la IA avisa de que es un asistente y pide consentimiento cuando corresponde.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Cuando entra una solicitud de presupuesto o una urgencia, Pleneva activa un agente de IA que contesta por voz o WhatsApp en minutos, no en horas. Aprende el guion de tu negocio y actúa como un asesor del sector: precalifica el tipo de trabajo, la urgencia, el presupuesto estimado y la ubicación, y agenda la visita técnica o transfiere a un técnico o comercial cuando detecta interés real. También hace outbound: retoma presupuestos enviados y reactiva contactos antiguos. El equipo humano mantiene siempre el control, y la IA avisa de que es un asistente y pide consentimiento cuando corresponde.",
       flow: ["Solicitud", "IA precalifica", "Visita técnica", "Handoff"],
       useCases: [
         "Respuesta inmediata a solicitudes de presupuesto y avisos de urgencia por voz y WhatsApp",
@@ -1922,8 +1922,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava sirve para reformas, fontanería, electricidad y climatización a la vez?",
-          a: "Sí. Vendrava se entrena con el guion y los criterios de cada tipo de servicio, así que precalifica igual de bien una reforma integral, una avería de fontanería o una instalación de climatización, y dirige cada solicitud al técnico o especialidad correspondiente."
+          q: "¿Pleneva sirve para reformas, fontanería, electricidad y climatización a la vez?",
+          a: "Sí. Pleneva se entrena con el guion y los criterios de cada tipo de servicio, así que precalifica igual de bien una reforma integral, una avería de fontanería o una instalación de climatización, y dirige cada solicitud al técnico o especialidad correspondiente."
         },
         {
           q: "¿Cómo gestiona las urgencias frente a los presupuestos que pueden esperar?",
@@ -1935,7 +1935,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿También hace llamadas y seguimiento en frío (outbound)?",
-          a: "Sí. Además de contestar lo que entra, Vendrava puede retomar presupuestos enviados, reactivar contactos antiguos y hacer campañas de llamadas a volumen, siempre avisando de que es un asistente de IA y respetando el consentimiento y los registros de no-llamar de cada país."
+          a: "Sí. Además de contestar lo que entra, Pleneva puede retomar presupuestos enviados, reactivar contactos antiguos y hacer campañas de llamadas a volumen, siempre avisando de que es un asistente de IA y respetando el consentimiento y los registros de no-llamar de cada país."
         },
         {
           q: "¿Sirve para empresas con varios técnicos, zonas o sedes?",
@@ -1943,15 +1943,15 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Que ninguna solicitud de presupuesto se quede sin contestar",
-      ctaSub: "Prueba Vendrava y agenda más visitas técnicas atendiendo cada presupuesto y cada urgencia en minutos, no en horas."
+      ctaSub: "Prueba Pleneva y agenda más visitas técnicas atendiendo cada presupuesto y cada urgencia en minutos, no en horas."
     },
     en: {
-      metaTitle: "AI CRM for home services and remodeling | Vendrava",
-      metaDescription: "Vendrava answers and pre-qualifies quote requests and urgent jobs for remodeling, plumbing, electrical, and HVAC by voice and WhatsApp, then hands off to a technician when there's real interest.",
+      metaTitle: "AI CRM for home services and remodeling | Pleneva",
+      metaDescription: "Pleneva answers and pre-qualifies quote requests and urgent jobs for remodeling, plumbing, electrical, and HVAC by voice and WhatsApp, then hands off to a technician when there's real interest.",
       navLabel: "Home services",
       heroKicker: "Industry · Home services and remodeling",
       h1: "AI CRM for home services and remodeling",
-      heroSub: "In home services, whoever answers first wins the job. Vendrava responds to every quote request and urgent call instantly, pre-qualifies it, and hands it to a technician when there's real interest.",
+      heroSub: "In home services, whoever answers first wins the job. Pleneva responds to every quote request and urgent call instantly, pre-qualifies it, and hands it to a technician when there's real interest.",
       painTitle: "The home services challenge",
       pains: [
         {
@@ -1967,8 +1967,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "A quote gets sent and the conversation is never picked back up. Without follow-up, high-ticket jobs go cold and end up with a competitor."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "When a quote request or an urgent job comes in, Vendrava triggers an AI agent that answers by voice or WhatsApp within minutes, not hours. It learns your business's script and acts like an advisor for your trade: it pre-qualifies the type of work, the urgency, the estimated budget, and the location, then books the site visit or hands off to a technician or rep the moment it detects real interest. It also runs outbound: it revives sent quotes and reactivates older contacts. The human team is always in control, and the AI discloses that it's an assistant and asks for consent where required.",
+      howTitle: "How Pleneva helps",
+      howText: "When a quote request or an urgent job comes in, Pleneva triggers an AI agent that answers by voice or WhatsApp within minutes, not hours. It learns your business's script and acts like an advisor for your trade: it pre-qualifies the type of work, the urgency, the estimated budget, and the location, then books the site visit or hands off to a technician or rep the moment it detects real interest. It also runs outbound: it revives sent quotes and reactivates older contacts. The human team is always in control, and the AI discloses that it's an assistant and asks for consent where required.",
       flow: ["Request", "AI pre-qualifies", "Site visit", "Handoff"],
       useCases: [
         "Immediate response to quote requests and urgent job calls by voice and WhatsApp",
@@ -1999,8 +1999,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava work for remodeling, plumbing, electrical, and HVAC at once?",
-          a: "Yes. Vendrava is trained on the script and criteria for each type of service, so it pre-qualifies a full remodel, a plumbing breakdown, or an HVAC install equally well, and routes each request to the right technician or specialty."
+          q: "Does Pleneva work for remodeling, plumbing, electrical, and HVAC at once?",
+          a: "Yes. Pleneva is trained on the script and criteria for each type of service, so it pre-qualifies a full remodel, a plumbing breakdown, or an HVAC install equally well, and routes each request to the right technician or specialty."
         },
         {
           q: "How does it handle urgent jobs versus quotes that can wait?",
@@ -2012,7 +2012,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "Does it also make cold calls and follow-up (outbound)?",
-          a: "Yes. Beyond answering what comes in, Vendrava can revive sent quotes, reactivate older contacts, and run calling campaigns at volume, always disclosing that it's an AI assistant and respecting consent and each country's do-not-call registries."
+          a: "Yes. Beyond answering what comes in, Pleneva can revive sent quotes, reactivate older contacts, and run calling campaigns at volume, always disclosing that it's an AI assistant and respecting consent and each country's do-not-call registries."
         },
         {
           q: "Does it work for companies with multiple technicians, areas, or locations?",
@@ -2020,7 +2020,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Never leave a quote request unanswered",
-      ctaSub: "Try Vendrava and book more site visits by handling every quote and every urgent call in minutes, not hours."
+      ctaSub: "Try Pleneva and book more site visits by handling every quote and every urgent call in minutes, not hours."
     }
   },
 
@@ -2032,12 +2032,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/seguros",
     slugEn: "industries/insurance",
     es: {
-      metaTitle: "CRM con IA para correedurías y agentes de seguros | Vendrava",
-      metaDescription: "Vendrava ayuda a correedurías y agentes de seguros a contestar solicitudes de cotización, renovaciones y avisos por voz y WhatsApp, precalificar el ramo y agendar con el agente humano, sin dar asesoramiento vinculante ni cerrar pólizas por su cuenta.",
+      metaTitle: "CRM con IA para correedurías y agentes de seguros | Pleneva",
+      metaDescription: "Pleneva ayuda a correedurías y agentes de seguros a contestar solicitudes de cotización, renovaciones y avisos por voz y WhatsApp, precalificar el ramo y agendar con el agente humano, sin dar asesoramiento vinculante ni cerrar pólizas por su cuenta.",
       navLabel: "Seguros",
       heroKicker: "Sector · Correedurías y agentes de seguros",
       h1: "CRM con IA para correedurías y agentes de seguros",
-      heroSub: "Que ninguna solicitud de cotización o aviso de renovación se quede sin contestar. Vendrava atiende, precalifica el ramo y agenda con tu agente humano, que mantiene siempre el control.",
+      heroSub: "Que ninguna solicitud de cotización o aviso de renovación se quede sin contestar. Pleneva atiende, precalifica el ramo y agenda con tu agente humano, que mantiene siempre el control.",
       painTitle: "El reto en correedurías y seguros",
       pains: [
         {
@@ -2053,8 +2053,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Muchos presupuestos enviados no se retoman, y el potencial de venta cruzada entre ramos se pierde porque nadie hace el seguimiento en el momento adecuado."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Vendrava atiende por voz y WhatsApp las solicitudes entrantes y también hace llamadas en frío para renovaciones y nuevas pólizas, comportándose como un asesor comercial entrenado en tu correeduría: aprende tus ramos, las preguntas de calificación y las objeciones habituales del sector. Precalifica el tipo de seguro, el perfil y la urgencia, y agenda la conversación con tu agente humano. La IA nunca da asesoramiento financiero vinculante ni cierra pólizas por su cuenta: informa, recoge el consentimiento y avisa de que es una asistente de IA, dejando la recomendación y la firma en manos del profesional.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Pleneva atiende por voz y WhatsApp las solicitudes entrantes y también hace llamadas en frío para renovaciones y nuevas pólizas, comportándose como un asesor comercial entrenado en tu correeduría: aprende tus ramos, las preguntas de calificación y las objeciones habituales del sector. Precalifica el tipo de seguro, el perfil y la urgencia, y agenda la conversación con tu agente humano. La IA nunca da asesoramiento financiero vinculante ni cierra pólizas por su cuenta: informa, recoge el consentimiento y avisa de que es una asistente de IA, dejando la recomendación y la firma en manos del profesional.",
       flow: ["Solicitud", "IA precalifica", "Agenda", "Agente humano"],
       useCases: [
         "Atención y precalificación de solicitudes de cotización por ramo (auto, hogar, salud, vida, comercio)",
@@ -2085,20 +2085,20 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿La IA de Vendrava da asesoramiento sobre qué póliza contratar?",
-          a: "No. Vendrava informa de forma general, precalifica la solicitud y agenda con tu agente humano, pero nunca da asesoramiento financiero vinculante ni cierra pólizas por su cuenta. La recomendación y la firma son siempre del profesional."
+          q: "¿La IA de Pleneva da asesoramiento sobre qué póliza contratar?",
+          a: "No. Pleneva informa de forma general, precalifica la solicitud y agenda con tu agente humano, pero nunca da asesoramiento financiero vinculante ni cierra pólizas por su cuenta. La recomendación y la firma son siempre del profesional."
         },
         {
-          q: "¿Vendrava suena como un bot genérico o como alguien de mi correeduría?",
+          q: "¿Pleneva suena como un bot genérico o como alguien de mi correeduría?",
           a: "Se comporta como un asesor comercial entrenado en tu negocio: aprende tus ramos, tus preguntas de calificación y las objeciones habituales del sector, para que la conversación se sienta propia y no como un bot genérico."
         },
         {
           q: "¿Puede hacer llamadas en frío para renovaciones y nuevas pólizas?",
-          a: "Sí. Vendrava combina inbound y outbound, incluidas llamadas en frío a volumen para renovaciones y captación, respetando los registros de no-llamar de cada país y las preferencias de contacto del cliente."
+          a: "Sí. Pleneva combina inbound y outbound, incluidas llamadas en frío a volumen para renovaciones y captación, respetando los registros de no-llamar de cada país y las preferencias de contacto del cliente."
         },
         {
           q: "¿Cómo se gestiona el consentimiento y la normativa de protección de datos?",
-          a: "El aviso de que es una asistente de IA, el consentimiento y el control humano son parte del proceso, no una nota legal. Vendrava registra estos pasos dentro de un sistema pensado para cumplir la normativa de protección de datos aplicable en cada mercado."
+          a: "El aviso de que es una asistente de IA, el consentimiento y el control humano son parte del proceso, no una nota legal. Pleneva registra estos pasos dentro de un sistema pensado para cumplir la normativa de protección de datos aplicable en cada mercado."
         },
         {
           q: "¿Sirve para correedurías que trabajan con varios ramos y aseguradoras?",
@@ -2106,15 +2106,15 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Que ninguna cotización ni renovación se quede sin contestar",
-      ctaSub: "Prueba Vendrava y descubre cómo precalificar solicitudes, retener renovaciones y agendar con tu equipo, manteniendo el control humano y el consentimiento en cada paso."
+      ctaSub: "Prueba Pleneva y descubre cómo precalificar solicitudes, retener renovaciones y agendar con tu equipo, manteniendo el control humano y el consentimiento en cada paso."
     },
     en: {
-      metaTitle: "AI CRM for insurance brokers and agents | Vendrava",
-      metaDescription: "Vendrava helps insurance brokers and agents answer quote requests, renewals, and notices by voice and WhatsApp, pre-qualify the line of business, and book with the human agent, without giving binding advice or closing policies on its own.",
+      metaTitle: "AI CRM for insurance brokers and agents | Pleneva",
+      metaDescription: "Pleneva helps insurance brokers and agents answer quote requests, renewals, and notices by voice and WhatsApp, pre-qualify the line of business, and book with the human agent, without giving binding advice or closing policies on its own.",
       navLabel: "Insurance",
       heroKicker: "Industry · Insurance brokers and agents",
       h1: "AI CRM for insurance brokers and agents",
-      heroSub: "So no quote request or renewal notice goes unanswered. Vendrava answers, pre-qualifies the line of business, and books with your human agent, who always stays in control.",
+      heroSub: "So no quote request or renewal notice goes unanswered. Pleneva answers, pre-qualifies the line of business, and books with your human agent, who always stays in control.",
       painTitle: "The insurance and brokerage challenge",
       pains: [
         {
@@ -2130,8 +2130,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Many sent quotes never get picked back up, and cross-sell potential across lines is lost because no one follows up at the right moment."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "Vendrava answers inbound requests by voice and WhatsApp and also runs cold calls for renewals and new policies, behaving like a sales advisor trained in your brokerage: it learns your lines of business, your qualifying questions, and the sector's common objections. It pre-qualifies the insurance type, profile, and urgency, then books the conversation with your human agent. The AI never gives binding financial advice or closes policies on its own: it informs, captures consent, and discloses that it's an AI assistant, leaving the recommendation and the signature with the professional.",
+      howTitle: "How Pleneva helps",
+      howText: "Pleneva answers inbound requests by voice and WhatsApp and also runs cold calls for renewals and new policies, behaving like a sales advisor trained in your brokerage: it learns your lines of business, your qualifying questions, and the sector's common objections. It pre-qualifies the insurance type, profile, and urgency, then books the conversation with your human agent. The AI never gives binding financial advice or closes policies on its own: it informs, captures consent, and discloses that it's an AI assistant, leaving the recommendation and the signature with the professional.",
       flow: ["Request", "AI pre-qualifies", "Book", "Human agent"],
       useCases: [
         "Answering and pre-qualifying quote requests by line (auto, home, health, life, commercial)",
@@ -2162,8 +2162,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava's AI advise on which policy to buy?",
-          a: "No. Vendrava shares general information, pre-qualifies the request, and books with your human agent, but it never gives binding financial advice or closes policies on its own. The recommendation and the signature always belong to the professional."
+          q: "Does Pleneva's AI advise on which policy to buy?",
+          a: "No. Pleneva shares general information, pre-qualifies the request, and books with your human agent, but it never gives binding financial advice or closes policies on its own. The recommendation and the signature always belong to the professional."
         },
         {
           q: "Does it sound like a generic bot or like someone from my brokerage?",
@@ -2171,11 +2171,11 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "Can it make cold calls for renewals and new policies?",
-          a: "Yes. Vendrava combines inbound and outbound, including high-volume cold calls for renewals and acquisition, respecting each country's do-not-call registries and the client's contact preferences."
+          a: "Yes. Pleneva combines inbound and outbound, including high-volume cold calls for renewals and acquisition, respecting each country's do-not-call registries and the client's contact preferences."
         },
         {
           q: "How are consent and data protection handled?",
-          a: "Disclosing that it's an AI assistant, capturing consent, and keeping humans in control are part of the process, not a legal footnote. Vendrava records these steps within a system built to meet the data protection rules that apply in each market."
+          a: "Disclosing that it's an AI assistant, capturing consent, and keeping humans in control are part of the process, not a legal footnote. Pleneva records these steps within a system built to meet the data protection rules that apply in each market."
         },
         {
           q: "Does it work for brokerages handling multiple lines and carriers?",
@@ -2183,7 +2183,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "So no quote or renewal goes unanswered",
-      ctaSub: "Try Vendrava and see how to pre-qualify requests, retain renewals, and book with your team, keeping human control and consent at every step."
+      ctaSub: "Try Pleneva and see how to pre-qualify requests, retain renewals, and book with your team, keeping human control and consent at every step."
     }
   },
 
@@ -2195,8 +2195,8 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/gimnasios",
     slugEn: "industries/gyms",
     es: {
-      metaTitle: "CRM con IA para gimnasios y centros fitness | Vendrava",
-      metaDescription: "Vendrava ayuda a gimnasios y centros fitness a responder leads de campañas al instante, agendar clases de prueba, recuperar bajas y reactivar inactivos por WhatsApp y voz, con control humano.",
+      metaTitle: "CRM con IA para gimnasios y centros fitness | Pleneva",
+      metaDescription: "Pleneva ayuda a gimnasios y centros fitness a responder leads de campañas al instante, agendar clases de prueba, recuperar bajas y reactivar inactivos por WhatsApp y voz, con control humano.",
       navLabel: "Gimnasios",
       heroKicker: "Sector · Gimnasios y centros fitness",
       h1: "CRM con IA para gimnasios y centros fitness",
@@ -2216,8 +2216,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Los socios que dejan de venir o cancelan la cuota rara vez reciben un contacto a tiempo. Reactivar a quien ya conoce tu centro suele ser más rentable que captar a alguien nuevo, pero hacerlo a mano es inviable con la operación diaria."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Vendrava centraliza los leads que llegan por formularios, anuncios, WhatsApp y llamadas, y usa agentes de IA por voz y mensaje para contestar al momento, resolver dudas de horarios y planes, y agendar la clase de prueba o la visita directamente en el calendario de tu centro. También activa recordatorios antes de la cita y campañas de reactivación para socios inactivos o que se dieron de baja, mientras tu equipo mantiene el control de cada conversación e interviene cuando hace falta. Los mensajes y llamadas se configuran respetando el consentimiento del contacto, la normativa de protección de datos aplicable y los registros de no-llamar de cada país.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Pleneva centraliza los leads que llegan por formularios, anuncios, WhatsApp y llamadas, y usa agentes de IA por voz y mensaje para contestar al momento, resolver dudas de horarios y planes, y agendar la clase de prueba o la visita directamente en el calendario de tu centro. También activa recordatorios antes de la cita y campañas de reactivación para socios inactivos o que se dieron de baja, mientras tu equipo mantiene el control de cada conversación e interviene cuando hace falta. Los mensajes y llamadas se configuran respetando el consentimiento del contacto, la normativa de protección de datos aplicable y los registros de no-llamar de cada país.",
       flow: ["Lead", "IA", "Clase de prueba", "Alta"],
       useCases: [
         "Respuesta inmediata por WhatsApp y voz a leads de campañas de captación de socios",
@@ -2248,8 +2248,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava se integra con WhatsApp, el canal que más usan mis socios?",
-          a: "Sí. Vendrava está diseñado para atender y dar seguimiento por WhatsApp además de voz, email y llamada, que es donde la mayoría de gimnasios concentra la conversación con leads y socios. Cada interacción queda registrada en la ficha del contacto."
+          q: "¿Pleneva se integra con WhatsApp, el canal que más usan mis socios?",
+          a: "Sí. Pleneva está diseñado para atender y dar seguimiento por WhatsApp además de voz, email y llamada, que es donde la mayoría de gimnasios concentra la conversación con leads y socios. Cada interacción queda registrada en la ficha del contacto."
         },
         {
           q: "¿Puede agendar clases de prueba directamente en nuestro calendario?",
@@ -2257,11 +2257,11 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Cómo ayuda a recuperar bajas y reactivar socios inactivos?",
-          a: "Vendrava puede detectar socios que llevan tiempo sin asistir o que cancelaron su cuota y activar una secuencia de contacto por WhatsApp, llamada o email con un mensaje de reenganche u oferta, para que ninguna baja quede sin un intento de recuperación."
+          a: "Pleneva puede detectar socios que llevan tiempo sin asistir o que cancelaron su cuota y activar una secuencia de contacto por WhatsApp, llamada o email con un mensaje de reenganche u oferta, para que ninguna baja quede sin un intento de recuperación."
         },
         {
           q: "¿La IA sustituye al personal de recepción?",
-          a: "No. Vendrava se encarga del primer contacto, el agendado y los recordatorios repetitivos, para que tu equipo dedique su tiempo a atender la sala y a los socios presentes. Las conversaciones que requieren criterio humano se transfieren a una persona en cualquier momento."
+          a: "No. Pleneva se encarga del primer contacto, el agendado y los recordatorios repetitivos, para que tu equipo dedique su tiempo a atender la sala y a los socios presentes. Las conversaciones que requieren criterio humano se transfieren a una persona en cualquier momento."
         },
         {
           q: "¿Cumple con la normativa al contactar a leads y antiguos socios?",
@@ -2269,11 +2269,11 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Llena tus clases de prueba y recupera a tus socios",
-      ctaSub: "Prueba Vendrava y descubre cómo responder a cada lead al instante, agendar visitas y reactivar inactivos sin sobrecargar a tu equipo."
+      ctaSub: "Prueba Pleneva y descubre cómo responder a cada lead al instante, agendar visitas y reactivar inactivos sin sobrecargar a tu equipo."
     },
     en: {
-      metaTitle: "AI CRM for gyms and fitness centers | Vendrava",
-      metaDescription: "Vendrava helps gyms and fitness centers respond to campaign leads instantly, book trial classes, win back cancellations, and re-engage inactive members over WhatsApp and voice, with human control.",
+      metaTitle: "AI CRM for gyms and fitness centers | Pleneva",
+      metaDescription: "Pleneva helps gyms and fitness centers respond to campaign leads instantly, book trial classes, win back cancellations, and re-engage inactive members over WhatsApp and voice, with human control.",
       navLabel: "Gyms & fitness",
       heroKicker: "Industry · Gyms & fitness centers",
       h1: "AI CRM for gyms and fitness centers",
@@ -2293,8 +2293,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Members who stop showing up or cancel their membership rarely get a timely contact. Winning back someone who already knows your center is usually cheaper than acquiring a stranger, but doing it by hand is impossible alongside daily operations."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "Vendrava centralizes leads arriving through forms, ads, WhatsApp, and calls, and uses voice and messaging AI agents to reply instantly, answer questions about schedules and plans, and book the trial class or visit straight into your center's calendar. It also triggers reminders before the appointment and re-engagement campaigns for inactive members or those who canceled, while your team keeps control of every conversation and steps in when needed. Messages and calls are configured in line with contact consent, the applicable data protection regulations, and each country's do-not-call registries.",
+      howTitle: "How Pleneva helps",
+      howText: "Pleneva centralizes leads arriving through forms, ads, WhatsApp, and calls, and uses voice and messaging AI agents to reply instantly, answer questions about schedules and plans, and book the trial class or visit straight into your center's calendar. It also triggers reminders before the appointment and re-engagement campaigns for inactive members or those who canceled, while your team keeps control of every conversation and steps in when needed. Messages and calls are configured in line with contact consent, the applicable data protection regulations, and each country's do-not-call registries.",
       flow: ["Lead", "AI", "Trial class", "Sign-up"],
       useCases: [
         "Instant WhatsApp and voice response to leads from member-acquisition campaigns",
@@ -2325,8 +2325,8 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava work with WhatsApp, the channel our members use most?",
-          a: "Yes. Vendrava is built to handle and follow up over WhatsApp in addition to voice, email, and calls, which is where most gyms concentrate their conversations with leads and members. Every interaction is logged on the contact's record."
+          q: "Does Pleneva work with WhatsApp, the channel our members use most?",
+          a: "Yes. Pleneva is built to handle and follow up over WhatsApp in addition to voice, email, and calls, which is where most gyms concentrate their conversations with leads and members. Every interaction is logged on the contact's record."
         },
         {
           q: "Can it book trial classes directly into our calendar?",
@@ -2334,11 +2334,11 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "How does it help win back cancellations and re-engage inactive members?",
-          a: "Vendrava can detect members who haven't attended in a while or who canceled their membership and trigger a contact sequence over WhatsApp, call, or email with a re-engagement message or offer, so no cancellation goes without a win-back attempt."
+          a: "Pleneva can detect members who haven't attended in a while or who canceled their membership and trigger a contact sequence over WhatsApp, call, or email with a re-engagement message or offer, so no cancellation goes without a win-back attempt."
         },
         {
           q: "Does the AI replace our front-desk staff?",
-          a: "No. Vendrava handles first contact, booking, and repetitive reminders so your team can focus on the floor and the members already there. Conversations that need human judgment are handed off to a person at any time."
+          a: "No. Pleneva handles first contact, booking, and repetitive reminders so your team can focus on the floor and the members already there. Conversations that need human judgment are handed off to a person at any time."
         },
         {
           q: "Does it stay compliant when contacting leads and former members?",
@@ -2346,7 +2346,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Fill your trial classes and win your members back",
-      ctaSub: "Try Vendrava and see how to respond to every lead instantly, book visits, and re-engage inactive members without overloading your team."
+      ctaSub: "Try Pleneva and see how to respond to every lead instantly, book visits, and re-engage inactive members without overloading your team."
     }
   },
 
@@ -2358,12 +2358,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/restaurantes",
     slugEn: "industries/restaurants",
     es: {
-      metaTitle: "CRM con IA para restaurantes y hostelería | Vendrava",
-      metaDescription: "Vendrava contesta llamadas y WhatsApp de reservas cuando el equipo está en sala, gestiona grupos y eventos, y reduce no-shows con recordatorios y confirmaciones. La IA no sustituye la atención en sala.",
+      metaTitle: "CRM con IA para restaurantes y hostelería | Pleneva",
+      metaDescription: "Pleneva contesta llamadas y WhatsApp de reservas cuando el equipo está en sala, gestiona grupos y eventos, y reduce no-shows con recordatorios y confirmaciones. La IA no sustituye la atención en sala.",
       navLabel: "Restaurantes",
       heroKicker: "Sector · Restaurantes y hostelería",
       h1: "CRM con IA para restaurantes y hostelería",
-      heroSub: "Cuando el equipo está en sala, nadie descuelga el teléfono. Vendrava contesta llamadas y WhatsApp de reservas, gestiona grupos y eventos, y reduce no-shows con recordatorios y confirmaciones, sin quitar sitio a la atención presencial.",
+      heroSub: "Cuando el equipo está en sala, nadie descuelga el teléfono. Pleneva contesta llamadas y WhatsApp de reservas, gestiona grupos y eventos, y reduce no-shows con recordatorios y confirmaciones, sin quitar sitio a la atención presencial.",
       painTitle: "El reto en restaurantes y hostelería",
       pains: [
         {
@@ -2379,8 +2379,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Una reserva confirmada que no aparece bloquea una mesa que podría haberse ocupado. Sin recordatorios ni confirmación previa, los no-shows se comen el aforo y el margen de la noche."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Cuando entra una llamada o un mensaje de WhatsApp y el equipo está en sala, Vendrava lo contesta con un agente de IA que toma la reserva, resuelve dudas de horario, menú o disponibilidad, y anota los datos clave: número de personas, fecha, franja y peticiones especiales. Para grupos y eventos recopila la información necesaria y traspasa la conversación a una persona con todo resumido. Antes del día reservado envía recordatorios y pide confirmación para reducir no-shows. La IA se ocupa de contestar y coordinar; la experiencia en sala y el trato con el comensal siguen siendo del equipo.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Cuando entra una llamada o un mensaje de WhatsApp y el equipo está en sala, Pleneva lo contesta con un agente de IA que toma la reserva, resuelve dudas de horario, menú o disponibilidad, y anota los datos clave: número de personas, fecha, franja y peticiones especiales. Para grupos y eventos recopila la información necesaria y traspasa la conversación a una persona con todo resumido. Antes del día reservado envía recordatorios y pide confirmación para reducir no-shows. La IA se ocupa de contestar y coordinar; la experiencia en sala y el trato con el comensal siguen siendo del equipo.",
       flow: ["Llamada o WhatsApp", "IA contesta", "Reserva", "Confirmación"],
       useCases: [
         "Atención de llamadas y WhatsApp de reservas cuando el equipo está en sala o fuera de horario",
@@ -2411,12 +2411,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿Vendrava sustituye la atención en sala?",
-          a: "No. Vendrava contesta llamadas y WhatsApp y gestiona reservas cuando el equipo está ocupado atendiendo mesas o fuera de horario. La experiencia en sala y el trato con el comensal siguen siendo del equipo humano."
+          q: "¿Pleneva sustituye la atención en sala?",
+          a: "No. Pleneva contesta llamadas y WhatsApp y gestiona reservas cuando el equipo está ocupado atendiendo mesas o fuera de horario. La experiencia en sala y el trato con el comensal siguen siendo del equipo humano."
         },
         {
           q: "¿Cómo ayuda a reducir los no-shows?",
-          a: "Vendrava envía recordatorios antes de la fecha reservada y pide confirmación al comensal. Si la reserva ya no interesa, esa mesa puede liberarse a tiempo para otra persona, en lugar de quedar vacía."
+          a: "Pleneva envía recordatorios antes de la fecha reservada y pide confirmación al comensal. Si la reserva ya no interesa, esa mesa puede liberarse a tiempo para otra persona, en lugar de quedar vacía."
         },
         {
           q: "¿Puede gestionar reservas de grupos y eventos?",
@@ -2432,15 +2432,15 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Que ninguna reserva se pierda por tener el teléfono ocupado",
-      ctaSub: "Prueba Vendrava y contesta cada llamada y WhatsApp de reservas, gestiona grupos y reduce no-shows, mientras tu equipo se centra en la sala."
+      ctaSub: "Prueba Pleneva y contesta cada llamada y WhatsApp de reservas, gestiona grupos y reduce no-shows, mientras tu equipo se centra en la sala."
     },
     en: {
-      metaTitle: "AI CRM for restaurants and hospitality | Vendrava",
-      metaDescription: "Vendrava answers reservation calls and WhatsApp messages when your team is on the floor, handles groups and events, and reduces no-shows with reminders and confirmations. The AI doesn't replace in-person service.",
+      metaTitle: "AI CRM for restaurants and hospitality | Pleneva",
+      metaDescription: "Pleneva answers reservation calls and WhatsApp messages when your team is on the floor, handles groups and events, and reduces no-shows with reminders and confirmations. The AI doesn't replace in-person service.",
       navLabel: "Restaurants",
       heroKicker: "Industry · Restaurants and hospitality",
       h1: "AI CRM for restaurants and hospitality",
-      heroSub: "When the team is on the floor, no one picks up the phone. Vendrava answers reservation calls and WhatsApp messages, handles groups and events, and reduces no-shows with reminders and confirmations, without taking anything away from in-person service.",
+      heroSub: "When the team is on the floor, no one picks up the phone. Pleneva answers reservation calls and WhatsApp messages, handles groups and events, and reduces no-shows with reminders and confirmations, without taking anything away from in-person service.",
       painTitle: "The restaurant and hospitality challenge",
       pains: [
         {
@@ -2456,8 +2456,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "A confirmed reservation that never shows up blocks a table that could have been filled. Without reminders or prior confirmation, no-shows eat into your capacity and the night's margin."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "When a call or WhatsApp message comes in and the team is on the floor, Vendrava answers with an AI agent that takes the reservation, handles questions about hours, menu, or availability, and records the key details: party size, date, time slot, and special requests. For groups and events it gathers the information needed and hands the conversation to a person with everything summarized. Before the reserved day it sends reminders and asks for confirmation to reduce no-shows. The AI handles answering and coordinating; the in-person experience and guest care stay with the team.",
+      howTitle: "How Pleneva helps",
+      howText: "When a call or WhatsApp message comes in and the team is on the floor, Pleneva answers with an AI agent that takes the reservation, handles questions about hours, menu, or availability, and records the key details: party size, date, time slot, and special requests. For groups and events it gathers the information needed and hands the conversation to a person with everything summarized. Before the reserved day it sends reminders and asks for confirmation to reduce no-shows. The AI handles answering and coordinating; the in-person experience and guest care stay with the team.",
       flow: ["Call or WhatsApp", "AI answers", "Reservation", "Confirmation"],
       useCases: [
         "Answering reservation calls and WhatsApp messages when the team is on the floor or after hours",
@@ -2488,12 +2488,12 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava replace in-person service?",
-          a: "No. Vendrava answers calls and WhatsApp and manages reservations when the team is busy looking after tables or after hours. The in-person experience and guest care stay with the human team."
+          q: "Does Pleneva replace in-person service?",
+          a: "No. Pleneva answers calls and WhatsApp and manages reservations when the team is busy looking after tables or after hours. The in-person experience and guest care stay with the human team."
         },
         {
           q: "How does it help reduce no-shows?",
-          a: "Vendrava sends reminders before the reserved date and asks the guest to confirm. If the reservation is no longer needed, that table can be freed up in time for someone else instead of sitting empty."
+          a: "Pleneva sends reminders before the reserved date and asks the guest to confirm. If the reservation is no longer needed, that table can be freed up in time for someone else instead of sitting empty."
         },
         {
           q: "Can it handle group and event reservations?",
@@ -2509,7 +2509,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Don't lose a reservation to a busy phone line",
-      ctaSub: "Try Vendrava and answer every reservation call and WhatsApp, handle groups, and cut no-shows while your team focuses on the floor."
+      ctaSub: "Try Pleneva and answer every reservation call and WhatsApp, handle groups, and cut no-shows while your team focuses on the floor."
     }
   },
 
@@ -2521,12 +2521,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/despachos-abogados",
     slugEn: "industries/law-firms",
     es: {
-      metaTitle: "CRM con IA para despachos de abogados | Vendrava",
-      metaDescription: "Vendrava ayuda a despachos de abogados a calificar consultas por área y urgencia, agendar la primera consulta y filtrar casos no encajables, siempre con gestión administrativa y sin asesoramiento legal.",
+      metaTitle: "CRM con IA para despachos de abogados | Pleneva",
+      metaDescription: "Pleneva ayuda a despachos de abogados a calificar consultas por área y urgencia, agendar la primera consulta y filtrar casos no encajables, siempre con gestión administrativa y sin asesoramiento legal.",
       navLabel: "Despachos de abogados",
       heroKicker: "Sector · Despachos de abogados",
       h1: "CRM con IA para despachos de abogados",
-      heroSub: "Califica cada consulta por área y urgencia, agenda la primera cita y filtra los casos que no encajan. Vendrava se encarga de la gestión administrativa; el criterio jurídico siempre queda en manos del abogado.",
+      heroSub: "Califica cada consulta por área y urgencia, agenda la primera cita y filtra los casos que no encajan. Pleneva se encarga de la gestión administrativa; el criterio jurídico siempre queda en manos del abogado.",
       painTitle: "El reto en despachos de abogados",
       pains: [
         {
@@ -2542,8 +2542,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Parte de las consultas quedan fuera del área de práctica del despacho o no son viables, pero se detectan tarde, después de invertir tiempo del equipo en ellas."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Cuando entra una consulta, Vendrava activa un agente de IA por voz o WhatsApp que identifica el área jurídica, la urgencia y el tipo de asunto, recoge los datos básicos de contacto y ayuda a agendar la primera consulta con el abogado adecuado. La IA se limita a la gestión administrativa y a orientar sobre el funcionamiento del despacho: nunca ofrece asesoramiento legal ni valora el fondo del caso, algo que siempre corresponde al profesional. La información se trata con confidencialidad y conforme a la normativa de protección de datos aplicable en cada país.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Cuando entra una consulta, Pleneva activa un agente de IA por voz o WhatsApp que identifica el área jurídica, la urgencia y el tipo de asunto, recoge los datos básicos de contacto y ayuda a agendar la primera consulta con el abogado adecuado. La IA se limita a la gestión administrativa y a orientar sobre el funcionamiento del despacho: nunca ofrece asesoramiento legal ni valora el fondo del caso, algo que siempre corresponde al profesional. La información se trata con confidencialidad y conforme a la normativa de protección de datos aplicable en cada país.",
       flow: ["Consulta", "IA", "Calificación", "Primera consulta"],
       useCases: [
         "Calificación de cada consulta por área jurídica, urgencia y tipo de asunto",
@@ -2574,15 +2574,15 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿La IA de Vendrava da asesoramiento legal a los clientes?",
-          a: "No. Vendrava se limita a la gestión administrativa: identifica el área y la urgencia, recoge datos de contacto y ayuda a agendar la cita. Cualquier valoración jurídica o consejo sobre el caso corresponde siempre al abogado."
+          q: "¿La IA de Pleneva da asesoramiento legal a los clientes?",
+          a: "No. Pleneva se limita a la gestión administrativa: identifica el área y la urgencia, recoge datos de contacto y ayuda a agendar la cita. Cualquier valoración jurídica o consejo sobre el caso corresponde siempre al abogado."
         },
         {
           q: "¿Cómo se protege la confidencialidad y los datos de los clientes?",
           a: "La información de contacto y de las consultas se trata como material confidencial, dentro de un sistema pensado para el manejo responsable de datos y conforme a la normativa de protección de datos aplicable en cada país."
         },
         {
-          q: "¿Puede Vendrava filtrar los casos que no encajan con el despacho?",
+          q: "¿Puede Pleneva filtrar los casos que no encajan con el despacho?",
           a: "Sí. Según los criterios que definas (áreas de práctica, tipo de asunto, viabilidad básica), la IA identifica las consultas que quedan fuera del alcance del despacho y las separa antes de ocupar el tiempo del equipo."
         },
         {
@@ -2591,19 +2591,19 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "¿Cómo ayuda con el seguimiento de presupuestos?",
-          a: "Vendrava automatiza recordatorios espaciados en el tiempo para los presupuestos enviados que aún no tienen respuesta, de modo que ningún potencial cliente quede sin seguimiento por olvido."
+          a: "Pleneva automatiza recordatorios espaciados en el tiempo para los presupuestos enviados que aún no tienen respuesta, de modo que ningún potencial cliente quede sin seguimiento por olvido."
         }
       ],
       ctaTitle: "Agenda más primeras consultas sin perder el control del caso",
-      ctaSub: "Prueba Vendrava y descubre cómo calificar y agendar consultas con IA, dejando siempre el criterio jurídico en manos de tus abogados."
+      ctaSub: "Prueba Pleneva y descubre cómo calificar y agendar consultas con IA, dejando siempre el criterio jurídico en manos de tus abogados."
     },
     en: {
-      metaTitle: "AI CRM for law firms | Vendrava",
-      metaDescription: "Vendrava helps law firms qualify inquiries by practice area and urgency, book the first consultation, and filter out cases that don't fit, always as administrative support and never legal advice.",
+      metaTitle: "AI CRM for law firms | Pleneva",
+      metaDescription: "Pleneva helps law firms qualify inquiries by practice area and urgency, book the first consultation, and filter out cases that don't fit, always as administrative support and never legal advice.",
       navLabel: "Law firms",
       heroKicker: "Industry · Law firms",
       h1: "AI CRM for law firms",
-      heroSub: "Qualify every inquiry by practice area and urgency, book the first consultation, and filter out cases that don't fit. Vendrava handles the administrative work; legal judgment always stays with the attorney.",
+      heroSub: "Qualify every inquiry by practice area and urgency, book the first consultation, and filter out cases that don't fit. Pleneva handles the administrative work; legal judgment always stays with the attorney.",
       painTitle: "The law firm challenge",
       pains: [
         {
@@ -2619,8 +2619,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Some inquiries fall outside the firm's practice areas or aren't viable, but that gets spotted late, after the team has already invested time in them."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "When an inquiry comes in, Vendrava triggers a voice or WhatsApp AI agent that identifies the practice area, urgency, and type of matter, collects basic contact details, and helps book the first consultation with the right attorney. The AI is limited to administrative work and explaining how the firm operates: it never provides legal advice or assesses the merits of a case, which always remains with the professional. Information is handled confidentially and in line with the data protection rules applicable in each country.",
+      howTitle: "How Pleneva helps",
+      howText: "When an inquiry comes in, Pleneva triggers a voice or WhatsApp AI agent that identifies the practice area, urgency, and type of matter, collects basic contact details, and helps book the first consultation with the right attorney. The AI is limited to administrative work and explaining how the firm operates: it never provides legal advice or assesses the merits of a case, which always remains with the professional. Information is handled confidentially and in line with the data protection rules applicable in each country.",
       flow: ["Inquiry", "AI", "Qualification", "First consultation"],
       useCases: [
         "Qualifying each inquiry by practice area, urgency, and type of matter",
@@ -2651,15 +2651,15 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava's AI give clients legal advice?",
-          a: "No. Vendrava is limited to administrative work: it identifies the area and urgency, collects contact details, and helps book the appointment. Any legal assessment or advice about the case always rests with the attorney."
+          q: "Does Pleneva's AI give clients legal advice?",
+          a: "No. Pleneva is limited to administrative work: it identifies the area and urgency, collects contact details, and helps book the appointment. Any legal assessment or advice about the case always rests with the attorney."
         },
         {
           q: "How is client confidentiality and data protected?",
           a: "Contact and inquiry information is treated as confidential material, within a system built for responsible data handling and in line with the data protection rules applicable in each country."
         },
         {
-          q: "Can Vendrava filter out cases that don't fit the firm?",
+          q: "Can Pleneva filter out cases that don't fit the firm?",
           a: "Yes. Based on the criteria you define (practice areas, type of matter, basic viability), the AI identifies inquiries that fall outside the firm's scope and sets them aside before they take up the team's time."
         },
         {
@@ -2668,11 +2668,11 @@ export const INDUSTRIES: IndustryEntry[] = [
         },
         {
           q: "How does it help with quote follow-up?",
-          a: "Vendrava automates spaced-out reminders for sent quotes that haven't had a reply, so no prospective client falls through the cracks because a follow-up was forgotten."
+          a: "Pleneva automates spaced-out reminders for sent quotes that haven't had a reply, so no prospective client falls through the cracks because a follow-up was forgotten."
         }
       ],
       ctaTitle: "Book more first consultations without losing control of the case",
-      ctaSub: "Try Vendrava and see how to qualify and book inquiries with AI, keeping legal judgment firmly in your attorneys' hands."
+      ctaSub: "Try Pleneva and see how to qualify and book inquiries with AI, keeping legal judgment firmly in your attorneys' hands."
     }
   },
 
@@ -2684,12 +2684,12 @@ export const INDUSTRIES: IndustryEntry[] = [
     slugEs: "sectores/fisioterapia",
     slugEn: "industries/physiotherapy",
     es: {
-      metaTitle: "CRM con IA para clínicas de fisioterapia y podología | Vendrava",
-      metaDescription: "Vendrava ayuda a clínicas de fisioterapia y podología a contestar y agendar citas cuando el equipo está tratando: recordatorios, recuperación de no-shows y seguimiento de bonos de sesiones por voz y WhatsApp, siempre bajo control humano y sin diagnóstico clínico.",
+      metaTitle: "CRM con IA para clínicas de fisioterapia y podología | Pleneva",
+      metaDescription: "Pleneva ayuda a clínicas de fisioterapia y podología a contestar y agendar citas cuando el equipo está tratando: recordatorios, recuperación de no-shows y seguimiento de bonos de sesiones por voz y WhatsApp, siempre bajo control humano y sin diagnóstico clínico.",
       navLabel: "Fisioterapia",
       heroKicker: "Sector · Fisioterapia y podología",
       h1: "CRM con IA para clínicas de fisioterapia y podología",
-      heroSub: "Cuando tus fisioterapeutas y podólogos están tratando, el teléfono no puede quedarse sin respuesta. Vendrava contesta, agenda la cita por voz y WhatsApp y da seguimiento a los bonos de sesiones; la valoración clínica siempre queda en tu equipo.",
+      heroSub: "Cuando tus fisioterapeutas y podólogos están tratando, el teléfono no puede quedarse sin respuesta. Pleneva contesta, agenda la cita por voz y WhatsApp y da seguimiento a los bonos de sesiones; la valoración clínica siempre queda en tu equipo.",
       painTitle: "El reto en fisioterapia y podología",
       pains: [
         {
@@ -2705,8 +2705,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Muchos pacientes compran bonos de varias sesiones y dejan de venir antes de completarlos. Sin un seguimiento que les recuerde las sesiones pendientes y les proponga fecha, el tratamiento queda incompleto y el bono sin cerrar."
         }
       ],
-      howTitle: "Cómo ayuda Vendrava",
-      howText: "Vendrava se comporta como un recepcionista entrenado en tu clínica: aprende tus servicios de fisioterapia y podología, tus preguntas de calificación y tus respuestas habituales sobre horarios, primera visita y bonos. Contesta llamadas y WhatsApp mientras el equipo está tratando, identifica el motivo (primera visita, seguimiento, revisión del pie, sesión de bono), agenda o reprograma la cita con el profesional adecuado y envía recordatorios para reducir ausencias. También da seguimiento a los bonos de sesiones, recordando las sesiones pendientes y proponiendo fecha para completarlas. Solo hace gestión administrativa: nunca da diagnóstico ni indicación clínica, y cualquier caso puede pasar al equipo humano en cualquier momento. Los datos de salud se tratan como un valor a proteger, con aviso de uso de IA, consentimiento y control humano según la normativa de protección de datos aplicable en cada país.",
+      howTitle: "Cómo ayuda Pleneva",
+      howText: "Pleneva se comporta como un recepcionista entrenado en tu clínica: aprende tus servicios de fisioterapia y podología, tus preguntas de calificación y tus respuestas habituales sobre horarios, primera visita y bonos. Contesta llamadas y WhatsApp mientras el equipo está tratando, identifica el motivo (primera visita, seguimiento, revisión del pie, sesión de bono), agenda o reprograma la cita con el profesional adecuado y envía recordatorios para reducir ausencias. También da seguimiento a los bonos de sesiones, recordando las sesiones pendientes y proponiendo fecha para completarlas. Solo hace gestión administrativa: nunca da diagnóstico ni indicación clínica, y cualquier caso puede pasar al equipo humano en cualquier momento. Los datos de salud se tratan como un valor a proteger, con aviso de uso de IA, consentimiento y control humano según la normativa de protección de datos aplicable en cada país.",
       flow: ["Llamada", "Motivo", "Agenda", "Recordatorio"],
       useCases: [
         "Atención de llamadas y WhatsApp mientras el equipo está tratando, fuera de horario o cuando la recepción está ocupada",
@@ -2737,16 +2737,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "¿La IA de Vendrava da diagnósticos o indicaciones de tratamiento?",
-          a: "No. Vendrava solo hace gestión administrativa: contesta, identifica el motivo de contacto y agenda la cita. Cualquier valoración, diagnóstico o pauta de tratamiento depende siempre del fisioterapeuta o podólogo."
+          q: "¿La IA de Pleneva da diagnósticos o indicaciones de tratamiento?",
+          a: "No. Pleneva solo hace gestión administrativa: contesta, identifica el motivo de contacto y agenda la cita. Cualquier valoración, diagnóstico o pauta de tratamiento depende siempre del fisioterapeuta o podólogo."
         },
         {
           q: "¿Cómo contesta si mis terapeutas están tratando y no pueden atender el teléfono?",
-          a: "Vendrava atiende las llamadas y los WhatsApp que entran mientras el equipo trabaja en camilla o en gabinete, identifica el motivo y agenda la cita según la disponibilidad de cada profesional. Así ninguna consulta se queda sin respuesta aunque nadie pueda atender el teléfono en ese momento."
+          a: "Pleneva atiende las llamadas y los WhatsApp que entran mientras el equipo trabaja en camilla o en gabinete, identifica el motivo y agenda la cita según la disponibilidad de cada profesional. Así ninguna consulta se queda sin respuesta aunque nadie pueda atender el teléfono en ese momento."
         },
         {
           q: "¿Puede hacer seguimiento de los bonos de sesiones?",
-          a: "Sí, en la parte administrativa. Vendrava recuerda al paciente las sesiones que le quedan por usar, le propone fecha para las siguientes y da seguimiento hasta completar el bono, dejando cualquier decisión clínica sobre el tratamiento en manos del equipo."
+          a: "Sí, en la parte administrativa. Pleneva recuerda al paciente las sesiones que le quedan por usar, le propone fecha para las siguientes y da seguimiento hasta completar el bono, dejando cualquier decisión clínica sobre el tratamiento en manos del equipo."
         },
         {
           q: "¿Cómo se protegen los datos de salud de los pacientes?",
@@ -2758,15 +2758,15 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Que ninguna llamada perdida deje una camilla parada",
-      ctaSub: "Prueba Vendrava y descubre cómo contestar, agendar y dar seguimiento a citas y bonos de tu clínica de fisioterapia y podología sin dejar de lado el criterio clínico ni la protección de datos."
+      ctaSub: "Prueba Pleneva y descubre cómo contestar, agendar y dar seguimiento a citas y bonos de tu clínica de fisioterapia y podología sin dejar de lado el criterio clínico ni la protección de datos."
     },
     en: {
-      metaTitle: "AI CRM for physiotherapy and podiatry clinics | Vendrava",
-      metaDescription: "Vendrava helps physiotherapy and podiatry clinics answer and book appointments while the team is treating: reminders, no-show recovery, and session-package tracking by voice and WhatsApp, always under human control and never giving clinical advice.",
+      metaTitle: "AI CRM for physiotherapy and podiatry clinics | Pleneva",
+      metaDescription: "Pleneva helps physiotherapy and podiatry clinics answer and book appointments while the team is treating: reminders, no-show recovery, and session-package tracking by voice and WhatsApp, always under human control and never giving clinical advice.",
       navLabel: "Physiotherapy",
       heroKicker: "Industry · Physiotherapy and podiatry",
       h1: "AI CRM for physiotherapy and podiatry clinics",
-      heroSub: "When your physiotherapists and podiatrists are treating, the phone can't go unanswered. Vendrava answers, books the appointment by voice and WhatsApp, and follows up on session packages; clinical judgment always stays with your team.",
+      heroSub: "When your physiotherapists and podiatrists are treating, the phone can't go unanswered. Pleneva answers, books the appointment by voice and WhatsApp, and follows up on session packages; clinical judgment always stays with your team.",
       painTitle: "The physiotherapy and podiatry challenge",
       pains: [
         {
@@ -2782,8 +2782,8 @@ export const INDUSTRIES: IndustryEntry[] = [
           text: "Many patients buy multi-session packages and stop coming before completing them. Without follow-up to remind them of remaining sessions and offer a date, the treatment stays incomplete and the package unclosed."
         }
       ],
-      howTitle: "How Vendrava helps",
-      howText: "Vendrava behaves like a receptionist trained in your clinic: it learns your physiotherapy and podiatry services, your qualifying questions, and your usual answers about hours, first visits, and packages. It answers calls and WhatsApp while the team is treating, identifies the reason (first visit, follow-up, foot checkup, package session), books or reschedules the appointment with the right provider, and sends reminders to cut no-shows. It also follows up on session packages, reminding patients of remaining sessions and offering a date to complete them. It only handles administrative work: it never gives a diagnosis or clinical advice, and any case can be handed to the human team at any point. Health data is treated as something to protect, with an AI-use notice, consent, and human control in line with the data protection regulations applicable in each country.",
+      howTitle: "How Pleneva helps",
+      howText: "Pleneva behaves like a receptionist trained in your clinic: it learns your physiotherapy and podiatry services, your qualifying questions, and your usual answers about hours, first visits, and packages. It answers calls and WhatsApp while the team is treating, identifies the reason (first visit, follow-up, foot checkup, package session), books or reschedules the appointment with the right provider, and sends reminders to cut no-shows. It also follows up on session packages, reminding patients of remaining sessions and offering a date to complete them. It only handles administrative work: it never gives a diagnosis or clinical advice, and any case can be handed to the human team at any point. Health data is treated as something to protect, with an AI-use notice, consent, and human control in line with the data protection regulations applicable in each country.",
       flow: ["Call", "Reason", "Schedule", "Reminder"],
       useCases: [
         "Handling calls and WhatsApp while the team is treating, after hours, or when the front desk is busy",
@@ -2814,16 +2814,16 @@ export const INDUSTRIES: IndustryEntry[] = [
       ],
       faq: [
         {
-          q: "Does Vendrava's AI give diagnoses or treatment advice?",
-          a: "No. Vendrava only handles administrative work: it answers, identifies the reason for contact, and books the appointment. Any assessment, diagnosis, or treatment guidance always depends on the physiotherapist or podiatrist."
+          q: "Does Pleneva's AI give diagnoses or treatment advice?",
+          a: "No. Pleneva only handles administrative work: it answers, identifies the reason for contact, and books the appointment. Any assessment, diagnosis, or treatment guidance always depends on the physiotherapist or podiatrist."
         },
         {
           q: "How does it answer if my therapists are treating and can't pick up the phone?",
-          a: "Vendrava handles the calls and WhatsApp messages that come in while the team is working on the table or in the treatment room, identifies the reason, and books the appointment based on each provider's availability. That way no inquiry goes unanswered even when no one can pick up the phone at that moment."
+          a: "Pleneva handles the calls and WhatsApp messages that come in while the team is working on the table or in the treatment room, identifies the reason, and books the appointment based on each provider's availability. That way no inquiry goes unanswered even when no one can pick up the phone at that moment."
         },
         {
           q: "Can it follow up on session packages?",
-          a: "Yes, on the administrative side. Vendrava reminds the patient of the sessions they have left, offers a date for the next ones, and follows up until the package is complete, leaving any clinical decision about the treatment to the team."
+          a: "Yes, on the administrative side. Pleneva reminds the patient of the sessions they have left, offers a date for the next ones, and follows up until the package is complete, leaving any clinical decision about the treatment to the team."
         },
         {
           q: "How is patients' health data protected?",
@@ -2835,7 +2835,7 @@ export const INDUSTRIES: IndustryEntry[] = [
         }
       ],
       ctaTitle: "Don't let a missed call leave a table idle",
-      ctaSub: "Try Vendrava and see how to answer, book, and follow up on appointments and session packages for your physiotherapy and podiatry clinic without setting aside clinical judgment or data protection."
+      ctaSub: "Try Pleneva and see how to answer, book, and follow up on appointments and session packages for your physiotherapy and podiatry clinic without setting aside clinical judgment or data protection."
     }
   },
 ];

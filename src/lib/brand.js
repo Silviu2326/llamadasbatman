@@ -10,17 +10,28 @@ import { apiFetch } from './api'
 const KEY = 'vendrava:brand:v1'
 
 export const DEFAULT_BRAND = Object.freeze({
-  brandName: 'Vendrava',
+  brandName: 'Pleneva',
   logoUrl: null,
-  primaryColor: '#6366f1',
-  accentColor: '#22d3ee',
+  primaryColor: '#082e62',
+  accentColor: '#f25f1c',
   textColor: '#ffffff',
 })
 
 function stored() {
   try {
     const raw = window.localStorage?.getItem(KEY)
-    return raw ? { ...DEFAULT_BRAND, ...JSON.parse(raw) } : DEFAULT_BRAND
+    if (!raw) return DEFAULT_BRAND
+    const cached = JSON.parse(raw)
+    const isLegacyPlatformBrand =
+      cached.brandName === 'Vendrava' &&
+      !cached.logoUrl &&
+      cached.primaryColor === '#6366f1' &&
+      cached.accentColor === '#22d3ee'
+    if (isLegacyPlatformBrand) {
+      window.localStorage.setItem(KEY, JSON.stringify(DEFAULT_BRAND))
+      return DEFAULT_BRAND
+    }
+    return { ...DEFAULT_BRAND, ...cached }
   } catch {
     return DEFAULT_BRAND
   }

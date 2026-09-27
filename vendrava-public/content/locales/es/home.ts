@@ -2,19 +2,19 @@ import type { HomeContent } from "@/types/content";
 
 export const homeEs: HomeContent = {
   hero: {
-    badge: "Agente comercial de voz IA",
-    h1a: "Un agente de voz IA que llama, diagnostica y",
-    h1b: "vende, no solo un chat que responde",
-    sub: "Vendrava hace y recibe llamadas como un comercial consultor entrenado en tu nicho: detecta la necesidad real del prospecto y ofrece una solución ya diagnosticada, en español neutro. Con WhatsApp y CRM en el mismo sistema.",
-    secondary: "Ver Vendrava en acción",
+    badge: "Crece con más oportunidades",
+    h1a: "Te traemos clientes.",
+    h1b: "Tú solo tienes que atenderlos.",
+    sub: "Encontramos a quién vender, contactamos a tus potenciales clientes y damos seguimiento a cada conversación para que tu agenda se llene. Todo conectado a tu CRM.",
+    secondary: "Descubre cómo funciona",
     micro: "Desde 99 €/mes. 100.000 créditos de IA incluidos para probar llamadas, análisis y automatizaciones.",
-    trust: "Voz, WhatsApp y CRM en un solo sistema",
+    trust: "Prospección, seguimiento y CRM en un solo sistema",
     channels: ["Llamadas salientes", "Llamadas entrantes", "WhatsApp", "Email", "Formularios", "Campañas"],
     badges: ["Hace y recibe llamadas por teléfono", "Diagnostica antes de vender, no lee un guion", "Consentimiento, horarios y handoff a una persona", "WhatsApp y CRM en el mismo sistema"],
   },
   comoFunciona: {
     tag: "En 3 pasos",
-    title: "Qué hace Vendrava, en simple",
+    title: "Qué hace Pleneva, en simple",
     steps: [
       { n: "1", t: "Contesta y llama", d: "Atiende las llamadas y mensajes que se te escapan, y llama a tus leads nuevos, con voz real, no solo chat." },
       { n: "2", t: "Entiende qué necesita", d: "Conversa como un comercial de tu sector: escucha, entiende la necesidad de cada persona y la califica." },
@@ -23,7 +23,7 @@ export const homeEs: HomeContent = {
     note: "Sin instalar nada complejo. Tú defines los guiones y el control siempre queda en tu equipo.",
     screenshot: {
       src: "/screens/call-intelligence.webp",
-      caption: "Interfaz real: una llamada analizada por Vendrava — insight, señales de compra, sentimiento y el siguiente toque ya preparado",
+      caption: "Interfaz real: una llamada analizada por Pleneva — insight, señales de compra, sentimiento y el siguiente toque ya preparado",
     },
   },
   problem: {
@@ -40,8 +40,8 @@ export const homeEs: HomeContent = {
   },
   solution: {
     tag: "La solución",
-    title: "Vendrava responde a cada entrada con una acción, no con una ficha",
-    text: "Vendrava centraliza tus leads y activa flujos para contestar, llamar, calificar, agendar y hacer seguimiento desde una sola plataforma.",
+    title: "Pleneva responde a cada entrada con una acción, no con una ficha",
+    text: "Pleneva centraliza tus leads y activa flujos para contestar, llamar, calificar, agendar y hacer seguimiento desde una sola plataforma.",
     inputs: [
       { icon: "▦", label: "Web form" },
       { icon: "✆", label: "Llamada entrante" },
@@ -62,16 +62,16 @@ export const homeEs: HomeContent = {
   differentiator: {
     tag: "La diferencia",
     title: "Esto no es un bot de WhatsApp",
-    text: "Las herramientas de chat que ya conoces automatizan mensajes, pero nunca levantan el teléfono. Vendrava sí llama y contesta con voz, conduce la conversación como un comercial consultor de tu sector y, en lugar de recitar un guion, diagnostica qué necesita el prospecto y le propone la solución adecuada. El WhatsApp y el CRM quedan detrás, dando contexto, no como el producto en sí.",
+    text: "Las herramientas de chat que ya conoces automatizan mensajes, pero nunca levantan el teléfono. Pleneva sí llama y contesta con voz, conduce la conversación como un comercial consultor de tu sector y, en lugar de recitar un guion, diagnostica qué necesita el prospecto y le propone la solución adecuada. El WhatsApp y el CRM quedan detrás, dando contexto, no como el producto en sí.",
     chatLabel: "Bots de chat / WhatsApp",
     chatPoints: ["Esperan a que el cliente escriba", "Solo automatizan mensajes: nunca llaman a nadie", "Responden con un guion fijo", "Ofrecen un servicio, no diagnostican"],
-    vendLabel: "Vendrava · agente de voz IA",
+    vendLabel: "Pleneva · agente de voz IA",
     vendPoints: ["Hace y recibe llamadas por teléfono", "Conversa como un comercial consultor", "Diagnostica la necesidad y propone una solución", "Entrenado en tu nicho, en español neutro"],
   },
   inboundOutbound: {
     tag: "Inbound + Outbound",
     title: "No solo llama. También atiende.",
-    sub: "Vendrava está diseñado para gestionar tanto leads salientes como consultas entrantes. Atiende llamadas, registra conversaciones, califica intención y activa próximos pasos desde el CRM.",
+    sub: "Pleneva está diseñado para gestionar tanto leads salientes como consultas entrantes. Atiende llamadas, registra conversaciones, califica intención y activa próximos pasos desde el CRM.",
     outLabel: "Outbound AI",
     outItems: ["Llama leads nuevos", "Ejecuta campañas en frío a volumen", "Recupera leads fríos", "Hace preguntas de calificación", "Agenda citas o visitas", "Transfiere a un agente humano"],
     inLabel: "Inbound AI",
@@ -83,7 +83,7 @@ export const homeEs: HomeContent = {
     text: "Un formulario de noche, una llamada perdida, un WhatsApp fuera de horario o una consulta desde una campaña pueden convertirse en cita o venta si se atienden con rapidez y contexto.",
     steps: [
       { t: "22:43", title: "Entra un lead", text: "Formulario o llamada fuera de horario comercial." },
-      { t: "22:43", title: "Vendrava atiende", text: "La IA responde o registra la consulta y detecta intención." },
+      { t: "22:43", title: "Pleneva atiende", text: "La IA responde o registra la consulta y detecta intención." },
       { t: "22:45", title: "Resumen guardado", text: "Necesidad, motivo y contexto quedan en el CRM." },
       { t: "09:00", title: "El equipo recibe contexto", text: "Empieza el día con la próxima acción recomendada, no desde cero." },
     ],
@@ -92,17 +92,17 @@ export const homeEs: HomeContent = {
     tag: "Cómo funciona",
     title: "De la primera señal al próximo paso, sin que nada se caiga",
     steps: [
-      { n: "1", title: "Captura el lead", text: "Vendrava centraliza formularios, campañas, llamadas y contactos.", tag: "Web · Ads · Inbound" },
+      { n: "1", title: "Captura el lead", text: "Pleneva centraliza formularios, campañas, llamadas y contactos.", tag: "Web · Ads · Inbound" },
       { n: "2", title: "Activa el contacto", text: "El sistema puede iniciar llamadas IA, emails, WhatsApp o tareas.", tag: "Multicanal" },
       { n: "3", title: "Califica la oportunidad", text: "La IA recopila intención, urgencia, motivo, presupuesto y contexto.", tag: "Intent: High" },
-      { n: "4", title: "Agenda y hace seguimiento", text: "Vendrava agenda la cita y mantiene la oportunidad viva con recordatorios.", tag: "Follow-up" },
+      { n: "4", title: "Agenda y hace seguimiento", text: "Pleneva agenda la cita y mantiene la oportunidad viva con recordatorios.", tag: "Follow-up" },
       { n: "5", title: "Avanza con más contexto", text: "Tu equipo recibe resúmenes, señales de compra y acciones recomendadas.", tag: "Next action" },
     ],
   },
   dualAI: {
     tag: "Sistema Dual IA",
     title: "Una IA responde. Otra piensa la estrategia.",
-    sub: "Vendrava combina una capa rápida para mantener conversaciones fluidas con una capa estratégica que analiza contexto, objeciones y próximos pasos en segundo plano.",
+    sub: "Pleneva combina una capa rápida para mantener conversaciones fluidas con una capa estratégica que analiza contexto, objeciones y próximos pasos en segundo plano.",
     mini: [
       { name: "Fast Executor", rows: ["Responde rápido", "Mantiene fluidez", "Atiende o llama"] },
       { name: "Guru Supervisor", rows: ["Analiza intención", "Detecta objeciones", "Recomienda estrategia"] },
@@ -191,7 +191,7 @@ export const homeEs: HomeContent = {
   advisor: {
     tag: "Asesor comercial IA",
     title: "No es un bot genérico. Es un asesor comercial entrenado en tu sector.",
-    sub: "Vendrava aprende el lenguaje, las preguntas de calificación y las objeciones de tu nicho para conversar como lo haría tu mejor comercial, y adaptarse a cada mercado e idioma.",
+    sub: "Pleneva aprende el lenguaje, las preguntas de calificación y las objeciones de tu nicho para conversar como lo haría tu mejor comercial, y adaptarse a cada mercado e idioma.",
     nicheLabel: "Entrenado en tu sector:",
     niches: ["Inmobiliaria", "Clínicas", "Veterinarias", "Peluquerías", "Concesionarios", "Call centers", "Servicios", "Educación"],
     cards: [
@@ -242,7 +242,7 @@ export const homeEs: HomeContent = {
     text: "Diseña flujos donde cada lead recibe el seguimiento correcto según su estado, canal, urgencia e intención.",
     trigLabel: "Cuando ocurre",
     triggers: ["Nuevo formulario", "Llamada entrante perdida", "WhatsApp recibido", "Lead sin respuesta", "Propuesta vista", "Cita agendada"],
-    actLabel: "Vendrava puede",
+    actLabel: "Pleneva puede",
     actions: [
       { icon: "✆", label: "Atender con IA" },
       { icon: "✆", label: "Llamar con IA" },
@@ -256,21 +256,21 @@ export const homeEs: HomeContent = {
     nodeLabel: "decide el flujo",
   },
   dayInLife: {
-    tag: "Un día con Vendrava",
-    title: "Así trabaja Vendrava mientras tu equipo vende",
+    tag: "Un día con Pleneva",
+    title: "Así trabaja Pleneva mientras tu equipo vende",
     items: [
-      { t: "08:12", title: "Nuevo lead desde campaña", text: "Entra un formulario de Google Ads y Vendrava lo clasifica.", side: "l" },
+      { t: "08:12", title: "Nuevo lead desde campaña", text: "Entra un formulario de Google Ads y Pleneva lo clasifica.", side: "l" },
       { t: "08:13", title: "Activa contacto", text: "El flujo decide llamada IA + WhatsApp según la fuente.", side: "r" },
       { t: "08:15", title: "Agente IA llama", text: "Detecta intención alta y confirma el motivo.", side: "l" },
       { t: "08:18", title: "Resumen en el CRM", text: "Necesidad, objeción y próximo paso quedan registrados.", side: "r" },
       { t: "09:00", title: "El equipo recibe la acción", text: "Ve a quién llamar y qué decir, con contexto completo.", side: "l" },
-      { t: "11:30", title: "El lead responde por WhatsApp", text: "Vendrava mantiene la conversación dentro del pipeline.", side: "r" },
+      { t: "11:30", title: "El lead responde por WhatsApp", text: "Pleneva mantiene la conversación dentro del pipeline.", side: "r" },
       { t: "12:10", title: "Cita agendada", text: "Se confirma la cita y el estado se actualiza solo.", side: "l" },
     ],
   },
   demo: {
     badge: "Demo gratis",
-    title: "Prueba Vendrava con IA real, no solo con una demo vacía",
+    title: "Prueba Pleneva con IA real, no solo con una demo vacía",
     sub: "Empieza con créditos de IA incluidos para probar llamadas, recepción de consultas, análisis conversacional y automatizaciones con leads reales o de prueba.",
     unit: "créditos de IA incluidos",
     use: "Úsalos para probar llamadas, resúmenes, análisis, automatizaciones y flujos comerciales.",
@@ -288,7 +288,7 @@ export const homeEs: HomeContent = {
   growthHub: {
     tag: "Growth Marketing Hub",
     title: "CRM, llamadas y growth en un solo sistema",
-    text: "Vendrava conecta adquisición, seguimiento y conversión para que marketing y ventas trabajen sobre el mismo flujo de oportunidades.",
+    text: "Pleneva conecta adquisición, seguimiento y conversión para que marketing y ventas trabajen sobre el mismo flujo de oportunidades.",
     modules: [
       { name: "Campaigns", span: 2, desc: "Activa campañas y conecta cada lead al CRM.", val: "Multicanal", iconKey: "campaigns" },
       { name: "Email", span: 1, desc: "Secuencias conectadas al estado comercial.", val: "", iconKey: "email" },
@@ -303,7 +303,7 @@ export const homeEs: HomeContent = {
   },
   capabilities: {
     tag: "Capacidades",
-    title: "Lo que Vendrava puede activar por tu equipo",
+    title: "Lo que Pleneva puede activar por tu equipo",
     groups: [
       { name: "Captura", items: ["Funnels de ventas", "Prospect Finder", "Formularios y campañas", "WhatsApp y email"] },
       { name: "Voz IA", items: ["Responder llamadas entrantes", "Llamar leads nuevos", "Detectar señales de compra", "Insight de cada llamada"] },
@@ -327,18 +327,18 @@ export const homeEs: HomeContent = {
   },
   beforeAfter: {
     tag: "Antes / Después",
-    title: "Lo que cambia cuando Vendrava entra en el equipo",
-    beforeLabel: "Antes de Vendrava",
-    afterLabel: "Después de Vendrava",
+    title: "Lo que cambia cuando Pleneva entra en el equipo",
+    beforeLabel: "Antes de Pleneva",
+    afterLabel: "Después de Pleneva",
     before: ["Llamadas perdidas", "Leads sin contexto", "Seguimientos manuales", "CRM desactualizado", "El equipo reaccionando tarde"],
     after: ["Llamadas atendidas o registradas", "Leads calificados", "Recordatorios automáticos", "Próximas acciones claras", "CRM vivo y actualizado"],
   },
   comparison: {
     tag: "Comparativa",
-    title: "Un CRM tradicional espera. Vendrava actúa.",
-    sub: "Guardar contactos ya no es suficiente. Vendrava ayuda a responder, llamar, recibir, calificar y agendar desde el mismo sistema.",
+    title: "Un CRM tradicional espera. Pleneva actúa.",
+    sub: "Guardar contactos ya no es suficiente. Pleneva ayuda a responder, llamar, recibir, calificar y agendar desde el mismo sistema.",
     tradLabel: "CRM tradicional",
-    vendLabel: "Vendrava",
+    vendLabel: "Pleneva",
     rows: [
       { trad: "Guarda contactos", vend: "Activa leads automáticamente" },
       { trad: "Depende del equipo para llamar", vend: "Puede llamar y atender con agentes IA" },
@@ -357,7 +357,7 @@ export const homeEs: HomeContent = {
   security: {
     tag: "Seguridad y cumplimiento",
     title: "Automatización con control humano y cumplimiento",
-    text: "La IA de Vendrava puede identificarse como IA, gestionar el consentimiento donde aplica y dejar siempre la decisión final en tu equipo. Cada conversación y acción queda registrada y conectada al CRM.",
+    text: "La IA de Pleneva puede identificarse como IA, gestionar el consentimiento donde aplica y dejar siempre la decisión final en tu equipo. Cada conversación y acción queda registrada y conectada al CRM.",
     items: [
       { icon: "◎", title: "Aviso de IA en la llamada", text: "El agente puede identificarse como IA al inicio, según la normativa de cada mercado." },
       { icon: "✓", title: "Consentimiento y horarios", text: "Configura consentimiento, horarios permitidos y exclusiones por mercado." },
@@ -369,18 +369,18 @@ export const homeEs: HomeContent = {
     tag: "FAQ",
     title: "Preguntas frecuentes",
     items: [
-      { q: "¿Qué es Vendrava?", a: "Vendrava es un CRM con IA diseñado para contestar, llamar, calificar, agendar y hacer seguimiento a tus leads por voz y WhatsApp, con tu equipo siempre al control." },
-      { q: "¿Las llamadas con IA cumplen la normativa?", a: "Vendrava está diseñado para configurarse según la normativa aplicable en cada mercado: aviso de que se habla con una IA, consentimiento, horarios permitidos y control humano. La configuración responsable forma parte del producto." },
-      { q: "¿Vendrava reemplaza a mi equipo?", a: "No. Vendrava apoya al equipo: acelera respuestas, califica leads, agenda y mantiene el seguimiento. La decisión final y el trato con el cliente siguen en manos de las personas." },
+      { q: "¿Qué es Pleneva?", a: "Pleneva es un CRM con IA diseñado para contestar, llamar, calificar, agendar y hacer seguimiento a tus leads por voz y WhatsApp, con tu equipo siempre al control." },
+      { q: "¿Las llamadas con IA cumplen la normativa?", a: "Pleneva está diseñado para configurarse según la normativa aplicable en cada mercado: aviso de que se habla con una IA, consentimiento, horarios permitidos y control humano. La configuración responsable forma parte del producto." },
+      { q: "¿Pleneva reemplaza a mi equipo?", a: "No. Pleneva apoya al equipo: acelera respuestas, califica leads, agenda y mantiene el seguimiento. La decisión final y el trato con el cliente siguen en manos de las personas." },
       { q: "¿Qué son los agentes IA de voz?", a: "Son agentes conversacionales que pueden atender y contactar leads por teléfono, hacer preguntas de calificación y registrar el contexto en el CRM." },
-      { q: "¿Vendrava integra WhatsApp y email?", a: "Sí. Vendrava está diseñado para conectar el seguimiento comercial por llamadas, email, WhatsApp y otros canales dentro del mismo CRM." },
-      { q: "¿Puedo usar Vendrava solo como CRM?", a: "Sí, pero su mayor valor aparece cuando se combinan CRM, voz IA, WhatsApp, automatización y growth marketing." },
-      { q: "¿Cómo ayuda Vendrava a convertir más leads?", a: "Ayuda a reducir tiempos de respuesta, contestar fuera de horario, calificar oportunidades, agendar citas y entregar más contexto al equipo." },
+      { q: "¿Pleneva integra WhatsApp y email?", a: "Sí. Pleneva está diseñado para conectar el seguimiento comercial por llamadas, email, WhatsApp y otros canales dentro del mismo CRM." },
+      { q: "¿Puedo usar Pleneva solo como CRM?", a: "Sí, pero su mayor valor aparece cuando se combinan CRM, voz IA, WhatsApp, automatización y growth marketing." },
+      { q: "¿Cómo ayuda Pleneva a convertir más leads?", a: "Ayuda a reducir tiempos de respuesta, contestar fuera de horario, calificar oportunidades, agendar citas y entregar más contexto al equipo." },
     ],
   },
   finalCta: {
     title: "Que ninguna oportunidad se pierda por no responder a tiempo",
-    sub: "Prueba Vendrava con 100.000 créditos de IA incluidos y descubre cómo contestar, llamar, calificar y agendar desde un solo CRM.",
+    sub: "Prueba Pleneva con 100.000 créditos de IA incluidos y descubre cómo contestar, llamar, calificar y agendar desde un solo CRM.",
     primary: "Solicitar una demo",
     secondary: "Hablar con ventas",
   },

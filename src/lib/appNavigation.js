@@ -130,7 +130,7 @@ const LOCAL_GROUPS = {
     { id: 'organization', label: 'Organización', labelEn: 'Organization', moduleIds: ['settings'] },
   ],
   learn: [
-    { id: 'learning', label: 'Aprende a usar Vendrava', labelEn: 'Learn Vendrava', moduleIds: ['learn-center'] },
+    { id: 'learning', label: 'Aprende a usar Pleneva', labelEn: 'Learn Pleneva', moduleIds: ['learn-center'] },
   ],
   // Lo que se mira, y lo que decide quién puede hacer qué. La auditoría cae en
   // el segundo grupo porque se consulta después de actuar, no para navegar.

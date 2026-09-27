@@ -1,8 +1,8 @@
-.dev-page{min-height:100%;overflow:auto;padding:30px 32px 58px;color:var(--text-strong);background:radial-gradient(circle at 92% 0%,#312e8133,transparent 28%),radial-gradient(circle at 8% 20%,#164e6333,transparent 24%),var(--bg);font-family:Inter,"SF Pro Display","Segoe UI",system-ui,sans-serif}
+.dev-page{min-height:100%;overflow:auto;padding:30px 32px 58px;color:var(--text-strong);background:radial-gradient(circle at 92% 0%,color-mix(in srgb, var(--accent-bg) 20%, transparent),transparent 28%),radial-gradient(circle at 8% 20%,#164e6333,transparent 24%),var(--bg);font-family:Inter,"SF Pro Display","Segoe UI",system-ui,sans-serif}
 .dev-page *{box-sizing:border-box}
 .dev-header{max-width:1180px;margin:0 auto 20px}
 .dev-title{display:flex;align-items:center;gap:13px}
-.dev-icon{display:grid;width:47px;height:47px;flex:none;place-items:center;border:1px solid #818cf866;border-radius:14px;color:var(--violet-soft);background:linear-gradient(140deg,#312e8170,#164e6370);box-shadow:0 14px 30px #6366f133}
+.dev-icon{display:grid;width:47px;height:47px;flex:none;place-items:center;border:1px solid color-mix(in srgb, var(--accent-soft) 40%, transparent);border-radius:14px;color:var(--violet-soft);background:linear-gradient(140deg,color-mix(in srgb, var(--accent-bg) 44%, transparent),#164e6370);box-shadow:0 14px 30px color-mix(in srgb, var(--accent) 20%, transparent)}
 .dev-icon svg{width:23px;height:23px}
 .dev-kicker{display:block;color:var(--accent-faint);font-size:8px;font-weight:850;letter-spacing:.75px;text-transform:uppercase}
 .dev-header h1{margin:5px 0 0;font-size:26px;letter-spacing:-.8px}
@@ -10,7 +10,7 @@
 .dev-notice{display:flex;align-items:center;gap:10px;max-width:1180px;margin:0 auto 14px;padding:10px 13px;border:1px solid #34d39966;border-radius:9px;color:var(--success-soft);background:#064e3b33;font-size:10px}
 .dev-notice.error{border-color:#fb718566;color:var(--danger-soft);background:#4c051933}
 .dev-notice button{margin-left:auto;border:0;color:inherit;background:none;font-size:17px;cursor:pointer}
-.dev-secret{display:flex;align-items:center;flex-wrap:wrap;gap:9px;max-width:1180px;padding:13px;margin:0 auto 14px;border:1px solid #a78bfa66;border-radius:11px;background:#312e8126}
+.dev-secret{display:flex;align-items:center;flex-wrap:wrap;gap:9px;max-width:1180px;padding:13px;margin:0 auto 14px;border:1px solid color-mix(in srgb, var(--violet) 40%, transparent);border-radius:11px;background:color-mix(in srgb, var(--accent-bg) 15%, transparent)}
 .dev-secret>div{display:grid;gap:3px;width:100%}
 .dev-secret strong{font-size:10px}
 .dev-secret small{color:var(--muted);font-size:8.5px}
@@ -25,7 +25,7 @@
 .dev-inline-form select{flex:0 0 210px}
 .dev-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:35px;padding:0 13px;border:1px solid var(--line-2);border-radius:9px;color:var(--text);background:var(--surface-3);font:inherit;font-size:10px;font-weight:790;white-space:nowrap;cursor:pointer}
 .dev-button svg{width:14px;height:14px}
-.dev-button.primary{border-color:var(--accent-soft);color:#fff;background:linear-gradient(105deg,var(--accent-deep),var(--violet-deep));box-shadow:0 9px 22px #6366f133}
+.dev-button.primary{border-color:var(--accent-soft);color:#fff;background:linear-gradient(105deg,var(--accent-deep),var(--violet-deep));box-shadow:0 9px 22px color-mix(in srgb, var(--accent) 20%, transparent)}
 .dev-button.ghost{min-height:29px;padding:0 9px;font-size:9px}
 .dev-button:disabled{opacity:.5;cursor:not-allowed}
 .dev-table{width:100%;border-collapse:collapse;font-size:9.5px}

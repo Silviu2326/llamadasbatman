@@ -39,7 +39,7 @@ export default function AdsFunnel({ funnel, deepestEligibleSignal, eligibilityRe
           <p>Del clic al comprador, en los últimos {periodDays} días.</p>
         </div>
         <span className="ads-funnel-signal">
-          <RiFilterLine /> Vendrava evalúa hasta: <b>{SIGNAL_LABEL[deepestEligibleSignal] ?? 'sin señal'}</b>
+          <RiFilterLine /> Pleneva evalúa hasta: <b>{SIGNAL_LABEL[deepestEligibleSignal] ?? 'sin señal'}</b>
         </span>
       </div>
 
@@ -69,9 +69,9 @@ export default function AdsFunnel({ funnel, deepestEligibleSignal, eligibilityRe
       </ol>
 
       <footer className="ads-funnel-foot">
-        {/* Meta optimiza a lead porque es la señal que puede medir; Vendrava llega
+        {/* Meta optimiza a lead porque es la señal que puede medir; Pleneva llega
             más lejos. Mostrar ambas evita la impresión de que discrepan. */}
-        <p><b>Meta optimiza a:</b> Lead · <b>Vendrava evalúa hasta:</b> {SIGNAL_LABEL[deepestEligibleSignal] ?? '—'}</p>
+        <p><b>Meta optimiza a:</b> Lead · <b>Pleneva evalúa hasta:</b> {SIGNAL_LABEL[deepestEligibleSignal] ?? '—'}</p>
         {eligibilityReason && <p className="ads-funnel-reason">{eligibilityReason}</p>}
         {leak && (
           <p className="ads-funnel-leak">

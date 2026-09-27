@@ -576,7 +576,7 @@ export default function AppShell({ children }) {
       <aside className="shell-desktop-nav" aria-label="Navegación principal">
         <div className="shell-rail">
           <button className="shell-brand-mark" type="button" onClick={() => navigate('/dashboard')} title={brand.brandName}>
-            <img src={brand.logoUrl || '/logo.png'} alt="" />
+            <img src={brand.logoUrl || '/brand/pleneva-mark.png'} alt="" />
           </button>
           <nav className="shell-space-list" aria-label="Espacios">
             {APP_SPACES.map(space => visibleBySpace.get(space.id)?.length ? (
@@ -629,7 +629,7 @@ export default function AppShell({ children }) {
         </header>
 
         <div className="shell-mobile-chrome">
-          <header className="shell-mobile-header"><button className="shell-mobile-brand" type="button" onClick={() => navigate('/dashboard')}><img src={brand.logoUrl || '/logo.png'} alt="" /><strong>{brand.brandName}</strong></button><span>{activeModule?.to !== activeSpace.directPath ? <small>{localizedLabel(activeSpace, locale)}</small> : null}{activeModule ? localizedLabel(activeModule, locale) : localizedLabel(activeSpace, locale)}</span><NotificationButton compact /><button type="button" onClick={() => setAssistantOpen(true)} aria-label={locale === 'en' ? 'Open platform assistant' : 'Abrir asistente de la plataforma'} aria-haspopup="dialog" aria-expanded={assistantOpen} aria-controls="platform-assistant-dialog"><RiSparkling2Line aria-hidden="true" /></button><button type="button" onClick={() => setMobileSheetOpen(true)} aria-label="Abrir navegación"><RiMenuLine /></button></header>
+          <header className="shell-mobile-header"><button className="shell-mobile-brand" type="button" onClick={() => navigate('/dashboard')}><img src={brand.logoUrl || '/brand/pleneva-mark.png'} alt="" /><strong>{brand.brandName}</strong></button><span>{activeModule?.to !== activeSpace.directPath ? <small>{localizedLabel(activeSpace, locale)}</small> : null}{activeModule ? localizedLabel(activeModule, locale) : localizedLabel(activeSpace, locale)}</span><NotificationButton compact /><button type="button" onClick={() => setAssistantOpen(true)} aria-label={locale === 'en' ? 'Open platform assistant' : 'Abrir asistente de la plataforma'} aria-haspopup="dialog" aria-expanded={assistantOpen} aria-controls="platform-assistant-dialog"><RiSparkling2Line aria-hidden="true" /></button><button type="button" onClick={() => setMobileSheetOpen(true)} aria-label="Abrir navegación"><RiMenuLine /></button></header>
           {hasLocalNavigation ? <MobileLocalNav modules={localModules} locale={locale} pathname={location.pathname} onOpenAll={openLocalSheet} /> : null}
         </div>
 

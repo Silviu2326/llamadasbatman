@@ -160,7 +160,7 @@ export default function AdsDecisions({ decisions, policy, onDecide, busyId }) {
     return (
       <div className="ads-recommendation-empty">
         <RiCheckboxCircleLine />
-        <p>Vendrava no ha detectado ningún problema que merezca una recomendación en este período.</p>
+        <p>Pleneva no ha detectado ningún problema que merezca una recomendación en este período.</p>
       </div>
     )
   }
@@ -169,7 +169,7 @@ export default function AdsDecisions({ decisions, policy, onDecide, busyId }) {
     <div className="ads-decision-list">
       {decisions.map(decision => <DecisionCard key={decision.id} decision={decision} onDecide={onDecide} busyId={busyId} />)}
       <p className="ads-decision-policy">
-        Autonomía <b>{policy?.autonomyLevel ?? 'N1'}</b> en modo <b>{policy?.mode ?? 'shadow'}</b>: Vendrava calcula y explica,
+        Autonomía <b>{policy?.autonomyLevel ?? 'N1'}</b> en modo <b>{policy?.mode ?? 'shadow'}</b>: Pleneva calcula y explica,
         la decisión es tuya. Aprobar deja la acción registrada y pendiente; no modifica nada en Meta todavía.
         {policy?.killSwitch === 'engaged' && ' La autonomía está parada por decisión del equipo.'}
       </p>

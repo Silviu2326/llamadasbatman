@@ -59,7 +59,7 @@ export function useSeo({ landingCampaigns, targetUrl, externalReport }) {
 
   const [contentState, setContentState] = useState({})
   const [landingApply, setLandingApply] = useState({ campaignId: '', saving: false, done: '', error: '' })
-  // Webs del cliente con WordPress + plugin Vendrava Connect: ahí el título y
+  // Webs del cliente con WordPress + plugin Pleneva Connect: ahí el título y
   // la meta se aplican directamente en la página real, no solo en la landing.
   const [wordpress, setWordpress] = useState({ connections: [], connectionId: '', pages: [], pagesLoading: false, pageId: '', saving: false, done: '', error: '' })
   // Webs de código con repositorio conectado: el título y la meta llegan como

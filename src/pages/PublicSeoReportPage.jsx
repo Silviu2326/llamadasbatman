@@ -28,7 +28,7 @@ export default function PublicSeoReportPage() {
     <div style={styles.page}>
       <header style={{ marginBottom: 20 }}>
         <h1 style={styles.title}>Informe SEO</h1>
-        <p style={styles.subtitle}>Compartido de solo lectura · generado con Vendrava</p>
+        <p style={styles.subtitle}>Compartido de solo lectura · generado con Pleneva</p>
       </header>
       {loading ? <p style={styles.subtitle}>Cargando informe…</p> : null}
       {error ? <p style={styles.error}>{error}</p> : null}

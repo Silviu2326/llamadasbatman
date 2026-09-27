@@ -32,10 +32,10 @@ const COPY = {
     need: "Principal necesidad",
     message: "Mensaje",
     messagePh: "Cuéntanos brevemente tu caso",
-    submit: "Solicitar demo de Vendrava",
+    submit: "Solicitar demo de Pleneva",
     note: "Sin compromiso inicial. Créditos de IA incluidos en la demo.",
     successTitle: "Solicitud recibida",
-    successText: "Gracias por tu interés en Vendrava. Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo en breve.",
+    successText: "Gracias por tu interés en Pleneva. Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo en breve.",
   },
   en: {
     name: "Name",
@@ -48,10 +48,10 @@ const COPY = {
     need: "Main need",
     message: "Message",
     messagePh: "Tell us briefly about your case",
-    submit: "Book a Vendrava demo",
+    submit: "Book a Pleneva demo",
     note: "No initial commitment. AI credits included in the demo.",
     successTitle: "Request received",
-    successText: "Thanks for your interest in Vendrava. Our team will review your request and get back to you shortly.",
+    successText: "Thanks for your interest in Pleneva. Our team will review your request and get back to you shortly.",
   },
 };
 

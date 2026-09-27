@@ -10,8 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.case-studies",
     locale: "en",
-    title: "Vendrava case studies | AI Sales CRM",
-    description: "Examples of how different teams use Vendrava to contact, qualify and convert more leads.",
+    title: "Pleneva case studies | AI Sales CRM",
+    description: "Examples of how different teams use Pleneva to contact, qualify and convert more leads.",
   });
 }
 
@@ -29,7 +29,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         Case studies
       </h1>
       <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">
-        We are documenting how different teams use Vendrava in their day-to-day sales work. These case studies will be
+        We are documenting how different teams use Pleneva in their day-to-day sales work. These case studies will be
         published progressively.
       </p>
 

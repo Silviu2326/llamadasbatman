@@ -175,7 +175,7 @@ function AgentRuntimePanel({ draft, agentId, onChange, onNavigate, playbooks = [
       const response = await apiFetch('/api/calls/tts-latency-demo', {
         method: 'POST',
         body: JSON.stringify({
-          text: behavior.openingLine?.trim() || 'Hola, soy tu agente de Vendrava. ¿Tienes un minuto para que te explique por qué te llamo?',
+          text: behavior.openingLine?.trim() || 'Hola, soy tu agente de Pleneva. ¿Tienes un minuto para que te explique por qué te llamo?',
           voiceId: draft.voiceId || '',
           model: runtime.tts.provider === 'fish' ? runtime.tts.model : 's2.1-pro',
           latency: 'balanced',
@@ -275,7 +275,7 @@ function AgentRuntimePanel({ draft, agentId, onChange, onNavigate, playbooks = [
           <label className="agent-center-field"><span>Idioma principal</span><select value={draft.language || 'es'} onChange={event => onChange({ language: event.target.value })}><option value="es">Español</option><option value="en">English</option></select></label>
           <label className="agent-center-field"><span>Formalidad</span><select value={behavior.formality} onChange={event => setBehavior({ formality: event.target.value })}><option value="auto">Adaptar al interlocutor</option><option value="tu">Tú, cercano</option><option value="usted">Usted, formal</option></select></label>
           <label className="agent-center-field"><span>Nivel de detalle</span><select value={behavior.verbosity} onChange={event => setBehavior({ verbosity: event.target.value })}><option value="brief">Breve y directo</option><option value="balanced">Equilibrado</option><option value="detailed">Detallado</option></select></label>
-          {field('Frase de apertura', behavior.openingLine, value => setBehavior({ openingLine: value }), 'Ej. Hola, soy Clara de Vendrava…')}
+          {field('Frase de apertura', behavior.openingLine, value => setBehavior({ openingLine: value }), 'Ej. Hola, soy Clara de Pleneva…')}
         </div>
         <div className="agent-center-form-grid agent-center-form-grid-wide">
           <label className="agent-center-field"><span>Mensajes que debe priorizar</span><textarea value={settings.keyMessages || ''} onChange={event => onChange({ settings: { ...settings, keyMessages: event.target.value } })} placeholder="Qué debe explicar, demostrar o recordar…" /></label>

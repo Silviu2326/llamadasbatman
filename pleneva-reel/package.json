@@ -1,0 +1,25 @@
+{
+  "name": "pleneva-reel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "voice": "node scripts/voice.mjs && node scripts/tighten.mjs",
+    "tighten": "node scripts/tighten.mjs",
+    "sfx": "node scripts/sfx.mjs",
+    "music": "node scripts/music.mjs",
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts ColaReel out/raw.mp4 --codec h264 --crf 18 && ffmpeg -y -v error -i out/raw.mp4 -c:v copy -af loudnorm=I=-14:TP=-1.5:LRA=11 -ar 48000 -c:a aac -b:a 192k out/pleneva-cola.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.529",
+    "@remotion/google-fonts": "4.0.529",
+    "remotion": "4.0.529",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.9.3"
+  }
+}

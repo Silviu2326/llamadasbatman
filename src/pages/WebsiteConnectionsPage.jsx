@@ -14,7 +14,7 @@ import './website-connections.css'
 
 const MODE_META = {
   script: { label: 'Script universal', detail: 'Instalar una línea y activar captación, tracking y widgets.', Icon: RiCodeLine },
-  plugin: { label: 'Plugin', detail: 'Vendrava Connect para WordPress: script y SEO sin tocar el tema.', Icon: RiPlugLine },
+  plugin: { label: 'Plugin', detail: 'Pleneva Connect para WordPress: script y SEO sin tocar el tema.', Icon: RiPlugLine },
   api: { label: 'API del constructor', detail: 'Conectar la cuenta del CMS para editar y publicar.', Icon: RiToolsLine },
   git: { label: 'Git / despliegue', detail: 'Cambios revisables mediante repositorio y deploy.', Icon: RiGitBranchLine },
   sftp: { label: 'Hosting / SFTP', detail: 'Canal para webs en hosting tradicional.', Icon: RiServerLine },
@@ -23,10 +23,10 @@ const MODE_META = {
 
 const MODE_STEPS = {
   script: ['Copia el snippet universal.', 'Pégalo antes de </head> o en el gestor de scripts.', 'Publica y visita la web: la primera señal verifica la instalación.'],
-  plugin: ['Instala y activa el plugin Vendrava Connect en WordPress.', 'Crea una contraseña de aplicación en Usuarios → Perfil.', 'Conecta aquí abajo: Vendrava instala el script y verifica solo.'],
+  plugin: ['Instala y activa el plugin Pleneva Connect en WordPress.', 'Crea una contraseña de aplicación en Usuarios → Perfil.', 'Conecta aquí abajo: Pleneva instala el script y verifica solo.'],
   api: ['Crea una contraseña de aplicación en WordPress (Usuarios → Perfil).', 'Conecta aquí abajo con tu usuario y esa contraseña.', 'Podrás editar páginas; para SEO y script automático instala el plugin.'],
   git: ['Crea en GitHub un token fine-grained con Contents y Pull requests en escritura.', 'Conecta el repositorio aquí abajo.', 'Describe un cambio: el agente abre un pull request y tú lo apruebas.'],
-  sftp: ['Introduce las credenciales en el canal seguro.', 'Vendrava crea una copia antes de tocar archivos.', 'Cada publicación conserva una versión para deshacer.'],
+  sftp: ['Introduce las credenciales en el canal seguro.', 'Pleneva crea una copia antes de tocar archivos.', 'Cada publicación conserva una versión para deshacer.'],
   edge: ['Apunta el dominio a la capa edge compatible.', 'Mantén el origen intacto y activa las reglas elegidas.', 'Empieza en modo observación antes de personalizar.'],
 }
 
@@ -134,7 +134,7 @@ function InstallationGuide({ connection, canManage }) {
       <div><span className="web-eyebrow">Siguiente paso</span><h4>{MODE_META[mode]?.label || 'Conexión'} · guía de instalación</h4></div>
       <span className="web-step-count">{steps.length} pasos</span>
     </div>
-    {MODES_WITHOUT_CONNECTOR.has(mode) ? <p className="web-helper">Este canal todavía no tiene conector automático en Vendrava. Mientras tanto, el script universal funciona en cualquier web.</p> : null}
+    {MODES_WITHOUT_CONNECTOR.has(mode) ? <p className="web-helper">Este canal todavía no tiene conector automático en Pleneva. Mientras tanto, el script universal funciona en cualquier web.</p> : null}
     <ol>{steps.map((step, index) => <li key={step}><b>{index + 1}</b><span>{step}</span></li>)}</ol>
     {showSnippet ? <div className="web-snippet-wrap">
       <div className="web-snippet-label"><span>Snippet de {connection.domain}</span><button type="button" onClick={copySnippet} disabled={!canManage}><RiClipboardLine /> {copied ? 'Copiado' : 'Copiar'}</button></div>
@@ -199,7 +199,7 @@ function WordPressPageEditor({ connection, page, canManage, onSaved, onCancel, o
 
   return <form className="web-wp-editor" onSubmit={save}>
     <label><span>Título de la página</span><input type="text" value={form.title} onChange={event => setForm(prev => ({ ...prev, title: event.target.value }))} maxLength={300} disabled={!canManage || saving} /></label>
-    <label><span>Título SEO {plugin ? <em>{form.seoTitle.length}/70</em> : <em>requiere plugin</em>}</span><input type="text" value={form.seoTitle} onChange={event => setForm(prev => ({ ...prev, seoTitle: event.target.value }))} maxLength={200} disabled={!canManage || saving || !plugin} placeholder={plugin ? 'Vacío = el que genera WordPress' : 'Instala Vendrava Connect para editarlo'} /></label>
+    <label><span>Título SEO {plugin ? <em>{form.seoTitle.length}/70</em> : <em>requiere plugin</em>}</span><input type="text" value={form.seoTitle} onChange={event => setForm(prev => ({ ...prev, seoTitle: event.target.value }))} maxLength={200} disabled={!canManage || saving || !plugin} placeholder={plugin ? 'Vacío = el que genera WordPress' : 'Instala Pleneva Connect para editarlo'} /></label>
     <label><span>Meta description {plugin ? <em>{form.metaDescription.length}/160</em> : <em>requiere plugin</em>}</span><textarea rows={3} value={form.metaDescription} onChange={event => setForm(prev => ({ ...prev, metaDescription: event.target.value }))} maxLength={400} disabled={!canManage || saving || !plugin} /></label>
     <div className="web-wp-editor-actions">
       <button type="button" className="conn-button ghost" onClick={onCancel} disabled={saving}>Cancelar</button>
@@ -271,7 +271,7 @@ function WordPressPanel({ connection, canManage, onUpdate, onSaved, onError }) {
     {!connector ? <WordPressConnectForm connection={connection} canManage={canManage} onConnected={onUpdate} onSaved={onSaved} onError={onError} /> : <>
       <div className="web-wp-status">
         <div className={connector.canEdit ? 'is-ok' : 'is-bad'}><RiCheckLine /><span><strong>API REST</strong><small>{connector.canEdit ? 'Credencial válida con permiso de edición' : 'La credencial dejó de funcionar: vuelve a conectar'}</small></span></div>
-        <div className={connector.plugin ? 'is-ok' : ''}><RiPlugLine /><span><strong>Plugin Vendrava Connect</strong><small>{connector.plugin ? `v${connector.pluginVersion || '?'}${connector.seoPlugin && connector.seoPlugin !== 'none' ? ` · SEO por ${connector.seoPlugin}` : ' · SEO propio'}` : 'No instalado: hace falta para SEO y script automático'}</small></span></div>
+        <div className={connector.plugin ? 'is-ok' : ''}><RiPlugLine /><span><strong>Plugin Pleneva Connect</strong><small>{connector.plugin ? `v${connector.pluginVersion || '?'}${connector.seoPlugin && connector.seoPlugin !== 'none' ? ` · SEO por ${connector.seoPlugin}` : ' · SEO propio'}` : 'No instalado: hace falta para SEO y script automático'}</small></span></div>
         <div className={connector.scriptInstalled ? 'is-ok' : ''}><RiCodeLine /><span><strong>Script universal</strong><small>{connector.scriptInstalled ? 'Instalado desde el plugin' : connector.plugin ? 'Listo para instalar con un clic' : 'Pega el snippet en el tema o instala el plugin'}</small></span></div>
       </div>
       <div className="web-wp-actions">
@@ -546,7 +546,7 @@ export default function WebsiteConnectionsPage() {
 
   return <main className="conn-page web-connections-page dark-scroll">
     <header className="web-connections-header">
-      <div className="web-title-block"><div className="web-title-icon"><RiGlobalLine /></div><div><span className="web-eyebrow">Conexión web</span><h1>Conecta tu web</h1><p>Primero identificamos cómo está hecha. Después te guiamos para conectarla a Vendrava.</p></div></div>
+      <div className="web-title-block"><div className="web-title-icon"><RiGlobalLine /></div><div><span className="web-eyebrow">Conexión web</span><h1>Conecta tu web</h1><p>Primero identificamos cómo está hecha. Después te guiamos para conectarla a Pleneva.</p></div></div>
       <button type="button" className="conn-button ghost" onClick={() => navigate(fromWebSeo ? '/captacion/convertir?tab=resumen' : '/conexiones')}>{fromWebSeo ? 'Volver a Web y SEO' : <><RiPlugLine /> Proveedores</>} <RiArrowRightLine /></button>
     </header>
 

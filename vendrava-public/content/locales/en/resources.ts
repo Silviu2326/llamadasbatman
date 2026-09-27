@@ -54,7 +54,7 @@ export const blogClustersEn: { cluster: string; items: ResourceItem[] }[] = [
 ];
 
 export const guidesEn: ResourceItem[] = [
-  { cluster: "Guides", title: "Guide to launching your first AI voice flow", description: "Recommended steps to activate your first AI calling flow in Vendrava." },
+  { cluster: "Guides", title: "Guide to launching your first AI voice flow", description: "Recommended steps to activate your first AI calling flow in Pleneva." },
   { cluster: "Guides", title: "Sales follow-up automation guide", description: "How to design follow-up rules based on channel, status and lead intent." },
   { cluster: "Guides", title: "Migration guide from a traditional CRM", description: "How to plan the move to an AI CRM without losing your sales history." },
 ];

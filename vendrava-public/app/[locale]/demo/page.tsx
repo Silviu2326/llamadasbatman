@@ -11,7 +11,7 @@ const COPY = {
   es: {
     breadcrumb: "Demo",
     badge: "Demo gratis",
-    title: "Solicita tu demo de Vendrava",
+    title: "Solicita tu demo de Pleneva",
     sub: "Explora el CRM, prueba los agentes IA de voz y activa tus primeros flujos de automatización con 100.000 créditos de IA incluidos.",
     benefitsTitle: "Qué incluye tu demo",
     benefits: [
@@ -22,16 +22,16 @@ const COPY = {
     ],
     nextTitle: "Qué pasa después",
     next: [
-      { n: "1", title: "Recibes acceso", text: "Te damos acceso a la demo de Vendrava con tus créditos de IA activados." },
+      { n: "1", title: "Recibes acceso", text: "Te damos acceso a la demo de Pleneva con tus créditos de IA activados." },
       { n: "2", title: "Configuras tu primer flujo", text: "Conectas tus leads y activas llamadas IA, seguimiento y automatización." },
       { n: "3", title: "Ves resultados", text: "Mides respuesta, calificación y conversión desde el primer día." },
     ],
-    formTitle: "Solicitar demo de Vendrava",
+    formTitle: "Solicitar demo de Pleneva",
   },
   en: {
     breadcrumb: "Demo",
     badge: "Free demo",
-    title: "Book a Vendrava demo",
+    title: "Book a Pleneva demo",
     sub: "Explore the CRM, test AI voice agents and activate your first automation flows with 100,000 AI credits included.",
     benefitsTitle: "What your demo includes",
     benefits: [
@@ -42,11 +42,11 @@ const COPY = {
     ],
     nextTitle: "What happens next",
     next: [
-      { n: "1", title: "You get access", text: "We give you access to the Vendrava demo with your AI credits activated." },
+      { n: "1", title: "You get access", text: "We give you access to the Pleneva demo with your AI credits activated." },
       { n: "2", title: "You set up your first flow", text: "Connect your leads and activate AI calls, follow-up and automation." },
       { n: "3", title: "You see results", text: "Measure response, qualification and conversion from day one." },
     ],
-    formTitle: "Book a Vendrava demo",
+    formTitle: "Book a Pleneva demo",
   },
 };
 
@@ -60,12 +60,12 @@ export async function generateMetadata({
   const meta =
     locale === "es"
       ? {
-          title: "Solicita una demo de Vendrava | AI Sales CRM",
-          description: "Solicita una demo de Vendrava y prueba el CRM, los agentes IA de voz y la automatización comercial con créditos de IA incluidos.",
+          title: "Solicita una demo de Pleneva | AI Sales CRM",
+          description: "Solicita una demo de Pleneva y prueba el CRM, los agentes IA de voz y la automatización comercial con créditos de IA incluidos.",
         }
       : {
-          title: "Book a Vendrava demo | AI Sales CRM",
-          description: "Book a Vendrava demo and try the CRM, AI voice agents and sales automation with AI credits included.",
+          title: "Book a Pleneva demo | AI Sales CRM",
+          description: "Book a Pleneva demo and try the CRM, AI voice agents and sales automation with AI credits included.",
         };
   return buildMetadata({ routeKey: "demo", locale, ...meta });
 }

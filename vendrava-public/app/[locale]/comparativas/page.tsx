@@ -13,9 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "comparisons.index",
     locale: "es",
-    title: "Comparativas de Vendrava | Vendrava",
+    title: "Comparativas de Pleneva | Pleneva",
     description:
-      "Compara Vendrava con HubSpot, Salesforce, Pipedrive y Zoho y descubre cuándo un CRM con IA de voz y automatización encaja mejor con tu equipo.",
+      "Compara Pleneva con HubSpot, Salesforce, Pipedrive y Zoho y descubre cuándo un CRM con IA de voz y automatización encaja mejor con tu equipo.",
   });
 }
 
@@ -28,10 +28,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <Container size="md" className="pb-6 pt-10 text-center">
         <Breadcrumbs locale="es" items={[{ name: "Inicio", path: "" }, { name: "Comparativas", path: "comparativas" }]} />
         <h1 className="mx-auto mt-5 max-w-2xl font-display text-[clamp(30px,3.6vw,48px)] font-bold leading-[1.08] tracking-tight text-white">
-          Vendrava frente a otros CRM
+          Pleneva frente a otros CRM
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">
-          Vendrava está pensado para equipos que no solo quieren organizar oportunidades, sino activar llamadas IA,
+          Pleneva está pensado para equipos que no solo quieren organizar oportunidades, sino activar llamadas IA,
           seguimientos y automatizaciones comerciales desde el mismo CRM.
         </p>
       </Container>
@@ -54,7 +54,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <FinalCTASection
         locale="es"
         title="Convierte tus leads antes de que se enfríen"
-        sub="Prueba Vendrava con 100.000 créditos de IA incluidos."
+        sub="Prueba Pleneva con 100.000 créditos de IA incluidos."
         primary="Solicitar una demo"
         secondary="Hablar con ventas"
       />

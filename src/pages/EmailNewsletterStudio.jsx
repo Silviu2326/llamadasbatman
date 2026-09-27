@@ -168,10 +168,10 @@ export default function EmailNewsletterStudio() {
 
   return <section className="email-panel email-newsletter-studio" aria-labelledby="newsletter-studio-title">
     <div className="email-panel-heading">
-      <div><span className="email-eyebrow">Contenido de marca</span><h2 id="newsletter-studio-title">Preparar newsletter</h2><p>Crea y edita newsletters aquí. Guárdalas en Vendrava y selecciónalas directamente al preparar una campaña.</p></div>
+      <div><span className="email-eyebrow">Contenido de marca</span><h2 id="newsletter-studio-title">Preparar newsletter</h2><p>Crea y edita newsletters aquí. Guárdalas en Pleneva y selecciónalas directamente al preparar una campaña.</p></div>
       <div className="email-newsletter-top-actions"><span className={`email-newsletter-save-state ${saveStatus}`}>{saveStatus === 'saving' ? 'Guardando…' : saveStatus === 'error' ? 'Error al guardar' : 'Guardado en el espacio de trabajo'}</span><button type="button" className="email-button secondary" onClick={createDraft}><RiAddLine /> Nuevo borrador</button></div>
     </div>
-    <div className="email-newsletter-notice" role="note"><RiMailLine /><p><strong>Los borradores se comparten con tu organización.</strong> Edita y previsualiza el contenido en Vendrava; después selecciónalo al preparar una campaña. El HTML y el asunto se guardan en una instantánea al publicarla. El envío se hace con Resend y añade el enlace personal de baja. Elige siempre una categoría cuyos suscriptores hayan dado su consentimiento.</p></div>
+    <div className="email-newsletter-notice" role="note"><RiMailLine /><p><strong>Los borradores se comparten con tu organización.</strong> Edita y previsualiza el contenido en Pleneva; después selecciónalo al preparar una campaña. El HTML y el asunto se guardan en una instantánea al publicarla. El envío se hace con Resend y añade el enlace personal de baja. Elige siempre una categoría cuyos suscriptores hayan dado su consentimiento.</p></div>
     {!current ? <div className="email-empty"><div className="email-empty-icon"><RiMailLine /></div><div><strong>Aún no hay borradores</strong><p>Crea una newsletter para empezar. El borrador será visible para tu organización.</p></div><button type="button" className="email-button primary" onClick={createDraft}><RiAddLine /> Crear newsletter</button></div> : <div className="email-newsletter-layout">
       <div className="email-newsletter-editor">
         <div className="email-newsletter-drafts">

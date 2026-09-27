@@ -9,7 +9,7 @@ const COPY = {
     title: "Política de cookies",
     breadcrumb: "Cookies",
     intro:
-      "Vendrava utiliza una cookie técnica para recordar tu idioma preferido (español o inglés) y, en su caso, cookies analíticas para entender el uso del sitio.",
+      "Pleneva utiliza una cookie técnica para recordar tu idioma preferido (español o inglés) y, en su caso, cookies analíticas para entender el uso del sitio.",
     sections: [
       {
         h: "Cookies técnicas",
@@ -29,7 +29,7 @@ const COPY = {
     title: "Cookie policy",
     breadcrumb: "Cookies",
     intro:
-      "Vendrava uses a technical cookie to remember your preferred language (Spanish or English) and, where enabled, analytics cookies to understand site usage.",
+      "Pleneva uses a technical cookie to remember your preferred language (Spanish or English) and, where enabled, analytics cookies to understand site usage.",
     sections: [
       {
         h: "Technical cookies",
@@ -56,8 +56,8 @@ export async function generateMetadata({
   const locale: Locale = isLocale(raw) ? raw : "en";
   const meta =
     locale === "es"
-      ? { title: "Política de cookies | Vendrava", description: "Cómo Vendrava utiliza cookies técnicas y analíticas." }
-      : { title: "Cookie policy | Vendrava", description: "How Vendrava uses technical and analytics cookies." };
+      ? { title: "Política de cookies | Pleneva", description: "Cómo Pleneva utiliza cookies técnicas y analíticas." }
+      : { title: "Cookie policy | Pleneva", description: "How Pleneva uses technical and analytics cookies." };
   return buildMetadata({ routeKey: "legal.cookies", locale, ...meta });
 }
 

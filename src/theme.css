@@ -15,21 +15,21 @@
   color-scheme: dark;
 
   /* Lienzo y superficies */
-  --bg: #080c14;
-  --surface: #0d1117;
-  --surface-soft: #0b111d;
-  --surface-2: #111827;
-  --surface-3: #111a2b;
-  --surface-hover: #1a2235;
+  --bg: #06264f;
+  --surface: #082e62;
+  --surface-soft: #071f40;
+  --surface-2: #0c376d;
+  --surface-3: #164277;
+  --surface-hover: #1c4b7f;
 
   /* Líneas. --line-hover es el borde de :hover/:focus-visible: tiene que
      distinguirse de --line-2 o la regla de hover no se ve. */
-  --line: #1e2433;
-  --line-2: #2f3c56;
-  --line-hover: #4a5b78;
+  --line: #1a3b64;
+  --line-2: #355982;
+  --line-hover: #6382a4;
   /* Borde de control (input, select, checkbox): WCAG 1.4.11 pide 3:1 y los
      separadores decorativos de arriba no llegan. */
-  --line-control: #5b6a80;
+  --line-control: #6f8bab;
 
   /* Texto */
   --text: #e2e8f0;
@@ -41,20 +41,20 @@
   --on-accent: #ffffff;
 
   /* Acento de marca (indigo) */
-  --accent: #6366f1;
-  --accent-soft: #818cf8;
-  --accent-faint: #a5b4fc;
-  --accent-deep: #4f46e5;
-  --accent-bg: #312e81;
+  --accent: #c9440b;
+  --accent-soft: #ff9568;
+  --accent-faint: #ffc2a5;
+  --accent-deep: #a63808;
+  --accent-bg: #542816;
 
   /* Secundarios */
-  --violet: #a78bfa;
-  --violet-soft: #c4b5fd;
-  --violet-deep: #7c3aed;
-  --cyan: #22d3ee;
-  --cyan-soft: #67e8f9;
-  --cyan-deep: #0891b2;
-  --cyan-bg: #083344;
+  --violet: #8db8e8;
+  --violet-soft: #bdd9f6;
+  --violet-deep: #365c85;
+  --cyan: #75b5ee;
+  --cyan-soft: #b2d8f8;
+  --cyan-deep: #3c79ad;
+  --cyan-bg: #14395f;
   --pink: #ec4899;
   --lime: #a3e635;
 
@@ -93,43 +93,43 @@
 [data-theme='light'] {
   color-scheme: light;
 
-  --bg: #f4f6fb;
+  --bg: #fffdfa;
   --surface: #ffffff;
-  --surface-soft: #f8fafc;
-  --surface-2: #f1f4f9;
-  --surface-3: #e8edf6;
-  --surface-hover: #eaeff8;
+  --surface-soft: #f4f7fb;
+  --surface-2: #edf2f7;
+  --surface-3: #e4ebf2;
+  --surface-hover: #e8eff5;
 
-  --line: #dbe1ea;
-  --line-2: #b4bfcd;
-  --line-hover: #7d8899;
-  --line-control: #7d8899;
+  --line: #c9d4df;
+  --line-2: #aab9c8;
+  --line-hover: #6b8094;
+  --line-control: #6b8094;
 
-  --text: #1e293b;
-  --text-strong: #0f172a;
-  --text-2: #334155;
-  --muted: #4b5768;
-  --dim: #576274;
-  --faint: #677081;
+  --text: #082e62;
+  --text-strong: #06264f;
+  --text-2: #294b70;
+  --muted: #48627e;
+  --dim: #5a7188;
+  --faint: #73889d;
   --on-accent: #ffffff;
 
   /* En oscuro, -soft y -faint son escalones MÁS CLAROS que el base (más
      énfasis sobre fondo oscuro). En claro la dirección se invierte: son más
      OSCUROS. Si aquí fueran más claros, los ~590 usos como color de texto
      caerían por debajo de 4.5:1 sobre blanco. */
-  --accent: #4f46e5;
-  --accent-soft: #4338ca;
-  --accent-faint: #3730a3;
-  --accent-deep: #3730a3;
-  --accent-bg: #e0e7ff;
+  --accent: #c9440b;
+  --accent-soft: #a63808;
+  --accent-faint: #872e06;
+  --accent-deep: #a63808;
+  --accent-bg: #ffe5d7;
 
-  --violet: #7c3aed;
-  --violet-soft: #6d28d9;
-  --violet-deep: #5b21b6;
-  --cyan: #0e7490;
-  --cyan-soft: #155e75;
-  --cyan-deep: #164e63;
-  --cyan-bg: #cffafe;
+  --violet: #365c85;
+  --violet-soft: #294f77;
+  --violet-deep: #1c4269;
+  --cyan: #356c9f;
+  --cyan-soft: #1e507e;
+  --cyan-deep: #143e64;
+  --cyan-bg: #dce9f5;
   --pink: #be185d;
   --lime: #4d7c0f;
 
@@ -147,9 +147,9 @@
   --danger-faint: #991b1b;
   --danger-deep: #991b1b;
   --danger-bg: #fee2e2;
-  --info: #2563eb;
-  --info-deep: #1d4ed8;
-  --info-bg: #dbeafe;
+  --info: #245f97;
+  --info-deep: #1b4c7e;
+  --info-bg: #dce9f5;
 
   --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-2: 0 8px 24px rgba(16, 24, 40, 0.1);

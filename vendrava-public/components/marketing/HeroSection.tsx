@@ -59,7 +59,7 @@ export function HeroSection({
           </div>
         </div>
 
-        <HeroVisual />
+        <HeroVisual locale={locale} />
       </Container>
 
       <Container size="xl" className="mt-8">
@@ -81,7 +81,7 @@ export function HeroSection({
   );
 }
 
-function HeroVisual() {
+function HeroVisual({ locale }: { locale: Locale }) {
   return (
     <div className="relative min-w-0">
       <div
@@ -100,7 +100,7 @@ function HeroVisual() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-panel/20 via-transparent to-transparent" />
         <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-xl border border-white/10 bg-bg/70 px-3.5 py-3 backdrop-blur-md sm:left-auto sm:w-[220px]">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-faint">Vendrava OS</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-faint">Pleneva OS</div>
             <div className="mt-1 text-xs font-semibold text-white">{locale === "en" ? "From lead to meeting" : "Del lead a la reunión"}</div>
           </div>
           <span className="h-2 w-2 animate-[pulse-soft_1.4s_infinite] rounded-full bg-cyan shadow-[0_0_14px_rgba(34,211,238,0.8)]" />
@@ -125,7 +125,7 @@ function HeroDashboardMock() {
           <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
           <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
           <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
-          <span className="ml-2 font-mono text-[11px] text-faint">vendrava.app / pipeline</span>
+          <span className="ml-2 font-mono text-[11px] text-faint">pleneva.app / pipeline</span>
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-cyan/25 bg-cyan/10 px-2 py-1 font-mono text-[10px] font-semibold text-cyan">
             <span className="h-1.5 w-1.5 animate-[pulse-soft_1.4s_infinite] rounded-full bg-cyan" />
             LIVE AI AGENT

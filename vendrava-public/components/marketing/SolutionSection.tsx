@@ -40,8 +40,8 @@ export function SolutionSection({ solution }: { solution: HomeContent["solution"
           <div className="flex flex-col items-center gap-2.5 py-4 md:py-0">
             <div className="relative flex h-[150px] w-[150px] flex-col items-center justify-center rounded-[28px] border border-electric/50 bg-gradient-to-b from-electric/[0.16] to-bg/70 shadow-[0_0_50px_rgba(59,130,246,0.28)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo-mark.png" alt="Vendrava" width={315} height={256} className="mb-2 h-[58px] w-auto" />
-              <span className="font-display text-base font-bold text-white">Vendrava</span>
+              <img src="/logo-mark.png" alt="Pleneva" width={315} height={256} className="mb-2 h-[58px] w-auto" />
+              <span className="font-display text-base font-bold text-white">Pleneva</span>
               <span className="mt-0.5 font-mono text-[9px] tracking-wide text-cyan">AI SALES CRM</span>
             </div>
           </div>

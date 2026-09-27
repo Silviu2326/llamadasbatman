@@ -15,9 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "industries.index",
     locale: "en",
-    title: "AI CRM by industry | Vendrava",
+    title: "AI CRM by industry | Pleneva",
     description:
-      "See how Vendrava helps real estate, clinics, car dealerships, agencies, SaaS, education and professional services teams contact and convert more leads.",
+      "See how Pleneva helps real estate, clinics, car dealerships, agencies, SaaS, education and professional services teams contact and convert more leads.",
   });
 }
 
@@ -33,7 +33,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           AI CRM built for every commercial sector
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted">
-          Vendrava adapts to how each industry actually works: how the lead arrives, what needs qualifying, and which
+          Pleneva adapts to how each industry actually works: how the lead arrives, what needs qualifying, and which
           action is worth automating first.
         </p>
       </Container>
@@ -61,7 +61,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <FinalCTASection
         locale="en"
         title="Convert leads before they go cold"
-        sub="Try Vendrava with 100,000 AI credits included."
+        sub="Try Pleneva with 100,000 AI credits included."
         primary="Book a demo"
         secondary="Talk to sales"
       />

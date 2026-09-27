@@ -9,8 +9,8 @@ import { pathFor } from "@/lib/routes";
 
 const SECTIONS = [
   { routeKey: "resources.blog", title: "Blog", description: "Artículos sobre CRM con IA, agentes de voz, automatización comercial y growth marketing." },
-  { routeKey: "resources.guides", title: "Guías", description: "Guías prácticas para poner en marcha flujos de IA y automatización en Vendrava." },
-  { routeKey: "resources.case-studies", title: "Casos de éxito", description: "Ejemplos de cómo distintos equipos usan Vendrava para convertir más leads." },
+  { routeKey: "resources.guides", title: "Guías", description: "Guías prácticas para poner en marcha flujos de IA y automatización en Pleneva." },
+  { routeKey: "resources.case-studies", title: "Casos de éxito", description: "Ejemplos de cómo distintos equipos usan Pleneva para convertir más leads." },
   { routeKey: "resources.glossary", title: "Glosario", description: "Definiciones clave sobre CRM con IA, agentes de voz y automatización comercial." },
 ];
 
@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.index",
     locale: "es",
-    title: "Recursos sobre CRM con IA y ventas | Vendrava",
+    title: "Recursos sobre CRM con IA y ventas | Pleneva",
     description: "Blog, guías, casos de éxito y glosario sobre CRM con IA, agentes de voz y automatización comercial.",
   });
 }

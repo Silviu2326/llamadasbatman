@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.glossary",
     locale: "es",
-    title: "Glosario de CRM con IA y ventas | Vendrava",
+    title: "Glosario de CRM con IA y ventas | Pleneva",
     description: "Definiciones clave sobre CRM con IA, agentes de voz, lead scoring, pipeline y automatización comercial.",
   });
 }

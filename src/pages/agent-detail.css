@@ -276,8 +276,8 @@
 .agent-center-flow > svg { width: 12px; height: 12px; color: var(--faint); }
 .agent-runtime-stack { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-bottom: 11px; }
 .agent-runtime-card { position: relative; display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 12px; overflow: hidden; border: 1px solid var(--line-2); border-radius: 11px; background: var(--surface-2); }
-.agent-runtime-card::after { position: absolute; right: -22px; bottom: -30px; width: 80px; height: 80px; border-radius: 50%; background: var(--runtime-glow, #6366f121); content: ''; filter: blur(2px); }
-.agent-runtime-card.is-violet { --runtime-color: var(--violet-soft); --runtime-glow: #7c3aed1e; }
+.agent-runtime-card::after { position: absolute; right: -22px; bottom: -30px; width: 80px; height: 80px; border-radius: 50%; background: var(--runtime-glow, color-mix(in srgb, var(--accent) 13%, transparent)); content: ''; filter: blur(2px); }
+.agent-runtime-card.is-violet { --runtime-color: var(--violet-soft); --runtime-glow: color-mix(in srgb, var(--violet-deep) 12%, transparent); }
 .agent-runtime-card.is-cyan { --runtime-color: var(--cyan); --runtime-glow: #22d3ee1b; }
 .agent-runtime-card.is-green { --runtime-color: var(--success); --runtime-glow: #10b9811b; }
 .agent-runtime-card-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--runtime-color) 31%, var(--line)); border-radius: 9px; color: var(--runtime-color); background: color-mix(in srgb, var(--runtime-color) 10%, var(--surface)); }

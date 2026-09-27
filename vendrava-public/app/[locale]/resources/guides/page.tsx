@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.guides",
     locale: "en",
-    title: "Vendrava guides: AI voice, follow-up and WhatsApp",
+    title: "Pleneva guides: AI voice, follow-up and WhatsApp",
     description: "Practical step-by-step guides: launch an AI voice agent, automate follow-up, WhatsApp templates and compliance for automated calls.",
   });
 }
@@ -32,7 +32,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         items={[{ name: "Home", path: "" }, { name: "Resources", path: "resources" }, { name: "Guides", path: "resources/guides" }]}
       />
       <h1 className="mt-5 max-w-xl font-display text-[clamp(30px,3.6vw,48px)] font-bold leading-[1.08] tracking-tight text-white">
-        Vendrava practical guides
+        Pleneva practical guides
       </h1>
       <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">
         Step-by-step guides to launch AI voice, automate follow-up, use WhatsApp the right way and keep automated calls

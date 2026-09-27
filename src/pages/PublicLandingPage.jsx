@@ -476,8 +476,8 @@ export default function PublicLandingPage() {
       <div className="landing-noise" aria-hidden="true" />
       <header className="landing-nav">
         <a className="landing-brand" href="#top" aria-label={t('landing.backHome')}>
-          <img src="/logo.png" alt="Vendrava" />
-          <span>Vendrava</span>
+          <img src="/brand/pleneva-mark.png" alt="" />
+          <span>Pleneva</span>
         </a>
         <nav className="landing-nav-links" aria-label={t('landing.landingNav')}>
           <a href="#beneficios">{t('landing.includes')}</a>

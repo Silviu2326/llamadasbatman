@@ -6,8 +6,8 @@
 
 /* Progress bar glow pulse */
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 8px #6366f155, 0 0 20px #7c3aed33; }
-  50%       { box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 53%, transparent), 0 0 30px #7c3aed55; }
+  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 33%, transparent), 0 0 20px color-mix(in srgb, var(--violet-deep) 20%, transparent); }
+  50%       { box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 53%, transparent), 0 0 30px color-mix(in srgb, var(--violet-deep) 33%, transparent); }
 }
 .progress-glow {
   animation: glowPulse 2s ease-in-out infinite;

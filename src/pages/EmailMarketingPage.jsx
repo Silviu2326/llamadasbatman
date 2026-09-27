@@ -116,8 +116,8 @@ function NewCampaignModal({ onClose, onCreate }) {
   }
 
   return <div className="email-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-    <form className="email-modal" onSubmit={submit}>
-      <div className="email-modal-head"><div><span className="email-eyebrow">Nueva campaña</span><h2>Crear borrador de campaña</h2></div><button type="button" className="email-icon-button" onClick={onClose}><RiCloseLine /></button></div>
+    <form className="email-modal" role="dialog" aria-modal="true" aria-labelledby="email-new-campaign-title" onSubmit={submit}>
+      <div className="email-modal-head"><div><span className="email-eyebrow">Nueva campaña</span><h2 id="email-new-campaign-title">Crear borrador de campaña</h2></div><button type="button" className="email-icon-button" onClick={onClose} aria-label="Cerrar"><RiCloseLine /></button></div>
       <label className="email-field"><span>Nombre</span><input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Ej. Bienvenida a leads nuevos" /></label>
       <label className="email-field"><span>Objetivo (opcional)</span><textarea value={objective} onChange={e => setObjective(e.target.value)} rows={3} placeholder="¿Qué objetivo tiene esta campaña?" /></label>
       <p className="email-modal-hint">Después de crear el borrador podrás configurar audiencia, plantilla, remitente y calendario.</p>
@@ -204,6 +204,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
   const [purposes, setPurposes] = useState([])
   const [preview, setPreview] = useState(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [publishConfirmation, setPublishConfirmation] = useState(null)
   const [validation, setValidation] = useState(null)
   const [saving, setSaving] = useState(false)
   const [busyAction, setBusyAction] = useState('')
@@ -331,8 +332,10 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
       syncFormFromCampaign(updated)
       setValidation(null)
       onChanged?.()
+      return true
     } catch (err) {
       setError(err.message || 'No se pudo guardar la campaña.')
+      return false
     } finally {
       setSaving(false)
     }
@@ -343,7 +346,8 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
     setBusyAction('validate')
     setError('')
     try {
-      await handleSave()
+      const saved = await handleSave()
+      if (!saved) return
       const result = await apiJson(`/api/marketing-campaigns/${campaignId}/validate`, { method: 'POST' })
       setValidation(result)
       const refreshed = await apiJson(`/api/marketing-campaigns/${campaignId}`)
@@ -356,22 +360,45 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
     }
   }
 
+  async function handlePreparePublish() {
+    if (!form.subscribedPurpose) { setError('Selecciona una categoría con consentimiento antes de publicar.'); return }
+    setBusyAction('preparePublish')
+    setError('')
+    try {
+      const saved = await handleSave()
+      if (!saved) return
+      const result = await apiJson(`/api/marketing-campaigns/${campaignId}/audience-preview`, {
+        method: 'POST',
+        body: JSON.stringify({ audienceDefinition: buildAudienceDefinition() }),
+      })
+      setPreview(result)
+      setPublishConfirmation(result)
+    } catch (err) {
+      setError(err.message || 'No se pudo revisar la audiencia antes de publicar.')
+    } finally {
+      setBusyAction('')
+    }
+  }
+
   async function handlePublish() {
+    if (!publishConfirmation) return
     setBusyAction('publish')
     setError('')
     setPublishInfo('')
     try {
       const updated = await apiJson(`/api/marketing-campaigns/${campaignId}/publish`, { method: 'POST' })
+      setPublishConfirmation(null)
       setCampaign(updated)
       const enrolled = updated.enrolledCount ?? 0
       const skipped = updated.skippedCount ?? 0
       setPublishInfo(
-        `Campaña publicada en Vendrava: ${enrolled} lead${enrolled === 1 ? '' : 's'} incorporado${enrolled === 1 ? '' : 's'} a la audiencia`
+        `Campaña publicada en Pleneva: ${enrolled} lead${enrolled === 1 ? '' : 's'} incorporado${enrolled === 1 ? '' : 's'} a la audiencia`
         + (skipped ? `, ${skipped} omitido${skipped === 1 ? '' : 's'} por falta de email, consentimiento o sincronización.` : '.')
       )
       onChanged?.()
     } catch (err) {
       setError(err.message || 'No se pudo publicar la campaña.')
+      setPublishConfirmation(null)
       // The server moves a failed publication to `error` deliberately. Fetch
       // it so the modal exposes that safe state instead of keeping `ready`.
       try {
@@ -469,7 +496,7 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
 
         <div className="email-tools-section">
           <div><span className="email-eyebrow">4. Remitente</span></div>
-          <label className="email-field"><span>Remitente</span><input value={form.sender} onChange={e => setForm(prev => ({ ...prev, sender: e.target.value }))} placeholder="Equipo Vendrava <hola@tuempresa.com>" /></label>
+          <label className="email-field"><span>Remitente</span><input value={form.sender} onChange={e => setForm(prev => ({ ...prev, sender: e.target.value }))} placeholder="Equipo Pleneva <hola@tuempresa.com>" /></label>
           <label className="email-field"><span>Responder a (opcional)</span><input value={form.replyTo} onChange={e => setForm(prev => ({ ...prev, replyTo: e.target.value }))} placeholder="soporte@tuempresa.com" /></label>
         </div>
 
@@ -495,11 +522,19 @@ function CampaignEditorModal({ campaignId, onClose, onChanged }) {
           <button type="button" className="email-button ghost" onClick={onClose}>Cerrar</button>
           <button type="button" className="email-button secondary" onClick={handleSave} disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'}</button>
           <button type="button" className="email-button secondary" onClick={handleValidate} disabled={busyAction === 'validate'}><RiCheckLine /> {busyAction === 'validate' ? 'Validando…' : 'Validar'}</button>
-          {campaign?.status === 'ready' && <button type="button" className="email-button primary" onClick={handlePublish} disabled={busyAction === 'publish'}><RiRocketLine /> {busyAction === 'publish' ? 'Publicando…' : 'Publicar'}</button>}
+          {campaign?.status === 'ready' && <button type="button" className="email-button primary" onClick={handlePreparePublish} disabled={busyAction === 'preparePublish' || busyAction === 'publish'}><RiRocketLine /> {busyAction === 'preparePublish' ? 'Revisando audiencia…' : 'Revisar publicación'}</button>}
           {(campaign?.status === 'running' || campaign?.status === 'scheduled') && <button type="button" className="email-button primary" onClick={handlePause} disabled={busyAction === 'pause'}><RiPauseLine /> {busyAction === 'pause' ? 'Pausando…' : 'Pausar'}</button>}
         </div>
       </>}
     </div>
+    {publishConfirmation && <div className="email-modal-backdrop email-publish-backdrop" onMouseDown={event => event.target === event.currentTarget && setPublishConfirmation(null)}>
+      <section className="email-modal email-publish-confirm" role="alertdialog" aria-modal="true" aria-labelledby="email-publish-title" aria-describedby="email-publish-description">
+        <div className="email-modal-head"><div><span className="email-eyebrow">Última revisión</span><h2 id="email-publish-title">Publicar «{campaign?.name}»</h2></div><button type="button" className="email-icon-button" onClick={() => setPublishConfirmation(null)} aria-label="Cancelar publicación"><RiCloseLine /></button></div>
+        <p id="email-publish-description">La vista previa actual incluye <strong>{publishConfirmation.count ?? publishConfirmation.total ?? 0}</strong> leads con email que coinciden con los filtros. Al publicar, el servidor volverá a comprobar el consentimiento y las direcciones; algunos podrían omitirse.</p>
+        <div className="email-publish-schedule"><RiTimeLine /> {form.scheduledStartAt ? `Programada para ${new Date(form.scheduledStartAt).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })} (${form.timezone || 'zona horaria local'}).` : 'Empezará a procesarse al confirmar la publicación.'}</div>
+        <div className="email-modal-actions"><button type="button" className="email-button ghost" onClick={() => setPublishConfirmation(null)}>Cancelar</button><button type="button" className="email-button primary" onClick={handlePublish} disabled={busyAction === 'publish'}><RiRocketLine /> {busyAction === 'publish' ? 'Publicando…' : 'Confirmar publicación'}</button></div>
+      </section>
+    </div>}
   </div>
 }
 
@@ -579,18 +614,35 @@ export default function EmailMarketingPage() {
   return <div className="dark-scroll email-page">
     <ProductPageHeader Icon={RiMailLine} title="Email marketing" description={locale === 'en' ? 'Turn every contact into a conversation that moves forward.' : 'Convierte cada contacto en una conversación que avanza.'} actions={<><Link to="/automatizaciones" className="email-button secondary"><RiFlowChart /> {locale === 'en' ? 'Automations' : 'Cadenas y automatizaciones'}</Link><button className="email-button secondary" onClick={() => setTab('seguimiento')}><RiTimeLine /> {locale === 'en' ? 'View tracking' : 'Ver seguimiento'}</button><button className="email-button primary" onClick={() => { setTab('campanas'); setShowNewCampaign(true) }}><RiRocketLine /> {locale === 'en' ? 'New campaign' : 'Nueva campaña'}</button></>} />
 
-    <nav className="email-tabs" role="tablist" aria-label="Secciones de email marketing">
-      {TABS.map(item => (
+    <nav className="email-tabs" role="tablist" aria-orientation="horizontal" aria-label="Secciones de email marketing">
+      {TABS.map((item, index) => (
         <button
           key={item.id}
+          id={`email-tab-${item.id}`}
+          type="button"
           role="tab"
+          aria-controls="email-tabpanel"
           aria-selected={tab === item.id}
+          tabIndex={tab === item.id ? 0 : -1}
           className={tab === item.id ? 'active' : ''}
+          onKeyDown={event => {
+            let nextIndex = index
+            if (event.key === 'ArrowRight') nextIndex = (index + 1) % TABS.length
+            else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + TABS.length) % TABS.length
+            else if (event.key === 'Home') nextIndex = 0
+            else if (event.key === 'End') nextIndex = TABS.length - 1
+            else return
+            event.preventDefault()
+            const nextTab = TABS[nextIndex]
+            setTab(nextTab.id)
+            document.getElementById(`email-tab-${nextTab.id}`)?.focus()
+          }}
           onClick={() => setTab(item.id)}
         >{item.label}</button>
       ))}
     </nav>
 
+    <div role="tabpanel" id="email-tabpanel" aria-labelledby={`email-tab-${tab}`} tabIndex={0}>
     {tab === 'resumen' && <>
     <DataStatusBanner
       status={dataStatus}
@@ -610,7 +662,7 @@ export default function EmailMarketingPage() {
 
     <section className="email-panel email-activity-panel" id="email-activity">
       <div className="email-panel-heading"><div><span className="email-eyebrow">Seguimiento</span><h2>Resultados de tus envíos</h2><p>Consulta el detalle de entregas y la interacción de cada destinatario.</p></div><button type="button" className="email-button secondary" onClick={() => setTab('seguimiento')}><RiArrowRightSLine /> Abrir seguimiento</button></div>
-      <div className="email-signal-list"><div><span>Tasa de apertura</span><strong>{openRate}</strong><small>aperturas únicas / entregados</small></div><div><span>Ratio de clic</span><strong>{clickRate}</strong><small>clics únicos / aperturas únicas</small></div><div><span>Rebotes y fallos</span><strong>{overview?.failed ?? 0}</strong><small>envíos que no llegaron</small></div><div><span>Bajas</span><strong>{overview?.unsubscribes ?? 0}</strong><small>respetadas en futuros envíos</small></div></div>
+      <p className="email-followup-copy">Las métricas y el estado de cada destinatario están disponibles en el seguimiento detallado.</p>
     </section>
     </>}
 
@@ -625,6 +677,7 @@ export default function EmailMarketingPage() {
     {tab === 'suscriptores' && <SubscribersPanel onNotice={showNotice} />}
     {tab === 'bandeja' && <InboxPanel />}
     {tab === 'seguimiento' && <TrackingPanel />}
+    </div>
     {notice && <div className="email-toast" role="status"><RiCheckLine /> {notice}</div>}
     {showNewCampaign && <NewCampaignModal onClose={() => setShowNewCampaign(false)} onCreate={handleCreateDraft} />}
     {editingCampaignId && <CampaignEditorModal campaignId={editingCampaignId} onClose={() => { setEditingCampaignId(null); loadCampaigns() }} onChanged={loadCampaigns} />}

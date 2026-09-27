@@ -7,12 +7,12 @@ export function organizationSchema() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: SITE_NAME,
-    alternateName: "Vendrava AI Sales CRM",
+    alternateName: "Pleneva AI Sales CRM",
     url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
+    logo: `${SITE_URL}/brand/pleneva-logo.png`,
     image: `${SITE_URL}/og.png`,
     description: SITE_DESCRIPTION_EN,
-    slogan: "The AI Sales CRM that answers, qualifies and books your leads.",
+    slogan: "We bring you customers. You take care of them.",
     address: {
       "@type": "PostalAddress",
       addressLocality: "Valencia",
@@ -135,7 +135,7 @@ export function articleSchema({
       name: SITE_NAME,
       logo: {
         "@type": "ImageObject",
-        url: `${SITE_URL}/logo.png`,
+        url: `${SITE_URL}/brand/pleneva-logo.png`,
       },
     },
   };

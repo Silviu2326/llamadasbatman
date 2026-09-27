@@ -10,8 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "contact",
     locale: "es",
-    title: "Contacto | Vendrava",
-    description: "Ponte en contacto con el equipo de Vendrava para resolver dudas comerciales, técnicas o de partnership.",
+    title: "Contacto | Pleneva",
+    description: "Ponte en contacto con el equipo de Pleneva para resolver dudas comerciales, técnicas o de partnership.",
   });
 }
 
@@ -26,11 +26,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         Hablemos
       </h1>
       <p className="mt-4 max-w-lg text-lg leading-relaxed text-muted">
-        Escríbenos si tienes dudas sobre Vendrava, quieres una propuesta a medida o buscas explorar una alianza
+        Escríbenos si tienes dudas sobre Pleneva, quieres una propuesta a medida o buscas explorar una alianza
         comercial.
       </p>
       <p className="mt-3 font-mono text-xs text-faint">
-        Vendrava es un proyecto de SprintMarkt · Valencia, España.
+        Pleneva es un proyecto de SprintMarkt · Valencia, España.
       </p>
       <div className="mt-8 rounded-2xl border border-white/10 bg-gradient-to-b from-panel to-panel-2 p-7">
         <ContactForm locale="es" />

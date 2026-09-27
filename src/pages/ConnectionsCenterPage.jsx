@@ -217,7 +217,7 @@ function ProviderCard({ provider, onChanged, canManage }) {
 
       {provider.id === 'resend' && connected && (
         <section className="conn-inbound-setup" aria-label="Recepción de email">
-          <strong>Recibir respuestas en Vendrava</strong>
+          <strong>Recibir respuestas en Pleneva</strong>
           <p>Crea en Resend un webhook para <code>email.received</code> con esta dirección. Guarda su secreto de firma en la credencial de esta organización. Al actualizarla, vuelve a introducir la API key y el remitente guardados.</p>
           {inboundWebhook?.endpoint
             ? <div className="conn-inbound-endpoint"><code>{inboundWebhook.endpoint}</code><button type="button" className="conn-button ghost" onClick={copyInboundWebhook}>Copiar URL</button></div>

@@ -89,6 +89,8 @@
   .email-cell-contact,
   .email-col-action { grid-column:1 / -1; }
   .email-col-action { justify-content:flex-start; }
+  .email-table-row [role="cell"]::before { content:attr(data-label); display:block; margin:0 0 3px; color:var(--dim); font-size:9px; font-weight:700; letter-spacing:.35px; text-transform:uppercase; }
+  .email-table-row .email-cell-contact::before { flex:0 0 100%; }
   .email-bubble.outbound,
   .email-bubble.inbound { margin:0; }
 }

@@ -8,8 +8,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "legal.privacy",
     locale: "es",
-    title: "Política de privacidad | Vendrava",
-    description: "Cómo Vendrava trata los datos personales y comerciales de sus usuarios y clientes.",
+    title: "Política de privacidad | Pleneva",
+    description: "Cómo Pleneva trata los datos personales y comerciales de sus usuarios y clientes.",
   });
 }
 
@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section>
         <h2>Responsable del tratamiento</h2>
         <p>
-          Vendrava es un producto operado por SprintMarkt, agencia digital con sede en Valencia (España). Para cualquier
+          Pleneva es un producto operado por SprintMarkt, agencia digital con sede en Valencia (España). Para cualquier
           cuestión relacionada con el tratamiento de datos puedes contactar con el responsable a través de la página de
           contacto.
         </p>
@@ -30,7 +30,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <section>
         <h2>Qué datos tratamos</h2>
         <p>
-          Vendrava trata datos de contacto (nombre, email, teléfono, empresa) que los usuarios facilitan al solicitar
+          Pleneva trata datos de contacto (nombre, email, teléfono, empresa) que los usuarios facilitan al solicitar
           una demo, contactarnos o usar la plataforma, así como datos generados por el uso del producto, como el
           historial de leads, llamadas y conversaciones gestionadas por el CRM.
         </p>

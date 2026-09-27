@@ -31,7 +31,7 @@ export interface EmotionReading {
 export const TTS_SAMPLE_RATE = 24_000;
 
 export const DEFAULT_GREETING =
-  "Hi—this is Carlos from Vendrava. I’ll be quick: how’s your day going?";
+  "Hi—this is Carlos from Pleneva. I’ll be quick: how’s your day going?";
 
 export interface TurnSegment {
   stage: PipelineStage;

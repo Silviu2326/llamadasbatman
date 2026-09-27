@@ -40,7 +40,7 @@ export function ComparisonSection({
             </div>
           </div>
 
-          {/* Vendrava — alive, premium, dark card that pops against the light band */}
+          {/* Pleneva — alive, premium, dark card that pops against the light band */}
           <div className="rounded-[18px] border border-electric/60 bg-gradient-to-b from-navy to-panel-2 p-[26px] shadow-[0_24px_60px_-18px_rgba(37,99,235,0.55)]">
             <div className="mb-[18px] flex items-center gap-2.5">
               <span className="flex h-[22px] w-[22px] items-center justify-center rounded-lg bg-gradient-to-br from-electric to-cyan">

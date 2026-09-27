@@ -35,7 +35,7 @@ export function DifferentiatorSection({ differentiator }: { differentiator: Home
             </ul>
           </div>
 
-          {/* Vendrava — the AI voice sales agent */}
+          {/* Pleneva — the AI voice sales agent */}
           <div className="rounded-2xl border border-electric/30 bg-gradient-to-b from-electric/[0.09] to-panel-2/40 p-6">
             <div className="mb-4 flex items-center gap-2.5">
               <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-electric/30 bg-electric/10 text-electric">

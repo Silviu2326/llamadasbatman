@@ -12,7 +12,7 @@ export const TUTORIALS = [
   {
     id: 'first-steps',
     eyebrow: 'Para empezar',
-    title: 'Tu primer día en Vendrava',
+    title: 'Tu primer día en Pleneva',
     description: 'Configura tu espacio, entiende la navegación y encuentra las acciones que más impacto tienen para tu equipo.',
     duration: '12 min',
     level: 'Principiante',
@@ -63,5 +63,5 @@ export const DOCUMENTS = [
   { id: 'flows-guide', category: 'Operación', title: 'Flows: de objetivo a ejecución', description: 'Cómo diseñar, validar, publicar y auditar una receta de trabajo.', readTime: '11 min', Icon: RiFlowChart, accent: '#f0abfc', body: 'Los Flows convierten una intención en una secuencia gobernada. Usa dry-run para verificar variables, presupuesto y dependencias antes de ejecutar acciones reales.' },
   { id: 'connections', category: 'Integraciones', title: 'Conectar proveedores y cuentas', description: 'BYOK, conectores, capacidades disponibles y resolución de credenciales.', readTime: '7 min', Icon: RiToolsLine, accent: '#34d399', body: 'Las conexiones se gestionan desde un único centro. Cada proveedor expone sus capacidades y la plataforma decide qué ruta es válida para cada ejecución.' },
   { id: 'voice-safety', category: 'Operación', title: 'Buenas prácticas para agentes de voz', description: 'Consentimiento, horarios, transferencia humana y revisión de calidad.', readTime: '8 min', Icon: RiSparkling2Line, accent: '#fb7185', body: 'Diseña cada llamada con un objetivo acotado, una salida clara y una vía de transferencia. Revisa siempre consentimiento, horarios y trazabilidad antes de publicar.' },
-  { id: 'api-webhooks', category: 'Referencia', title: 'API y webhooks', description: 'Autenticación, eventos, idempotencia y contratos para integrar Vendrava.', readTime: '14 min', Icon: RiBook2Line, accent: '#60a5fa', body: 'La API permite descubrir capacidades, estimar ejecuciones y consultar resultados. Los webhooks notifican cambios de estado sin tener que sondear cada trabajo.' },
+  { id: 'api-webhooks', category: 'Referencia', title: 'API y webhooks', description: 'Autenticación, eventos, idempotencia y contratos para integrar Pleneva.', readTime: '14 min', Icon: RiBook2Line, accent: '#60a5fa', body: 'La API permite descubrir capacidades, estimar ejecuciones y consultar resultados. Los webhooks notifican cambios de estado sin tener que sondear cada trabajo.' },
 ]

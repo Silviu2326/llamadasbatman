@@ -33,7 +33,7 @@
   flex-basis: var(--shell-rail-width);
 }
 
-[data-theme='light'] .shell-desktop-nav { background: #f8fafc; }
+[data-theme='light'] .shell-desktop-nav { background: var(--surface-soft); }
 
 .shell-rail {
   display: flex;
@@ -278,7 +278,7 @@ kbd { display: inline-grid; min-width: 24px; height: 22px; place-items: center; 
 
 /* Command palette */
 .command-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: min(11vh, 96px) 20px 20px; background: color-mix(in srgb, var(--scrim) 88%, #111827 12%); backdrop-filter: blur(8px); }
-.command-palette { display: flex; width: min(760px, 100%); max-height: min(760px, calc(100dvh - 64px)); min-height: 0; overflow: hidden; flex-direction: column; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line-2)); border-radius: 16px; background: var(--surface); box-shadow: 0 32px 120px color-mix(in srgb, var(--shadow-color) 85%, #312e81 15%); }
+.command-palette { display: flex; width: min(760px, 100%); max-height: min(760px, calc(100dvh - 64px)); min-height: 0; overflow: hidden; flex-direction: column; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line-2)); border-radius: 16px; background: var(--surface); box-shadow: 0 32px 120px color-mix(in srgb, var(--shadow-color) 85%, var(--accent-bg) 15%); }
 .command-heading { display: flex; min-height: 78px; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 18px 14px; border-bottom: 1px solid var(--line); background: linear-gradient(115deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface) 62%); }
 .command-heading, .command-input, .command-footer { flex: 0 0 auto; }
 .command-heading > div { min-width: 0; }

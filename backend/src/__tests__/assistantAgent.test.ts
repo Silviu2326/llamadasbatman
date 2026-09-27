@@ -131,6 +131,61 @@ test('informa del bloqueo de facturación sin ejecutar herramientas ni exponer s
   await assert.rejects(assistantCompletion([], [], 'org-a', new AbortController().signal), (error: any) => error.code === 'ASSISTANT_BILLING_REQUIRED' && !error.message.includes('fake-key'))
 })
 
+
+test('GPT-6 Luna is the primary assistant model and uses supported function calling settings', async t => {
+  const oldOpenAi = process.env.OPENAI_API_KEY, oldCerebras = process.env.CEREBRAS_API_KEY
+  process.env.OPENAI_API_KEY = 'openai-fixture-key'
+  process.env.CEREBRAS_API_KEY = 'cerebras-fixture-key'
+  const oldFetch = globalThis.fetch, oldUsageCreate = (prisma.usageRecord as any).create
+  let captured: any
+  globalThis.fetch = (async (url: string, init: any) => {
+    captured = { url, body: JSON.parse(init.body) }
+    return { status: 200, ok: true, json: async () => ({ id: 'openai-fixture-request', choices: [{ message: { role: 'assistant', content: 'Respuesta Luna', tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'list_tasks', arguments: '{}' } }] } }], usage: { prompt_tokens: 100, completion_tokens: 20 } }) } as any
+  }) as any
+  ;(prisma.usageRecord as any).create = async () => ({ id: 'usage-fixture' })
+  t.after(() => {
+    globalThis.fetch = oldFetch
+    ;(prisma.usageRecord as any).create = oldUsageCreate
+    if (oldOpenAi === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = oldOpenAi
+    if (oldCerebras === undefined) delete process.env.CEREBRAS_API_KEY; else process.env.CEREBRAS_API_KEY = oldCerebras
+  })
+  const result = await assistantCompletion([{ role: 'user', content: 'Consulta mis tareas' }], [{ type: 'function', function: { name: 'list_tasks', parameters: { type: 'object' } } }], 'org-a', new AbortController().signal)
+  assert.equal(captured.url, 'https://api.openai.com/v1/chat/completions')
+  assert.equal(captured.body.model, 'gpt-6-luna')
+  assert.equal(captured.body.reasoning_effort, 'none')
+  assert.equal(captured.body.max_completion_tokens, 2000)
+  assert.equal('temperature' in captured.body, false)
+  assert.equal(result.tool_calls[0].function.name, 'list_tasks')
+})
+
+test('Jev recibe solo el último mensaje limitado y añade una señal no autoritativa al modelo principal', async t => {
+  const oldKey = process.env.JEV_API_KEY, oldBase = process.env.JEV_API_BASE_URL
+  process.env.JEV_API_KEY = 'jev-fixture-key'
+  process.env.JEV_API_BASE_URL = 'https://jev.test/api/v1'
+  const oldFetch = globalThis.fetch
+  let captured: any
+  globalThis.fetch = (async (url: string, init: any) => {
+    captured = { url, body: JSON.parse(init.body) }
+    return { status: 200, ok: true, json: async () => ({ model: 'jev-test', answers: { route: { type: 'choice', choice: 'read_data', confidence: 0.94 }, complexity: { type: 'score', score: 1.2 } }, usage: { input_tokens: 18, cost_usd: 0.00001 } }) } as any
+  }) as any
+  const oldUsageCreate = (prisma.usageRecord as any).create
+  ;(prisma.usageRecord as any).create = async () => ({ id: 'usage-fixture' })
+  t.after(() => {
+    globalThis.fetch = oldFetch
+    ;(prisma.usageRecord as any).create = oldUsageCreate
+    if (oldKey === undefined) delete process.env.JEV_API_KEY; else process.env.JEV_API_KEY = oldKey
+    if (oldBase === undefined) delete process.env.JEV_API_BASE_URL; else process.env.JEV_API_BASE_URL = oldBase
+  })
+  let seenMessages: any[] = []
+  const result = await runAssistantAgent({} as any, request(), { messages: [{ role: 'user', content: 'PRIVATE CRM HISTORY' }, { role: 'assistant', content: 'old response' }, { role: 'user', content: 'Lista mis contactos' }], locale: 'es', requestId: randomUUID() }, async (messages: any[]) => { seenMessages = messages; return { role: 'assistant', content: 'Aquí tienes tus contactos.' } })
+  assert.equal(captured.url, 'https://jev.test/api/v1/decide')
+  assert.equal(captured.body.state, 'Lista mis contactos')
+  assert.equal(JSON.stringify(captured.body).includes('PRIVATE CRM HISTORY'), false)
+  assert.match(seenMessages[0].content, /read_data/)
+  assert.match(seenMessages[0].content, /No otorga permisos/)
+  assert.equal(result.text, 'Aquí tienes tus contactos.')
+})
+
 test('la ruta del asistente ejecuta la ruta real de tareas con JWT, permisos, plan y auditoría', async t => {
   memory(t)
   const { default: Fastify } = await import('fastify')

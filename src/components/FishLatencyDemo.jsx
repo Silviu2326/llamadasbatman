@@ -9,7 +9,7 @@ import {
 } from 'react-icons/ri'
 import { apiFetch } from '../lib/api'
 
-const DEFAULT_TEXT = 'Hola, soy Clara, la asistente virtual de Vendrava. Te llamo porque hemos detectado una oportunidad para conseguir más clientes. ¿Tienes treinta segundos?'
+const DEFAULT_TEXT = 'Hola, soy Clara, la asistente virtual de Pleneva. Te llamo porque hemos detectado una oportunidad para conseguir más clientes. ¿Tienes treinta segundos?'
 
 function median(values, key) {
   if (!values.length) return null

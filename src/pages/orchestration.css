@@ -13,7 +13,7 @@
   min-width: 0;
   overflow-y: auto;
   color: var(--orch-text);
-  background: radial-gradient(circle at 78% -6%, #312e8121, transparent 30%), var(--orch-bg);
+  background: radial-gradient(circle at 78% -6%, color-mix(in srgb, var(--accent-bg) 13%, transparent), transparent 30%), var(--orch-bg);
   font-family: Inter, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -98,7 +98,7 @@
   border-radius: 13px;
   color: var(--violet-soft);
   background: linear-gradient(145deg, color-mix(in srgb, var(--accent-bg) 44%, transparent), color-mix(in srgb, var(--info-bg) 50%, transparent));
-  box-shadow: 0 12px 30px #4f46e51c;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--accent-deep) 11%, transparent);
 }
 
 .orch-title-icon svg { width: 21px; height: 21px; }
@@ -153,11 +153,11 @@
 .orch-button svg { width: 15px; height: 15px; }
 .orch-button--ghost { border-color: var(--line-2); background: var(--surface-2); }
 .orch-button--ghost:hover:not(:disabled) { border-color: var(--line-hover); background: var(--surface-3); color: var(--text-strong); }
-.orch-button--primary { border-color: var(--accent-soft); color: #fff; background: linear-gradient(105deg, var(--accent-deep), var(--violet-deep)); box-shadow: 0 10px 22px #4f46e533; }
-.orch-button--primary:hover:not(:disabled) { border-color: var(--violet-soft); box-shadow: 0 14px 30px #6366f148; }
+.orch-button--primary { border-color: var(--accent-soft); color: #fff; background: linear-gradient(105deg, var(--accent-deep), var(--violet-deep)); box-shadow: 0 10px 22px color-mix(in srgb, var(--accent-deep) 20%, transparent); }
+.orch-button--primary:hover:not(:disabled) { border-color: var(--violet-soft); box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 28%, transparent); }
 .orch-button--demo { border-color: #10b98166; color: var(--success-soft); background: #064e3b38; }
 .orch-button--demo:hover:not(:disabled) { border-color: var(--success); background: #065f463f; }
-.orch-button--approve { border-color: color-mix(in srgb, var(--accent-soft) 40%, transparent); color: var(--violet-soft); background: #312e813b; }
+.orch-button--approve { border-color: color-mix(in srgb, var(--accent-soft) 40%, transparent); color: var(--violet-soft); background: color-mix(in srgb, var(--accent-bg) 23%, transparent); }
 .orch-button--approve:hover:not(:disabled) { border-color: var(--accent-faint); background: #3730a34a; }
 
 .orch-objective-panel,
@@ -211,11 +211,11 @@
 .orch-field select:hover { border-color: var(--line-hover); }
 .orch-field textarea:focus,
 .orch-field input:focus,
-.orch-field select:focus { border-color: var(--accent-soft); background: var(--surface); box-shadow: 0 0 0 3px #6366f120; }
+.orch-field select:focus { border-color: var(--accent-soft); background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
 .orch-field textarea[aria-invalid="true"],
 .orch-field input[aria-invalid="true"] { border-color: var(--danger-soft); }
 .orch-input-with-icon { gap: 7px; height: 37px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-control); border-radius: 9px; color: var(--muted); background: var(--surface-soft); transition: border-color .16s ease, box-shadow .16s ease; }
-.orch-input-with-icon:focus-within { border-color: var(--accent-soft); box-shadow: 0 0 0 3px #6366f120; }
+.orch-input-with-icon:focus-within { border-color: var(--accent-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
 .orch-input-with-icon svg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--accent-soft); }
 .orch-input-with-icon input { height: 100%; padding: 0; border: 0; background: transparent; }
 .orch-input-with-icon input:focus { box-shadow: none; }
@@ -261,7 +261,7 @@
 .orch-loading-steps span:nth-child(2) { animation-delay: .12s; }.orch-loading-steps span:nth-child(3) { animation-delay: .24s; }.orch-loading-steps span:nth-child(4) { animation-delay: .36s; }.orch-loading-steps span:nth-child(5) { animation-delay: .48s; }
 
 .orch-empty-state { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; padding: 30px 27px 26px; }
-.orch-empty-orbit { display: grid; width: 78px; height: 78px; place-items: center; border: 1px solid color-mix(in srgb, var(--accent-soft) 40%, transparent); border-radius: 50%; color: var(--violet-soft); background: radial-gradient(circle, color-mix(in srgb, var(--accent-bg) 40%, transparent), var(--surface-3) 68%); box-shadow: 0 0 0 13px #4f46e512, 0 0 38px #6366f12b; }
+.orch-empty-orbit { display: grid; width: 78px; height: 78px; place-items: center; border: 1px solid color-mix(in srgb, var(--accent-soft) 40%, transparent); border-radius: 50%; color: var(--violet-soft); background: radial-gradient(circle, color-mix(in srgb, var(--accent-bg) 40%, transparent), var(--surface-3) 68%); box-shadow: 0 0 0 13px color-mix(in srgb, var(--accent-deep) 7%, transparent), 0 0 38px color-mix(in srgb, var(--accent) 17%, transparent); }
 .orch-empty-orbit svg { width: 31px; height: 31px; }
 .orch-empty-copy { min-width: 0; }
 .orch-empty-copy h2 { margin: 6px 0 0; color: var(--text-strong); font-size: 18px; letter-spacing: -.4px; }
@@ -275,7 +275,7 @@
 .orch-empty-phase i { display: block; width: min(7vw, 80px); height: 1px; margin-left: 5px; background: var(--surface-hover); }
 
 .orch-plan-section { display: grid; gap: 16px; }
-.orch-plan-summary { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 24px; align-items: center; padding: 22px 23px; background: radial-gradient(circle at 70% 0, #4f46e51a, transparent 34%), linear-gradient(145deg, var(--surface-3), var(--surface-soft) 78%); }
+.orch-plan-summary { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 24px; align-items: center; padding: 22px 23px; background: radial-gradient(circle at 70% 0, color-mix(in srgb, var(--accent-deep) 10%, transparent), transparent 34%), linear-gradient(145deg, var(--surface-3), var(--surface-soft) 78%); }
 .orch-plan-summary-copy { min-width: 0; }
 .orch-plan-kicker { gap: 6px; color: var(--success-soft); font-size: 8px; font-weight: 850; letter-spacing: .65px; text-transform: uppercase; }
 .orch-plan-kicker svg { width: 14px; height: 14px; }
@@ -338,7 +338,7 @@
 .orch-step-status svg { width: 11px; height: 11px; }
 .orch-step-status--ready { border-color: var(--line-2); color: var(--muted); background: var(--surface-3); }
 .orch-step-status--blocked { border-color: #fb71854d; color: var(--danger-soft); background: #4c051929; }
-.orch-step-status--approved { border-color: color-mix(in srgb, var(--accent-soft) 40%, transparent); color: var(--violet-soft); background: #312e8130; }
+.orch-step-status--approved { border-color: color-mix(in srgb, var(--accent-soft) 40%, transparent); color: var(--violet-soft); background: color-mix(in srgb, var(--accent-bg) 19%, transparent); }
 .orch-step-status--done { border-color: #34d3995c; color: var(--success-soft); background: #064e3b2e; }
 .orch-step-facts { display: grid; grid-template-columns: 145px minmax(0, 1fr) 110px; gap: 10px; margin: 12px 0 10px; }
 .orch-step-facts div { min-width: 0; }

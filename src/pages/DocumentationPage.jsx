@@ -24,7 +24,7 @@ export default function DocumentationPage({ sectionNavigation = null }) {
       <ProductPageHeader
         Icon={RiBook2Line}
         title="Documentación"
-        description="Guías, referencias y respuestas prácticas para configurar, operar e integrar Vendrava."
+        description="Guías, referencias y respuestas prácticas para configurar, operar e integrar Pleneva."
         navigation={sectionNavigation}
         actions={<label className="docs-header-search"><RiSearchLine /><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar documentación…" aria-label="Buscar en la documentación" />{search ? <button type="button" onClick={() => setSearch('')} aria-label="Limpiar búsqueda"><RiCloseLine /></button> : null}</label>}
       />

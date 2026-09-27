@@ -353,7 +353,7 @@ export default function WebsiteIntakePage() {
           <li>Equipo: <b>{report.team.status === 'forbidden' ? 'sin permiso' : `${report.team.members.filter(member => member.status === 'added' || member.status === 'updated').length} accesos dados`}</b></li>
         </ul>
         {report.team.members.some(member => member.status === 'needs_account') ? <p className="intake-report-note">
-          <RiAlertLine /> Estas personas todavía no tienen cuenta en Vendrava, así que no se les pudo dar acceso: <b>{report.team.members.filter(member => member.status === 'needs_account').map(member => member.email).join(', ')}</b>. Pídeles que se registren con ese email y vuelve a aplicar.
+          <RiAlertLine /> Estas personas todavía no tienen cuenta en Pleneva, así que no se les pudo dar acceso: <b>{report.team.members.filter(member => member.status === 'needs_account').map(member => member.email).join(', ')}</b>. Pídeles que se registren con ese email y vuelve a aplicar.
         </p> : null}
         {report.crm.accountId ? <button type="button" className="intake-ghost" onClick={() => navigate(`/cuentas`)}>Ver cuentas <RiArrowRightLine /></button> : null}
       </section> : null}

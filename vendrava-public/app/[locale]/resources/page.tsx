@@ -9,8 +9,8 @@ import { pathFor } from "@/lib/routes";
 
 const SECTIONS = [
   { routeKey: "resources.blog", title: "Blog", description: "Articles on AI CRM, voice agents, sales automation and growth marketing." },
-  { routeKey: "resources.guides", title: "Guides", description: "Practical guides to launching AI and automation flows in Vendrava." },
-  { routeKey: "resources.case-studies", title: "Case studies", description: "Examples of how different teams use Vendrava to convert more leads." },
+  { routeKey: "resources.guides", title: "Guides", description: "Practical guides to launching AI and automation flows in Pleneva." },
+  { routeKey: "resources.case-studies", title: "Case studies", description: "Examples of how different teams use Pleneva to convert more leads." },
   { routeKey: "resources.glossary", title: "Glossary", description: "Key definitions on AI CRM, voice agents and sales automation." },
 ];
 
@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildMetadata({
     routeKey: "resources.index",
     locale: "en",
-    title: "Resources on AI CRM and sales | Vendrava",
+    title: "Resources on AI CRM and sales | Pleneva",
     description: "Blog, guides, case studies and glossary on AI CRM, voice agents and sales automation.",
   });
 }
