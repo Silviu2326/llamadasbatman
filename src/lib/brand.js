@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react'
-import { apiFetch } from './api'
 
 /**
  * Marca del panel. El backend la resuelve por dominio antes del login
@@ -86,7 +85,7 @@ export function useBrand() {
 export async function loadBrandForHost() {
   apply()
   try {
-    const response = await apiFetch(`/api/white-label/public/brand?host=${encodeURIComponent(window.location.hostname)}`)
+    const response = await fetch(`/api/white-label/public/brand?host=${encodeURIComponent(window.location.hostname)}`)
     if (response.status === 204) setBrand(null)
     else if (response.ok) setBrand(await response.json())
   } catch {

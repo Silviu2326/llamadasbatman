@@ -11,21 +11,24 @@ export async function whiteLabelRoutes(app: FastifyInstance) {
   app.get('/public/widget', ctrl.widget)
   app.get('/public/card', ctrl.widget)
 
-  app.addHook('preHandler', authenticate)
-  const read = { preHandler: [requirePermission('organization.read', { scope: 'org' }), requireEntitlement('multiworkspace')] }
-  const manage = { preHandler: [requirePermission('organization.manage', { scope: 'org' }), requireEntitlement('multiworkspace')] }
-  app.get('/brand', read, ctrl.ownBrand)
-  app.put('/brand', manage, ctrl.saveOwnBrand)
-  app.get('/billing', read, ctrl.billingSummary)
-  app.get('/clients', read, ctrl.list)
-  app.post('/clients', manage, ctrl.create)
-  app.get('/clients/:id', read, ctrl.get)
-  app.patch('/clients/:id', manage, ctrl.update)
-  app.put('/clients/:id/brand', manage, ctrl.brand)
-  app.post('/clients/:id/widget-key/rotate', manage, ctrl.rotateKey)
-  app.post('/clients/:id/training', manage, ctrl.train)
-  app.post('/clients/:id/documents', manage, ctrl.document)
-  app.get('/clients/:id/channels/telegram', read, ctrl.telegramStatus)
-  app.put('/clients/:id/channels/telegram', manage, ctrl.telegramConnect)
-  app.delete('/clients/:id/channels/telegram', manage, ctrl.telegramDisconnect)
+  // El hook privado no debe alcanzar las rutas /public.
+  await app.register(async privateApp => {
+    privateApp.addHook('preHandler', authenticate)
+    const read = { preHandler: [requirePermission('organization.read', { scope: 'org' }), requireEntitlement('multiworkspace')] }
+    const manage = { preHandler: [requirePermission('organization.manage', { scope: 'org' }), requireEntitlement('multiworkspace')] }
+    privateApp.get('/brand', read, ctrl.ownBrand)
+    privateApp.put('/brand', manage, ctrl.saveOwnBrand)
+    privateApp.get('/billing', read, ctrl.billingSummary)
+    privateApp.get('/clients', read, ctrl.list)
+    privateApp.post('/clients', manage, ctrl.create)
+    privateApp.get('/clients/:id', read, ctrl.get)
+    privateApp.patch('/clients/:id', manage, ctrl.update)
+    privateApp.put('/clients/:id/brand', manage, ctrl.brand)
+    privateApp.post('/clients/:id/widget-key/rotate', manage, ctrl.rotateKey)
+    privateApp.post('/clients/:id/training', manage, ctrl.train)
+    privateApp.post('/clients/:id/documents', manage, ctrl.document)
+    privateApp.get('/clients/:id/channels/telegram', read, ctrl.telegramStatus)
+    privateApp.put('/clients/:id/channels/telegram', manage, ctrl.telegramConnect)
+    privateApp.delete('/clients/:id/channels/telegram', manage, ctrl.telegramDisconnect)
+  })
 }
