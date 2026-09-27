@@ -283,7 +283,7 @@ export default function Home() {
               {PLANS.map((p) => (
                 <div key={p.name} className={`plan${p.featured ? " plan-featured" : ""}`} data-reveal>
                   <h3>{p.name}</h3>
-                  <p className="plan-price">{p.price ? <><span className="plan-from">desde</span> {p.price} €<span className="plan-per">/mes</span></> : <><span className="plan-from">precio a medida</span> Hablemos</>}</p>
+                  <p className="plan-price">{p.price ? <><span className="plan-from">por organización</span> {p.price} €<span className="plan-per">/mes</span></> : <><span className="plan-from">precio a medida</span> Hablemos</>}</p>
                   <p className="plan-for">{p.for}</p>
                   <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
                   <a href={p.price && process.env.NEXT_PUBLIC_PAID_CHECKOUT_ENABLED === "true" ? `/registro?plan=${p.key}` : "#demo"} className={`btn ${p.featured ? "btn-primary" : "btn-ghost"}`}>{p.price && process.env.NEXT_PUBLIC_PAID_CHECKOUT_ENABLED === "true" ? "Elegir plan" : p.price ? "Consultar el plan" : "Hablar de mi agencia"}</a>
