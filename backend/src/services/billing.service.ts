@@ -135,7 +135,11 @@ async function syncSubscription(subscription: Stripe.Subscription) {
       data: { plan, stripeSubscriptionId: subscription.id, commercialTermsVersion: '2026-09' },
     })
   } else if (org.stripeSubscriptionId === subscription.id && ['unpaid', 'canceled', 'incomplete_expired', 'paused'].includes(subscription.status)) {
-    await prisma.organization.update({ where: { id: org.id }, data: { plan: 'free' } })
+    // Libera la referencia al revocar acceso; si no, hasSubscription() impide contratar de nuevo.
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { plan: 'free', stripeSubscriptionId: null },
+    })
   }
   // past_due conserva acceso durante el periodo de reintentos configurado en Stripe.
 }
