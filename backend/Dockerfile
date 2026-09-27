@@ -32,6 +32,8 @@ RUN npm prune --omit=dev
 FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# Origen público del panel. Railway puede sobrescribirlo por variable de servicio.
+ENV APP_URL=https://app.pleneva.com
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ffmpeg \
   && rm -rf /var/lib/apt/lists/*
