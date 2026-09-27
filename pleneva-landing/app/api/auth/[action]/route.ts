@@ -93,6 +93,7 @@ export async function POST(request: Request, context: Context) {
   const data = await upstream.json().catch(() => ({})) as {
     error?: string;
     user?: { name?: string; isPlatformAdmin?: boolean };
+    checkoutUrl?: string;
   };
   if (!upstream.ok) {
     return NextResponse.json(
@@ -109,8 +110,17 @@ export async function POST(request: Request, context: Context) {
     return NextResponse.json({ error: "No se pudo abrir la sesión. Inténtalo otra vez." }, { status: 502 });
   }
 
+  const checkoutUrl = (() => {
+    if (action !== "register" || !data.checkoutUrl) return undefined;
+    try {
+      const url = new URL(data.checkoutUrl);
+      return url.protocol === "https:" && url.hostname === "checkout.stripe.com" ? url.toString() : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
   const response = NextResponse.json(
-    { ok: true, user: { name: data.user?.name ?? "", isPlatformAdmin: Boolean(data.user?.isPlatformAdmin) } },
+    { ok: true, user: { name: data.user?.name ?? "", isPlatformAdmin: Boolean(data.user?.isPlatformAdmin) }, ...(checkoutUrl ? { checkoutUrl } : {}) },
     { status: upstream.status, headers: { "cache-control": "no-store" } },
   );
   response.headers.append(

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider } from './contexts/AuthContext'
 import { ExperienceProvider } from './contexts/ExperienceContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import AuthGateway from './components/AuthGateway'
 import LoginPage from './pages/LoginPage'
 import { HomeRouteLoading } from './components/ui/HomeLoadingState'
 import { loadDashboard, loadPlan, loadInsights } from './lib/homePageModules'
@@ -110,8 +111,8 @@ export default function App() {
             <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/canciones" element={<SongStudioPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/login" element={<AuthGateway mode="login" legacyPage={<LoginPage />} />} />
+          <Route path="/registro" element={<AuthGateway mode="register" legacyPage={<RegisterPage />} />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/l/:slug" element={<PublicLandingPage />} />
           <Route path="/audita/:slug" element={<PublicSeoAuditPage />} />

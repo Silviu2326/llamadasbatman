@@ -1,86 +1,92 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import Stripe from 'stripe'
 import { prisma } from '../lib/prisma'
 import { topUp } from './wallet.service'
 
-// ponytail: API REST de Stripe vía fetch — sin SDK. Un plan = una variable
-// STRIPE_PRICE_<PLAN> (p. ej. STRIPE_PRICE_PRO=price_xxx).
-const STRIPE_API = 'https://api.stripe.com/v1'
+const PAID_PLANS = ['pro', 'completo', 'agency'] as const
+type PaidPlan = (typeof PAID_PLANS)[number]
+let cachedStripe: Stripe | null = null
+let cachedKey = ''
 
-export function billingEnabled() {
-  return Boolean(process.env.STRIPE_SECRET_KEY)
+function stripeClient() {
+  const key = process.env.STRIPE_SECRET_KEY?.trim()
+  if (!key) throw new Error('Stripe no está configurado')
+  if (!cachedStripe || cachedKey !== key) {
+    // El SDK fija la versión estable de API que corresponde a su versión.
+    cachedStripe = new Stripe(key, { maxNetworkRetries: 2, timeout: 15_000 })
+    cachedKey = key
+  }
+  return cachedStripe
 }
 
-export function priceIdForPlan(plan: string) {
-  if (!/^[a-z0-9_]{1,40}$/.test(plan)) return null
-  return process.env[`STRIPE_PRICE_${plan.toUpperCase()}`] || null
+export function billingEnabled() {
+  return Boolean(process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim())
+}
+
+export function priceIdForPlan(plan: string): string | null {
+  if (!PAID_PLANS.includes(plan as PaidPlan)) return null
+  return process.env[`STRIPE_PRICE_${plan.toUpperCase()}`]?.trim() || null
 }
 
 export function availablePlans() {
-  return Object.keys(process.env)
-    .filter(key => key.startsWith('STRIPE_PRICE_') && process.env[key])
-    .map(key => key.slice('STRIPE_PRICE_'.length).toLowerCase())
+  return PAID_PLANS.filter(plan => priceIdForPlan(plan))
+}
+
+export function planForPriceId(priceId: string): PaidPlan | null {
+  return PAID_PLANS.find(plan => priceIdForPlan(plan) === priceId) ?? null
 }
 
 function frontendUrl() {
   return (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '')
 }
 
-async function stripeRequest(path: string, params?: Record<string, string>, idempotencyKey?: string) {
-  const response = await fetch(`${STRIPE_API}${path}`, {
-    method: params ? 'POST' : 'GET',
-    headers: {
-      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
-      ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
-      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
-    },
-    body: params ? new URLSearchParams(params).toString() : undefined,
-    signal: AbortSignal.timeout(15_000),
-  })
-  const body: any = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(body?.error?.message || `stripe_${response.status}`)
-  return body
-}
-
 async function ensureCustomer(orgId: string, email: string) {
   const org = await prisma.organization.findUnique({ where: { id: orgId } })
   if (!org) throw new Error('Organización no encontrada')
   if (org.stripeCustomerId) return org.stripeCustomerId
-  const customer = await stripeRequest('/customers', {
+  const customer = await stripeClient().customers.create({
     email,
     name: org.name,
-    'metadata[orgId]': orgId,
+    metadata: { orgId },
   })
   await prisma.organization.update({ where: { id: orgId }, data: { stripeCustomerId: customer.id } })
-  return customer.id as string
+  return customer.id
+}
+
+export async function hasSubscription(orgId: string) {
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { stripeSubscriptionId: true } })
+  return Boolean(org?.stripeSubscriptionId)
 }
 
 export async function createCheckoutSession(orgId: string, email: string, plan: string) {
   const price = priceIdForPlan(plan)
   if (!price) throw new Error('Plan desconocido o sin precio configurado')
+  if (await hasSubscription(orgId)) throw new Error('Gestiona el cambio de plan desde tu portal de suscripción')
   const customer = await ensureCustomer(orgId, email)
-  const base = `${frontendUrl()}/configuracion`
-  const session = await stripeRequest('/checkout/sessions', {
+  const base = `${frontendUrl()}/configuracion/plan`
+  const session = await stripeClient().checkout.sessions.create({
     customer,
     mode: 'subscription',
-    'line_items[0][price]': price,
-    'line_items[0][quantity]': '1',
+    automatic_tax: { enabled: true },
+    billing_address_collection: 'required',
+    tax_id_collection: { enabled: true },
+    line_items: [{ price, quantity: 1 }],
     success_url: `${base}?billing=success`,
     cancel_url: `${base}?billing=cancelled`,
-    'metadata[orgId]': orgId,
-    'metadata[plan]': plan,
-    'subscription_data[metadata][orgId]': orgId,
-    'subscription_data[metadata][plan]': plan,
+    client_reference_id: orgId,
+    metadata: { orgId, plan, termsVersion: '2026-09' },
+    subscription_data: { metadata: { orgId, plan, termsVersion: '2026-09' } },
   })
-  return session.url as string
+  if (!session.url) throw new Error('Stripe no devolvió URL de Checkout')
+  return session.url
 }
 
 export async function createPortalSession(orgId: string, email: string) {
   const customer = await ensureCustomer(orgId, email)
-  const session = await stripeRequest('/billing_portal/sessions', {
+  const session = await stripeClient().billingPortal.sessions.create({
     customer,
-    return_url: `${frontendUrl()}/configuracion`,
+    return_url: `${frontendUrl()}/configuracion/plan`,
   })
-  return session.url as string
+  return session.url
 }
 
 /** Checkout de pago único para créditos. El saldo solo se abona en webhook. */
@@ -89,57 +95,64 @@ export async function createWalletTopupCheckout(input: { orgId: string; email: s
     throw new Error('Importe de recarga inválido')
   }
   const customer = await ensureCustomer(input.orgId, input.email)
-  const base = `${frontendUrl()}/configuracion`
-  const session = await stripeRequest('/checkout/sessions', {
+  const base = `${frontendUrl()}/configuracion/plan`
+  const session = await stripeClient().checkout.sessions.create({
     customer,
     mode: 'payment',
-    'line_items[0][price_data][currency]': 'eur',
-    'line_items[0][price_data][unit_amount]': String(input.amountCents),
-    'line_items[0][price_data][product_data][name]': 'Créditos Vendrava',
-    'line_items[0][quantity]': '1',
+    line_items: [{
+      price_data: { currency: 'eur', unit_amount: input.amountCents, product_data: { name: 'Créditos Pleneva' } },
+      quantity: 1,
+    }],
     success_url: `${base}?wallet=success`,
     cancel_url: `${base}?wallet=cancelled`,
     client_reference_id: input.orgId,
-    'metadata[purpose]': 'wallet_topup',
-    'metadata[orgId]': input.orgId,
-    'metadata[amountCents]': String(input.amountCents),
-    'payment_intent_data[metadata][purpose]': 'wallet_topup',
-    'payment_intent_data[metadata][orgId]': input.orgId,
-  }, `wallet-checkout:${input.orgId}:${input.amountCents}:${Date.now()}`)
-  if (typeof session.url !== 'string') throw new Error('Stripe no devolvió URL de Checkout')
+    metadata: { purpose: 'wallet_topup', orgId: input.orgId, amountCents: String(input.amountCents) },
+    payment_intent_data: { metadata: { purpose: 'wallet_topup', orgId: input.orgId } },
+  })
+  if (!session.url) throw new Error('Stripe no devolvió URL de Checkout')
   return session.url
 }
 
-export function verifyStripeSignature(rawBody: string, header: string | undefined) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET
-  if (!secret || !header) return false
-  const parts: Record<string, string> = {}
-  for (const kv of header.split(',')) {
-    const idx = kv.indexOf('=')
-    if (idx > 0) parts[kv.slice(0, idx).trim()] = kv.slice(idx + 1).trim()
+export function parseStripeEvent(rawBody: string, header: string | undefined): Stripe.Event {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim()
+  if (!secret || !header) throw new Error('Webhook de Stripe sin firma o sin secreto')
+  return stripeClient().webhooks.constructEvent(rawBody, header, secret)
+}
+
+/** El precio real de la suscripción manda; nunca concedemos un plan por metadata. */
+async function syncSubscription(subscription: Stripe.Subscription) {
+  const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
+  const org = await prisma.organization.findFirst({
+    where: { stripeCustomerId: customerId },
+    select: { id: true, stripeSubscriptionId: true },
+  })
+  if (!org || (org.stripeSubscriptionId && org.stripeSubscriptionId !== subscription.id)) return
+  const priceId = subscription.items.data[0]?.price?.id
+  const plan = priceId ? planForPriceId(priceId) : null
+  if (['active', 'trialing'].includes(subscription.status) && plan) {
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { plan, stripeSubscriptionId: subscription.id, commercialTermsVersion: '2026-09' },
+    })
+  } else if (org.stripeSubscriptionId === subscription.id && ['unpaid', 'canceled', 'incomplete_expired', 'paused'].includes(subscription.status)) {
+    await prisma.organization.update({ where: { id: org.id }, data: { plan: 'free' } })
   }
-  const timestamp = parts.t
-  const signature = parts.v1
-  if (!timestamp || !signature) return false
-  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false
-  const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex')
+  // past_due conserva acceso durante el periodo de reintentos configurado en Stripe.
+}
+
+async function refreshSubscription(subscriptionId: string) {
   try {
-    return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(signature, 'hex'))
-  } catch {
-    return false
+    const subscription = await stripeClient().subscriptions.retrieve(subscriptionId)
+    await syncSubscription(subscription)
+  } catch (error) {
+    // Un evento antiguo puede llegar después de que Stripe haya eliminado la
+    // suscripción. En ese caso, el evento deleted es quien retira el acceso.
+    if (error instanceof Stripe.errors.StripeInvalidRequestError && error.statusCode === 404) return
+    throw error
   }
 }
 
-/**
- * Añade a la factura del ciclo del partner el coste mayorista de los clientes
- * que tiene activos. Stripe cobra la línea junto con su suscripción, así que
- * `wholesaleCostCents` deja de ser un número guardado y pasa a facturarse.
- *
- * ponytail: una sola línea agregada por factura, no una por cliente. La clave
- * de idempotencia es el id de la factura, así que un reintento del webhook no
- * duplica el cargo. Si algún día hace falta el desglose por cliente en el PDF,
- * el cambio es iterar los clientes y usar `wholesale:<invoiceId>:<clientId>`.
- */
+/** Coste mayorista agregado en la factura del ciclo del partner. */
 export async function chargeAgencyWholesale(invoiceId: string, customerId: string): Promise<number> {
   const org = await prisma.organization.findFirst({
     where: { stripeCustomerId: customerId },
@@ -152,60 +165,56 @@ export async function chargeAgencyWholesale(invoiceId: string, customerId: strin
   })
   const amount = clients.reduce((total, client) => total + client.wholesaleCostCents, 0)
   if (amount <= 0) return 0
-  await stripeRequest('/invoiceitems', {
+  await stripeClient().invoiceItems.create({
     customer: customerId,
     invoice: invoiceId,
-    amount: String(amount),
+    amount,
     currency: (org.currency || 'EUR').toLowerCase(),
     description: `Clientes white-label (${clients.length})`,
-    'metadata[orgId]': org.id,
-    'metadata[clients]': String(clients.length),
-  }, `wholesale:${invoiceId}`)
+    metadata: { orgId: org.id, clients: String(clients.length) },
+  }, { idempotencyKey: `wholesale:${invoiceId}` })
   return amount
 }
 
-export async function handleWebhookEvent(event: { id?: string; type?: string; data?: { object?: any } }) {
-  const type = event?.type
-  const object = event?.data?.object
-  if (type === 'invoice.created') {
-    // Stripe tarda ~1h en finalizar la factura: da margen para añadir la línea
-    // del mayorista antes de cobrarla. Sólo en la renovación del ciclo, no en
-    // el alta ni en cambios de plan a mitad de periodo.
+export async function handleWebhookEvent(event: Stripe.Event) {
+  const object = event.data.object as any
+  if (event.type === 'invoice.created') {
     const customerId = typeof object?.customer === 'string' ? object.customer : null
     if (customerId && object?.id && object?.billing_reason === 'subscription_cycle') {
-      await chargeAgencyWholesale(object.id, customerId).catch(error =>
-        console.warn('[BILLING] no se pudo facturar el mayorista white-label:', (error as Error).message))
+      await chargeAgencyWholesale(object.id, customerId)
     }
-  } else if (type === 'checkout.session.completed') {
-    const orgId = object?.metadata?.orgId
-    if (object?.metadata?.purpose === 'wallet_topup') {
-      const expectedAmount = Number(object?.metadata?.amountCents)
-      const paidAmount = Number(object?.amount_total)
-      if (
-        typeof orgId === 'string'
-        && Number.isSafeInteger(expectedAmount)
-        && expectedAmount > 0
-        && paidAmount === expectedAmount
-        && object?.payment_status === 'paid'
-        && String(object?.currency ?? '').toLowerCase() === 'eur'
-      ) {
-        await topUp({
-          orgId,
-          amountCents: expectedAmount,
-          stripeRef: typeof object?.payment_intent === 'string' ? object.payment_intent : object?.id,
-          idempotencyKey: `stripe:${event.id ?? object?.id}`,
-        })
-      }
-      return
+  } else if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && object?.metadata?.purpose === 'wallet_topup') {
+    const orgId = object.metadata.orgId
+    const expectedAmount = Number(object.metadata.amountCents)
+    if (
+      typeof orgId === 'string'
+      && Number.isSafeInteger(expectedAmount)
+      && expectedAmount > 0
+      && Number(object.amount_total) === expectedAmount
+      && object.payment_status === 'paid'
+      && String(object.currency ?? '').toLowerCase() === 'eur'
+    ) {
+      await topUp({
+        orgId,
+        amountCents: expectedAmount,
+        stripeRef: typeof object.payment_intent === 'string' ? object.payment_intent : object.id,
+        idempotencyKey: `stripe:checkout:${object.id}`,
+      })
     }
-    const plan = object?.metadata?.plan
-    if (orgId && plan && priceIdForPlan(plan)) {
-      await prisma.organization.updateMany({ where: { id: orgId }, data: { plan } })
-    }
-  } else if (type === 'customer.subscription.deleted') {
+  } else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+    if (typeof object?.id === 'string') await refreshSubscription(object.id)
+  } else if (event.type === 'customer.subscription.deleted') {
     const customerId = typeof object?.customer === 'string' ? object.customer : null
-    if (customerId) {
-      await prisma.organization.updateMany({ where: { stripeCustomerId: customerId }, data: { plan: 'free' } })
+    if (customerId && typeof object?.id === 'string') {
+      await prisma.organization.updateMany({
+        where: { stripeCustomerId: customerId, stripeSubscriptionId: object.id },
+        data: { plan: 'free', stripeSubscriptionId: null },
+      })
     }
+  } else if (event.type === 'invoice.paid') {
+    const subscriptionId = typeof object?.subscription === 'string'
+      ? object.subscription
+      : object?.parent?.subscription_details?.subscription
+    if (typeof subscriptionId === 'string') await refreshSubscription(subscriptionId)
   }
 }

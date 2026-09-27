@@ -6,9 +6,10 @@ import { consumptionSnapshot } from '../access-control/consumption'
 type JWTUser = { userId: string; orgId: string; role: string; email: string }
 
 export async function billingRoutes(app: FastifyInstance) {
-  app.get('/config', { preHandler: authenticate }, async () => ({
+  app.get('/config', { preHandler: authenticate }, async request => ({
     enabled: billing.billingEnabled(),
     plans: billing.availablePlans(),
+    hasSubscription: await billing.hasSubscription((request.user as JWTUser).orgId),
   }))
 
   /** Consumo del periodo frente al techo del plan (minutos de voz y envíos). */
@@ -66,10 +67,14 @@ export async function billingWebhookRoutes(app: FastifyInstance) {
   app.post('/', async (request, reply) => {
     const rawBody = (request as any).rawBody as string | undefined
     const signature = request.headers['stripe-signature'] as string | undefined
-    if (!rawBody || !billing.verifyStripeSignature(rawBody, signature)) {
+    let event
+    try {
+      if (!rawBody) throw new Error('missing_raw_body')
+      event = billing.parseStripeEvent(rawBody, signature)
+    } catch {
       return reply.status(401).send({ error: 'invalid_signature' })
     }
-    await billing.handleWebhookEvent(request.body as any)
+    await billing.handleWebhookEvent(event)
     return reply.send({ received: true })
   })
 }

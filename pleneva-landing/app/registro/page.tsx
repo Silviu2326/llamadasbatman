@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RegisterPage() {
-  return <AuthScreen mode="register" />;
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  const selected = (await searchParams).plan;
+  const plan = selected && ["pro", "completo"].includes(selected) ? selected : undefined;
+  return <AuthScreen mode="register" plan={plan} />;
 }

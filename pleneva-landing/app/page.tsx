@@ -59,28 +59,43 @@ const SECTORS = [
 const PLANS = [
   {
     name: "Arranque",
+    key: "pro",
     price: "99",
-    for: "Para dejar de perder a los que ya te escriben.",
-    features: ["Seguimiento por WhatsApp y email", "1 número de teléfono", "~500 min de voz incluidos", "Agenda y recordatorios"],
+    for: "Para ordenar tus oportunidades y automatizar el seguimiento.",
+    features: [
+      "CRM, agenda y captación en un mismo lugar",
+      "Hasta 5 agentes de IA y 50 automatizaciones",
+      "500 minutos de llamadas al mes",
+      "5.000 emails operativos al mes",
+      "Campañas de anuncios: presupuesto aparte",
+    ],
   },
   {
     name: "Crecimiento",
+    key: "completo",
     price: "299",
-    for: "Para que salgamos a buscarte clientes y los llamemos.",
+    for: "Para unir ventas, marketing y conversaciones en un equipo.",
     features: [
       "Todo lo de Arranque",
-      "Agente de voz que llama y contesta",
-      "~2.000 min de voz incluidos",
-      "Búsqueda de clientes por zona y sector",
-      "Propuestas comerciales",
+      "Email marketing, newsletter y secuencias",
+      "Hasta 25 agentes y 250 automatizaciones",
+      "2.000 minutos de llamadas al mes",
+      "25.000 emails al mes",
     ],
     featured: true,
   },
   {
-    name: "Varias sedes",
-    price: "599",
-    for: "Para cadenas y grupos con más de un local.",
-    features: ["Todo lo de Crecimiento", "Varias sedes y equipos", "~6.000 min de voz incluidos", "Campañas de anuncios avanzadas"],
+    name: "Agencias",
+    key: "agency",
+    price: null,
+    for: "Para gestionar clientes y espacios separados bajo tu marca.",
+    features: [
+      "Todo lo de Crecimiento",
+      "Marca blanca y hasta 100 espacios",
+      "Facturación mayorista por cliente activo",
+      "Minutos y envíos según contrato",
+      "Implantación y precio acordados contigo",
+    ],
   },
 ];
 
@@ -260,21 +275,26 @@ export default function Home() {
             <div className="pricing-heading" data-reveal>
               <h2>Saber cuánto cuesta también ayuda a decidir.</h2>
               <p>
-                Estos son los planes de partida. Cada uno incluye minutos de voz; antes de empezar te explicamos el
-                coste de cualquier uso adicional.
+                Pleneva reúne CRM, captación, automatizaciones, agentes de voz y seguimiento. Cada plan indica sus
+                límites mensuales; los anuncios y las integraciones externas se pagan aparte.
               </p>
             </div>
             <div className="plans">
               {PLANS.map((p) => (
                 <div key={p.name} className={`plan${p.featured ? " plan-featured" : ""}`} data-reveal>
                   <h3>{p.name}</h3>
-                  <p className="plan-price"><span className="plan-from">desde</span> {p.price} €<span className="plan-per">/mes</span></p>
+                  <p className="plan-price">{p.price ? <><span className="plan-from">desde</span> {p.price} €<span className="plan-per">/mes</span></> : <><span className="plan-from">precio a medida</span> Hablemos</>}</p>
                   <p className="plan-for">{p.for}</p>
                   <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
-                  <a href="#demo" className={`btn ${p.featured ? "btn-primary" : "btn-ghost"}`}>Empezar</a>
+                  <a href={p.price && process.env.NEXT_PUBLIC_PAID_CHECKOUT_ENABLED === "true" ? `/registro?plan=${p.key}` : "#demo"} className={`btn ${p.featured ? "btn-primary" : "btn-ghost"}`}>{p.price && process.env.NEXT_PUBLIC_PAID_CHECKOUT_ENABLED === "true" ? "Elegir plan" : p.price ? "Consultar el plan" : "Hablar de mi agencia"}</a>
                 </div>
               ))}
             </div>
+            <p className="pricing-disclaimer">
+              Puedes crear una cuenta gratis sin tarjeta: 1 agente, 60 minutos de llamadas y 500 emails operativos al mes.
+              Las cuotas se reinician cada mes; al agotarlas se detiene el nuevo uso hasta ampliar el plan. Precio mensual
+              sin impuestos. No incluye inversión publicitaria, números ni tarifas de terceros contratados por tu cuenta.
+            </p>
           </div>
         </section>
 

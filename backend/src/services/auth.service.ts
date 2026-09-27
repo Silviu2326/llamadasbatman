@@ -58,7 +58,7 @@ export async function registerOrganization(input: {
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return null
   const passwordHash = await hashPassword(input.password)
   return prisma.$transaction(async tx => {
-    const org = await tx.organization.create({ data: { name: input.orgName.trim(), plan: 'free', email } })
+    const org = await tx.organization.create({ data: { name: input.orgName.trim(), plan: 'free', email, commercialTermsVersion: '2026-09' } })
     const user = await tx.user.create({
       data: { orgId: org.id, email, name: input.name.trim(), role: 'owner', passwordHash },
       select: { id: true, orgId: true, email: true, name: true, role: true },

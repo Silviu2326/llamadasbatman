@@ -7,10 +7,11 @@ import { Logo } from "./Logo";
 import { platformUrl } from "../lib/platform";
 
 type Mode = "login" | "register";
-type AuthResult = { error?: string; user?: { isPlatformAdmin?: boolean } };
+type AuthResult = { error?: string; checkoutUrl?: string; user?: { isPlatformAdmin?: boolean } };
 
-export function AuthScreen({ mode }: { mode: Mode }) {
+export function AuthScreen({ mode, plan }: { mode: Mode; plan?: string }) {
   const isRegister = mode === "register";
+  const paidCheckoutEnabled = process.env.NEXT_PUBLIC_PAID_CHECKOUT_ENABLED === "true";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +49,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
           orgName: String(form.get("orgName") || "").trim(),
           email: String(form.get("email") || "").trim(),
           password,
+          ...(plan && paidCheckoutEnabled ? { plan } : {}),
         }
       : { email: String(form.get("email") || "").trim(), password };
 
@@ -61,7 +63,11 @@ export function AuthScreen({ mode }: { mode: Mode }) {
       });
       const data = (await response.json().catch(() => ({}))) as AuthResult;
       if (!response.ok) throw new Error(data.error || "No hemos podido abrir tu sesión.");
-      window.location.assign(new URL(data.user?.isPlatformAdmin ? "/backoffice" : "/dashboard", destination).toString());
+      if (data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+      } else {
+        window.location.assign(new URL(data.user?.isPlatformAdmin ? "/backoffice" : "/dashboard", destination).toString());
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No hemos podido abrir tu sesión.");
       setBusy(false);
@@ -121,6 +127,7 @@ export function AuthScreen({ mode }: { mode: Mode }) {
         </div>
         <div className="auth-form-wrap">
           <p className="auth-step">{isRegister ? "01 / CREA TU ESPACIO" : "01 / ENTRA EN TU ESPACIO"}</p>
+          {isRegister && plan && <p className="auth-selected-plan">{paidCheckoutEnabled ? `Plan seleccionado: ${plan === "pro" ? "Arranque" : "Crecimiento"}. Pagarás en Stripe tras crear la cuenta.` : "La contratación de este plan aún no está abierta. Puedes crear una cuenta gratuita."}</p>}
           <h1>{isRegister ? "Empieza con una cuenta." : "Bienvenido de nuevo."}</h1>
           <p className="auth-intro">
             {isRegister

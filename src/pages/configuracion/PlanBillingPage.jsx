@@ -13,6 +13,9 @@ function Metric({ label, value }) {
   return <div className="settings-metric"><span>{label}</span><strong>{value}</strong></div>
 }
 
+const PLAN_LABELS = { free: 'Gratis', pro: 'Arranque', completo: 'Crecimiento', agency: 'Agencias' }
+const PLAN_PRICES = { pro: '99 €/mes', completo: '299 €/mes', agency: 'A medida' }
+
 /**
  * Plan y facturación: antes vivía en el rail derecho de Configuración y en un
  * modal. Ahora es una sección con entidad propia dentro de /configuracion.
@@ -22,6 +25,7 @@ export default function PlanBillingPage() {
   const [agentCount, setAgentCount] = useState(null)
   const [integrations, setIntegrations] = useState(null)
   const [billingConfig, setBillingConfig] = useState(null)
+  const [usage, setUsage] = useState(null)
   const [platformMetrics, setPlatformMetrics] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -31,6 +35,7 @@ export default function PlanBillingPage() {
     apiFetch('/api/agents').then(r => (r.ok ? r.json() : null)).then(data => setAgentCount(Array.isArray(data) ? data.length : null)).catch(() => {})
     apiFetch('/api/settings/integrations').then(r => (r.ok ? r.json() : null)).then(data => { if (data) setIntegrations(data) }).catch(() => {})
     apiFetch('/api/billing/config').then(r => (r.ok ? r.json() : null)).then(setBillingConfig).catch(() => {})
+    apiFetch('/api/billing/usage').then(r => (r.ok ? r.json() : null)).then(setUsage).catch(() => {})
     // 403 es normal para roles sin acceso financiero: no se enseña una caja
     // vacía ni se degrada el resto de la sección.
     apiFetch('/api/outcomes/open-platform?days=30').then(r => (r.ok ? r.json() : null)).then(setPlatformMetrics).catch(() => {})
@@ -75,7 +80,7 @@ export default function PlanBillingPage() {
             <div><h2>Tu plan actual</h2><p>El plan fija qué módulos y qué límites tiene la organización.</p></div>
           </header>
           <div className="settings-plan-current">
-            <strong>{currentPlan}</strong>
+            <strong>{PLAN_LABELS[currentPlan] || currentPlan}</strong>
             <span className="settings-badge">Activo</span>
           </div>
           {billingConfig?.enabled ? (
@@ -88,11 +93,11 @@ export default function PlanBillingPage() {
                     key={plan}
                     type="button"
                     className="settings-secondary"
-                    onClick={() => startCheckout(plan)}
+                    onClick={() => billingConfig?.hasSubscription ? openBillingPortal() : startCheckout(plan)}
                     disabled={busy || currentPlan === plan}
                     style={{ textTransform: 'capitalize' }}
                   >
-                    {currentPlan === plan ? `Plan ${plan} (actual)` : `Cambiar a ${plan}`}
+                    {currentPlan === plan ? `${PLAN_LABELS[plan] || plan} (actual)` : `${PLAN_LABELS[plan] || plan} · ${PLAN_PRICES[plan] || 'Consultar'}`}
                   </button>
                 ))}
               </div>
@@ -115,13 +120,13 @@ export default function PlanBillingPage() {
             <span className="settings-card-icon"><RiBarChartLine /></span>
             <div><h2>Uso del plan</h2><p>Acumulado total de la organización.</p></div>
           </header>
-          {/* Sin cuotas: no hay modelo de límites por plan, así que se muestra
-              el consumo real en vez de un denominador inventado. */}
           <div>
-            <Metric label="Llamadas realizadas" value={stats ? String(stats.totalCalls ?? 0) : '—'} />
+            <Metric label="Minutos de llamada este mes" value={usage ? `${usage.usage.call_minutes.toLocaleString('es-ES')} / ${usage.limits.call_minutes.toLocaleString('es-ES')}` : '—'} />
+            <Metric label="Emails enviados este mes" value={usage ? `${usage.usage.emails_sent.toLocaleString('es-ES')} / ${usage.limits.emails_sent.toLocaleString('es-ES')}` : '—'} />
             <Metric label="Agentes IA" value={agentCount !== null ? String(agentCount) : '—'} />
             <Metric label="Usuarios" value={stats?.userCount != null ? String(stats.userCount) : '—'} />
           </div>
+          <p className="settings-note">Las cuotas mensuales se reinician el día 1 en UTC. El uso adicional no se cobra automáticamente: al llegar al límite se detiene hasta ampliar el plan.</p>
         </article>
 
         {platformMetrics ? (

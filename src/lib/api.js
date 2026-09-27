@@ -36,7 +36,8 @@ export async function apiFetch(path, options = {}) {
   }
   if (response.status === 401 && !isAuthEndpoint) {
     clearAccessToken()
-    if (window.location.pathname !== '/login') window.location.assign('/login')
+    const publicAuthRoute = ['/login', '/registro', '/reset-password'].includes(window.location.pathname)
+    if (!publicAuthRoute) window.location.assign('/login')
   }
   return response
 }

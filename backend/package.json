@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
+    "stripe:prices": "node scripts/setup-stripe-prices.mjs",
     "db:seed": "node --env-file=.env --import=tsx prisma/seed.ts",
     "db:seed:ads": "node --env-file=.env --import=tsx prisma/seed-ads-dev.ts",
     "pretest": "node --env-file=.env scripts/test-database-guard.mjs",
@@ -48,6 +49,7 @@
     "openai": "^6.45.0",
     "pdf-parse": "^2.4.5",
     "socket.io": "^4.7.5",
+    "stripe": "^22.6.2",
     "twilio": "^6.0.2",
     "zod": "^3.23.8"
   },

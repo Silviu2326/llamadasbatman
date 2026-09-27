@@ -16,8 +16,11 @@ export type ConsumptionResource = (typeof CONSUMPTION_RESOURCES)[number]
 
 export const CONSUMPTION_LIMITS: Readonly<Record<PlanKey, Readonly<Record<ConsumptionResource, number>>>> = Object.freeze({
   free: Object.freeze({ call_minutes: 60, emails_sent: 500 }),
-  pro: Object.freeze({ call_minutes: 2_000, emails_sent: 20_000 }),
-  completo: Object.freeze({ call_minutes: 10_000, emails_sent: 100_000 }),
+  // Cuotas mensuales vendidas al público: 99 € y 299 €. El exceso se detiene
+  // y ofrece ampliar plan; no se factura automáticamente sin un precio pactado.
+  pro: Object.freeze({ call_minutes: 500, emails_sent: 5_000 }),
+  completo: Object.freeze({ call_minutes: 2_000, emails_sent: 25_000 }),
+  // Agencia es venta asistida; su contrato debe aclarar estos límites base.
   agency: Object.freeze({ call_minutes: 50_000, emails_sent: 500_000 }),
 })
 
@@ -28,9 +31,24 @@ export function periodStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
 }
 
-async function organizationPlan(orgId: string): Promise<PlanKey> {
-  const organization = await prisma.organization.findUnique({ where: { id: orgId }, select: { plan: true } })
-  return planPolicy(organization?.plan).key
+const LEGACY_CONSUMPTION_LIMITS: Readonly<Record<PlanKey, Readonly<Record<ConsumptionResource, number>>>> = Object.freeze({
+  free: CONSUMPTION_LIMITS.free,
+  pro: Object.freeze({ call_minutes: 2_000, emails_sent: 20_000 }),
+  completo: Object.freeze({ call_minutes: 10_000, emails_sent: 100_000 }),
+  agency: CONSUMPTION_LIMITS.agency,
+})
+
+export function limitsForTerms(plan: PlanKey, termsVersion: string) {
+  return termsVersion === '2026-09' ? CONSUMPTION_LIMITS[plan] : LEGACY_CONSUMPTION_LIMITS[plan]
+}
+
+async function organizationTerms(orgId: string): Promise<{ plan: PlanKey; limits: Readonly<Record<ConsumptionResource, number>> }> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { plan: true, commercialTermsVersion: true },
+  })
+  const plan = planPolicy(organization?.plan).key
+  return { plan, limits: limitsForTerms(plan, organization?.commercialTermsVersion ?? 'legacy') }
 }
 
 export async function consumptionUsage(orgId: string, resource: ConsumptionResource, now = new Date()): Promise<number> {
@@ -48,8 +66,7 @@ export async function consumptionUsage(orgId: string, resource: ConsumptionResou
 }
 
 export async function consumptionSnapshot(orgId: string, now = new Date()) {
-  const plan = await organizationPlan(orgId)
-  const limits = CONSUMPTION_LIMITS[plan]
+  const { plan, limits } = await organizationTerms(orgId)
   const [callMinutes, emailsSent] = await Promise.all([
     consumptionUsage(orgId, 'call_minutes', now),
     consumptionUsage(orgId, 'emails_sent', now),
@@ -73,8 +90,8 @@ export async function assertConsumptionLimit(
   increment = 1,
   now = new Date(),
 ): Promise<void> {
-  const plan = await organizationPlan(orgId)
-  const limit = CONSUMPTION_LIMITS[plan][resource]
+  const { plan, limits } = await organizationTerms(orgId)
+  const limit = limits[resource]
   const usage = await consumptionUsage(orgId, resource, now)
 
   if (usage + increment > limit) {

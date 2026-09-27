@@ -27,10 +27,11 @@ responde 503.
 | `PLENEVA_DEMO_WEBHOOK_TOKEN` | Opcional, se envía como `Authorization: Bearer` |
 | `NEXT_PUBLIC_SITE_URL` | URL canónica (por defecto `https://pleneva.com`) |
 
-Pendiente de decidir antes de publicar: precios definitivos (ahora se usan los de
-Vendrava) y el endpoint de demo en el backend.
+Los planes propuestos (Arranque 99 €/mes y Crecimiento 299 €/mes, sin IVA) y sus cuotas están descritos en `../docs/PLENEVA_PLANES_Y_STRIPE.md`. El checkout público sigue desactivado hasta configurar Stripe, el backend de producción y comprobar una compra de prueba. El endpoint de demo también requiere configuración.
 
 ## Acceso y registro
+
+El panel principal (`app.pleneva.com`, dominio Vercel antiguo y desarrollo local) redirige sus rutas `/login` y `/registro` a estas pantallas de Pleneva; se mantiene la pantalla anterior solo en dominios de marca blanca que no pueden compartir la cookie de `pleneva.com`.
 
 `/login` y `/registro` usan los endpoints reales del backend
 (`/api/auth/login`, `/api/auth/register` y `/api/auth/forgot-password`).

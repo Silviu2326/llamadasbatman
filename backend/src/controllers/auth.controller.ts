@@ -93,6 +93,9 @@ const registerSchema = z.object({
 export async function register(request: FastifyRequest, reply: FastifyReply) {
   const body = parseRequest(reply, registerSchema, request.body)
   if (!body) return
+  if (body.plan && body.plan !== 'free' && (!billing.billingEnabled() || !billing.priceIdForPlan(body.plan))) {
+    return reply.status(503).send({ error: 'Este plan todavía no está disponible para contratación online' })
+  }
 
   let user
   try {
