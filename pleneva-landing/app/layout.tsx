@@ -8,13 +8,13 @@ const SITE_URL =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Pleneva — Te traemos clientes",
+  title: "Pleneva — Cada conversación tiene un siguiente paso",
   description:
-    "Pleneva encuentra a quién venderle, le llama en el primer minuto, le convence y te deja la cita en la agenda. Anuncios, llamadas, WhatsApp y seguimiento en un solo sitio.",
+    "Pleneva busca oportunidades, atiende conversaciones y deja claro quién quiere hablar contigo. Del primer contacto al siguiente paso, todo en un solo lugar.",
   openGraph: {
-    title: "Pleneva — Te traemos clientes. Tú solo tienes que atenderlos.",
+    title: "Pleneva — Un cliente pregunta. Tú estás trabajando. Otro responde.",
     description:
-      "Encontramos a tus clientes, les llamamos en el primer minuto y te los dejamos en la agenda.",
+      "Capta oportunidades, atiende conversaciones y sigue cada paso desde un mismo lugar.",
     url: SITE_URL,
     siteName: "Pleneva",
     locale: "es_ES",

@@ -27,7 +27,17 @@ function readCookie(request: FastifyRequest, name: string) {
   }
 }
 
-function setRefreshCookie(reply: FastifyReply, refreshToken: string) {
+function sharedCookieDomain(request: FastifyRequest) {
+  if (process.env.NODE_ENV !== 'production') return null
+  // El panel de Pleneva comparte la sesión con www.pleneva.com. El navegador
+  // envía Origin en estos POST; el dominio exacto evita afectar otros hosts.
+  const origin = request.headers.origin
+  return origin === 'https://app.pleneva.com' || origin === 'https://www.pleneva.com'
+    ? 'pleneva.com'
+    : null
+}
+
+function setRefreshCookie(request: FastifyRequest, reply: FastifyReply, refreshToken: string) {
   const attributes = [
     `${REFRESH_COOKIE}=${encodeURIComponent(refreshToken)}`,
     `Max-Age=${authService.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60}`,
@@ -36,12 +46,16 @@ function setRefreshCookie(reply: FastifyReply, refreshToken: string) {
     'SameSite=Lax',
   ]
   if (process.env.NODE_ENV === 'production') attributes.push('Secure')
+  const domain = sharedCookieDomain(request)
+  if (domain) attributes.push(`Domain=${domain}`)
   reply.header('Set-Cookie', attributes.join('; '))
 }
 
-function clearRefreshCookie(reply: FastifyReply) {
+function clearRefreshCookie(request: FastifyRequest, reply: FastifyReply) {
   const attributes = [`${REFRESH_COOKIE}=`, 'Max-Age=0', 'Path=/api/auth', 'HttpOnly', 'SameSite=Lax']
   if (process.env.NODE_ENV === 'production') attributes.push('Secure')
+  const domain = sharedCookieDomain(request)
+  if (domain) attributes.push(`Domain=${domain}`)
   reply.header('Set-Cookie', attributes.join('; '))
 }
 
@@ -91,7 +105,7 @@ export async function register(request: FastifyRequest, reply: FastifyReply) {
   if (!user) return reply.status(409).send({ error: 'Ese email ya tiene cuenta', code: 'EMAIL_TAKEN' })
 
   const { session, refreshToken, identity } = await authService.createRefreshSession(user.id)
-  setRefreshCookie(reply, refreshToken)
+  setRefreshCookie(request, reply, refreshToken)
 
   let checkoutUrl: string | undefined
   if (body.plan && body.plan !== 'free' && billing.billingEnabled()) {
@@ -139,7 +153,7 @@ export async function login(request: FastifyRequest<{ Body: LoginBody }>, reply:
     }
 
     const { session, refreshToken, identity } = await authService.createRefreshSession(user.id)
-    setRefreshCookie(reply, refreshToken)
+    setRefreshCookie(request, reply, refreshToken)
     const grants = await getWorkspaceGrantsForUserAsync({ userId: identity.id, email: identity.email, orgId: identity.orgId, role: identity.role })
     const token = await accessToken(request, identity, session.id)
 
@@ -173,11 +187,11 @@ export async function refresh(request: FastifyRequest, reply: FastifyReply) {
   const locale = getRequestLocale(request)
   const rotated = await authService.rotateRefreshSession(readCookie(request, REFRESH_COOKIE))
   if (!rotated) {
-    clearRefreshCookie(reply)
+    clearRefreshCookie(request, reply)
     return reply.status(401).send({ error: authError(locale, true) })
   }
 
-  setRefreshCookie(reply, rotated.refreshToken)
+  setRefreshCookie(request, reply, rotated.refreshToken)
   return reply.send({
     token: await accessToken(request, rotated.user, rotated.session.id),
     user: {
@@ -195,7 +209,7 @@ export async function refresh(request: FastifyRequest, reply: FastifyReply) {
 
 export async function logout(request: FastifyRequest, reply: FastifyReply) {
   await authService.revokeRefreshSession(request.user.sessionId, request.user.userId)
-  clearRefreshCookie(reply)
+  clearRefreshCookie(request, reply)
   return reply.send({ ok: true })
 }
 

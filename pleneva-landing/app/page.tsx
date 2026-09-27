@@ -122,9 +122,10 @@ export default function Home() {
             <a href="#precios">Precios</a>
             <a href="#preguntas">Preguntas</a>
           </nav>
-          <a href="#demo" className="btn btn-primary btn-sm">
-            Pide tu demo
-          </a>
+          <div className="header-actions">
+            <a href="/login" className="header-login">Entrar</a>
+            <a href="/registro" className="btn btn-primary btn-sm">Crear cuenta</a>
+          </div>
         </div>
       </header>
 
@@ -334,6 +335,7 @@ export default function Home() {
         <div className="wrap footer-inner">
           <Logo inverted large />
           <p>De la primera consulta al siguiente paso.</p>
+          <div className="footer-links"><a href="/login">Entrar</a><a href="/registro">Crear cuenta</a></div>
           <p className="footer-legal">© {new Date().getFullYear()} Pleneva. Llamadas con aviso de IA y grabación.</p>
         </div>
       </footer>
