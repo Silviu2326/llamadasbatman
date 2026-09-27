@@ -1,45 +1,46 @@
-import { AgendaFill } from "./components/AgendaFill";
+import Image from "next/image";
 import { DemoCallForm } from "./components/DemoCallForm";
 import { Logo } from "./components/Logo";
+import { LandingMotion } from "./components/LandingMotion";
 
 const STEPS = [
   {
     n: "01",
     title: "Encuentra",
-    text: "Saca a quién venderle. Negocios de tu zona y tu sector, o anuncios que traen gente interesada. Tú no buscas nada.",
+    text: "Buscamos personas y negocios que encajan contigo. También recogemos a quienes llegan por tus anuncios o tu web.",
   },
   {
     n: "02",
-    title: "Engancha",
-    text: "A cada uno le dice por qué te necesita, con sus propios datos. No un folleto. Su caso.",
+    title: "Prepara",
+    text: "Antes de hablar, el agente conoce tu oferta y el contexto de cada contacto. No empieza leyendo un guion a ciegas.",
   },
   {
     n: "03",
     title: "Llama",
-    text: "En el primer minuto. Con una voz que no parece un contestador. Y si no contesta, lo vuelve a intentar, sin agobiar.",
+    text: "Contacta cuando corresponde, escucha la respuesta y sabe cuándo intentarlo de nuevo y cuándo parar.",
   },
   {
     n: "04",
-    title: "Convence",
-    text: "Escucha qué necesita y responde como tu mejor comercial. Porque ha aprendido cómo se vende en tu sector.",
+    title: "Conversa",
+    text: "Pregunta, responde y deja que la otra persona termine. Si surge algo que no sabe resolver, te lo pasa.",
   },
   {
     n: "05",
-    title: "Te deja la cita",
-    text: "La pone en tu agenda. Y si el cliente quiere hablar con una persona, te pasa la llamada en caliente.",
+    title: "Deja el siguiente paso",
+    text: "Una cita, una devolución de llamada o un no. Queda registrado para que sepas qué pasó y qué toca hacer.",
   },
   {
     n: "06",
-    title: "No suelta a nadie",
-    text: "WhatsApp, email y seguimiento hasta que compra o dice que no. Todo grabado y apuntado.",
+    title: "Hace seguimiento",
+    text: "Si tiene sentido continuar, sigue el hilo por los canales que hayas configurado. Sin perseguir a quien dijo que no.",
   },
 ];
 
 const LOOSE_PIECES = [
-  { what: "La agencia de anuncios", problem: "Te trae clics. Qué hagas con ellos es cosa tuya." },
-  { what: "El CRM", problem: "Perfecto. Si alguien lo rellenara." },
-  { what: "El chatbot", problem: "Contesta. A las 3 de la mañana. A quien ya se había ido." },
-  { what: "La centralita", problem: "Suena. Nadie la coge porque estáis atendiendo." },
+  { what: "Los anuncios", problem: "Traen una consulta. Después alguien tiene que contestarla." },
+  { what: "El CRM", problem: "Guarda el contacto. Alguien tiene que moverlo." },
+  { what: "El formulario", problem: "Recoge el teléfono. La conversación sigue pendiente." },
+  { what: "La centralita", problem: "Suena justo cuando todos estáis ocupados." },
 ];
 
 const SECTORS = [
@@ -85,33 +86,35 @@ const PLANS = [
 
 const FAQS = [
   {
-    q: "¿Esto es otro agente de llamadas con IA?",
-    a: "No. El agente es una pieza. Pleneva hace el trabajo entero: encuentra a quién venderle, lo contacta, lo convence y te deja la cita. Si solo quieres un robot que llame, hay cosas más baratas.",
+    q: "¿Es solo un agente que hace llamadas?",
+    a: "El agente de voz es una parte. Pleneva reúne captación, conversaciones, seguimiento y agenda para que puedas ver qué pasó con cada oportunidad.",
   },
   {
     q: "¿Mis clientes van a notar que es una IA?",
-    a: "Se lo decimos. Al principio de cada llamada. Porque es la ley y porque engañar a tu cliente es mala forma de empezar. Si el agente suena bien y le resuelve algo, la conversación sigue. Eso es lo que cuidamos.",
+    a: "El agente se presenta como IA al comenzar. Puedes escucharlo tú mismo antes de decidir si lo usarías con tus clientes.",
   },
   {
     q: "¿Y si el cliente quiere hablar con una persona?",
-    a: "Te pasa la llamada al momento, sin colgar. Y si nadie puede cogerla, apunta el motivo y te deja la tarea.",
+    a: "Puede transferirte la conversación o dejarte el motivo y una tarea para que la retomes, según cómo lo configures.",
   },
   {
     q: "¿Se graban las llamadas?",
-    a: "Todas, enteras, con aviso. Tienes la grabación, la transcripción y el resultado de cada una en el CRM.",
+    a: "La grabación y la transcripción se configuran con el aviso correspondiente. Así puedes revisar lo que ocurrió en cada conversación.",
   },
   {
     q: "¿Tengo que cambiar cómo trabaja mi equipo?",
-    a: "No. Tú decides qué se dice, a quién se llama y cuándo. Nosotros hacemos el trabajo pesado y tú lo ves todo en el CRM.",
+    a: "Tú decides a quién contactar, en qué horario y cuándo debe intervenir una persona. El equipo puede consultar el resultado en el CRM.",
   },
 ];
 
 export default function Home() {
   return (
     <>
+      <LandingMotion />
       <header className="site-header">
+        <span className="reading-progress" aria-hidden="true" />
         <div className="wrap header-inner">
-          <a href="#" className="logo-link">
+          <a href="#" className="logo-link" aria-label="Pleneva, volver al inicio">
             <Logo />
           </a>
           <nav className="nav" aria-label="Principal">
@@ -119,216 +122,210 @@ export default function Home() {
             <a href="#precios">Precios</a>
             <a href="#preguntas">Preguntas</a>
           </nav>
-          <a href="#demo" className="btn btn-dark btn-sm">
-            Quiero la agenda llena
+          <a href="#demo" className="btn btn-primary btn-sm">
+            Pide tu demo
           </a>
         </div>
       </header>
 
       <main>
-        {/* HERO */}
         <section className="hero">
           <div className="wrap hero-inner">
             <div className="hero-copy">
-              <p className="eyebrow">El sistema que te trae clientes</p>
+              <p className="hero-kicker">Para negocios que no pueden estar en dos sitios a la vez</p>
               <h1>
-                Te traemos clientes.
+                Un cliente pregunta.
                 <br />
-                <span className="accent">Tú solo tienes que atenderlos.</span>
+                Tú estás trabajando.
+                <br />
+                <span className="accent">Otro responde.</span>
               </h1>
               <p className="lead">
-                Pleneva encuentra a quién venderle, le llama en el primer minuto con una voz que no parece un robot, le
-                convence y te deja la cita en la agenda. Anuncios, llamadas, WhatsApp y seguimiento en un solo sitio.
+                Pleneva busca oportunidades, atiende conversaciones y te deja claro quién quiere hablar contigo.
+                Desde el primer contacto hasta la siguiente cita, todo queda en un mismo lugar.
               </p>
               <div className="hero-ctas">
                 <a href="#demo" className="btn btn-primary">
-                  Quiero la agenda llena
+                  Escucha al agente en tu móvil <span aria-hidden="true">↗</span>
                 </a>
-                <a href="#demo" className="btn btn-ghost">
-                  Oye cómo suena →
+                <a href="#como" className="btn btn-ghost">
+                  Mira qué hace Pleneva <span aria-hidden="true">↓</span>
                 </a>
               </div>
-              <ul className="hero-facts">
-                <li>Llama en el primer minuto</li>
-                <li>Todo grabado y apuntado</li>
-                <li>Tú sigues mandando</li>
-              </ul>
             </div>
-            <AgendaFill />
+            <figure className="hero-photo">
+              <Image
+                src="/images/reception.png"
+                alt="Una profesional recibe a una clienta en su negocio"
+                width={1664}
+                height={936}
+                priority
+                sizes="(max-width: 900px) 100vw, 54vw"
+              />
+            </figure>
           </div>
         </section>
 
-        {/* HISTORIA */}
         <section className="story">
-          <div className="wrap narrow letter">
-            <p className="letter-open">Mira...</p>
-            <p>Hay un momento que todo dueño de negocio conoce.</p>
-            <p>
-              <strong>Lunes, 9:00.</strong> Abres la agenda. Hay dos citas. Una la cancelarán.
-            </p>
-            <p>
-              Y piensas: «tengo que hacer algo». Anuncios. Una agencia. Llamar a los que preguntaron el mes pasado. Pero
-              son las 9:05 y ya tienes a alguien en el mostrador.
-            </p>
-            <p>Así que no haces nada. Y el lunes siguiente, igual.</p>
-            <p>
-              No es falta de ganas. Es que <em>no puedes atender tu negocio y a la vez salir a buscar clientes</em>.
-            </p>
-            <p className="letter-punch">Nosotros sí.</p>
+          <div className="wrap story-inner">
+            <div className="story-heading" data-reveal>
+              <p className="story-intro">Pasa todos los días.</p>
+              <h2>La consulta que llegó mientras atendías.</h2>
+            </div>
+            <div className="letter" data-reveal>
+              <p>Estás con un cliente. Te entra una consulta en la web.</p>
+              <p>«¿Tenéis hueco esta semana?»</p>
+              <p>
+                No la ves hasta que termina la cita. Para entonces ya hay otra llamada, dos mensajes y alguien esperando
+                en la puerta.
+              </p>
+              <p>La persona que preguntó no sabe que estabas ocupado. Solo sabe que nadie respondió.</p>
+              <p>Tu negocio no necesita otra bandeja de entrada. <em>Necesita que alguien se ocupe de lo que entra.</em></p>
+              <p className="letter-punch">Ahí entra Pleneva.</p>
+            </div>
           </div>
         </section>
 
-        {/* PIEZAS SUELTAS */}
         <section className="pieces">
           <div className="wrap">
-            <p className="eyebrow">El problema</p>
-            <h2>Te han vendido piezas sueltas. Ninguna responde del resultado.</h2>
+            <h2 data-reveal>El problema está en el espacio entre una herramienta y la siguiente.</h2>
             <div className="pieces-grid">
               {LOOSE_PIECES.map((p) => (
-                <div key={p.what} className="piece">
+                <div key={p.what} className="piece" data-reveal>
                   <h3>{p.what}</h3>
                   <p>{p.problem}</p>
                 </div>
               ))}
-              <div className="piece piece-answer">
+              <div className="piece piece-answer" data-reveal>
                 <h3>Pleneva</h3>
-                <p>Hace el trabajo entero. Y lo medimos en lo único que importa: citas en tu agenda.</p>
+                <p>Une los pasos para que una consulta no termine olvidada entre aplicaciones.</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* CÓMO FUNCIONA */}
         <section className="how" id="como">
-          <div className="wrap">
-            <p className="eyebrow eyebrow-light">Cómo funciona</p>
-            <h2>De nadie sabe que existes a cita en tu agenda. Seis pasos. Todos nuestros.</h2>
+          <div className="wrap how-inner">
+            <div className="section-heading" data-reveal>
+              <h2>De «ha preguntado alguien» a «sé qué hacer ahora».</h2>
+              <p>Seis pasos visibles. La conversación avanza y tú mantienes el control.</p>
+            </div>
             <ol className="steps">
               {STEPS.map((s) => (
-                <li key={s.n} className="step">
+                <li key={s.n} className="step" data-reveal>
                   <span className="step-n">{s.n}</span>
-                  <h3>{s.title}</h3>
-                  <p>{s.text}</p>
+                  <div>
+                    <h3>{s.title}</h3>
+                    <p>{s.text}</p>
+                  </div>
                 </li>
               ))}
             </ol>
           </div>
         </section>
 
-        {/* PARA QUIÉN NO ES */}
         <section className="honest">
           <div className="wrap honest-inner">
-            <div>
-              <p className="eyebrow">Para quién no es</p>
-              <h2>No es para todo el mundo. Mejor decirlo ahora.</h2>
-            </div>
-            <ul className="honest-list">
-              <li>
-                <strong>Si ya tienes la agenda llena,</strong> no nos necesitas. Enhorabuena.
-              </li>
-              <li>
-                <strong>Si no puedes atender a más clientes,</strong> traerte más es crearte un problema.
-              </li>
+            <h2 data-reveal>No todo negocio necesita Pleneva.</h2>
+            <ul className="honest-list" data-reveal>
+              <li><strong>Si ya tienes la agenda llena,</strong> este no es tu problema.</li>
+              <li><strong>Si no puedes atender a más clientes,</strong> primero resuelve eso.</li>
               <li>
                 <strong>Si quieres llamar a lo loco a listas compradas,</strong> tampoco. Respetamos consentimiento,
                 horarios y a quien dice que no.
               </li>
-              <li>
-                <strong>Si buscas el robot más barato del mercado,</strong> lo encontrarás. No somos nosotros.
-              </li>
+              <li><strong>Si quieres dejar a una IA hablar sin supervisión,</strong> tampoco encajamos.</li>
             </ul>
           </div>
         </section>
 
-        {/* SECTORES */}
         <section className="sectors">
-          <div className="wrap">
-            <p className="eyebrow">Sectores</p>
-            <h2>Cada sector se vende distinto. El agente lo sabe.</h2>
-            <p className="sectors-sub">
-              Una veterinaria no habla como un concesionario. Antes de llamar a nadie, estudiamos cómo se vende en el
-              tuyo.
-            </p>
-            <ul className="chips">
-              {SECTORS.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
+          <div className="wrap sectors-inner">
+            <div className="sectors-copy" data-reveal>
+              <h2>Una clínica no habla como un taller.</h2>
+              <p>
+                Antes de atender a nadie, configuramos el agente con tu oferta, tus preguntas frecuentes y los límites
+                de tu negocio. Una conversación útil empieza por conocer el contexto.
+              </p>
+            </div>
+            <ul className="sectors-list" data-reveal>
+              {SECTORS.map((s) => <li key={s}>{s}</li>)}
             </ul>
           </div>
         </section>
 
-        {/* PRECIOS */}
         <section className="pricing" id="precios">
           <div className="wrap">
-            <p className="eyebrow">Precios</p>
-            <h2>Precios claros. No se regatean.</h2>
-            <p className="pricing-sub">Por cuenta, no por usuario. Cada plan trae minutos de voz; el que se pase paga el minuto extra, sin recargos escondidos.</p>
+            <div className="pricing-heading" data-reveal>
+              <h2>Saber cuánto cuesta también ayuda a decidir.</h2>
+              <p>
+                Estos son los planes de partida. Cada uno incluye minutos de voz; antes de empezar te explicamos el
+                coste de cualquier uso adicional.
+              </p>
+            </div>
             <div className="plans">
               {PLANS.map((p) => (
-                <div key={p.name} className={`plan${p.featured ? " plan-featured" : ""}`}>
-                  {p.featured && <span className="plan-tag">El que elige casi todo el mundo</span>}
+                <div key={p.name} className={`plan${p.featured ? " plan-featured" : ""}`} data-reveal>
                   <h3>{p.name}</h3>
-                  <p className="plan-price">
-                    <span className="plan-from">desde</span> {p.price} €<span className="plan-per">/mes</span>
-                  </p>
+                  <p className="plan-price"><span className="plan-from">desde</span> {p.price} €<span className="plan-per">/mes</span></p>
                   <p className="plan-for">{p.for}</p>
-                  <ul>
-                    {p.features.map((f) => (
-                      <li key={f}>{f}</li>
-                    ))}
-                  </ul>
-                  <a href="#demo" className={`btn ${p.featured ? "btn-primary" : "btn-dark"}`}>
-                    Empezar
-                  </a>
+                  <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
+                  <a href="#demo" className={`btn ${p.featured ? "btn-primary" : "btn-ghost"}`}>Empezar</a>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* DEMO */}
         <section className="demo" id="demo">
           <div className="wrap demo-inner">
-            <div className="demo-copy">
-              <p className="eyebrow eyebrow-light">La demo</p>
-              <h2>No te vamos a enseñar una presentación. Te vamos a llamar.</h2>
+            <div className="demo-copy" data-reveal>
+              <h2>Hay una forma más rápida de juzgar al agente: hablar con él.</h2>
               <p>
-                Deja tu móvil y nuestro agente te llama. Así oyes exactamente lo que oirán tus clientes. Dura un par de
-                minutos y puedes colgar cuando quieras.
+                Deja tu móvil y recibe una llamada de prueba. Interrúmpelo. Hazle una pregunta difícil. Escucha si
+                entiende, cómo responde y cuánto tarda.
               </p>
               <p className="demo-note">
-                Que es justo lo que hará tu cliente si el agente suena mal. Por eso no suena mal.
+                No tienes que creernos. Esa llamada te dará una impresión mucho más útil que cualquier promesa aquí.
+              </p>
+              <figure className="demo-photo">
+                <Image
+                  src="/images/owner-on-call.png"
+                  alt="Un dueño de negocio habla por teléfono mientras consulta su agenda"
+                  width={1536}
+                  height={1024}
+                  sizes="(max-width: 900px) 100vw, 38vw"
+                />
+              </figure>
+            </div>
+            <div data-reveal><DemoCallForm /></div>
+          </div>
+        </section>
+
+        <section className="faq" id="preguntas">
+          <div className="wrap faq-inner">
+            <h2 data-reveal>Antes de dejar tu número</h2>
+            <div className="faq-list" data-reveal>
+              {FAQS.map((f) => (
+                <details key={f.q}>
+                  <summary>{f.q}</summary>
+                  <p>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="closing">
+          <div className="wrap closing-inner">
+            <h2 data-reveal>La siguiente consulta va a llegar. ¿Quién responderá?</h2>
+            <div className="closing-action" data-reveal>
+              <a href="#demo" className="btn btn-primary">Haz la prueba en tu móvil <span aria-hidden="true">↗</span></a>
+              <p className="ps">
+                <strong>P. D.</strong> La prueba es una llamada. La decisión, tuya. Si no te gustaría que ese agente
+                atendiera a tus clientes, no tienes que seguir.
               </p>
             </div>
-            <DemoCallForm />
-          </div>
-        </section>
-
-        {/* FAQ */}
-        <section className="faq" id="preguntas">
-          <div className="wrap narrow">
-            <p className="eyebrow">Preguntas</p>
-            <h2>Lo que nos pregunta todo el mundo</h2>
-            {FAQS.map((f) => (
-              <details key={f.q}>
-                <summary>{f.q}</summary>
-                <p>{f.a}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-
-        {/* CIERRE */}
-        <section className="closing">
-          <div className="wrap narrow">
-            <h2>Si tu negocio tuviera cola en la puerta, ¿qué cambiaría?</h2>
-            <a href="#demo" className="btn btn-primary">
-              Quiero la agenda llena
-            </a>
-            <p className="ps">
-              <strong>P. D.</strong> Si has llegado hasta aquí sin pulsar el botón, probablemente lo estás pensando. Bien.
-              Piénsalo el lunes a las 9:00, cuando abras la agenda.
-            </p>
           </div>
         </section>
       </main>
@@ -336,7 +333,7 @@ export default function Home() {
       <footer className="site-footer">
         <div className="wrap footer-inner">
           <Logo inverted large />
-          <p>Encontramos, llamamos y no soltamos. Tú atiendes.</p>
+          <p>De la primera consulta al siguiente paso.</p>
           <p className="footer-legal">© {new Date().getFullYear()} Pleneva. Llamadas con aviso de IA y grabación.</p>
         </div>
       </footer>
